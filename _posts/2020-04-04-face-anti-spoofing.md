@@ -6,7 +6,7 @@ tags:
   - 综述
 ---
 
-攻击形式:
+## 攻击形式:
 
 - 打印
 - 屏幕照片(screen)
@@ -15,12 +15,19 @@ tags:
 
 ## 方法
 
+### Apperance Based
+
 - 成像的物理过程差异, 构造可分特征
   
   > (1) specular reflection from the printed paper surface or LCD screen; (2) image blurriness due to camera defocus; (3) image chromaticity and contrast distortion due to imperfect color rendering of printer or LCD screen; and (4) color diversity distortion due to limited color resolution of printer or LCD screen. [^1]
 
   > The camera used for capturing the targeted face sample will also lead to imperfect colour reproduction compared to the legitimate sample. Furthermore, a recaptured face image is likely to contain local and overall variations of colour due to other imperfections in the reproduction process of the targeted face [^2]
   ![](/images/color-texture.png)
+
+### Temporal Based
+
+
+
 
 ## 参考资料
 

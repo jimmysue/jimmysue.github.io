@@ -22,7 +22,8 @@ layout: default
   </div>
 
   <div class="entry">
-    {{ content }}
+    <!-- {{ content }} -->
+    {{ content | toc }}
   </div>
 
   {% include disqus.html %}
