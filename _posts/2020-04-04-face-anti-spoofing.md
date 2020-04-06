@@ -6,7 +6,9 @@ tags:
   - 综述
 ---
 
-攻击形式:
+
+
+## 攻击形式:
 
 - 打印
 - 屏幕照片(screen)
@@ -29,9 +31,14 @@ tags:
 - [知乎汇总](https://zhuanlan.zhihu.com/p/69733383)
 - [Face Anti-spoofing Attack Detection Challenge@CVPR2020](https://sites.google.com/qq.com/face-anti-spoofing/winners-results/challengecvpr2020)
 - [Anti-spoofing for face recognition](https://thakkarnidhi.com/blogs/datascience/anti-spoofing-for-face-recognition/)
-
+- https://github.com/JinghuiZhou/awesome_face_antispoofing
+- https://github.com/ee09115/spoofing_detection
+- https://www.pyimagesearch.com/2019/03/11/liveness-detection-with-opencv/
+- [CVPR & AAAI 2020 人脸活体检测最新进展](https://zhuanlan.zhihu.com/p/114313640)
+- https://github.com/ZitongYu/CDCN
 
 ## 参考文献
 
 [^1]: D. Wen, H. Han, and A. K. Jain, “Face Spoof Detection With Image Distortion Analysis,” IEEE Transactions on Information Forensics and Security, vol. 10, no. 4, pp. 746–761, Apr. 2015, doi: 10.1109/TIFS.2015.2400395.
 [^2]: Z. Boulkenafet, J. Komulainen, and A. Hadid, “Face Spoofing Detection Using Colour Texture Analysis,” IEEE Transactions on Information Forensics and Security, vol. 11, pp. 1–1, Aug. 2016, doi: 10.1109/TIFS.2016.2555286.
+[^3]: Z. Yu et al., “Searching Central Difference Convolutional Networks for Face Anti-Spoofing,” arXiv:2003.04092 [cs], Mar. 2020, Accessed: Apr. 06, 2020. [Online]. Available: http://arxiv.org/abs/2003.04092.
