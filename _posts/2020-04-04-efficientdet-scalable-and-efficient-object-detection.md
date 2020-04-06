@@ -4,6 +4,8 @@ title: 'EfficientDet: Scalable and Efficient Object Detection'
 date: 2020-04-04 15:13 +0800
 tags:
    - 论文笔记
+img: EfficientDet-Architecture.png
+description: 有选择地增强特征金字塔的连接, 协同伸缩检测网络, 才能将网络的性能发挥到极致!
 ---
 
 > 剖析作者是怎么想的, 闻其道;
@@ -31,7 +33,7 @@ tags:
 - 删除**单**输入节点, 下图打叉的节点
 - 增加跨节点融合, 下图紫色箭头
     
-![](/images/BiFPN.png)
+![](/assets/img/BiFPN.png)
 
 **特征融合加权**
 
@@ -50,7 +52,7 @@ tags:
 在 EfficientNet 的工作中, 作者比较系统地阐述了网络伸缩的三个自由度: 深度(depth), 宽度(width),  输入分辨率. 采用类似的思想, 作者的主干网络与EfficentNet 网络一致. 实际上, 作者使用了 EfficientNet 预训练的参数. 而对于 BiFPN 和预测头部网络, 基本上是采用堆叠重复的方式予以增强, 如文章Figure3 所示. 文章并没有论证网络伸缩的系数, 而是采用经验原则, 关键点在于遵循 EfficientNet 所说的各个纬度协同伸缩. 
 
 
-![](/images/EfficientDet-Architecture.png)
+![](/assets/img/EfficientDet-Architecture.png)
 
 ## 结果分析
 
@@ -62,5 +64,5 @@ tags:
 
 从网络的性能和参数量, 速度的曲线对比上看, EfficientDet是碾压其他方案的.
 
-![](/images/model-size-latency.png)
+![](/assets/img/model-size-latency.png)
 

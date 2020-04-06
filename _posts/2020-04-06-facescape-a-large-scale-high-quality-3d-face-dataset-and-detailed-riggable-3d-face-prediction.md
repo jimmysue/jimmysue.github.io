@@ -3,6 +3,7 @@ layout: post
 title: 'FaceScape: a Large-scale High Quality 3D Face Dataset and Detailed Riggable
   3D Face Prediction'
 date: 2020-04-06 11:56 +0800
+img: FaceScape.png
 tags:
   - 论文笔记
   - 人脸重建
@@ -19,7 +20,7 @@ Code: [https://github.com/zhuhao-nju/facescape](https://github.com/zhuhao-nju/fa
 人脸模型(采用双线性模型)与之前的工作相比没有特别之处. 较为创新和新颖的地方在于, 对人脸不同的表情下的动态偏移(Dynamic Displacement)
 进行建模, 使得模型在传统3DMM的基础上增加了另个自由度或者说是**基**, 是对传统3DMM的重要补充. 正是由于动态偏移类似于身份, 表情这些**基**, 使得细节是可以控制的(riggable). 动态偏移不仅提升了重建的精度, 而且在迁移生成中,保证了细节, 使得生成结果更逼真.
 
-![](/images/FaceScape.png)
+![](/assets/img/FaceScape.png)
 
 ## FaceScape 数据集
 
@@ -27,7 +28,7 @@ Code: [https://github.com/zhuhao-nju/facescape](https://github.com/zhuhao-nju/fa
 
 三维数据生成采用的多视图重建的方案. 采集了928个不同的人, 总共18,760个模型, 模型的顶点数达到200万个. 这个规模在业界是很大的. 看作者和业界的对比就知道了. 见 Table1.
 
-![](/images/FaceScape-Table-1.png)
+![](/assets/img/FaceScape-Table-1.png)
 
 
 ## Dynamic Displacement
@@ -46,15 +47,15 @@ Code: [https://github.com/zhuhao-nju/facescape](https://github.com/zhuhao-nju/fa
 
 首先我们想确定最终的偏移图, 它是所有偏移基的逐像素加权组合
 
-![](/images/FaceScape-eq-5.png)
+![](/assets/img/FaceScape-eq-5.png)
 
 其中$$M_j$$的权重由当前人脸blendshape和目标人脸blendshape的权重, 以及不同表情下和无表情时的顶点偏移共同决定. 即:
 
-![](/images/FaceScape-eq-7.png)
+![](/assets/img/FaceScape-eq-7.png)
 
 其中$$\alpha$$为目标表情的系数, $$\hat{\alpha}$$为当前表情的blendshape系数. $$A_j$$是不同表情下的顶点距离, 即:
 
-![](/images/FaceScape-eq-6.png)
+![](/assets/img/FaceScape-eq-6.png)
 
 当然最后还得计算无表情时的权重: $$M_0=max(0,1 - \sum_{i=1}^{19}{M_i}$$.
 
