@@ -2,6 +2,7 @@
 layout: post
 title: 人脸活体检测综述
 date: 2020-04-04 20:47 +0800
+img: fas.jpg
 tags:
   - 综述
 ---
@@ -22,7 +23,7 @@ tags:
   > (1) specular reflection from the printed paper surface or LCD screen; (2) image blurriness due to camera defocus; (3) image chromaticity and contrast distortion due to imperfect color rendering of printer or LCD screen; and (4) color diversity distortion due to limited color resolution of printer or LCD screen. [^1]
 
   > The camera used for capturing the targeted face sample will also lead to imperfect colour reproduction compared to the legitimate sample. Furthermore, a recaptured face image is likely to contain local and overall variations of colour due to other imperfections in the reproduction process of the targeted face [^2]
-  ![](/images/color-texture.png)
+  ![](/assets/img/color-texture.png)
 
 ## 参考资料
 
