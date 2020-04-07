@@ -7,7 +7,10 @@ tags:
   - 综述
 ---
 
+## 论文
 
+- Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing[^4]
+- Searching Central Difference Convolutional Networks for Face Anti-Spoofing[^3]
 
 ## 攻击形式:
 
@@ -43,3 +46,5 @@ tags:
 [^1]: D. Wen, H. Han, and A. K. Jain, “Face Spoof Detection With Image Distortion Analysis,” IEEE Transactions on Information Forensics and Security, vol. 10, no. 4, pp. 746–761, Apr. 2015, doi: 10.1109/TIFS.2015.2400395.
 [^2]: Z. Boulkenafet, J. Komulainen, and A. Hadid, “Face Spoofing Detection Using Colour Texture Analysis,” IEEE Transactions on Information Forensics and Security, vol. 11, pp. 1–1, Aug. 2016, doi: 10.1109/TIFS.2016.2555286.
 [^3]: Z. Yu et al., “Searching Central Difference Convolutional Networks for Face Anti-Spoofing,” arXiv:2003.04092 [cs], Mar. 2020, Accessed: Apr. 06, 2020. [Online]. Available: http://arxiv.org/abs/2003.04092.
+[^4]: [1]Z. Wang et al., “Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing,” arXiv:2003.08061 [cs], Mar. 2020, Accessed: Apr. 07, 2020. [Online]. Available: http://arxiv.org/abs/2003.08061.
+
