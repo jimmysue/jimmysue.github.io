@@ -1,7 +1,7 @@
 ---
 layout: post
 title: 基于先验模型的人脸重建综述
-date: 2020-04-05 13:19 +0800
+date: 2020-04-07 20:19 +0800
 img: monocular-3d-face-reconstruction.png
 tags:
   - 人脸重建
