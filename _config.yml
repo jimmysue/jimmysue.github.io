@@ -11,10 +11,8 @@ author: Jimmy Sue # add your name
 author-img: avatar.jpg # add your photo
 about-author: I am a computer vision engineer. Always hungry to keep learning. # add description
 social-twitter: jimmysue0 # add your Twitter handle
-social-facebook: # add your Facebook handle
 social-github: jimmysue # add your Github handle
-social-linkedin: # add your Linkedin handle
-social-email: # add your Email address
+social-email: jimmysue.me@outlook.com # add your Email address
 
 # Disqus
 discus-identifier: jimmysue-github-io # add your discus identifier
@@ -28,6 +26,7 @@ plugins:
   - jekyll-sitemap
   - jekyll-paginate
   - jemoji
+  - jekyll-feed
 
 paginate: 8
 paginate_path: "/page/:num"
