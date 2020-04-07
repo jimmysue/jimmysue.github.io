@@ -2,12 +2,12 @@
 layout: post
 title: 基于先验模型的人脸重建综述
 date: 2020-04-05 13:19 +0800
+img: monocular-3d-face-reconstruction.png
 tags:
   - 人脸重建
   - 综述
 toc: true
 ---
-
 
 ## 笔记
 
@@ -45,8 +45,10 @@ toc: true
 
 - **[2017] Learning a model of facial shape and expression from {4D} scans**[^7]
 
-
-
+| Dataset | Home Page                                                            |
+| ------- | -------------------------------------------------------------------- |
+| BU3D-FE | http://www.cs.binghamton.edu/~lijun/Research/3DFE/3DFE_Analysis.html |
+| BU4D-FE | http://www.cs.binghamton.edu/~lijun/Research/3DFE/3DFE_Analysis.html |
 
 ### Blendshape 的提出
 
@@ -62,6 +64,10 @@ toc: true
 2. 基于姿态建立映射表[^6]
 3. 平行线[^2]
 
+
+## Databases
+
+| 
 
 ## Repos
 
