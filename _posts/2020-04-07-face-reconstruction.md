@@ -23,10 +23,10 @@ toc: true
 - **[2015] High-Fidelity Pose and Expression Normalization for Face Recognition in the Wild**[^2]
   
   利用 Non-Rigid ICP[^5] 算法融合 Basel Face Model ID 基和 Face Warehouse 的表情基.
-  ![](/images/HPEN.png)
+  ![](/assets/img/HPEN.png)
 
   **正脸化**
-  ![](/images/HPEN-Face-Normalization.png)
+  ![](/assets/img/HPEN-Face-Normalization.png)
 
   **疑点**:
   1. 锚点调整时, contour点事直接确定的还是参与最小二乘?
@@ -79,7 +79,7 @@ toc: true
 [^4]: S. Romdhani and T. Vetter, “Estimating 3D shape and texture using pixel intensity, edges, specular highlights, texture constraints and a prior,” in 2005 IEEE Computer Society Conference on Computer Vision and Pattern Recognition (CVPR’05), Jun. 2005, vol. 2, pp. 986–993 vol. 2, doi: 10.1109/CVPR.2005.145.
 [^5]: “Optimal Step Nonrigid ICP Algorithms for Surface Registration - IEEE Conference Publication.” https://ieeexplore.ieee.org/abstract/document/4270190 (accessed Apr. 05, 2020).
 [^6]: A. Asthana, S. Zafeiriou, S. Cheng, and M. Pantic. Ro- bust discriminative response map fitting with constrained local models. In Computer Vision and Pattern Recogni- tion (CVPR), 2013 IEEE Conference on, pages 3444–3451. IEEE, 2013.
-[^7]: J. Williams, “Learning a model of facial shape and expression from {4D} scans | Perceiving Systems - Max Planck Institute for Intelligent Systems.” https://is.tuebingen.mpg.de/ (accessed Apr. 06, 2020).
+[^7]: J. Williams, “Learning a model of facial shape and expression from {4D} scans Perceiving Systems - Max Planck Institute for Intelligent Systems.” https://is.tuebingen.mpg.de/ (accessed Apr. 06, 2020).
 [^8]: T. Gerig et al., “Morphable Face Models - An Open Framework,” arXiv:1709.08398 [cs], Sep. 2017, Accessed: Mar. 02, 2020. [Online]. Available: http://arxiv.org/abs/1709.08398.
 
 
