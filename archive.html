@@ -1,0 +1,33 @@
+---
+layout: main
+title: 归档
+permalink: /archive/
+---
+
+
+<section class="blog-tags">
+  {% if site.posts.size == 0 %}
+  <h1>No post found</h1>
+  {% else %}
+  <h1>Archive</h1>
+  {% endif %}
+  <ul>
+    {% for post in site.posts %}
+      {% unless post.next %}
+        <h2>{{ post.date | date: '%Y' }}</h2>
+      {% else %}
+        {% capture year %}{{ post.date | date: '%Y' }}{% endcapture %}
+        {% capture nyear %}{{ post.next.date | date: '%Y' }}{% endcapture %}
+        {% if year != nyear %}
+          <h2>{{ post.date | date: '%Y' }}</h2>
+        {% endif %}
+      {% endunless %}
+  
+      <div class="tag-list">
+        <span><a href="{{ site.baseurl }}{{ post.url }}">{{ post.title }}</a></span>
+        <small><span>| {{ post.date | date_to_string }}</span></small>
+      </div>
+    {% endfor %}
+  </ul>
+</section>
+
