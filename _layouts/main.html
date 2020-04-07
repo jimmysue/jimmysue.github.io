@@ -10,8 +10,21 @@ layout: default
       </div>
       <div class="author-name">{{site.author}}</div>
       <p>{{site.about-author}}</p>
+      <section class="contact">
+        <ul>
+          <li><a href="{{site.baseurl}}"><i class="fa fa-home" aria-hidden="true"></i></a></li>
+          <li><a href="{{site.baseurl}}/archive"><i class="fa fa-archive" aria-hidden="true"></i></a></li>
+          <li><a href="{{site.baseurl}}/tags"><i class="fa fa-tags" aria-hidden="true"></i></a></li>
+          <li><a href="{{site.baseurl}}/feed.xml"><i class="fa fa-rss" aria-hidden="true"></i></a></li>
+        </ul>
+      </section>
+      
     </div>
   </header> <!-- End Header -->
+  <section class="about">
+     
+    </ul>
+  </section>
   <footer>
     <section class="contact">
       <h3 class="contact-title">Contact me</h3>
@@ -41,7 +54,6 @@ layout: default
         {% else %}
           <li class="email"><a href="mailto:example.david@blog.com"><i class="fa fa-envelope-o" aria-hidden="true"></i></a></li>
         {% endif %}
-         <li class="rss"><a href="{{site.baseurl}}/feed.xml"><i class="fa fa-rss" aria-hidden="true"></i></a></li>
       </ul>
     </section> <!-- End Section Contact -->
     <div class="copyright">

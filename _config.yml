@@ -27,6 +27,7 @@ plugins:
   - jekyll-paginate
   - jemoji
   - jekyll-feed
+  - jekyll-archives
 
 paginate: 8
 paginate_path: "/page/:num"
