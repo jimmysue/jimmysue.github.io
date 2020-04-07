@@ -45,8 +45,15 @@ toc: true
 
 - **[2017] Learning a model of facial shape and expression from {4D} scans**[^7]
 
+
+
+
 ### Blendshape 的提出
 
+- **[2017] Morphable Face Models - An Open Framework**[^8]
+
+
+### 3DMM Construction Pipeline
 
 
 ### 关于轮廓点对应的处理
@@ -73,4 +80,6 @@ toc: true
 [^5]: “Optimal Step Nonrigid ICP Algorithms for Surface Registration - IEEE Conference Publication.” https://ieeexplore.ieee.org/abstract/document/4270190 (accessed Apr. 05, 2020).
 [^6]: A. Asthana, S. Zafeiriou, S. Cheng, and M. Pantic. Ro- bust discriminative response map fitting with constrained local models. In Computer Vision and Pattern Recogni- tion (CVPR), 2013 IEEE Conference on, pages 3444–3451. IEEE, 2013.
 [^7]: J. Williams, “Learning a model of facial shape and expression from {4D} scans | Perceiving Systems - Max Planck Institute for Intelligent Systems.” https://is.tuebingen.mpg.de/ (accessed Apr. 06, 2020).
+[^8]: T. Gerig et al., “Morphable Face Models - An Open Framework,” arXiv:1709.08398 [cs], Sep. 2017, Accessed: Mar. 02, 2020. [Online]. Available: http://arxiv.org/abs/1709.08398.
+
 
