@@ -11,7 +11,6 @@ permalink: /archive/
   {% else %}
   <h1>Archive</h1>
   {% endif %}
-  <ul>
     {% for post in site.posts %}
       {% unless post.next %}
         <h2>{{ post.date | date: '%Y' }}</h2>
@@ -28,6 +27,5 @@ permalink: /archive/
         <small><span>| {{ post.date | date_to_string }}</span></small>
       </div>
     {% endfor %}
-  </ul>
 </section>
 
