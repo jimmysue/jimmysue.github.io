@@ -7,6 +7,10 @@ tags:
   - 综述
 ---
 
+**基本思路**:  
+  - 传统方法: 线索->构造特征
+  - 深度方法: 线索->构造算子/网路
+
 ## 论文
 
 - Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing[^4]
