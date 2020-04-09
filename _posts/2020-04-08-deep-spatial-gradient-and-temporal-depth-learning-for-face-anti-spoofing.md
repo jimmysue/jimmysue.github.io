@@ -3,7 +3,10 @@ layout: post
 title: Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing
 date: 2020-04-08 17:21 +0800
 img: RSGB-STPM.png
-
+fig-caption: "Illustration of the overall framework. The inputs are consecutive frames with a fixed interval. Each frame is processed by cascaded RSGB with a shared backbone which generates a corresponding coarse depth map. The number in RSGB cubes denotes the output channel number of RSGB. STPM is plugged between frames for estimating the temporal depth, which is used for refining the corresponding coarse depth map. The framework works well by learning with the overall loss functions."
+tags:
+  - 论文笔记
+  - 活体检测
 ---
 
 Paper: [https://arxiv.org/abs/2003.08061](https://arxiv.org/abs/2003.08061)  
