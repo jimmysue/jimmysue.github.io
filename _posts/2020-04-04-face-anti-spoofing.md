@@ -18,6 +18,13 @@ tags:
 - Noise Modeling, Synthesis and Classification for Generic Object Anti-Spoofing[^5]
   ![](/assets/img/noise-modeling-object-anti-spoofing.png)
 
+- [2019] Learning Meta Model for Zero- and Few-shot Face Anti-spoofing[^6]  
+  文章认为, 当下把活体检测采用监督学习方法, 容易过拟合已知的攻击形式, 对于未知的攻击方式泛华能力较差. 提出两点改进思路:  
+  1. 学习可分的特征, 而非直接分类. 并且要求特征对于未见过的攻击手段仍具有较好的区分度
+  2. 迅速通过少量的新的攻击样本习得检测区分能力
+   
+   
+
 ## 攻击形式:
 
 - 打印
@@ -54,4 +61,6 @@ tags:
 [^3]: Z. Yu et al., “Searching Central Difference Convolutional Networks for Face Anti-Spoofing,” arXiv:2003.04092 [cs], Mar. 2020, Accessed: Apr. 06, 2020. [Online]. Available: http://arxiv.org/abs/2003.04092.
 [^4]: [1]Z. Wang et al., “Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing,” arXiv:2003.08061 [cs], Mar. 2020, Accessed: Apr. 07, 2020. [Online]. Available: http://arxiv.org/abs/2003.08061.
 [^5]: J. Stehouwer, A. Jourabloo, Y. Liu, and X. Liu, “Noise Modeling, Synthesis and Classification for Generic Object Anti-Spoofing,” arXiv:2003.13043 [cs, eess], Mar. 2020, Accessed: Apr. 09, 2020. [Online]. Available: http://arxiv.org/abs/2003.13043.
+[^6]: Y. Qin et al., “Learning Meta Model for Zero- and Few-shot Face Anti-spoofing,” arXiv:1904.12490 [cs], Dec. 2019, Accessed: Apr. 08, 2020. [Online]. Available: http://arxiv.org/abs/1904.12490.
+
 

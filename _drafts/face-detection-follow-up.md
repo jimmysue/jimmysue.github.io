@@ -27,6 +27,13 @@ tags:
 
   最后作者用四个代表性的人脸检测算法: VJ[^4], ACF[^5], DPM[^6] 和 Faceness[^7], 在没有重新训练的情况下在WIDER FACE 测试集上进行了测试, 结果各项指标均较低, 说明了测试集的难度, 和此类算法的性能还不够高. 另外, 把以上方法在 WIDER FACE 训练集上重新训练, 在 WIDER FACE 测试集和 FDDB 中精度均获得了提升, 说明了 WIDER FACE 训练集的有效性. 
   
+### **[2016]Joint Face Detection and Alignment using Multi-task Cascaded Convolutional Networks**[^8]
+  ![](/assets/img/MTCNN.png){:style="float: right" width="300px"} 
+  这篇论文就是名噪一时的`MTCNN`人脸检测. 如右图所示, 方法采用boost思想, 通过组合三个弱检测器, 得到一个强大的鲁邦的人脸检测算法. 第一阶段 P-Net 计算量最小, 能力最弱. 因为这一阶段, 需要跑所有的金字塔图像, 总体计算量最大. 它的任务在于排除绝大多数的背景样本, 保留疑似人脸的区域, 等待下一级段检测器重新判定. 第二阶段 R-Net 比第一阶段稍大, 它负责杀掉大部分的误检(False Positive), 精化目标位置; 第三阶段是成品阶段, 进一步降低误检, 提高位置精度, 同时预测五个人脸关键点.
+
+  训练方面, 作者提出两点有效的实践, 分别是在线难例挖掘和人脸关键点联合监督. 
+
+  MTCNN 方法不仅简单, 速度快, 而且在当时精度表现引领风骚. 它的快得益于其计算量的分配上, 使用极简的P-Net进行预筛选, 过滤大量的背景样本. 当然 P-Net 的瓶颈也非常明显, 由于其网络简单, 能力有限, 特别是能够判定的尺度范围非常局限, 这使得, 检测器需要构造尺度间隔非常小的图像金字塔, 这无疑增加了计算量. 特别是需要检测小人脸的时候, 大尺寸的输入图计算量显得愈加繁重. 这也是许多人脸检测算法难以避免的速度瓶颈.
   
 
 
@@ -39,6 +46,7 @@ tags:
 [^5]: “Aggregate channel features for multi-view face detection - IEEE Conference Publication.” https://ieeexplore.ieee.org/document/6996284/?denied= (accessed Apr. 11, 2020).
 [^6]: M. Mathias, R. Benenson, M. Pedersoli, and L. Van Gool, “Face Detection without Bells and Whistles,” in Computer Vision – ECCV 2014, Cham, 2014, pp. 720–735, doi: 10.1007/978-3-319-10593-2_47.
 [^7]: S. Yang, P. Luo, C. C. Loy, and X. Tang, “From Facial Parts Responses to Face Detection: A Deep Learning Approach,” arXiv:1509.06451 [cs], Sep. 2015, Accessed: Apr. 11, 2020. [Online]. Available: http://arxiv.org/abs/1509.06451.
+[^8]: K. Zhang, Z. Zhang, Z. Li, and Y. Qiao, “Joint Face Detection and Alignment Using Multitask Cascaded Convolutional Networks,” IEEE Signal Process. Lett., vol. 23, no. 10, pp. 1499–1503, Oct. 2016, doi: 10.1109/LSP.2016.2603342.
 
 
 
