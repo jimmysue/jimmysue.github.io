@@ -8,4 +8,5 @@ group :jekyll_plugins do
   gem "jemoji"
   gem "jekyll-feed"
   gem "jekyll-archives"
+  gem "jekyll-compose"
 end
