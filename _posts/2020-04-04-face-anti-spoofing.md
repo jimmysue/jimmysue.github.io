@@ -50,7 +50,7 @@ tags:
 - [基于rPPG的人脸活体检测综述](https://zhuanlan.zhihu.com/p/60627380)
 - https://github.com/ZitongYu/CDCN
 - [What is a Presentation Attack? And how do we detect it?](https://christoph-busch.de/files/Busch-TelAviv-PAD-180116.pdf)
-- [CVPR2019 人脸活体检测专题](CVPR2019 人脸活体检测专题)
+- [CVPR2019 人脸活体检测专题](https://zhuanlan.zhihu.com/p/69733383)
 
 ## 参考文献
 
