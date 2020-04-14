@@ -18,6 +18,7 @@ tags:
 - Noise Modeling, Synthesis and Classification for Generic Object Anti-Spoofing[^5]
   ![](/assets/img/noise-modeling-object-anti-spoofing.png)
 - Learning Meta Model for Zero- and Few-shot Face Anti-spoofing[^6]
+- [2019] Deep Tree Learning for Zero-shot Face Anti-Spoofing[^7]
 
 ## 攻击形式:
 
@@ -58,4 +59,6 @@ tags:
 [^4]: Z. Wang et al., “Deep Spatial Gradient and Temporal Depth Learning for Face Anti-spoofing,” arXiv:2003.08061 [cs], Mar. 2020, Accessed: Apr. 07, 2020. [Online]. Available: http://arxiv.org/abs/2003.08061.
 [^5]: J. Stehouwer, A. Jourabloo, Y. Liu, and X. Liu, “Noise Modeling, Synthesis and Classification for Generic Object Anti-Spoofing,” arXiv:2003.13043 [cs, eess], Mar. 2020, Accessed: Apr. 09, 2020. [Online]. Available: http://arxiv.org/abs/2003.13043.
 [^6]: Y. Qin et al., “Learning Meta Model for Zero- and Few-shot Face Anti-spoofing,” arXiv:1904.12490 [cs], Dec. 2019, Accessed: Apr. 08, 2020. [Online]. Available: http://arxiv.org/abs/1904.12490.
+[^7]: Y. Liu, J. Stehouwer, A. Jourabloo, and X. Liu, “Deep Tree Learning for Zero-shot Face Anti-Spoofing,” arXiv:1904.02860 [cs], Apr. 2019, Accessed: Apr. 04, 2020. [Online]. Available: http://arxiv.org/abs/1904.02860.
+
 
