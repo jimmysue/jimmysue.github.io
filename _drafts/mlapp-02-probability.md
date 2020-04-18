@@ -23,7 +23,7 @@ tag:
 
 ## 2.2 概率论概论
 
-### 离散随机变量
+### 2.2.1 离散随机变量
 
 $$p(A)$$ 表示事件 $$A$$ 为真的概率, 满足 $$0 \le p(A) \le 1$$. $$p(\overline{A})$$ 为 $$A$$ 的互斥事件, 有 $$p(\overline{A}) = 1 - p(A)$$. $$A=1$$ 常常表示为 A 为真, $$A=0$$ 表示 A 事件为否.
 
@@ -78,7 +78,7 @@ $$
 > *译者注:  
 > 如果 $$p(B) = 0$$, $$p(A) = 0$$*
 
-### 贝叶斯公式
+### 2.2.3 贝叶斯公式
 
 综合上节条件概率, 乘法公式和加法公式, 我们可以推出**贝叶斯公式**, 也成**贝叶斯定理**:
 
@@ -131,3 +131,162 @@ $$
 
 ### 2.2.4 独立和条件独立
 
+两组事件 $$X$$ 和 $$Y$$ **无条件独立**(unconditionally independent) 或者说**边缘独立**(marginally independent), 记作 $$X\bot Y$$. 如图2.2所示, 两个独立事件的联合概率等于边缘概率的乘积, 即:
+
+$$
+X \bot Y \Longleftrightarrow p(X, Y) = p(X)p(Y)
+$$
+
+
+![](/assets/img/MLAPP-Figure2.2.png){: height="360px"}
+
+无条件独立的情况很少, 多数情况下, 变量之间会互相影响. 这种影响, 肯能来自于某个共同的变量. 当且仅当有如下情形时, 我们说事件X和事件Y在Y发生的条件下独立, 这就是**条件独立**(conditionally independent, CI):
+
+$$
+X \bot Y\mid Z \Longleftrightarrow p(X, Y \mid Z) = 
+p(X \mid Z)p(Y \mid Z) \tag{2.15}
+$$
+
+在第10章讨论的图模型里, 我们可把这样的情形表示成一个图 $$X-Z-Y$$, 也就是说, 事件X和事件Y的独立性在事件Z条件下成立.
+
+
+条件独立还有如下特征:
+
+**定理 2.2.1:**    $$X \bot Y \mid Z$$ 成立, 当且仅当存在函数 $$g$$, 和$$h$$, 对于所有的 $$x$$, $$y$$, $$z$$ 且 $$p(z)> 0$$ 满足:
+
+$$
+p(x, y \mid z) = g(x, z)h(y, z) \tag{2.16}
+$$
+
+条件独立是建立大型概率模型的基础. 如下章节都会用到条件独立假设:
+
+- 3.5节 贝叶斯分类器
+- 17.2节 马尔科夫模型
+- 10章 图模型
+
+### 2.2.5 连续随机变量
+
+假设有随机变量$$X$$, 计算$$X$$落入范围 $$a \le X \le b$$的概率. 首先我们定义事件 $$A = (X \le a), B = (X \le b) 和 W = (a < X \le b)$$. 显然我们有$$B= A \vee W$$, 因为事件A和W互斥, 根据加法公式, 我们有:
+
+$$
+p(B) = p(A) + p(W) \tag{2.17}
+$$
+
+所以
+$$
+p(W) = p(B) - p(A) \tag{2.18}
+$$
+
+定义**概率累计函数**(cumulative distribution function, cdf)函数 $$F(q) \triangleq p(X \le q)$$, 该函数单调递增. 图2.3(a)展示了一个例子. 基于此定义, 有
+
+$$
+p(a < X \le b) = F(b) - F(a) \tag{2.19}
+$$
+
+再定义 $$f(x) = \frac{d}{dx}F(x)$$(假设导数存在), 称之为**概率密度函数**(probability density function, cdf). 于是有
+
+$$
+P(a \lt X \le b) = \int_a^b f(x)dx \tag{2.20}
+$$
+
+当间隔足够小, 有:
+
+$$
+P(x \le X \le x+dx) \approx p(x)dx
+$$
+
+其中要求 $$p(x) \ge 0$$, 而 $$p(x) > 1$$是可以的, 只要最终的积分为1. 例如, 有**均匀分布**:
+
+$$
+Unif(x \mid a, b) = \frac{1}{b - a} \mathbb{I}(a \le x \le b)
+$$
+
+如果 a 设为 0, b 设为 $$\frac{1}{2}$$, 对于 $$x \in [0, \frac{1}{2}]$$ 就有 $$p(x) = 2$$.
+
+### 2.2.6 分位数
+
+概率累计函数单调递增, 存在反函数 $$F^{-1}$$. $$F^{-1}(\alpha)$$ 是概率累计位置的函数, $$\alpha$$ 即为 $$F$$ 的分位数. 其中 $$F^{-1}(0.5)$$ 是分布的**中值**.
+
+cdf的反函数有时被用来计算**尾部概率**(tail area probabilities). 假设我们$$\Phi$$表示高斯分布 $$\mathcal{N}(0, 1)$$ 的概率累计函数. 高斯分布左右对称, 我们砍去左右的尾部概率, 一边一半. 如果我们要保留95%的概率质量, 左右就各坎 2.5%. 即有
+
+$$
+(\Phi^{-1}(0.025), \Phi^{-1}(0.975)) = (-1.96, 1.96)
+$$
+
+更一般地, 对于正态分布 $$\mathcal{N}(\mu, \sigma^2)$$, 区间 $$(\mu - 1.96\sigma, \mu + 1.96\sigma)$$ 包含了95%的概率质量. 一般我们会近似地写作 $$\mu \pm 2\sigma$$
+
+### 2.2.7 均值和方差
+
+均值或称期望, 用 $$\mu$$ 表示. 离散变量其定义为 $$E(X) \triangleq \sum_{x\in\mathcal{X}}xp(x) $$, 对于连续随机变量, 定义为 $$E(X) = \int_{\mathcal{X}}xp(x)dx$$. 如果积分无界, 则均值不存在.
+
+**方差**可理解为分布的*广度*, 用 $$\sigma^2$$ 表示. 定义如下:
+
+$$
+\begin{aligned}
+    Var[X] &\triangleq E[(X - \mu)^2] = \int (x - \mu)^2 p(x) dx \\
+    &= \int x^2 p(x) dx - 2 \mu \int xp(x)dx + \int \mu^2 p(x) dx =E(X^2) - \mu^2 
+\end{aligned}
+\tag{2.24 2.25} 
+$$
+
+由此可得
+
+$$
+E(X^2)= \mu^2 + \sigma^2
+$$
+
+标准差定义为方差的平方根, 与 X 量纲一致, 颇有用.
+
+$$
+std[X] \triangleq \sqrt{Var[X]}
+$$
+
+## 2.3 常见的离散分布
+
+### 2.3.1 二项分布与伯努利分布
+
+假设抛 $$n$$ 次硬币, 其中正面朝上的次数为 $$X$$, 显然 $$X\in \{0, 1, ... n\}$$, 则我们说 $$X$$ 服从二项式分布, 记作 $$X \sim Bin(n, \theta)$$, 其中 $$\theta$$ 硬币正面朝上的概率. 二项式分布的概率质量函数为:
+
+$$
+Bin(k \mid n, \theta) \triangleq \pmatrix{n \\ k} \theta^k(1 - \theta)^{n-k}
+$$
+
+其中
+
+$$
+\pmatrix{n \\ k} = \frac{n!}{(n-k)!k!}
+$$
+
+理解为从 $$n$$ 次选取 $$k$$ 次正面朝上的选法种数, 该系数称作**二项式系数**. 图2.4 展示了一些二项式分布的例子. 二项式分布的均值和方差分别为:
+
+$$
+mean = \theta , var = n\theta(1-\theta)
+$$
+
+如果我们只丢一次这样的硬币, 正面朝上的次数为 $$X\in \{ 0, 1\}$$, 服从**伯努利分布**或称**0 1 分布**, 记作 $$X  \sim  Ber(\theta)$$, 概率质量函数定义如下:
+
+$$
+\begin{aligned}
+    Ber(1 \mid \theta) &= \theta^{\mathbb{I}(x=1)}(1 - \theta)^{\mathbb{I}(x=0)} \\
+    &= 
+    \begin{cases}
+        \theta, ~~~~~~~~~~\text{if } x = 1, \\
+        1-\theta, ~~~\text{if } x = 0
+    \end{cases}
+\end{aligned}
+
+$$
+
+
+![](/assets/img/MLAPP-Figure2.4.png){:width="640px"}
+
+
+### 2.3.2 多项分布和分类分布
+
+
+**推导:**  
+$$
+  \pmatrix{n \\ x_1}\theta_1^{x_{1}} \cdot \pmatrix{n - x_1 \\ x_2} \theta_2^{x_{2}} \cdots  \pmatrix{n - x_1 - x_2 \cdots x_{n-1} \\ x_n} \theta_n^{x_{n}}
+$$
+
+![](/assets/img/MLAPP-Figure2.5.png){:width="640px"}
