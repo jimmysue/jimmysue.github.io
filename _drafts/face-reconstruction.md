@@ -9,6 +9,22 @@ tags:
 toc: true
 ---
 
+## 2019
+
+### 2DASL
+
+X. Tu et al., “Joint 3D Face Reconstruction and Dense Face Alignment from A Single Image with 2D-Assisted Self-Supervised Learning,” arXiv:1903.09359 [cs], Mar. 2019, Accessed: Apr. 20, 2020. [Online]. Available: http://arxiv.org/abs/1903.09359.
+
+![](/assets/img/2DASL-Figure2.png){:width="640px"}
+
+**问题**:
+
+**思路**:
+
+**实现**:
+
+
+
 ## 笔记
 
 - **[2005] Estimating 3D Shape and Texture Using Pixel Intensity, Edges, Specular Highlights, Texture Constraints and a Prior**[^4]
