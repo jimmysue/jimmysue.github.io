@@ -9,6 +9,8 @@ tags:
 toc: true
 ---
 
+
+
 ## 2019
 
 ### 2DASL
@@ -17,11 +19,47 @@ X. Tu et al., “Joint 3D Face Reconstruction and Dense Face Alignment from A Si
 
 ![](/assets/img/2DASL-Figure2.png){:width="640px"}
 
-**问题**:
-
-**思路**:
+**问题**:  
+  - 深度模型受限于3D标注数据  
+  
+**思路**:  
+  - 加入2D标注数据和子监督信号, 辅助训练
 
 **实现**:
+  - 用3DMM 系数产生的误差作为权重, 实现动态加权  
+  
+    $$
+      \mathcal{L}_{3d} = (\alpha^*  - \hat{\alpha})^TW((\alpha^*  - \hat{\alpha}))
+    $$
+
+    其中  
+
+    $$
+      \begin{aligned}
+        W &=diag(w_1, ..., w_62),\\
+        w_i &= \frac{1}{\sum_iw_i}\|H(\hat{\alpha_i} - H(\alpha^*)\|
+      \end{aligned}
+    $$
+
+    公式似乎有点小问题, 大致的思路时, 其中一个位置参数用预测值, 其它位置用真值, 谁产生的误差大, 谁的权重就大.
+
+  - 2D 自监督  
+    1. 预测的3D点投影到2D与原始的2D点保持一致性
+    2. (1) 中的2D点作为输入再预测一致3D点, 必须与(1)预测的3D点一致
+    
+**点评**:  
+  - 无法突破3DMM模型的局限
+      
+## 2018
+
+### Nonlinear 3DMM (TPAMI, CVPR)
+
+L. Tran and X. Liu, “On Learning 3D Face Morphable Model from In-the-wild Images,” IEEE Trans. Pattern Anal. Mach. Intell., pp. 1–1, 2019, doi: 10.1109/TPAMI.2019.2927975.
+
+L. Tran and X. Liu, “Nonlinear 3D Face Morphable Model,” presented at the Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition, 2018, pp. 7346–7355, Accessed: Apr. 20, 2020. [Online]. Available: http://openaccess.thecvf.com/content_cvpr_2018/html/Tran_Nonlinear_3D_Face_CVPR_2018_paper.html.
+
+
+
 
 
 
