@@ -16,7 +16,7 @@ Paper: Y. Chen et al., “Stitcher: Feedback-driven Data Provider for Object Det
 
 ## 问题:  
   - 检测器小物体的检测能力相较于中等和大物体低了将近一半
-  - 虽然小尺度物体图像比例比中/大物体的地很多，这是不平衡的核心所在
+  - 小物体样本不少， 但是包含小物体的图像较少， 导致小物体训练中不平衡
   
 ## 方法：  
   - 通过**stitch**增益  
