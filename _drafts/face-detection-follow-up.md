@@ -92,6 +92,9 @@ Finding Tiny Face[^10]
 
 ### SSH (CVPR)
 
+M. Najibi, P. Samangouei, R. Chellappa, and L. Davis, “SSH: Single Stage Headless Face Detector,” arXiv:1708.03979 [cs], Aug. 2017, Accessed: Mar. 21, 2019. [Online]. Available: http://arxiv.org/abs/1708.03979.
+
+
 > Although SSH is a detector, it is more similar to the object proposal algorithms which are used as the first stage in detection pipelines.
 
 ![](https://pic4.zhimg.com/80/v2-f0b552601aff5c709e27e68143a2f237_1440w.jpg){:height="360px"}  
@@ -100,8 +103,15 @@ Finding Tiny Face[^10]
 
 ### S$$^3$$FD (ICCV)
 
+S. Zhang, X. Zhu, Z. Lei, H. Shi, X. Wang, and S. Z. Li, “S$^3$FD: Single Shot Scale-invariant Face Detector,” arXiv:1708.05237 [cs], Aug. 2017, Accessed: Dec. 19, 2018. [Online]. Available: http://arxiv.org/abs/1708.05237.
 
 
+![](/assets/img/S3FD.png){:style="float: center" width="360px"}  
+
+这是一篇做得较为细致的文章, 指出了基于 Anchor 的人脸检测的诸多问题. Figure 1 概括了这几个核心问题. 
+
+1. 小人脸的特征更少. 小人脸面积小, 特征自然比大人脸来的少
+2. anchor 的尺度
 
 ## 2018
 
