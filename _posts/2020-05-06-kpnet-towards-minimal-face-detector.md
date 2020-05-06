@@ -2,8 +2,8 @@
 layout: post
 title: 'KPNet: Towards Minimal Face Detector'
 img: KPNet-figure-2.png
+date: 2020-05-06 22:13 +0800
 ---
-
 ![](/assets/img/KPNet-figure-2-full.png)
 
 Paper: [Zhu et al., “Seeing Small Faces from Robust Anchor’s Perspective.”](http://arxiv.org/abs/1802.09058)
