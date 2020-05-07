@@ -8,6 +8,7 @@ tags:
   - 论文笔记
   - 人脸重建
 mathjax: true
+permalink: FaceScape
 ---
 
 > 传统机器学习算法靠脑力, 深度学习时代靠算例, 数据时代靠财力. -- 佚名

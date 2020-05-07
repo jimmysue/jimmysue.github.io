@@ -9,6 +9,7 @@ tags:
 - 物体检测
 mathjax: true
 date: 2020-04-30 18:13 +0800
+permalink: Stitcher
 ---
 Paper: Y. Chen et al., “Stitcher: Feedback-driven Data Provider for Object Detection,” arXiv:2004.12432 [cs], Apr. 2020, Accessed: Apr. 30, 2020. [Online]. Available: [http://arxiv.org/abs/2004.12432](http://arxiv.org/abs/2004.12432).
 

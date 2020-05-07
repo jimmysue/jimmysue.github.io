@@ -3,6 +3,7 @@ layout: post
 title: 'KPNet: Towards Minimal Face Detector'
 img: KPNet-figure-2.png
 date: 2020-05-06 22:13 +0800
+permalink: KPNet
 ---
 ![](/assets/img/KPNet-figure-2-full.png)
 

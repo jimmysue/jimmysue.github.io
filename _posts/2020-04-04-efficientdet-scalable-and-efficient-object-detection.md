@@ -6,6 +6,7 @@ tags:
    - 论文笔记
 img: EfficientDet-Architecture.png
 description: 有选择地增强特征金字塔的连接, 协同伸缩检测网络, 才能将网络的性能发挥到极致!
+permalink: EfficientDet
 ---
 
 > 剖析作者是怎么想的, 闻其道;

@@ -6,6 +6,7 @@ tags:
 - 人脸检测
 - 论文笔记
 date: 2020-05-04 20:35 +0800
+permalink: SeeingSmallFaces
 ---
 
 ## 问题
