@@ -1,0 +1,7 @@
+<figure class="image">
+    <img src="{{ include.url }}" alt="{{ include.description }}"
+     width="{{ include.width }}" height="{{ include.height }}">
+    {% if include.description %}
+    <figcaption>{{ include.description | markdownify | remove: '<p>' | remove: '</p>' }}</figcaption>
+    {% endif %}
+</figure>

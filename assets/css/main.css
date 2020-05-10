@@ -65,6 +65,18 @@ figure {
   margin: 1em 40px;
 }
 
+figure {
+  display: table;
+}
+
+figcaption {
+  display: table-caption;
+  caption-side: bottom;
+  margin-top: 0px;
+  font-style: normal;
+  font-weight: lighter;
+  font-size: smaller;
+}
 /**
  * 1. Add the correct box sizing in Firefox.
  * 2. Show the overflow in Edge and IE.

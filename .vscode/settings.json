@@ -2,5 +2,6 @@
     "pasteImage.path": "${projectRoot}/assets/img/",
     "pasteImage.basePath": "${projectRoot}",
     // "pasteImage.namePrefix": "${currentFileNameWithoutExt}_",
-    "pasteImage.prefix": "/"
+    "pasteImage.prefix": "/",
+    "pasteImage.insertPattern": "{% include image.html url=\"${imageFilePath}\" %}"
 }
