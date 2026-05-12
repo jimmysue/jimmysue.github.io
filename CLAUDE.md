@@ -101,6 +101,42 @@ This is the work of the `reading-papers` skill. Direct invocation flow (the skil
 6. Write `papers/<slug>/index.html` from the skeleton in `.claude/skills/reading-papers/SKILL.md` §5b.
 7. Update the top-level `index.html`: prepend a new `<a class="paper-card">` inside `<div class="paper-grid">` (newest first).
 8. Restart `./serve.sh` if not running and open the page.
+9. **Publish to GitHub Pages (project rule — see next section).**
+
+## Publishing to GitHub Pages (PROJECT RULE)
+
+**This rule is project-specific and intentionally lives here, not in the skill** (skills are generic across workspaces; deploy targets are not).
+
+The blog is deployed to `jimmysue/jimmysue.github.io` (live at <https://jimmysue.github.io/>). After every new paper or non-trivial edit, run:
+
+```bash
+./publish.sh                    # auto: derives commit msg from changed paper slugs
+./publish.sh "custom message"   # explicit message
+./publish.sh --force-init       # destructive; only for full reset (won't be needed again)
+```
+
+`publish.sh` does:
+1. `git add -A` (respects `.gitignore` — raw PDFs, cloned source repos, page renders, `.claude/`, dev screenshots are all excluded)
+2. Commits with an auto-derived or supplied message
+3. `git push origin master`
+
+### Deploy invariants
+
+- **Remote**: `git@github.com:jimmysue/jimmysue.github.io.git` (SSH; HTTPS form is in the README but SSH is what works on this machine).
+- **Branch**: `master` (not `main` — github.io repo was created before GitHub flipped the default).
+- **`.nojekyll`** at repo root tells GitHub Pages to skip Jekyll processing (must stay; otherwise the `_`-prefixed names and raw HTML could be mangled).
+- **GitHub Pages cache**: ~1–2 min after push for the live site to update. `curl https://jimmysue.github.io/` immediately after push may still serve the previous content.
+- **Backup of pre-replacement Jekyll site**: `~/Backups/jimmysue.github.io-backup-20260512-094255/` — full clone of the old `b0779f8` commit. Restore by `git push --force` from there if ever needed.
+
+### When NOT to publish
+
+- User explicitly says "draft only" / "本地预览就行" / "先不发布".
+- Page renders broken locally (TOC dangling, MathJax error, figures missing).
+- `git status` shows files outside `papers/<slug>/`, `index.html`, or `assets/` (unexpected scope — verify before pushing).
+
+### Ask before pushing
+
+By default, **ask the user** before running `publish.sh` for any given paper, unless they've already said "and publish" / "发布到 gh page" in the same turn or earlier in the session. Pushing is visible to others and the commit history is permanent.
 
 ## Editing existing pages
 
