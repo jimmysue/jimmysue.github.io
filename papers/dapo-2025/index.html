@@ -119,7 +119,7 @@
     $$\hat A_{i,t} = \frac{r_i - \mathrm{mean}(\{R_i\}_{i=1}^G)}{\mathrm{std}(\{R_i\}_{i=1}^G)}$$
     <p>注意所有 token 共享同一个 sequence-level advantage $\hat A_i$。GRPO 的 clipped surrogate (PPO style):</p>
     $$\mathcal J_{\text{GRPO}}(\theta) = \mathbb E\!\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \min\!\Big(r_{i,t}(\theta)\hat A_{i,t},\, \mathrm{clip}(r_{i,t}, 1-\varepsilon, 1+\varepsilon)\hat A_{i,t}\Big) - \beta D_{\mathrm{KL}}(\pi_\theta \| \pi_{\text{ref}})\right]$$
-    <p>其中 $r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q, o_{i,<t}) / \pi_{\theta_{\text{old}}}(o_{i,t}|q, o_{i,<t})$。</p>
+    <p>其中 $r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q, o_{i,\lt t}) / \pi_{\theta_{\text{old}}}(o_{i,t}|q, o_{i,\lt t})$。</p>
 
     <p><strong>关键观察:</strong> GRPO 的内层 $\frac{1}{|o_i|}\sum_t$ 是<em>sample-level token-mean</em>,外层 $\frac{1}{G}\sum_i$ 是 sample 上平均。这两层平均的组合,就是 Token-Level Loss 要修的东西 — 见 §2.4。</p>
 
@@ -140,7 +140,7 @@
       <li>$\pi_{\text{old}} = 0.01$ 的 exploration token → 上限 $0.01 \times 1.2 = 0.012$,几乎不能涨。</li>
     </ul>
 
-    <p>结果:exploitation token 持续被强化,exploration token 永远涨不起来 → entropy 崩溃。Fig 3a 实测:被上界 clip 的 token 平均概率 $< 0.2$ — 印证了"上界主要在卡低概率 token"。</p>
+    <p>结果:exploitation token 持续被强化,exploration token 永远涨不起来 → entropy 崩溃。Fig 3a 实测:被上界 clip 的 token 平均概率 $\lt 0.2$ — 印证了"上界主要在卡低概率 token"。</p>
 
     <figure>
       <img src="figures/fig3-up-clipped.png" alt="Up-clipped probability + acc=1 samples">
@@ -156,7 +156,7 @@
     <p><strong>问题 (Fig 3b):</strong> 训练后期,acc=1 的 prompt 占比从 0 涨到 ~0.6。这些 prompt 的整个 group reward 都是 1,group-std = 0,advantage = 0,贡献 0 gradient。<strong>有效 batch 在悄悄变小</strong>。</p>
 
     <p><strong>DAPO 修复:</strong> 在 batch 级别<em>过采样</em>,过滤掉 group 内 reward 全 0 或全 1 的 prompt,直到攒够目标 batch size。形式化加在 DAPO 目标里:</p>
-    $$\text{s.t. } 0 < |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| < G$$
+    $$\text{s.t. } 0 \lt |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| \lt G$$
     <p>(每个 prompt 的 $G$ 个 output 里必须至少有 1 个对、至少有 1 个错。)</p>
 
     <p>实现层面 — verl 的 <code>filter_groups.enable=True</code>:用 <code>gen_batch_size</code>(例:1536) 采样,过滤 → 目标 <code>train_batch_size</code>(例:512)。如果一次过滤后<不够,继续采,最多 <code>max_num_gen_batches</code> 次。</p>
@@ -194,7 +194,7 @@
     </figure>
 
     <p><strong>DAPO 解法 2 — Soft Overlong Punishment (Eq 13):</strong>不是 0/1 切断,而是 length-aware 软惩罚。设 $L_{\max}$ = max 输出长度(20480),$L_{\text{cache}}$ = buffer 长度(4096):</p>
-    $$R_{\text{length}}(y) = \begin{cases}0, & |y| \leq L_{\max} - L_{\text{cache}} \\ \dfrac{(L_{\max} - L_{\text{cache}}) - |y|}{L_{\text{cache}}}, & L_{\max} - L_{\text{cache}} < |y| \leq L_{\max} \\ -1, & |y| > L_{\max} \end{cases}$$
+    $$R_{\text{length}}(y) = \begin{cases}0, & |y| \leq L_{\max} - L_{\text{cache}} \\ \dfrac{(L_{\max} - L_{\text{cache}}) - |y|}{L_{\text{cache}}}, & L_{\max} - L_{\text{cache}} \lt |y| \leq L_{\max} \\ -1, & |y| \gt L_{\max} \end{cases}$$
 
     <p>所以:</p>
     <ul>
@@ -209,13 +209,13 @@
 
     <p>把 4 个技巧塞进同一个目标 (Eq 10/11/12):</p>
     $$\mathcal J_{\text{DAPO}}(\theta) = \mathbb E_{(q,a) \sim \mathcal D,\, \{o_i\}_{i=1}^G \sim \pi_{\theta_{\text{old}}}}\!\left[\frac{1}{\sum_{i=1}^G|o_i|}\sum_{i=1}^G\sum_{t=1}^{|o_i|}\min\Big(r_{i,t}\hat A_{i,t},\,\mathrm{clip}(r_{i,t}, 1-\varepsilon_{\text{low}}, 1+\varepsilon_{\text{high}})\hat A_{i,t}\Big)\right]$$
-    $$\text{s.t. } 0 < |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| < G$$
+    $$\text{s.t. } 0 \lt |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| \lt G$$
 
     <p>对照标准 GRPO:</p>
     <ul>
       <li>Clip-Higher:$\varepsilon \to (\varepsilon_{\text{low}}, \varepsilon_{\text{high}})$ 分离</li>
       <li>Token-level loss:$\sum$ 的归一化分母从 $G\cdot|o_i|$ → $\sum_i|o_i|$</li>
-      <li>Dynamic sampling:约束 $0 < |\text{correct}| < G$</li>
+      <li>Dynamic sampling:约束 $0 \lt |\text{correct}| \lt G$</li>
       <li>Overlong shaping:reward $r_i$ 里加入 $R_{\text{length}}$ 项</li>
       <li>KL 项:整个去掉</li>
     </ul>
