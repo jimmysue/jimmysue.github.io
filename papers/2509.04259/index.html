@@ -51,6 +51,7 @@
     <li class="h3"><a href="#sec-2-4">2.4 理论:I + M 投影</a></li>
     <li class="h3"><a href="#sec-2-5">2.5 Oracle SFT 反证</a></li>
     <li class="h3"><a href="#sec-2-6">2.6 与代码对照</a></li>
+    <li class="h3"><a href="#sec-2-7">2.7 变长序列 KL 实操</a></li>
     <li class="h2"><a href="#sec-3">3. 结论</a></li>
     <li class="h2"><a href="#sec-4">4. 实现细节</a></li>
     <li class="h2"><a href="#sec-5">5. 批判性总结</a></li>
@@ -245,6 +246,61 @@ def forward_kl_on_new_task(pi_base, pi_ft, new_task_loader):
     q_star = q_unnorm / Z.clamp_min(1e-12)        # 满足 q^T R = 1
     return q_star</code></pre>
     <p>训练时把 SFT 的 cross-entropy target 从一个 arbitrary 正确 label 换成上面这个 $q^*$ 分布。论文 Fig. 3 的"SFT on optimal dist."就是这条曲线,遗忘比 RL 还少。</p>
+
+    <h3 id="sec-2-7">2.7 变长序列下的 forward KL 怎么算?</h3>
+
+    <p>2.6 (a) 的伪代码把每个输入当成 single-token 来写,实际 LLM 是变长自回归生成 — base 和 fine-tuned 在同一 prompt 下采样出的序列长度通常不同。怎么定义 KL?</p>
+
+    <p><strong>非问题:不需要"两边都采样"。</strong> Forward KL 的定义里期望只在 $\pi_0$ 下取:</p>
+    $$\mathbb{E}_{x \sim \tau}\,\mathbb{E}_{y \sim \pi_0(\cdot \mid x)}\Big[\log \pi_0(y \mid x) - \log \pi(y \mid x)\Big]$$
+    <p>你只从 $\pi_0$ 采一条 $y$ (长度 $T$),$\pi$ 在<em>同一条</em> $y$ 上 teacher-force 评估一次。两边各算一次 sequence log-prob,长度天然一致。"新旧策略采样长度不一样"的困扰来自误以为要双边采样。</p>
+
+    <p><strong>两种估计器:</strong></p>
+    <ol>
+      <li><strong>Sequence-level Monte Carlo</strong> — 单 forward,最便宜:
+        $$\widehat{\mathrm{KL}}_{\text{seq}} = \log \pi_0(y \mid x) - \log \pi(y \mid x), \quad y \sim \pi_0$$
+      </li>
+      <li><strong>Token-level full KL</strong> — 每位置在整个词表上做闭式求和,方差远低于 (1):
+        $$\mathrm{KL}_t = \sum_{v \in \mathcal{V}} \pi_0(v \mid x, y_{\lt t})\,\log \frac{\pi_0(v \mid x, y_{\lt t})}{\pi(v \mid x, y_{\lt t})}$$
+        论文实验里 token-level 计算几乎是默认 — 两个模型都本地可达,没有理由放弃全词表的信息。
+      </li>
+    </ol>
+
+    <p><strong>真正要选的是 sum 还是 mean。</strong>序列总 KL 有两种聚合:</p>
+    <ul>
+      <li><strong>Per-token average</strong> $\frac{1}{T}\sum_t \mathrm{KL}_t$ — 长短序列可比,无 length bias,<u>推荐</u>。</li>
+      <li><strong>Per-sequence sum</strong> $\sum_t \mathrm{KL}_t$ — 长序列天然 KL 更大,跟"哪种方法输出更长"的混淆变量纠缠。</li>
+    </ul>
+    <p>论文用 <strong>Dr. GRPO</strong> (Liu et al. 2025) 替代原版 GRPO,正是为了消除 length bias;测 KL 时与训练 loss 形式对齐,几乎一定走 per-token average。</p>
+
+    <p><strong>低方差估计:Schulman 的 k3 estimator</strong> (PPO 实现里通用,TRL / verl 默认)</p>
+    $$\widehat{\mathrm{KL}}_{k3}(y) = \frac{\pi(y)}{\pi_0(y)} - 1 - \log \frac{\pi(y)}{\pi_0(y)}$$
+    <p>非负、无偏、方差远低于直接的 $\log(\pi_0/\pi)$。论文 §4 写 "approximate KL estimation noise" 大概率指这个估计器的残差。</p>
+
+    <p>把上述细节串起来,变长版本的 forward KL 估计器:</p>
+    <pre><code class="language-python">@torch.no_grad()
+def forward_kl_on_new_task_llm(pi_base, pi_ft, prompts, num_samples=8):
+    """E_{x~tau} KL(pi_base || pi_ft), token-level full KL, per-token 平均。
+    对应论文 Sec. 4 经验律, LLM 实操版 (处理变长 + 词表完整 KL)。
+    """
+    total_kl, total_tokens = 0.0, 0
+    for x in prompts:                                       # x: 新任务 prompt
+        for _ in range(num_samples):
+            y = pi_base.generate(x, do_sample=True)         # 仅从 base 采样, 长度 T 可变
+            logp_b = pi_base(x, y).logits.log_softmax(-1)   # [T, V]
+            logp_f = pi_ft(x, y).logits.log_softmax(-1)     # [T, V]
+            p_b = logp_b.exp()
+            kl_t = (p_b * (logp_b - logp_f)).sum(-1)        # [T] token-level full KL
+            total_kl += kl_t.sum().item()                   # 这里先 sum
+            total_tokens += kl_t.numel()                    # 后用 total_tokens 归一
+    return total_kl / total_tokens                          # ==> per-token 平均</code></pre>
+
+    <p>三条要点:</p>
+    <ul>
+      <li>采样只走 $\pi_0$ — 没有"两边长度不一致"的问题。</li>
+      <li>聚合走 per-token 平均 — 跟 Dr. GRPO 的训练目标对齐,免 length bias。</li>
+      <li>方差大时换 Schulman k3 — 把 $\log(\pi_0/\pi)$ 替成 $\pi/\pi_0 - 1 - \log(\pi/\pi_0)$。</li>
+    </ul>
   </section>
 
   <section>
