@@ -33,7 +33,7 @@ papers/<slug>/
   repo/                   # cloned source repo (read-only reference)
 ```
 
-The slug is either the arxiv ID (`2604.24763`) or `firstauthor-shorttitle-year`. The shared `assets/style.css` and the top-level `index.html` (the homepage card grid) belong to the workspace, not any one paper.
+**The slug is always `shorttitle-year`** — title-based, not author-based (e.g., `rls-razor-2025`, `flow-opd-2026`, `d-opsd-2026`). Bare arxiv IDs (e.g. `2509.04259`) are **not** acceptable as folder names — they're opaque and make the file tree unbrowsable. See `.claude/skills/reading-papers/SKILL.md` §1b for the exact construction rules. The shared `assets/style.css` and the top-level `index.html` (the homepage card grid) belong to the workspace, not any one paper.
 
 ## The rendering stack (non-obvious bits)
 
