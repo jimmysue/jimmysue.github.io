@@ -1,0 +1,24 @@
+# Claude Code metadata + skill source (internal authoring tooling — not for public display).
+# Remove this line if you want to publish the skill source alongside the blog.
+.claude/
+
+# Paper-reading raw artifacts (heavy intermediate files — only the final cropped figures
+# in papers/*/figures/ ship to the published blog).
+papers/*/raw/
+papers/*/figures-raw/
+papers/*/repo/
+papers/*/eprint/
+
+# Local server log
+paper-reading-server.log
+
+# Dev-only blog full-page screenshots (not referenced from any index.html)
+papers/*/blog-fullpage.png
+papers/*/blog-viewport*.png
+
+# macOS / editors
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Paper Reading — 论文精读博客</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<main>
+  <header class="site-header">
+    <h1>论文精读</h1>
+    <p>Paper Reading Blog — cross-read 论文 + 代码 · 图文 + 公式 + 批判</p>
+  </header>
+
+  <!-- PAPER-CARDS-START -->
+  <div class="paper-grid">
+    <a class="paper-card" href="papers/2509.04259/index.html">
+      <div class="date">2026-05-12</div>
+      <h3>RL's Razor: Why Online RL Forgets Less</h3>
+      <p class="tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
+    </a>
+    <a class="paper-card" href="papers/deepseek-v4-2026/index.html">
+      <div class="date">2026-05-12</div>
+      <h3>DeepSeek-V4: Million-Token Context Intelligence</h3>
+      <p class="tldr">1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。</p>
+    </a>
+    <a class="paper-card" href="papers/tuna-2/index.html">
+      <div class="date">2026-05-12</div>
+      <h3>Tuna-2: Pixel Embeddings Beat Vision Encoders</h3>
+      <p class="tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
+    </a>
+    <a class="paper-card" href="papers/sensenova-u1/index.html">
+      <div class="date">2026-05-11</div>
+      <h3>SenseNova-U1: NEO-unify 原生多模态统一</h3>
+      <p class="tldr">不用 ViT 也不用 VAE 的"理解+生成"统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+    </a>
+    <!-- New papers are prepended above this comment. -->
+    <!-- INSERT-NEW-CARDS-HERE -->
+  </div>
+  <!-- PAPER-CARDS-END -->
+
+  <footer>
+    <p>Generated with the <code>reading-papers</code> skill · <code>./serve.sh</code> to launch locally</p>
+  </footer>
+</main>
+</body>
+</html>
