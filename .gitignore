@@ -7,6 +7,7 @@
 papers/*/raw/
 papers/*/figures-raw/
 papers/*/repo/
+papers/*/repo_*/
 papers/*/eprint/
 
 # Local server log
