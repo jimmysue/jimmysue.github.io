@@ -15,6 +15,11 @@
 
   <!-- PAPER-CARDS-START -->
   <div class="paper-grid">
+    <a class="paper-card" href="papers/worldforge-2026/index.html">
+      <div class="date">2026-05-13</div>
+      <h3>WorldForge: 不训练把 6-DoF 相机轨迹注射进视频扩散模型</h3>
+      <p class="tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并"自由"与"受控"两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
+    </a>
     <a class="paper-card" href="papers/dapo-2025/index.html">
       <div class="date">2026-05-12</div>
       <h3>DAPO: Open-Source LLM RL System at Scale</h3>
