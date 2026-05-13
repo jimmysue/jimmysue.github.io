@@ -1,0 +1,108 @@
+<section id="sec-3">
+  <h2 id="sec-3">3. PPO: 走得快, 但别翻车 —— clip 是怎样想出来的</h2>
+
+  <h3 id="sec-3-1">3.1 直觉</h3>
+  <p>§2 的 REINFORCE 给出了"reward 不可导也能更新"的钥匙, 但留了一个尾巴: 一旦学习率稍微大一点, 或者某条 trajectory 的 advantage 异常大, $\nabla \log \pi_\theta$ 就把策略推得过远 —— 新策略采样出来的轨迹分布跟旧策略相去甚远, 已经收集好的那批样本立刻"过期", 训练曲线常常先升后崩。问题的本质是: 普通 policy gradient <strong>没有任何机制约束"一步能走多远"</strong>, 而 on-policy 算法的样本效率又逼着我们想在同一批 rollout 上做多次梯度更新, 矛盾立刻浮现。</p>
+  <p>2015 年的 TRPO 给出了第一版严肃答案: 在每次更新时, 显式约束新旧策略的 KL 距离 $\mathrm{KL}(\pi_{\text{old}} \| \pi_\theta) \le \delta$, 把更新限制在一个"信赖域"里。理论很漂亮 (单调改进保证), 但实现要做共轭梯度 + line search, 还得算 Fisher 矩阵向量积, 对 dropout、参数共享、RNN 都不友好, 拿到一个新框架往往要重写半套优化器, 在 PyTorch 这种动态图生态里水土不服。</p>
+  <p>2017 年 Schulman 团队抛出了一个几乎让人想笑的极简方案 —— <strong>PPO</strong>: 既然要约束"走多远", 那就直接看新旧策略对同一个动作的概率比 $r = \pi_\theta / \pi_{\text{old}}$, 把它<strong>硬剪</strong>到 $[1-\epsilon, 1+\epsilon]$ 区间。再加一个 min 操作, 让"过度乐观的更新"被压回去, 但"惩罚性的负 advantage"该传多大就传多大。整个 PPO 的总目标其实就三项: clipped surrogate (策略提升) − value loss (critic 拟合 $\hat A$) + entropy bonus (鼓励探索), 一行代码 30 个字符就能写完核心。它不带任何额外超参的二阶约束, 没有 line search、没有 Hessian, 只多了一个 $\epsilon$ 标量, 却拿到了和 TRPO 几乎一致的稳定性 —— 这正是工程师梦寐以求的"砍掉数学优雅、换来工程鲁棒"。</p>
+  <figure>
+    <img src="figures/sec3-ppo-clip-shape.png" alt="PPO clipped surrogate L^CLIP 关于 ratio r 的两段折线形状" style="max-width:80%;">
+    <figcaption>图 3.1: PPO clipped surrogate $L^{CLIP}$ 关于 ratio $r$ 的形状。当 $\hat A \gt 0$ (左图) 时, $r$ 超过 $1+\epsilon$ 之后 surrogate 被压平 —— 即使比例继续涨, 也拿不到额外 reward, 抑制激进更新; 当 $\hat A \lt 0$ (右图) 时, $r$ 跌破 $1-\epsilon$ 之后才被夹住 —— 负样本仍能驱动梯度。这条"非对称剪裁"就是 PPO 名字里 "Proximal" 的由来。</figcaption>
+  </figure>
+
+  <h3 id="sec-3-2">3.2 最小 demo</h3>
+  <p>把上面三步翻成 30 行 PyTorch, 跑在一个 2-arm bandit 上, 我们就能亲眼看见 ratio、clipfrac、loss 这三个 PPO 训练日志里最常出现的指标:</p>
+  <pre><code class="language-python teaching-demo">import torch, torch.nn.functional as F
+
+torch.manual_seed(0)
+logits = torch.zeros(2, requires_grad=True)   # 2 个动作的 policy logits
+optim  = torch.optim.SGD([logits], lr=0.5)
+eps    = 0.2
+
+# === 1) 用 "old policy" 采一批 trajectory ===
+with torch.no_grad():
+    old_logp_all = F.log_softmax(logits, dim=-1)
+    actions = torch.distributions.Categorical(logits=logits).sample((64,))
+    old_logp = old_logp_all[actions]                  # 采样时记录的 log π_old
+rewards = torch.tensor([0.0, 1.0])[actions]           # 只有动作 1 有 reward
+adv = (rewards - rewards.mean()) / (rewards.std() + 1e-8)   # 简易 baseline
+
+# === 2) 在同一批样本上做 K 步 PPO 更新 ===
+for k in range(4):
+    new_logp = F.log_softmax(logits, dim=-1)[actions]
+    ratio    = torch.exp(new_logp - old_logp)         # r_t(θ)
+    surr1    = ratio * adv
+    surr2    = torch.clamp(ratio, 1 - eps, 1 + eps) * adv
+    pg_loss  = -torch.min(surr1, surr2).mean()        # 注意符号: minimize loss = maximize surrogate
+    clipfrac = (surr2 &lt; surr1).float().mean().item() if (adv &gt; 0).any() else \
+               (surr2 &gt; surr1).float().mean().item()
+    optim.zero_grad(); pg_loss.backward(); optim.step()
+    print(f"step {k}  ratio[{ratio.min():.3f},{ratio.max():.3f}]  "
+          f"clipfrac={clipfrac:.2f}  loss={pg_loss.item():+.4f}")
+</code></pre>
+  <p>跑起来你会看到: 第 0 步 ratio 恰为 1.0 (新旧策略相同), clipfrac=0; 之后几步 ratio 逐渐偏离 1, 当超出 $[0.8, 1.2]$ 的样本越多, clipfrac 越大, loss 也开始"卡住"不再下降 —— 这正是 PPO 主动放弃"贪婪的更新"的瞬间。注意我们用的是 <code>min(surr1, surr2)</code> 而不是直接 <code>clip(ratio) * adv</code>: 前者在 $\hat A \gt 0$ 时压住乐观、在 $\hat A \lt 0$ 时仍允许大梯度修正; 后者会同时砍掉"该走的负方向", 反而让坏样本无法被纠正。这就是 PPO 论文里反复强调的"悲观下界"——只在对自己有利的方向上保守, 在惩罚自己的方向上保留全部学习信号, 这种非对称设计是 PPO 区别于一切朴素 clip 方案的关键。</p>
+
+  <h3 id="sec-3-3">3.3 正式化</h3>
+  <p>把直觉翻译成公式, 整个 PPO 只需要四个对象: ratio、CPI surrogate、CLIP surrogate、total loss。先定义新旧策略对同一动作的概率比:</p>
+  <p>$$r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{\text{old}}}(a_t \mid s_t)}$$</p>
+  <p class="math-translation">—— 翻译: $r_t$ 等于 1 表示"新策略对这个动作的偏好和旧策略一样"; 大于 1 表示"更偏好"; 小于 1 表示"更不偏好"。</p>
+  <p>TRPO 沿用的 surrogate (Schulman 称为 Conservative Policy Iteration 目标) 就是把 advantage 用这个 ratio 加权:</p>
+  <p>$$L^{CPI}(\theta) = \mathbb{E}_t\!\left[ r_t(\theta) \,\hat A_t \right]$$</p>
+  <p class="math-translation">—— 翻译: 想让总 advantage 越大越好, 就让那些 $\hat A_t \gt 0$ 的动作的 $r_t$ 涨上去、$\hat A_t \lt 0$ 的动作的 $r_t$ 压下来。</p>
+  <p>问题是 $L^{CPI}$ 没有任何"上限" —— $r_t$ 可以飙到 10、100, 把单条样本的影响放大到崩盘。PPO 的核心改动只有一行: 用 min 和 clip 把 surrogate 夹成两段折线:</p>
+  <p>$$L^{CLIP}(\theta) = \mathbb{E}_t\!\left[ \min\!\Big( r_t(\theta)\,\hat A_t,\; \mathrm{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\,\hat A_t \Big) \right]$$</p>
+  <p class="math-translation">—— 翻译: 对每个时刻, 在"原始 surrogate"和"剪裁后 surrogate"中取较小的一个, 形成一个永远不会"过度乐观"的下界。</p>
+  <p>这里 min 的不对称性是关键: 当 $\hat A_t \gt 0$ 时, ratio 越大 surrogate 越大, 一旦 $r_t \gt 1+\epsilon$ 第二项就把它压回 $1+\epsilon$, min 取出这个被压住的值; 当 $\hat A_t \lt 0$ 时, ratio 越小 surrogate 越大 (因为乘了负数), 一旦 $r_t \lt 1-\epsilon$ 第二项把它夹回 $1-\epsilon$, min 同样取出被夹的值。两侧效果合起来: <strong>新策略只在"对自己有利"的方向上被剪裁, 在"惩罚自己"的方向上仍能大步纠错</strong>。</p>
+  <p>把策略损失和 critic、entropy 拼起来就是 PPO 的完整目标:</p>
+  <p>$$L(\theta) = L^{CLIP}(\theta) - c_1\, L^{VF}(\theta) + c_2\, S\!\left[\pi_\theta\right](s_t)$$</p>
+  <p class="math-translation">—— 翻译: 第一项推动策略改进, 第二项让 critic 拟合 $\hat A_t$ 所依赖的 value, 第三项是 entropy bonus, 阻止策略过早 collapse 成 one-hot。</p>
+  <p>这里的 $\hat A_t$ 通常就用 §2.3 已经推过的 GAE 公式 $\hat A_t = \sum_{l\ge 0}(\gamma\lambda)^l \delta_{t+l}$ 计算, 因此 PPO 训练循环 = "rollout → GAE → K 个 epoch 的 minibatch SGD on $L$"。</p>
+
+  <h3 id="sec-3-4">3.4 代码引用</h3>
+  <p>HuggingFace TRL 的 PPOTrainer 把上面公式几乎一一对应地写成了 10 行代码, 这是工业界最常被 fork 的 LLM-PPO 实现:</p>
+  <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L849-L866 — PPO clipped surrogate: ratio + 双侧 surrogate + max</p>
+  <pre><code class="language-python">                            logprobs_diff = new_logprobs - mb_logprobs
+                            ratio = torch.exp(logprobs_diff)
+                            pg_losses = -mb_advantage * ratio
+                            pg_losses2 = -mb_advantage * torch.clamp(ratio, 1.0 - args.cliprange, 1.0 + args.cliprange)
+                            pg_loss_max = torch.max(pg_losses, pg_losses2)
+                            pg_loss = masked_mean(pg_loss_max, ~padding_mask[micro_batch_inds])
+                            loss = pg_loss + args.vf_coef * vf_loss
+                            accelerator.backward(loss)
+                            optimizer.step()
+                            optimizer.zero_grad()
+                            with torch.no_grad():
+                                pg_clipfrac = masked_mean(
+                                    (pg_losses2 &gt; pg_losses).float(), ~padding_mask[micro_batch_inds]
+                                )
+                                prob_dist = torch.nn.functional.softmax(logits, dim=-1)
+                                entropy = torch.logsumexp(logits, dim=-1) - torch.sum(prob_dist * logits, dim=-1)
+                                approxkl = 0.5 * (logprobs_diff**2).mean()
+</code></pre>
+  <p>逐行对照公式: 第 1 行 <code>logprobs_diff = new_logprobs - mb_logprobs</code> 就是 $\log r_t(\theta) = \log\pi_\theta - \log\pi_{\theta_{\text{old}}}$, 在 log 空间做差比直接除概率数值稳定得多。第 2 行 <code>ratio = torch.exp(...)</code> 还原 $r_t$。第 3、4 行写出两个 surrogate, 但都带了负号 —— 这是因为 PyTorch 是<strong>最小化</strong> loss, 而我们想<strong>最大化</strong> $L^{CLIP}$, 所以代码里 <code>pg_losses = -mb_advantage * ratio</code> 对应 $-r_t \hat A_t$。第 5 行的 <code>torch.max(pg_losses, pg_losses2)</code> 看起来和公式 $\min(\cdot,\cdot)$ 反向, 但因为两个 surrogate 都取了负, max-of-negatives 恰好等于 -min-of-positives, 数学上完全等价。第 13 行的 <code>pg_clipfrac</code> 统计"被 clip 那一支更小"的比例 —— 这也是 PPO 训练日志里最关键的健康指标, 大致维持在 0.1–0.3 之间。最后 <code>approxkl = 0.5 * (logprobs_diff**2).mean()</code> 是新旧策略 KL 的二阶近似, 用来在 early stopping 时判断"这一轮是不是走太远"。</p>
+  <p>而 $\hat A_t$ 的计算就是 §2.3 推过的 GAE 反向递推, 同一个文件再往上翻几十行:</p>
+  <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L794-L807 — GAE backward loop</p>
+  <pre><code class="language-python">                # 6. compute advantages and returns
+                lastgaelam = 0
+                advantages_reversed = []
+                gen_length = responses.shape[1]
+                for t in reversed(range(gen_length)):
+                    nextvalues = values[:, t + 1] if t &lt; gen_length - 1 else 0.0
+                    delta = rewards[:, t] + args.gamma * nextvalues - values[:, t]
+                    lastgaelam = delta + args.gamma * args.lam * lastgaelam
+                    advantages_reversed.append(lastgaelam)
+                advantages = torch.stack(advantages_reversed[::-1], axis=1)
+                returns = advantages + values
+                advantages = masked_whiten(advantages, ~padding_mask)
+                advantages = torch.masked_fill(advantages, padding_mask, 0)
+</code></pre>
+  <p>对照公式: <code>delta = rewards[:, t] + gamma * nextvalues - values[:, t]</code> 是 TD residual $\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$; <code>lastgaelam = delta + gamma * lam * lastgaelam</code> 就是 GAE 的递推式 $\hat A_t = \delta_t + \gamma\lambda\, \hat A_{t+1}$, 从右往左累加正好一遍 $O(T)$ 出全部 advantage。<code>returns = advantages + values</code> 给 critic 提供回归目标 (这就是上一段 <code>vf_loss</code> 的标签)。最后 <code>masked_whiten</code> 把 advantage 标准化到零均值单位方差, 这一步在 LLM 长序列上几乎是"必开"的 trick, 否则 ratio 会被极端 $\hat A$ 推到 clip 边界外。两段代码合在一起, 就是教科书 PPO 在 LLM 上的全部精华。</p>
+
+  <h3 id="sec-3-5">3.5 洞察</h3>
+  <ul>
+    <li><strong>clip vs KL penalty</strong>: PPO 论文同时提出过"自适应 KL 惩罚"和"clip"两个版本, 实证上 clip $\epsilon=0.2$ 几乎对所有 Atari/MuJoCo 任务都开箱即用, 而 KL coefficient $\beta$ 需要随训练动态调节, 一旦 reward 量级变化就容易调炸 —— 这也是为什么 §4 RLHF 把 KL 单独放进 reward 而<em>不</em>放进 surrogate 系数, 把"步长约束"和"分布距离约束"两件事彻底解耦。</li>
+    <li><strong>PPO 流行的真正原因不是性能, 是兼容性</strong>: 跟 TRPO 比起来, PPO 不需要二阶信息, 对参数共享、dropout、LayerNorm、RNN/Transformer 都"插上就能跑", 这才是它在工业界全面取代 TRPO 的原因。把 LLM 接进 RL 流水线时, 这一点尤其重要 —— RLHF 阶段我们要在一个上百亿参数的 transformer 上做多次 SGD epoch, 任何 "需要重新算 Fisher" 的算法都直接出局。</li>
+    <li><strong>value head 与 policy head 共享 backbone</strong>: 在 LLM 上, critic 几乎都是把 transformer body 复用, 只在最后一层接一个标量输出 head —— 比"两份独立 7B 模型"省一半显存。但代价是 policy loss 和 value loss 必须配 $c_1$ 调好相对幅度 (通常 $c_1 \in [0.1, 1.0]$), 否则 critic 梯度会把 backbone 拖偏, 表现就是 reward 微涨、SFT 能力却快速退化。</li>
+    <li><strong>entropy bonus 在 LLM 上常被关掉</strong>: 经典 PPO 的 $c_2 \approx 0.01$ 是因为离散控制空间太小、容易 collapse, 而 LLM 词表 $\gt 5\!\times\!10^4$, sampling 温度 + nucleus 已经提供了足够探索, 所以 TRL 的默认 $c_2 = 0$。一旦 entropy bonus 拿掉、KL 又是控住"和 SFT 模型距离"的关键, 就需要专门把 KL 拼回 reward 里 —— 这正是 §4 RLHF 三段式 reward 设计登场的位置: SFT 给初始策略、RM 给标量 reward、KL 项把 PPO 的步长约束"翻译"成对 SFT 分布的依恋, 三者合一才能让大模型在不忘本的前提下学会满足人类偏好。</li>
+  </ul>
+</section>

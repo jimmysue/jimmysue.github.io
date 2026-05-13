@@ -1,0 +1,125 @@
+<section id="sec-4">
+  <h2 id="sec-4">4. RLHF: 把 PPO 接到 LLM 上</h2>
+
+  <h3 id="sec-4-1">4.1 直觉</h3>
+  <p>到这里我们手里已经有了 PPO 这把锤子, 但还没找到要钉的钉子. RLHF (Reinforcement Learning from Human Feedback) 给出的答案是: <strong>钉子是"对齐人类偏好"</strong>. 不过一上来就有个工程难题 —— 人类的偏好该怎么变成可优化的 reward?</p>
+
+  <p>最朴素的想法: 让标注员直接给模型回答打 0–10 分. 这条路几乎所有团队都试过, 也几乎所有团队都放弃了. 原因有二: 一是<strong>人评不准</strong>, 不同人对"7 分"的理解差距巨大, 同一个人在上午和下午也会漂; 二是<strong>分布漂移</strong>, 模型今天的输出和上周的输出风格不同, 历史标签直接失效. 于是 InstructGPT 走了另一条路 —— <strong>不让人打分, 让人选 A 还是 B</strong>. 二选一这件事, 人做起来稳定得多.</p>
+
+  <figure>
+    <img src="figures/sec4-instructgpt-3step.png" alt="InstructGPT 三步式 RLHF 流程">
+    <figcaption>InstructGPT 的三段式 pipeline: SFT → RM → PPO. 三个阶段对应三个 loss, 任何一步崩掉整条链路都报废.</figcaption>
+  </figure>
+
+  <p>整条 pipeline 是三段:</p>
+  <ul>
+    <li><strong>SFT (Supervised Fine-Tuning)</strong> —— 在指令-回答配对上微调 base model, 得到一个能听懂人话的 policy π_SFT.</li>
+    <li><strong>RM (Reward Model)</strong> —— 收集"同一个 prompt 两条回答 + 人选哪条更好"的偏好数据, 训一个小网络 r_φ 拟合"人会更喜欢哪条".</li>
+    <li><strong>PPO</strong> —— 把 r_φ 当 reward 信号, 用 §3 那套 PPO 更新 π_θ, 让它最大化 RM 给的分数.</li>
+  </ul>
+
+  <p>但故事还没完. 如果就这样把 RM 直接接到 PPO 上, 模型会迅速发现: 哦, 输出某种特定的话术能让 r_φ 给出爆表分数. 复读机、长度爆炸、固定开场白、滥用感叹号 —— 这些就是经典的 <strong>reward hacking</strong>. 本质上 RM 只是一个有限数据训出来的代理函数, 它在训练分布内还行, 一旦 policy 把它推到没见过的角落, RM 就成了一个有漏洞的目标函数, 被 PPO 这台优化机器逐一钻空子. 解决方案是在 PPO 阶段额外加一项 β·KL(π_θ ‖ π_ref), 其中 π_ref 就是 SFT 阶段冻结下来的副本. <strong>β·KL 不是优化术语, 是 alignment 的安全装置</strong> —— 它把 π_θ 牵在 π_ref 附近, 不让它为了 RM 高分把语言模型本身的能力打烂.</p>
+
+  <h3 id="sec-4-2">4.2 最小 demo</h3>
+  <p>下面 30 行展示 RLHF 里两个最核心的算式: BT reward model 的 loss, 以及 PPO 阶段总 reward 怎么由 RM 分数减去 KL 罚项得到.</p>
+
+  <pre><code class="language-python teaching-demo">import torch, torch.nn.functional as F
+
+# (a) Bradley-Terry RM 训练: chosen 比 rejected 好, 让 r_chosen &gt; r_rejected
+# 假设 reward_model 把 (prompt + response) 映射到一个 scalar
+r_chosen   = reward_model(prompt, response_chosen)    # shape: [batch]
+r_rejected = reward_model(prompt, response_rejected)  # shape: [batch]
+
+rm_loss = -F.logsigmoid(r_chosen - r_rejected).mean()
+rm_loss.backward()
+rm_optimizer.step()
+
+# (b) RLHF 阶段: 给 policy 采样出来的 y, 算总 reward 送给 PPO
+y = policy.sample(prompt)                              # 一次 rollout
+logp_theta = policy.log_prob(y, prompt)                # 当前 policy, [T]
+logp_ref   = ref_policy.log_prob(y, prompt)            # SFT 冻结副本, [T]
+
+# token-level KL 估计 (单样本): log π_θ - log π_ref
+kl_per_token = logp_theta - logp_ref                   # shape: [T]
+
+# RM 只在序列结束时给一个 scalar 分数
+r_scalar = reward_model(prompt, y).detach()            # shape: []
+
+# 总 reward: 每步减 β·KL, 最后一步加 RM 分数
+rewards = -beta * kl_per_token                         # shape: [T]
+rewards[-1] += r_scalar
+# 然后 rewards 喂给 PPO 的 advantage 估计 + L^CLIP 更新
+</code></pre>
+
+  <p>注意两个工程细节. 一是 (b) 里 KL 不是真的算两个分布的 KL —— 它是用单样本 log-prob 之差作的<strong>无偏估计</strong> (§1 已铺垫). 二是 RM 给的是<strong>整段序列一个分数</strong>, 不是每个 token 一个, 所以它只能加在最后一个 token 上; 而 KL 罚项是 token-level 的, 每步都减. 这个"前面只罚 KL、最后一步才发 RM 红包"的形状, 是几乎所有 RLHF 实现的标准做法.</p>
+
+  <h3 id="sec-4-3">4.3 正式化</h3>
+  <p><strong>Bradley-Terry 偏好模型.</strong> 给定 prompt $x$ 和两条回答 $y_w$ (winner)、$y_l$ (loser), BT 假设人选 $y_w$ 的概率由两者 reward 之差经 sigmoid 决定:</p>
+  <p>$$P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big)$$</p>
+  <p class="math-translation">—— 翻译: 哪条 reward 高就更可能被选; reward 差 0 时各 50%, 差距越大被选概率越接近 1.</p>
+
+  <p><strong>RM 训练 loss.</strong> 给定偏好数据集 $\mathcal{D}=\{(x, y_w, y_l)\}$, 做最大似然就是最小化:</p>
+  <p>$$\mathcal{L}_{RM}(\phi) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}}\big[\log \sigma\big(r_\phi(x, y_w) - r_\phi(x, y_l)\big)\big]$$</p>
+  <p class="math-translation">—— 翻译: 推高 chosen 的分数、压低 rejected 的分数, 直到两者 sigmoid 差能解释所有人类偏好.</p>
+
+  <p><strong>RLHF objective.</strong> PPO 阶段要解的是一个 KL 约束下的最大化问题:</p>
+  <p>$$\max_{\pi_\theta}\; \mathbb{E}_{x \sim \mathcal{D},\, y \sim \pi_\theta(\cdot \mid x)}\Big[r_\phi(x, y) - \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)}\Big]$$</p>
+  <p class="math-translation">—— 翻译: 在不偏离 SFT 副本 π_ref 太远 (β·KL 惩罚) 的前提下, 让 RM 给的 reward 越高越好.</p>
+
+  <p><strong>token-level 实现.</strong> 上面这个目标看起来是"序列级"的, 但 PPO 需要的是<strong>每步一个 reward</strong> 才能算 advantage. 工程上的转法很关键: 把 $\log\frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)} = \sum_t (\log \pi_\theta - \log \pi_{ref})_t$ 这条 autoregressive 分解打开, 让第 $t$ 步的 reward 是:</p>
+  <p>$$\tilde r_t = -\beta\,\big(\log \pi_\theta(y_t \mid x, y_{\lt t}) - \log \pi_{ref}(y_t \mid x, y_{\lt t})\big) + r_\phi(x, y)\cdot \mathbb{1}[t = T]$$</p>
+  <p class="math-translation">—— 翻译: 每个 token 上都减一份 β·KL 罚分, 只有最后一个 token (t=T) 再加上 RM 给整段的 scalar 分数.</p>
+
+  <p>很多人第一次读 RLHF 代码会卡在这一步: 怎么明明目标里只有一个 r_φ(x, y), 实现里却变成了每个 token 都有 reward? 答案就在这条等式 —— β·KL 的求和被劈成每步一份 token-level 罚项, 而 RM 那一笔只在最后一步出现. 这也解释了为什么实现里 KL 的"距离"从来不是真的算两个分布的 KL, 而是用一条采样轨迹上的 log-prob 之差代替: 既要拿到每个 token 一个 scalar 去喂 advantage 估计, 又不能为了一个标量真的去枚举词表算分布 KL.</p>
+
+  <h3 id="sec-4-4">4.4 代码引用</h3>
+
+  <p>先看 TRL 里 RM 训练的 loss, 一行直接对上 BT:</p>
+  <p class="code-source">sources/repos/huggingface-trl/trl/trainer/reward_trainer.py:L645-L665 — Bradley-Terry reward model loss: -logsigmoid(r_w - r_l)</p>
+  <pre><code class="language-python">    def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
+        mode = "train" if self.model.training else "eval"
+
+        # If not set, defaults from model config and may warn since cache isn't compatible with gradient checkpointing
+        inputs["use_cache"] = False
+        outputs = model(**inputs)
+
+        # Split the rewards into chosen and rejected
+        rewards_chosen, rewards_rejected = torch.chunk(outputs.logits.squeeze(-1), chunks=2)
+
+        # Calculate loss, optionally modulate with margin
+        if "margin" in inputs:
+            loss = -nn.functional.logsigmoid(rewards_chosen - rewards_rejected - inputs["margin"]).mean()
+        else:
+            loss = -nn.functional.logsigmoid(rewards_chosen - rewards_rejected).mean()
+
+        if self.args.center_rewards_coefficient is not None:
+            loss += self.args.center_rewards_coefficient * torch.mean((rewards_chosen + rewards_rejected) ** 2)
+</code></pre>
+  <p>核心就是 <code>loss = -logsigmoid(rewards_chosen - rewards_rejected).mean()</code> 这一行, 直接落到 §4.3 的 $\mathcal{L}_{RM}$. 一个工程小细节: <code>torch.chunk(outputs.logits.squeeze(-1), chunks=2)</code> 是因为 trainer 把 chosen + rejected 拼成一个 batch 一起 forward (节省 KV cache、对齐 padding), 出来再沿 batch 维切两半. 最后那个 <code>center_rewards_coefficient</code> 是把 (r_chosen + r_rejected) 的均值压向 0, 防止 RM 整体偏移 —— BT loss 本身只看差值, 不约束绝对值, 长期训练会让 reward 数值漂走.</p>
+
+  <p>再看 PPO 阶段把 KL 拼到 reward 上的那一段:</p>
+  <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L780-L792 — RLHF 把 KL 当 token-level reward 减项: r' = -β·KL + r(x,y) at last token</p>
+  <pre><code class="language-python">                # 4. compute rewards
+                # Formula used by http://joschu.net/blog/kl-approx.html for the k1 and k3 estimators
+                logr = ref_logprobs - logprobs
+                kl = -logr if args.kl_estimator == "k1" else (logr.exp() - 1) - logr  # Else statement is k3
+                non_score_reward = -args.kl_coef * kl
+                rewards = non_score_reward.clone()
+                actual_start = torch.arange(rewards.size(0), device=rewards.device)
+                actual_end = torch.where(sequence_lengths_p1 &lt; rewards.size(1), sequence_lengths_p1, sequence_lengths)
+                rewards[actual_start, actual_end] += scores
+
+                # 5. whiten rewards
+                if args.whiten_rewards:
+                    rewards = masked_whiten(rewards, mask=~padding_mask_p1, shift_mean=False)
+                    rewards = torch.masked_fill(rewards, padding_mask_p1, 0)
+</code></pre>
+  <p>这一段就是 §4.3 那条 token-level reward 公式的字面翻译. <code>logr = ref_logprobs - logprobs</code> 是 $\log(\pi_{ref}/\pi_\theta)$; k1 估计直接取 <code>kl = -logr</code> 即 $\log(\pi_\theta/\pi_{ref})$ 的单样本估计, k3 用 Schulman 那个更低方差的 $(e^{\log r} - 1) - \log r$ 估计. <code>non_score_reward = -args.kl_coef * kl</code> 就是每步的 $-\beta \cdot \mathrm{KL}_t$. 紧接着关键的一行 <code>rewards[actual_start, actual_end] += scores</code> —— <code>scores</code> 是 RM 给整段序列的 scalar, 只加在<strong>每条序列的最后一个有效 token 位</strong> (用 sequence_lengths 索引出来), 完美对上"只在 t=T 时叠加 r_φ"的公式. <code>whiten_rewards</code> 是为了把 reward 标准化到方差 1, 让 PPO 的 advantage 估计不被 KL 数量级带歪.</p>
+
+  <h3 id="sec-4-5">4.5 洞察</h3>
+  <ul>
+    <li><strong>RLHF 的"3 步"不是流水线, 是 3 个 loss.</strong> SFT loss、RM 的 BT loss、PPO 的 L^CLIP, 三者完全独立但环环相扣. 任何一步崩掉整条链路都报废: SFT 数据不够多样, π_ref 本身就偏, KL 把 π_θ 锁在偏的地方; RM 拟合人类偏好太弱, PPO 越优化 reward 越远离真实人类喜好; PPO 不稳, 前两步再好也白做.</li>
+    <li><strong>β·KL 不是优化术语, 是 alignment 的安全装置.</strong> 它的作用不是让收敛更快、也不是为了数学性质漂亮 —— 它纯粹是为了防止 reward hacking. 没有它, 模型会迅速学会输出某种"RM 喜欢但其实没意义"的话术 (复读、固定模板、长度爆炸). β 太小模型跑飞, β 太大就退化成 SFT.</li>
+    <li><strong>RM 在分布外样本上不可信.</strong> RM 是用 SFT 模型采样出来的 (x, y_w, y_l) 训的, 一旦 PPO 让 π_θ 偏离 SFT 太远, RM 就开始对"它从没见过的 y"瞎打分, 给出的 reward 数值跟人类真实偏好已经脱钩 —— 这又反过来要求 β·KL 必须够大, 把 π_θ 锁在 RM 的"舒适区"里. 这条死锁 (KL 大 → 模型学不动; KL 小 → RM 瞎打分) 是 RLHF 最难调的地方, 工程上往往要做 RM 重训、KL adaptive、reward normalization 一堆 hack 才能稳住. 这也是后面 §5 DPO 把 RM 干掉、§6 GRPO 换 advantage 形态的真正动机: 既然 RM + KL 这套组合本身有内禀矛盾, 不如换一个不需要 explicit RM 的目标函数.</li>
+  </ul>
+</section>

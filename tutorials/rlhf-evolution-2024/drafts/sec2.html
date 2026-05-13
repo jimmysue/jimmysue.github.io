@@ -1,0 +1,106 @@
+<section id="sec-2">
+  <h2 id="sec-2">2. Policy Gradient: 不可微 reward 怎么求导 —— REINFORCE 起手</h2>
+
+  <h3 id="sec-2-1">2.1 直觉</h3>
+  <p>RL 在生成模型里之所以"不可替代",起点就一句话:<strong>我们想最大化的目标不可导</strong>。BLEU、人类偏好打分、CLIP 相似度、单元测试是否通过、编译器 pass/fail —— 这些 reward 要么是离散的、要么经过黑箱评测器,根本没有 $\partial R / \partial \theta$ 可以反传。所以即便把 LLM 的输出 logits 接上一个 reward,也无法像监督学习那样"loss.backward()"完事。</p>
+  <p>突破口是一个看似无害的恒等式 —— <em>log-derivative trick</em>:$\nabla_\theta p_\theta(x) = p_\theta(x)\,\nabla_\theta \log p_\theta(x)$。把它代进期望里,梯度被"挪到 log π 上面",而 R 只作为一个采样到的<strong>常数权重</strong>留在外面。结论非常便宜:只要你能 sample 一条 trajectory $\tau$、能算它的 $\log \pi_\theta(\tau)$,你就能更新 $\theta$ —— reward 是不是可导,根本不进梯度公式。</p>
+  <p>一个通俗类比:你想最大化"刮彩票的中奖额"。中奖与否是离散事件、没有梯度,但你<em>可以</em>调整"买哪张票"的策略 $\pi_\theta$。REINFORCE 告诉你:把每次中奖额拿来,按当时"为什么买这张票"的 log 概率梯度加权,平均一下就是策略改进方向。中奖那张,下次更可能买;没中那张,下次更不可能买。</p>
+  <figure>
+    <pre style="font-family:ui-monospace,Menlo,monospace;line-height:1.4;font-size:0.88em;background:#1e2530;color:#e8e8e8;padding:1em;border-radius:6px;overflow-x:auto;">
+       J(θ) = E_{τ~π_θ}[ R(τ) ]                    目标:期望 reward,R 不可导
+
+           不能直接 ∂R/∂θ ── 死路一条
+                     │
+                     ▼ log-derivative trick
+       ∇p_θ(τ) = p_θ(τ) · ∇log p_θ(τ)
+
+                     │
+                     ▼ 代回积分
+       ∇J = E_{τ~π_θ}[ R(τ) · ∇log π_θ(τ) ]
+                       └────┬────┘    └─────┬─────┘
+                            │              │
+                       仅当数值              这里才有梯度!
+                     (允许黑箱)         (我们能反传的部分)
+    </pre>
+    <figcaption>图 2.1 log-derivative trick:把 ∇ 从不可导的 R 上"挪"到可导的 log π 上,REINFORCE 就此成立。</figcaption>
+  </figure>
+
+  <h3 id="sec-2-2">2.2 最小 demo</h3>
+  <p>30 行 numpy 跑一个 3-arm bandit:真实 reward 是 $[0.1, 0.5, 0.9]$,policy 是 softmax(θ)。注意 reward 在代码里就是个查表得到的标量,完全不可导,但 θ 仍然能收敛到只拉第 3 根 arm。</p>
+  <pre><code class="language-python teaching-demo">import numpy as np
+np.random.seed(0)
+
+true_rewards = np.array([0.1, 0.5, 0.9])   # 不可导:就是一张查找表
+theta = np.zeros(3)                         # policy logits
+lr = 0.1
+history = []
+
+for step in range(300):
+    # 1) sample action a ~ softmax(theta)
+    probs = np.exp(theta) / np.exp(theta).sum()
+    a = np.random.choice(3, p=probs)
+
+    # 2) get reward (黑箱:不需要可导)
+    r = true_rewards[a]
+
+    # 3) ∇_θ log π(a|θ) = e_a - probs    (softmax 的标准结果)
+    grad_logp = -probs.copy()
+    grad_logp[a] += 1.0
+
+    # 4) REINFORCE: θ ← θ + lr · r · ∇log π(a)
+    theta += lr * r * grad_logp
+    history.append(r)
+
+print("final policy:", np.round(probs, 3))   # ≈ [0.00, 0.01, 0.99]
+print("avg reward last 50:", np.mean(history[-50:]))
+</code></pre>
+  <p>关键不在循环长度,而在于第 2 步:<code>r = true_rewards[a]</code> 是离散查表,Python 永远不会对它求导;真正进入梯度的是<strong>第 3 步</strong> $\nabla_\theta \log \pi$ —— softmax 对 logits 的导数,完全可导。reward 只是个权重:r 越大,把这个 action 的概率往上推得越用力。这正是把"不可导优化"翻译成"可导优化"的全部内容。</p>
+
+  <h3 id="sec-2-3">2.3 正式化</h3>
+  <p>从 §1 的目标函数出发(τ 表示一整条轨迹 $s_0, a_0, s_1, a_1, \dots, s_T$):</p>
+  $$J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\bigl[R(\tau)\bigr] = \int p_\theta(\tau)\, R(\tau)\, d\tau.$$
+  <p class="math-translation">—— 翻译: 我们要让"按当前策略 π_θ 跑出来的轨迹,平均得分"尽可能高。</p>
+  <p>对 θ 求梯度。$R(\tau)$ 与 θ 无关,只有 $p_\theta(\tau)$ 含 θ。套 log-derivative trick:</p>
+  $$\nabla_\theta J(\theta) = \int \nabla_\theta p_\theta(\tau)\, R(\tau)\, d\tau = \int p_\theta(\tau)\, \nabla_\theta \log p_\theta(\tau)\, R(\tau)\, d\tau.$$
+  <p class="math-translation">—— 翻译: 用恒等式 ∇p = p · ∇log p 把"求导对象"从 p 换成 log p,这样积分又能写回期望形式。</p>
+  <p>因为 $p_\theta(\tau) = p(s_0)\prod_t \pi_\theta(a_t \mid s_t)\, p(s_{t+1}\mid s_t, a_t)$,只有 $\pi_\theta$ 项依赖 θ,环境转移项 $\log p(s_{t+1}\mid s_t, a_t)$ 的梯度为零。于是得到 REINFORCE 估计:</p>
+  $$\nabla_\theta J(\theta) = \mathbb{E}_{\tau \sim \pi_\theta}\!\left[\,R(\tau) \sum_{t=0}^{T} \nabla_\theta \log \pi_\theta(a_t \mid s_t)\right].$$
+  <p class="math-translation">—— 翻译: 只要能采样轨迹、能算每步动作的 log 概率梯度,再用 R 加权求和,就是策略梯度的无偏估计。</p>
+  <p><strong>Baseline 降方差。</strong> 注意到任何与动作无关的函数 $b(s)$ 满足 $\mathbb{E}_{a\sim\pi}[b(s)\,\nabla\log\pi(a\mid s)] = b(s)\,\nabla\sum_a \pi(a\mid s) = b(s)\,\nabla 1 = 0$,因此把 $R$ 换成 $R - b(s)$ 不改变期望,却能显著压方差。取 $b(s) = V^\pi(s)$,定义优势:</p>
+  $$A^\pi(s,a) = Q^\pi(s,a) - V^\pi(s).$$
+  <p class="math-translation">—— 翻译: 优势 = 这个动作的回报 − 这个状态的平均回报,"比平均好多少"才是有信息量的学习信号。</p>
+  <p>实际中 $A$ 不可解析,需要从样本估计。Schulman 等人 (2016) 的 GAE 用 TD 残差 $\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)$ 的几何加权和:</p>
+  $$\hat{A}_t^{\text{GAE}(\gamma,\lambda)} = \sum_{k\geq 0} (\gamma\lambda)^k \, \delta_{t+k}, \qquad 0 \lt \lambda \lt 1.$$
+  <p class="math-translation">—— 翻译: λ 越接近 0 越像单步 TD(低方差高偏差),越接近 1 越像 Monte Carlo(低偏差高方差),λ 就是一个手动旋钮。</p>
+
+  <h3 id="sec-2-4">2.4 代码引用</h3>
+  <p>看一下 TRL 里 PPO 训练器是怎么把 GAE 写成几行 PyTorch 的。这段代码会在 §3 PPO 里被反复引用,这里只关注 advantage 计算本身:</p>
+  <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L794-L807 — GAE advantage: 反向时序累加 delta + gamma*lam*lastgaelam</p>
+  <pre><code class="language-python"># 6. compute advantages and returns
+lastgaelam = 0
+advantages_reversed = []
+gen_length = responses.shape[1]
+for t in reversed(range(gen_length)):
+    nextvalues = values[:, t + 1] if t &lt; gen_length - 1 else 0.0
+    delta = rewards[:, t] + args.gamma * nextvalues - values[:, t]
+    lastgaelam = delta + args.gamma * args.lam * lastgaelam
+    advantages_reversed.append(lastgaelam)
+advantages = torch.stack(advantages_reversed[::-1], axis=1)
+returns = advantages + values
+advantages = masked_whiten(advantages, ~padding_mask)
+advantages = torch.masked_fill(advantages, padding_mask, 0)
+</code></pre>
+  <p>三处对照:</p>
+  <ul>
+    <li><code>delta = rewards[:, t] + args.gamma * nextvalues - values[:, t]</code> 就是公式里的 $\delta_t = r_t + \gamma V_{t+1} - V_t$;<code>nextvalues</code> 在最后一步是 0,因为序列末尾没有下一时刻 value。</li>
+    <li><code>lastgaelam = delta + args.gamma * args.lam * lastgaelam</code> 是 GAE 递推 $\hat{A}_t = \delta_t + \gamma\lambda \hat{A}_{t+1}$ 的逐字翻译。反向遍历 <code>for t in reversed(range(gen_length))</code> 是因为 $\hat{A}_t$ 依赖 $\hat{A}_{t+1}$ —— 必须先有未来,才能算现在。</li>
+    <li><code>masked_whiten(advantages, ~padding_mask)</code> 把整个 batch 的 advantage 做 mean=0, var=1 的标准化(并屏蔽 padding 位)。这一步纯粹是<strong>降方差的工程 trick</strong>,理论上不改变期望梯度方向,但显著稳住 LLM 上的 PPO 训练 —— 后面 §3 会看到为什么 LLM 设定下方差是头号敌人。</li>
+  </ul>
+
+  <h3 id="sec-2-5">2.5 洞察</h3>
+  <ul>
+    <li><strong>REINFORCE 是入场券,但单跑会爆。</strong> bandit 上几行就收敛;LLM 上,reward 是 sequence-level 的一个标量(整条几百 token 的回答只回收一个分),分母还有指数级的轨迹空间。结果是 $\nabla \log \pi$ 的方差极大、梯度乱跳。§3 PPO 的两件武器 —— ratio clip 和 value head —— 都是直接攻这个根。</li>
+    <li><strong>Advantage 不是"数学美感",是"相对信号"。</strong> 用 raw reward 训练,优化器收到的是"这条轨迹得了 0.7";用 advantage 训练,优化器收到的是"这条轨迹比平均水平好 +0.2"。后者去掉了所有 prompt 难度差异带来的 baseline 漂移,信噪比高一个数量级。RLHF/DPO 之争背后,本质就是"要不要显式 value 来算 advantage"这个问题。</li>
+    <li><strong>$(\gamma, \lambda)$ 是偏差/方差旋钮。</strong> $\lambda \to 0$ 退化为单步 TD,bias 高、variance 低;$\lambda \to 1$ 变成 Monte Carlo,bias 低、variance 高。LLM RLHF 实战里 $\lambda = 0.95$、$\gamma = 1.0$ 是几乎所有开源实现的默认值 —— 不是巧合,是被无数次 run 砸出来的 sweet spot。</li>
+  </ul>
+</section>

@@ -1,0 +1,181 @@
+<section id="sec-7">
+  <h2 id="sec-7">7. 跨域: Diffusion 的 RL —— DDPO 与 Diffusion-DPO</h2>
+
+  <h3 id="sec-7-1">7.1 直觉</h3>
+
+  <p>从 §3 到 §6 我们一直在 LLM 上打转, 现在换一个域: 文生图的 <strong>Diffusion 模型</strong> 也想吃 RLHF 的红利 —— 比如让生成的图更符合美学偏好, 或更好地对齐文本描述. 第一反应当然是"照搬 PPO/DPO 过来"; 但只要动笔写, 就立刻撞墙.</p>
+
+  <p>先看相似的地方: Diffusion 采样一次 = 从 $x_T$ 纯噪声出发, 走 50 步去噪到 $x_0$ 干净图; LLM 采样一次 = 生成 100 个 token. 两者都是 <em>multi-step decision process</em>, 看起来 PPO 那套"每步算 ratio, 累加 advantage"应当能直接 work. <strong>DDPO</strong> (Black et al. 2023) 就是这个思路: 把每一步去噪当作一个 RL action, 整段去噪轨迹用 PPO 风格 update.</p>
+
+  <figure>
+    <img src="figures/sec7-ddpo-progression.png" alt="DDPO 训练前后的对比" />
+    <figcaption>DDPO 把 50 步去噪当作 50 个 MDP action, 在 trajectory 末端拿 reward (美学评分 / CLIP 对齐 / 可压缩性 等), PPO 风格反向传播.</figcaption>
+  </figure>
+
+  <p>真正的麻烦在 <strong>log π 怎么算</strong>. LLM 的 $\log \pi_\theta(y \mid x)$ 是天然可解析的: logits 过 softmax 得 token 概率, 整句话就是 token log-prob 的累乘 —— §1 已经讲过. 而 Diffusion 的 $\log p_\theta(x_0 \mid c)$ 是 <em>intractable</em> 的, 因为要算它得 marginalize 掉整条 latent 链 $x_1, x_2, \ldots, x_T$, 50 维高斯的积分根本写不出闭式. 离散 + 可解析 vs. 连续 + intractable —— 这一点差异看似只是技术细节, 实则决定了所有 LLM RL 方法搬到 Diffusion 都要变形: PPO 的 ratio 没法在 $x_0$ 这一终端样本上算, DPO 的隐式 reward $\beta(\log\pi_\theta - \log\pi_{ref})$ 直接写不出来.</p>
+
+  <p>于是出现两条分支: <strong>(1) DDPO</strong> 干脆不算 $\log p_\theta(x_0)$, 而是算每一步 $\log \pi_\theta(x_{t-1} \mid x_t, c)$ —— 这是单步高斯, 完全可解析, 然后把每步当 MDP transition, 整条 trajectory 用 PPO 公式; <strong>(2) Diffusion-DPO</strong> (Wallace et al. 2023) 不重新发明 RL, 而是用 <em>ELBO</em> 把 DPO 公式里的 $\log \pi$ 换成可计算的 surrogate (本质是 noise prediction MSE).</p>
+
+  <figure>
+    <img src="figures/sec7-diffusion-dpo-concept.png" alt="Diffusion-DPO 的核心: 用 ELBO 替代 log π" />
+    <figcaption>Diffusion-DPO 把 DPO 公式中的 intractable $\log p_\theta(x_0 \mid c)$ 用 ELBO 下界替换, 后者等价于 noise-prediction MSE 的负加权和, 在 chosen / rejected 两边都套这个替身.</figcaption>
+  </figure>
+
+  <p>一句话 takeaway: <strong>LLM 的 log π 离散+可解析, Diffusion 的 log π 连续+intractable.</strong> 所有 LLM RL 方法搬到 Diffusion, 要么换"per-step 高斯 log-prob"做 RL (DDPO 路线), 要么换"ELBO surrogate"做对比学习 (Diffusion-DPO 路线). 本节剩下的内容就是把这两条路线各自的公式和代码摊开看一遍.</p>
+
+  <h3 id="sec-7-2">7.2 最小 demo</h3>
+
+  <p>下面是一个 1D toy DDPM 的 trajectory rollout —— 5 步去噪, 每步采样并记录 Gaussian log-prob, 末端拿一个 toy reward, 再用 PPO 的 ratio·advantage 骨架算 loss. 维度全部退化到 1D 标量, 是为了让 DDPO 的 RL 结构裸露出来.</p>
+
+<pre><code class="language-python teaching-demo">import numpy as np
+
+T = 5
+def eps_theta(x, t):       # toy noise predictor: 假装它学过的东西
+    return 0.3 * x - 0.05 * t
+
+def denoise_step(x_t, t, sigma=0.2):
+    mu = x_t - 0.1 * eps_theta(x_t, t)        # μ_θ(x_t, t)
+    x_prev = mu + sigma * np.random.randn()   # sample x_{t-1}
+    logp = -0.5 * ((x_prev - mu) / sigma) ** 2 - np.log(sigma) - 0.5 * np.log(2 * np.pi)
+    return x_prev, logp                       # log π_θ(x_{t-1} | x_t, t)
+
+# rollout: x_T → x_0
+x, traj_logp = np.random.randn(), 0.0
+for t in range(T, 0, -1):
+    x, logp = denoise_step(x, t)
+    traj_logp += logp                          # Σ_t log π_θ(x_{t-1}|x_t,t)
+
+target = 1.5
+reward = -abs(x - target)                      # toy: 距离 target 越近越好
+
+# PPO-style 骨架 (用 old_logp 占位; 真实 DDPO 在多 epoch 复用 trajectory)
+old_logp, adv, eps = traj_logp, reward, 0.2
+ratio   = np.exp(traj_logp - old_logp)         # 第一次 update 时 = 1
+clipped = np.clip(ratio, 1 - eps, 1 + eps)
+loss    = -min(ratio * adv, clipped * adv)
+</code></pre>
+
+  <p>对照 §3 PPO: <code>ratio</code>, <code>clip</code>, <code>min</code> 三件套一字未改, 只是 <code>logp</code> 不再是 token log-prob 累加, 而是 <strong>去噪步的高斯 log-prob 累加</strong>; reward 只在 $t{=}0$ 给一次, 中间步全是 0, 所以 advantage 也是整条 trajectory 共享一个标量, 不像 LLM 那样还要做 GAE. 这就是 DDPO 把"扩散采样轨迹"塞进 PPO 框架的全部要点 —— 看似新方法, 实则就是把"动作维度"从离散 token 换成连续高斯采样, 其它配件一概不动.</p>
+
+  <h3 id="sec-7-3">7.3 正式化</h3>
+
+  <p><strong>Step 1: Diffusion 的 MDP 视角 (DDPO).</strong> 把去噪过程显式包装成 MDP:</p>
+  <ul>
+    <li>state: $s_t = (c, t, x_t)$ —— 文本条件 + 当前 timestep + 当前 latent</li>
+    <li>action: $a_t = x_{t-1}$ —— 下一步去噪结果</li>
+    <li>transition: deterministic ($s_{t-1}$ 完全由 $a_t$ 决定: $x_{t-1} \leftarrow a_t$, $t-1 \leftarrow t-1$)</li>
+    <li>policy: $\pi_\theta(a_t \mid s_t) = \mathcal{N}\!\big(x_{t-1};\, \mu_\theta(x_t, t, c),\, \sigma_t^2 I\big)$ —— 高斯, log-prob 可解析</li>
+    <li>reward: $R(s_t, a_t) = 0$ for $t \gt 0$, $R(s_0, \cdot) = r(x_0, c)$ —— 只在末端拿到一个标量 reward</li>
+  </ul>
+
+  <p><strong>Step 2: DDPO 期望目标.</strong> 同 §4 RLHF 的形式, 只是 expectation 变成在去噪轨迹上:</p>
+
+  $$\mathcal{J}_{DDPO}(\theta) = \mathbb{E}_{c \sim \mathcal{D},\, \{x_t\}_{t=0}^T \sim \pi_\theta}\!\left[r(x_0, c)\right] - \beta\, \mathrm{KL}\!\left(\pi_\theta \,\|\, \pi_{ref}\right)$$
+
+  <p class="math-translation">—— 翻译: 期望意义下最大化末端 reward, 同时用 KL 把 policy 拴在预训练 diffusion (作为 reference) 附近, 防止 reward hacking.</p>
+
+  <p><strong>Step 3: DDPO 的 PPO-style update.</strong> 关键变量是每一步的 importance sampling ratio:</p>
+
+  $$r_t(\theta) = \frac{\pi_\theta(x_{t-1} \mid x_t, c)}{\pi_{\theta_{old}}(x_{t-1} \mid x_t, c)}, \qquad \mathcal{L}_{DDPO} = -\mathbb{E}\!\left[\sum_{t=1}^{T} \min\!\Big(r_t(\theta)\,\hat{A},\, \mathrm{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\,\hat{A}\Big)\right]$$
+
+  <p class="math-translation">—— 翻译: 在 $T$ 步去噪上各算一次 PPO clip 项再求和; $\hat{A}$ 是整条轨迹共用的优势 (因为非零 reward 只在 $t{=}0$ 一次给出, 可用组内 z-score 或与 baseline 之差).</p>
+
+  <p><strong>Step 4: Diffusion-DPO 的 ELBO 替代.</strong> 回到 DPO (§5) 公式: 它的 loss 依赖 $\log \pi_\theta(y \mid x)$. 在 LLM 上直接可算, 在 Diffusion 上要换. Wallace et al. 的 trick 是用 ELBO 下界:</p>
+
+  $$\log p_\theta(x_0 \mid c) \;\geq\; -\,\mathbb{E}_{t, \epsilon}\!\left[\,w_t \cdot \|\epsilon - \epsilon_\theta(x_t, t, c)\|^2\,\right] + \text{const}$$
+
+  <p class="math-translation">—— 翻译: intractable 的对数似然换成可计算的"噪声预测 MSE 的负加权和". 训练 diffusion 用的就是右侧, 现在直接拿来当 $\log \pi$ 的替身.</p>
+
+  <p><strong>Step 5: 代入 DPO loss.</strong> 把 §5 的 $\beta(\log\pi_\theta - \log\pi_{ref})$ 在 chosen 与 rejected 两边各替换一次, 整理后得到 Diffusion-DPO 的核心 loss:</p>
+
+  $$\mathcal{L}_{Diff\text{-}DPO} = -\,\mathbb{E}_{(c, x_0^w, x_0^l),\, t,\, \epsilon}\!\left[\log \sigma\!\Big(-\beta T w_t\big(\|\epsilon - \epsilon_\theta(x_t^w, t)\|^2 - \|\epsilon - \epsilon_{ref}(x_t^w, t)\|^2 - \|\epsilon - \epsilon_\theta(x_t^l, t)\|^2 + \|\epsilon - \epsilon_{ref}(x_t^l, t)\|^2\big)\Big)\right]$$
+
+  <p class="math-translation">—— 翻译: 四个 MSE 项 (chosen / rejected × model / ref), 隐式 reward = $-$MSE 差, 外面套 sigmoid-BCE; 模型在 chosen 上的 MSE 要比 ref 小、在 rejected 上的 MSE 要比 ref 大, 才算"赢".</p>
+
+  <h3 id="sec-7-4">7.4 代码引用</h3>
+
+  <p><strong>代码 1: DDPO.</strong> 两段串起来, 第一段算每步的高斯 log-prob, 第二段把它喂进 PPO clip loss.</p>
+
+  <p class="code-source">sources/repos/kvablack-ddpo-pytorch/ddpo_pytorch/diffusers_patch/ddim_with_logprob.py:L183-L192 — DDPO per-step log-prob computation</p>
+<pre><code class="language-python">    # log prob of prev_sample given prev_sample_mean and std_dev_t
+    log_prob = (
+        -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * (std_dev_t**2))
+        - torch.log(std_dev_t)
+        - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+    )
+    # mean along all but batch dimension
+    log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
+
+    return prev_sample.type(sample.dtype), log_prob
+</code></pre>
+
+  <p class="code-source">sources/repos/kvablack-ddpo-pytorch/scripts/train.py:L538-L568 — DDPO PPO-style clipped loss with importance sampling ratio</p>
+<pre><code class="language-python">                        # ppo logic
+                        advantages = torch.clamp(
+                            sample["advantages"],
+                            -config.train.adv_clip_max,
+                            config.train.adv_clip_max,
+                        )
+                        ratio = torch.exp(log_prob - sample["log_probs"][:, j])
+                        unclipped_loss = -advantages * ratio
+                        clipped_loss = -advantages * torch.clamp(
+                            ratio,
+                            1.0 - config.train.clip_range,
+                            1.0 + config.train.clip_range,
+                        )
+                        loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+
+                        # debugging values
+                        info["approx_kl"].append(
+                            0.5
+                            * torch.mean((log_prob - sample["log_probs"][:, j]) ** 2)
+                        )
+                        info["clipfrac"].append(
+                            torch.mean(
+                                (
+                                    torch.abs(ratio - 1.0) &gt; config.train.clip_range
+                                ).float()
+                            )
+                        )
+                        info["loss"].append(loss)
+</code></pre>
+
+  <p>第一段就是 §7.3 Step 1 里 $\log \mathcal{N}(x_{t-1}; \mu_\theta, \sigma_t^2 I)$ 的逐项展开: 平方项 $-(x_{t-1}-\mu)^2 / (2\sigma^2)$ + 归一化 $-\log\sigma - \tfrac{1}{2}\log 2\pi$. 注意 <code>prev_sample.detach()</code> —— 这是 PPO importance sampling 的标准操作, 把 sample 当成"固定数据"而非可微分张量, 否则梯度会经由 sample 路径回流, 与 ratio 路径双重计入, 训练直接发散. 第二段则是 §7.3 Step 3 公式的 PyTorch 直译: <code>ratio = exp(log_prob - old)</code> 对应 $r_t(\theta)$; <code>torch.maximum(unclipped, clipped)</code> 之所以是 maximum 而非 minimum, 是因为外面取了负号 (loss = $-\min(\cdot)$ = $\max(-\cdot)$), 一回事. <code>j</code> 这一维就是去噪 timestep $t$, 表明 ratio 是 per-step 算的 —— 整段 trajectory 共 50 步, ratio 算 50 个, 与 LLM 在 token 维度算 ratio 完全对偶. <code>adv_clip_max</code> 是对 advantage 做的额外裁剪, 因为图像 reward (比如美学分数) 量纲不稳定, 不裁剪偶尔会出 outlier 把 loss 打飞.</p>
+
+  <p><strong>代码 2: Diffusion-DPO.</strong> 公式长, 但代码出奇地短, 因为 4 个 MSE 项其实只算 2 次 forward (chosen+rejected 拼 batch, 然后 <code>chunk(2)</code>).</p>
+
+  <p class="code-source">sources/repos/salesforce-DiffusionDPO/train.py:L1125-L1145 — Diffusion-DPO core loss: noise MSE difference + logsigmoid DPO loss</p>
+<pre><code class="language-python">                    model_losses = (model_pred - target).pow(2).mean(dim=[1,2,3])
+                    model_losses_w, model_losses_l = model_losses.chunk(2)
+                    # below for logging purposes
+                    raw_model_loss = 0.5 * (model_losses_w.mean() + model_losses_l.mean())
+
+                    model_diff = model_losses_w - model_losses_l # These are both LBS (as is t)
+
+                    with torch.no_grad(): # Get the reference policy (unet) prediction
+                        ref_pred = ref_unet(
+                                    *model_batch_args,
+                                      added_cond_kwargs = added_cond_kwargs
+                                     ).sample.detach()
+                        ref_losses = (ref_pred - target).pow(2).mean(dim=[1,2,3])
+                        ref_losses_w, ref_losses_l = ref_losses.chunk(2)
+                        ref_diff = ref_losses_w - ref_losses_l
+                        raw_ref_loss = ref_losses.mean()
+
+                    scale_term = -0.5 * args.beta_dpo
+                    inside_term = scale_term * (model_diff - ref_diff)
+                    implicit_acc = (inside_term &gt; 0).sum().float() / inside_term.size(0)
+                    loss = -1 * F.logsigmoid(inside_term).mean()
+</code></pre>
+
+  <p>一行行对照 §7.3 Step 5: <code>model_pred</code> 就是 $\epsilon_\theta(x_t, t)$, <code>target</code> 是真实采样的 $\epsilon$; <code>(model_pred - target).pow(2).mean(dim=[1,2,3])</code> 即 $\|\epsilon - \epsilon_\theta\|^2$ 在 $C{\times}H{\times}W$ 上的平均, 是 ELBO 替身的核心. <code>chunk(2)</code> 把 batch 切成 chosen / rejected 两半 —— 在数据加载时它们就被刻意拼在一起, 用同一个 timestep $t$ 和同一个噪声 $\epsilon$, 这是为了让公式里的 $w_t$ 在两边可消, 抵消方差; 这是 Diffusion-DPO 实现里最容易被忽视的细节, 也是它训练稳定的关键之一. 接着 <code>model_diff = model_losses_w - model_losses_l</code> 是策略侧的"chosen-rejected MSE 差", <code>ref_diff</code> 同理是 reference 侧的差, 两者相减得到双重 contrast —— 第一重比的是 chosen vs rejected, 第二重比的是 model vs ref, 与 §5 LLM DPO 中 $\log\frac{\pi_\theta(y_w)}{\pi_{ref}(y_w)} - \log\frac{\pi_\theta(y_l)}{\pi_{ref}(y_l)}$ 的双重对比完全同构. <code>scale_term = -0.5 * β</code> 里那个 $1/2$ 把噪声 prior 的方差吸进来 (公式里若把 $w_t$ 与 timestep 缩放整理干净就剩 $\beta/2$). 最后 <code>-logsigmoid(inside_term).mean()</code> 一字不差对应 §5 DPO 的 $-\log\sigma(\cdot)$. 整个公式那 4 个 MSE 项, 这里全在 <code>inside_term</code> 一行里隐式出现, 一行抵一个公式. 至于 <code>implicit_acc</code>, 它是 inside_term 大于 0 的比例 —— 即"模型已经能正确分辨 chosen/rejected"的样本占比, 相当于一个无需 reward model 的隐式准确率监控, 训练时可以拿它当 early-stopping 信号.</p>
+
+  <h3 id="sec-7-5">7.5 洞察</h3>
+
+  <ul>
+    <li><strong>本质差异一行点透.</strong> LLM 的 $\log \pi$ 离散+可解析, Diffusion 的 $\log \pi$ 连续+intractable. 这一句话就决定了所有 LLM RL 方法 (PPO/DPO/GRPO/...) 搬到 Diffusion 都得变形 —— 要么 per-step Gaussian (DDPO 路线), 要么 ELBO surrogate (Diffusion-DPO 路线), 没有第三条捷径. 反过来说, 任何新的 LLM RL 方法 (例如未来某个改进版 PPO), 只要它依赖 $\log\pi_\theta(y\mid x)$ 这一原语, 就能立即按这两条路线之一移植到扩散域, 不需要重新发明轮子.</li>
+    <li><strong>DDPO 强于 RWR 的关键在 ratio.</strong> Reward-weighted regression (RWR) 也能给扩散加 reward, 但它一旦更新就让旧 trajectory 失效, 必须每次重新 sample —— 而 sample 一张图要跑 50 步 UNet, 极其昂贵. DDPO 借 PPO 的 importance sampling ratio, 同一批 trajectory 能复用多个 epoch update, 这是把"训练 RLHF 风扩散模型"从天价计算降到可负担级别的关键. 这与 §3 PPO 相对 vanilla REINFORCE 的提升是同源动机: 都是用 ratio 把"昂贵的环境交互"变成"廉价的多轮梯度更新".</li>
+    <li><strong>Diffusion-DPO 的 trick 不是"DPO 推广", 而是"ELBO 当替身".</strong> 把 intractable log-likelihood 换成 ELBO, 这个手法在 VAE、energy-based model、normalizing flow 上都通用, 数理上根本不是扩散专属. Diffusion-DPO 只是把它接到 DPO 的 sigmoid-BCE 框架上, 没有重新发明 RL. 同样的替身原理也允许你把 Diffusion-IPO、Diffusion-KTO 等"DPO 变种"原样套过来 —— 只需把对应公式里的 $\log\pi_\theta$ 全替换成 $-\sum_t w_t \|\epsilon-\epsilon_\theta\|^2$, 训练流程不动.</li>
+    <li><strong>GRPO/DAPO 已经在向 Diffusion 迁移, 但 GSPO 不一定.</strong> GRPO 的"同 prompt 采 G 张图、组内归一化 reward"在扩散域完全成立, 2025 年已有若干 paper 在做 (省 critic 在 image 上甚至更划算, 因为 UNet 比 actor LM 更大, 一个 critic 头要重训一份相同规模 UNet 简直奢侈). DAPO 的 dynamic sampling (筛掉零方差组) 也能照搬, 对图像反而更重要, 因为美学 reward 在 prompt 之间方差悬殊. 但 GSPO 的 sequence-level ratio 在 diffusion 上没那么必要 —— LLM 序列长 1024 token 时 token-level ratio 累乘容易爆, 扩散 trajectory 只有 $T{=}50$ 步, 累乘问题轻得多, GSPO 的核心动机在这个域被削弱了; 强行套反而会丢掉 per-step ratio 提供的 fine-grained 信号.</li>
+  </ul>
+</section>

@@ -1,0 +1,220 @@
+<section id="sec-6">
+  <h2 id="sec-6">6. GRPO 与它的后辈: 把 critic 省掉之后</h2>
+
+  <h3 id="sec-6-1">6.1 直觉</h3>
+
+  <p>PPO 在 §3 里跑得挺漂亮, 但落到 7B/70B 量级的 LLM 上, 工程师立刻发现一个尴尬事实: <strong>每个 actor 还得配一个同样大的 critic</strong>. value head 不是一个小 MLP, 它通常就是把 actor 复制一份再换一个标量输出头, 训练时显存翻倍, 推理时还得多算一次 forward. 而且, RLHF 任务里 reward 只在序列末尾给一个标量 (答对/答错, 偏好胜负), 中间 token 的 value 学得本来就糙 —— 花一半显存去训一个糙的网络, 性价比不高.</p>
+
+  <p>GRPO (Group Relative Policy Optimization, DeepSeek 2024) 的思路朴素到近乎赖皮: 既然你要 <em>baseline</em>, 我对同一个 prompt 一口气采 $G$ 个回答 (典型 $G=64$), 直接用这 64 个 reward 的均值当 baseline, 标准差做归一化, advantage 就有了 —— 完全不需要 critic 网络. DeepSeek-R1 (2025) 用的就是这一套, 而且把它推到了"无 SFT, 直接 RL on math/code"的极致, 一夜捧火.</p>
+
+  <figure>
+    <img src="figures/sec6-grpo-vs-ppo.png" alt="PPO vs GRPO 结构对比" />
+    <figcaption>左: PPO 需要 actor + critic 两份 7B 模型. 右: GRPO 同 prompt 采 G 个回答, 组内归一化即得 advantage, critic 被省掉.</figcaption>
+  </figure>
+
+  <p>但 GRPO 不是终点. 它捧火之后, 2025 年下半年连续出了三个补丁: <strong>DAPO</strong> 修非对称 clip 与 dynamic sampling, <strong>Dr.GRPO</strong> 修长度偏差, <strong>GSPO</strong> 修 token-level ratio 在长序列上的累乘崩溃. 我们 §6.5 详谈, 这里先把 GRPO 本身讲透.</p>
+
+  <h3 id="sec-6-2">6.2 最小 demo</h3>
+
+  <p>用 numpy 写一个 group advantage + 一步 GRPO update 的骨架. 跟 §3 的 PPO 比, 真正变化只在两处: advantage 怎么算, KL 加在哪.</p>
+
+<pre><code class="language-python teaching-demo">import numpy as np
+
+def group_advantage(rewards, G, eps=1e-4):
+    """rewards: shape (B*G,), B prompts each with G samples."""
+    R = rewards.reshape(-1, G)               # (B, G)
+    mean = R.mean(axis=1, keepdims=True)     # (B, 1)
+    std  = R.std(axis=1, keepdims=True)      # (B, 1)
+    adv  = (R - mean) / (std + eps)          # (B, G)
+    return adv.reshape(-1)                   # (B*G,)
+
+def grpo_step(logp, old_logp, ref_logp, adv, eps=0.2, beta=0.04):
+    # ratio: 同 §3 PPO, token-level (这里简化为 sample-level)
+    ratio   = np.exp(logp - old_logp)
+    clipped = np.clip(ratio, 1 - eps, 1 + eps)
+    pg_loss = -np.minimum(ratio * adv, clipped * adv).mean()
+    # k3 KL: 直接进 loss, 不再像 RLHF 那样塞进 reward
+    kl = (np.exp(ref_logp - logp) - (ref_logp - logp) - 1).mean()
+    return pg_loss + beta * kl
+
+# 假设 B=2 prompts, G=4 samples/prompt
+rewards = np.array([1.0, 0.0, 1.0, 0.0,   0.0, 0.0, 1.0, 0.0])
+adv = group_advantage(rewards, G=4)        # [+1, -1, +1, -1,  -0.58, -0.58, +1.73, -0.58]
+</code></pre>
+
+  <p>对比 §3 的 PPO: 公式骨架 $-\min(r\hat{A},\,\mathrm{clip}(r)\hat{A})$ 一字未改, 只是 $\hat{A}$ 不再来自 GAE+critic, 而是来自组内 z-score; 而且 KL 从 §4 RLHF 的 "塞进 token reward" 移到了"loss 里单独一项". 仅此两处.</p>
+
+  <h3 id="sec-6-3">6.3 正式化</h3>
+
+  <p><strong>Step 1: GRPO 总目标.</strong> 对每个 prompt $q$, 从旧策略 $\pi_{\theta_{old}}$ 采样 $G$ 个完整回答 $\{o_i\}_{i=1}^G$, 对每个回答的每个 token 做 PPO 式裁剪, 然后所有回答平均:</p>
+
+  $$\mathcal{J}_{GRPO}(\theta) = \mathbb{E}_{q,\{o_i\}_{i=1}^G \sim \pi_{\theta_{old}}}\!\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|}\!\left[\min\!\Big(r_{i,t}\hat{A}_{i,t},\, \mathrm{clip}(r_{i,t}, 1-\epsilon, 1+\epsilon)\hat{A}_{i,t}\Big) - \beta\, \mathbb{D}_{KL}\big[\pi_\theta \,\|\, \pi_{ref}\big]\right]\right]$$
+
+  <p class="math-translation">—— 翻译: 外面对 prompt + G 个采样求期望; 里面对每个 sample 的每个 token 算"裁剪后的优势贡献"再减一项 KL, 然后平均.</p>
+
+  <p><strong>Step 2: token-level ratio</strong>, 定义同 §3 PPO, 一字不差: $r_{i,t} = \pi_\theta(o_{i,t} \mid q, o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,\lt t})$.</p>
+
+  <p><strong>Step 3: group-relative advantage.</strong> 对 outcome-supervision (整段一个 reward $R_i$) 的情形:</p>
+
+  $$\hat{A}_{i,t} = \frac{R_i - \mathrm{mean}(\{R_1, R_2, \ldots, R_G\})}{\mathrm{std}(\{R_1, R_2, \ldots, R_G\})}$$
+
+  <p class="math-translation">—— 翻译: 同组内 reward 做 z-score, 大于均值的样本得正优势, 小于的得负, 一个 prompt 的 G 个 token 都共用本组的归一化常数.</p>
+
+  <p><strong>Step 4: 与 PPO 的两处差异</strong> (其它都一样):</p>
+
+  <table class="cmp-table">
+    <thead><tr><th>维度</th><th>PPO (§3, §4)</th><th>GRPO</th></tr></thead>
+    <tbody>
+      <tr><td>advantage 来源</td><td>GAE, 需要 critic 网络</td><td>组内 z-score, 无 critic</td></tr>
+      <tr><td>KL 放哪</td><td>塞进 token reward: $r_t - \beta \log\frac{\pi_\theta}{\pi_{ref}}$</td><td>直接做 loss 一项: $-\beta\,\mathbb{D}_{KL}$</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>Step 5: k3 KL 估计.</strong> GRPO 用 Schulman blog 的 k3 估计 (而非 §4 RLHF 的 k1 估计 $-\log r$):</p>
+
+  $$\hat{\mathbb{D}}_{KL}^{(k3)} = \frac{\pi_{ref}(y\mid x)}{\pi_\theta(y\mid x)} - \log\frac{\pi_{ref}(y\mid x)}{\pi_\theta(y\mid x)} - 1$$
+
+  <p class="math-translation">—— 翻译: 形式是 $x - \log x - 1$, 永远非负, 且与朴素 $-\log r$ 同期望但方差小很多 —— 训练更稳.</p>
+
+  <h3 id="sec-6-4">6.4 代码引用</h3>
+
+  <p><strong>代码 1: group advantage</strong> —— 把 reshape / mean / std / 除以 std 这套流程做成 GRPO 的核心几行.</p>
+
+  <p class="code-source">sources/repos/huggingface-trl/trl/trainer/grpo_trainer.py:L2145-L2169 — Group advantage computation</p>
+<pre><code class="language-python">rewards = (rewards_per_func * self.reward_weights.to(device).unsqueeze(0)).nansum(dim=1)
+mean_grouped_rewards = rewards.view(-1, num_generations).mean(dim=1)
+mean_grouped_rewards = mean_grouped_rewards.repeat_interleave(num_generations, dim=0)
+if self.scale_rewards in ["group", "none"]:
+    # If self.scale_rewards = "none", we'll only use std_rewards to check for zero std for logging
+    if num_generations &gt; 1:
+        std_rewards = rewards.view(-1, num_generations).std(dim=1)
+        std_rewards = std_rewards.repeat_interleave(num_generations, dim=0)
+    else:  # doesn't occur during training, but could occur in eval when num_generations_eval=1
+        std_rewards = torch.zeros_like(rewards)
+elif self.scale_rewards == "batch":
+    # Compute global std
+    if rewards.numel() &gt; 1:
+        std_rewards = rewards.std().expand_as(rewards)
+    else:  # doesn't occur during training, but could occur in eval when num_generations_eval=batch_size=1
+        std_rewards = torch.zeros_like(rewards)
+else:
+    raise ValueError(
+        f"Invalid value for scale_rewards: {self.scale_rewards}. Must be one of 'batch', 'group', or 'none'."
+    )
+
+advantages = rewards - mean_grouped_rewards
+if self.scale_rewards != "none":
+    advantages = advantages / (std_rewards + 1e-4)
+is_std_zero = torch.isclose(std_rewards, torch.zeros_like(std_rewards))  # for logging
+</code></pre>
+
+  <p>这一段把 $(B \cdot G,)$ 的 reward 张量 <code>view(-1, num_generations)</code> 折成 $(B, G)$, 沿 <code>dim=1</code> 取 mean/std 再 <code>repeat_interleave</code> 回 $(B \cdot G,)$, 与 reward 对齐相减; 然后除以 <code>std_rewards + 1e-4</code> —— <code>1e-4</code> 不是为了"数值稳定"那么虚, 而是要防止"整组 reward 全 0 或全 1"时分母真的为零 (DeepSeek 论文里反复提到的 zero-variance group). <code>scale_rewards</code> 的 <code>"group" / "batch" / "none"</code> 三档恰好对应 GRPO / "全 batch 归一" / Dr.GRPO 的去归一变体.</p>
+
+  <p><strong>代码 2: importance ratio + clip</strong> —— 跟 §3 PPO 的 ratio 一摸一样, 但 ε 已经在 trl 里被拆成 <code>epsilon_low / epsilon_high</code> 为 DAPO 预留接口.</p>
+
+  <p class="code-source">sources/repos/huggingface-trl/trl/trainer/grpo_trainer.py:L2497-L2535 — Importance ratio + clip loss</p>
+<pre><code class="language-python">log_ratio = per_token_logps - old_per_token_logps
+if self.importance_sampling_level == "token":
+    log_importance_weights = log_ratio
+elif self.importance_sampling_level == "sequence":
+    log_importance_weights = (log_ratio * mask).sum(-1) / mask.sum(-1).clamp(min=1.0)
+    log_importance_weights = log_importance_weights.unsqueeze(-1)
+else:
+    raise ValueError(
+        f"Unknown importance sampling level: {self.importance_sampling_level}. Possible values are 'token' "
+        "and 'sequence'."
+    )
+
+coef_1 = torch.exp(log_importance_weights)
+
+# Compute the KL divergence between the model and the reference model
+if self.beta != 0.0:
+    ref_per_token_logps = inputs["ref_per_token_logps"]
+    per_token_kl = (
+        torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+    )
+    # Importance sampling correction for the KL divergence
+    if self.args.use_bias_correction_kl:
+        per_token_kl = per_token_kl * coef_1
+
+# From here, log_importance_weights (and all subsequent tensors, coef_1, coef_2, etc.) shape depends on
+# importance_sampling_level: "token" level: (B, T); "sequence" level: (B, 1)
+if self.loss_type == "cispo":
+    clamped_ratios = torch.clamp(coef_1, max=self.epsilon_high).detach()
+    per_token_loss = -clamped_ratios * advantages * per_token_logps
+elif self.loss_type in ["grpo", "bnpo", "dr_grpo", "dapo", "luspo"]:
+    coef_2 = torch.clamp(coef_1, 1 - self.epsilon_low, 1 + self.epsilon_high)
+    # Two-sided clipping
+    if self.args.delta is not None:
+        coef_1 = torch.clamp(coef_1, max=self.args.delta)
+
+    per_token_loss1 = coef_1 * advantages
+    per_token_loss2 = coef_2 * advantages
+    per_token_loss = -torch.min(per_token_loss1, per_token_loss2)
+</code></pre>
+
+  <p>第 1 行 <code>log_ratio = per_token_logps - old_per_token_logps</code> 就是公式里 $\log r_{i,t}$; <code>coef_1 = exp(log_importance_weights)</code> 即 $r_{i,t}$; <code>coef_2 = clamp(coef_1, 1 - ε_low, 1 + ε_high)</code> 即 $\mathrm{clip}(r_{i,t}, 1-\epsilon, 1+\epsilon)$. <code>min(per_token_loss1, per_token_loss2)</code> 加负号即 §3 的 $L^{CLIP}$. 注意 <code>epsilon_low</code> 与 <code>epsilon_high</code> 已经是<em>两个独立超参</em> —— 原版 GRPO 它俩相等, DAPO 故意拉开 (后面段 a 详谈). <code>loss_type</code> 枚举里 <code>grpo / dr_grpo / dapo / luspo</code> 共享同一段 clip 代码, 切换的只是其它环节.</p>
+
+  <p><strong>代码 3: k3 KL estimator</strong> —— 一字对应 Schulman 公式.</p>
+
+  <p class="code-source">sources/repos/huggingface-trl/trl/trainer/grpo_trainer.py:L2512-L2520 — k3 KL estimator (token-level KL in loss)</p>
+<pre><code class="language-python"># Compute the KL divergence between the model and the reference model
+if self.beta != 0.0:
+    ref_per_token_logps = inputs["ref_per_token_logps"]
+    per_token_kl = (
+        torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+    )
+    # Importance sampling correction for the KL divergence
+    if self.args.use_bias_correction_kl:
+        per_token_kl = per_token_kl * coef_1
+</code></pre>
+
+  <p>把 <code>r = exp(ref_logp - logp) = π_ref / π_θ</code> 代进去, 就是 $r - \log r - 1$, 与 Step 5 公式一字对应. 与 §4 RLHF 用的 k1 估计 $-\log r$ 对比: k1 是 KL 的一阶无偏估计但方差大、且有时为负; k3 仍是无偏 (期望相等, 因为 $\mathbb{E}[r-1]=0$), 但永远 ≥ 0 且方差小很多 —— GRPO 大批量并行场景下这点稳定性极其重要.</p>
+
+  <p><strong>代码 4: GSPO sequence-level ratio</strong> —— 后续 §6.5 段 c 的核心改动, 这里先把它的代码摆出来.</p>
+
+  <p class="code-source">sources/repos/huggingface-trl/trl/experimental/gspo_token/grpo_trainer.py:L67-L82 — GSPO sequence-level importance ratio</p>
+<pre><code class="language-python">log_ratio = per_token_logps - old_per_token_logps
+if self.importance_sampling_level == "token":
+    log_importance_weights = log_ratio
+elif self.importance_sampling_level == "sequence":
+    log_importance_weights = (log_ratio * completion_mask).sum(-1) / completion_mask.sum(-1).clamp(min=1.0)
+    log_importance_weights = log_importance_weights.unsqueeze(-1)
+elif self.importance_sampling_level == "sequence_token":
+    # GSPO-token: sg[si(θ)] * πθ(yi,t)/sg[πθ(yi,t)]
+    seq_level_log_weight = (log_ratio * completion_mask).sum(-1) / completion_mask.sum(-1).clamp(min=1.0)
+    seq_level_log_weight = seq_level_log_weight.detach().unsqueeze(-1)  # Stop gradient
+    log_importance_weights = per_token_logps - per_token_logps.detach() + seq_level_log_weight
+else:
+    raise ValueError(
+        f"Unknown importance sampling level: {self.importance_sampling_level}. Possible values are 'token' "
+        "and 'sequence'."
+    )
+</code></pre>
+
+  <p>看 <code>elif "sequence"</code> 那支: <code>(log_ratio * completion_mask).sum(-1)</code> 把整条回答的 $\log r_{i,t}$ 加起来, 再除以 <code>completion_mask.sum(-1)</code> —— 这就是<strong>长度归一化的几何平均</strong>:</p>
+
+  $$s_i(\theta) = \left(\frac{\pi_\theta(y_i \mid x)}{\pi_{\theta_{old}}(y_i \mid x)}\right)^{1/|y_i|} = \exp\!\left(\frac{1}{|y_i|}\sum_{t=1}^{|y_i|} \big(\log\pi_\theta(y_{i,t}) - \log\pi_{\theta_{old}}(y_{i,t})\big)\right)$$
+
+  <p class="math-translation">—— 翻译: 整条序列的 ratio 不直接累乘, 而是 token-level log-ratio 求平均再 exp, 得到一个"平均每 token 偏离程度", 然后整条序列共用这一个标量.</p>
+
+  <p>为什么要这个 <code>1/|y_i|</code>? GRPO 的 token-level ratio 在一条 200-token 的长回答上, 哪怕每个 token 只偏 1.01 倍, 整条累乘也是 $1.01^{200} \approx 7.3$, 远远超出 clip 范围; MoE 模型由于专家路由抖动, 单 token ratio 偶发 1.5 倍很常见, 不归一化必崩. GSPO 把它压平成一个标量 ratio, clip 才真正起作用. <code>sequence_token</code> 分支是 GSPO-token 变体: 序列级 ratio 提供尺度, token 级 logp 提供梯度方向, 二者用 stop-gradient 拼起来.</p>
+
+  <h3 id="sec-6-5">6.5 洞察 + GRPO 的三个后辈</h3>
+
+  <p><strong>GRPO 自己的两条洞察.</strong> (一) GRPO 隐含了一个很强的假设: <em>同一个 prompt 多次采样, 结果能拉开档次</em>. LLM 推理任务恰好满足 —— 64 个回答里自然有对有错, 对比信号充足; 但 robotics / 长任务规划 上这个假设直接破产, 一条完整 trajectory 可能要 30 秒, 你采不了 64 条, 而且最后 reward 高度相关. 所以 GRPO 是<em>LLM-tailored</em>, 别盲目搬到机器人. (二) DeepSeek-R1 把 GRPO 推到"无 SFT, 直接 RL"的极致, 前提是 reward 程序可验证 —— math 答案对错可判, code 跑测试可判. 一旦换成"人类偏好打分"这种主观 reward, 这套节奏不一定能复制, 仍然要 RM + KL 加持.</p>
+
+  <p><strong>段 a) DAPO</strong> (ByteDance, 2025, arxiv:2503.14476). 它治两个具体毛病: (1) 对称 clip $[1-\epsilon, 1+\epsilon]$ 对"低概率正确 token"不公平 —— 一个原本 $\pi_{old}=0.01$ 的 token, 要涨到 $0.05$ ratio 就是 5, 早被 $1+\epsilon = 1.2$ 砍掉了; (2) 一个 batch 如果 G 个回答全对 (或全错), advantage 全部为 0, 这个 batch 浪费. DAPO 改两处: <strong>Clip-Higher</strong> 把 $\epsilon_{high} \gt \epsilon_{low}$ (典型 0.28 / 0.20), 给低概率正确 token 留涨空间; <strong>Dynamic Sampling</strong> 过滤掉 std=0 的 group. 在 trl 里就是 <code>GRPOConfig(epsilon=0.2, epsilon_high=0.28)</code>, 上面代码 2 的 <code>coef_2 = clamp(coef_1, 1 - epsilon_low, 1 + epsilon_high)</code> 直接 toggle; verl 仓库还有专门的 <code>dapo</code> reward manager 做动态过滤.</p>
+
+  <p><strong>段 b) Dr.GRPO</strong> (Sea AI Lab / NUS, 2025, arxiv:2503.20783). 治的毛病是<em>长度偏差</em>: GRPO 在 advantage 上除以 $\mathrm{std}(R)$, 又在每条样本内部除以 $|o_i|$, 导致<em>答错时模型倾向把回答写长</em> —— 错误样本越长, 长度归一后的负 advantage 越小, 几乎没惩罚. Dr.GRPO 公式上回到无偏 advantage:</p>
+
+  $$\hat{A}_{i,t}^{Dr.GRPO} = R_i - \mathrm{mean}(\{R_1, \ldots, R_G\})$$
+
+  <p class="math-translation">—— 翻译: 只减均值, 不除 std, 也不除 |o_i|, 跟 PPO 的无偏 advantage 形状一致.</p>
+
+  <p>在 trl 里就是 <code>GRPOConfig(scale_rewards="none", loss_type="dr_grpo")</code>, 上面代码 1 的 <code>if self.scale_rewards != "none": advantages = advantages / (std_rewards + 1e-4)</code> 就被跳过.</p>
+
+  <p><strong>段 c) GSPO</strong> (Qwen Team, 2025, arxiv:2507.18071). 治的是<em>长序列 token-level ratio 累乘崩溃</em>, 这点上面代码 4 已经讲透: ratio 改 sequence-level 的几何平均 $s_i(\theta) = (\pi_\theta(y_i|x)/\pi_{old}(y_i|x))^{1/|y_i|}$, MoE 模型上稳定性提升尤其明显 —— Qwen3-MoE 上线 RL 阶段就用了它. trl 的开关在 <code>trl/experimental/gspo_token/grpo_trainer.py</code>, 设 <code>importance_sampling_level="sequence"</code> 或 <code>"sequence_token"</code> 即生效.</p>
+
+  <p>一句话收尾: GRPO 是骨架 —— 省 critic、组内归一、KL 进 loss、k3 估计. DAPO / Dr.GRPO / GSPO 是三块肌肉, 各补一个具体的崩点. 工程上一般的次序是: 先 GRPO 跑通 → 看 batch 是否经常 zero-variance (上 DAPO Dynamic Sampling) → 看回答是否越训越长 (上 Dr.GRPO) → 看长序列 / MoE 是否崩 (上 GSPO). 不必一次全开.</p>
+</section>

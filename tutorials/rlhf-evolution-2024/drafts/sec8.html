@@ -1,0 +1,233 @@
+<section id="sec-8">
+  <h2 id="sec-8">8. 从头实现一遍 + 怎么选</h2>
+
+  <h3 id="sec-8-1">8.1 直觉</h3>
+
+  <p>把前 7 节当成"菜谱"的话, 本节是"采购清单". 一个新项目落地最常见的死法不是算法选错, 而是把工程量估错 —— 为了 3% 收益跳到 PPO, 结果 6 周还没跑通分布式 sampling. 一个朴素的实现优先级是按 <strong>工程复杂度从低到高</strong>:</p>
+
+  <p><strong>SFT 基线 (必做)</strong> → <strong>DPO (数据准备好就能跑, 1 天上手)</strong> → <strong>GRPO (online sampling, 工程量 ×5)</strong> → <strong>PPO RLHF (要 critic + RM + ref, 最重)</strong> → <strong>Diffusion-DPO / DDPO (只在做图像/视频 alignment 时才碰)</strong>.</p>
+
+  <p>真正决定选型的是手上有什么数据. 一棵决策树足够:</p>
+
+  <figure>
+<pre class="ascii-tree" style="font-family:ui-monospace,Menlo,monospace;line-height:1.4;font-size:0.88em;background:#1e2530;color:#e8e8e8;padding:1em;border-radius:6px;overflow-x:auto;">
+                  你的项目目标是什么?
+                          │
+        ┌─────────────────┴──────────────────┐
+       文本                                 图像/视频
+        │                                    │
+   有 reward 函数吗?                    有 reward 模型吗?
+   (代码可验证 / 规则可判)             (美学打分 / CLIP 等)
+   ┌────┴────┐                          ┌────┴────┐
+  有        没有                        有        没有
+   │         │                          │         │
+ GRPO   有偏好对吗?                    DDPO   有偏好对吗?
+        ┌───┴───┐                              ┌───┴───┐
+       有      没有                           有      没有
+        │       │                              │       │
+       DPO  能找到 RM?                  Diffusion-DPO   先去标数据
+            ┌───┴───┐
+           有      没有
+            │       │
+       PPO RLHF  先去标数据
+</pre>
+    <figcaption>图 8.1 —— 选型决策树. 沿着自己手头的"数据资产"走到叶子, 就是该项目应该上的方法.</figcaption>
+  </figure>
+
+  <p>一句话 takeaway: <strong>越往复杂的方法走 (DPO → GRPO → PPO), 工程量翻倍但收益递减. 选最弱够用的方案.</strong> 如果 DPO 已经把 win-rate 拉到 80%, 就别去碰 PPO.</p>
+
+  <h3 id="sec-8-2">8.2 最小 demo</h3>
+
+  <p>不依赖 trl, 用 transformers + 手写 DPO loss, 50 行内跑起来:</p>
+
+<pre><code class="language-python teaching-demo">import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "gpt2"  # 任何 causal LM 都可
+tok = AutoTokenizer.from_pretrained(model_name)
+tok.pad_token = tok.eos_token
+policy = AutoModelForCausalLM.from_pretrained(model_name)
+ref    = AutoModelForCausalLM.from_pretrained(model_name)  # frozen reference
+for p in ref.parameters():
+    p.requires_grad = False
+
+# 4 对玩具 preference data: (prompt, y_w 偏好的, y_l 不偏好的)
+pairs = [
+    ("Is Python good? ",        "Yes, very useful.", "No, awful language."),
+    ("Capital of France? ",     "Paris.",            "Berlin."),
+    ("2 + 2 = ",                "4",                 "5"),
+    ("The sky is ",             "blue.",             "green."),
+]
+
+def seq_logp(model, prompt, response):
+    """计算 response 部分的 token log-prob 之和: log pi(y|x)"""
+    ids        = tok(prompt + response, return_tensors="pt").input_ids
+    prompt_len = tok(prompt, return_tensors="pt").input_ids.shape[1]
+    logits = model(ids).logits[0, :-1]              # 预测下一 token
+    labels = ids[0, 1:]
+    logp   = torch.log_softmax(logits, dim=-1)
+    tok_lp = logp.gather(-1, labels.unsqueeze(-1)).squeeze(-1)
+    return tok_lp[prompt_len - 1:].sum()            # 只对 response 部分求和
+
+optimizer = torch.optim.Adam(policy.parameters(), lr=1e-5)
+beta = 0.1
+
+for step in range(20):
+    total = 0.0
+    for prompt, yw, yl in pairs:
+        lp_w   = seq_logp(policy, prompt, yw)
+        lp_l   = seq_logp(policy, prompt, yl)
+        with torch.no_grad():
+            lp_w_r = seq_logp(ref, prompt, yw)
+            lp_l_r = seq_logp(ref, prompt, yl)
+        delta = (lp_w - lp_w_r) - (lp_l - lp_l_r)   # DPO 的 logit
+        loss  = -F.logsigmoid(beta * delta)
+        total = total + loss
+    total = total / len(pairs)
+    optimizer.zero_grad()
+    total.backward()
+    optimizer.step()
+    print(f"step {step:2d}  loss={total.item():.4f}")
+</code></pre>
+
+  <p>这就是 DPO 的<strong>全部</strong>. trl 里 2000 行做的事, 核心就是上面这 30 行. 工业级实现多出来的 99% 是: padding / batching / mixed precision / DeepSpeed sharding / gradient checkpointing / metrics logging / checkpoint resume / push to hub —— 全是工程, 不是"DPO 本身". 理解了这一点, 你看 trl 源码就不会再被吓到.</p>
+
+  <h3 id="sec-8-3">8.3 正式化 (实操参数表)</h3>
+
+  <p>这一节没有公式, 把"开项目第一周要决定的事"写成三张表.</p>
+
+  <p><strong>表 A. 训练数据需求</strong> (不达量级, 结果会非常不稳定):</p>
+
+  <table class="data-table">
+    <thead><tr><th>方法</th><th>数据类型</th><th>典型量级</th></tr></thead>
+    <tbody>
+      <tr><td>SFT</td><td>(prompt, response)</td><td>10k – 1M</td></tr>
+      <tr><td>RM 训练</td><td>(prompt, y_w, y_l)</td><td>10k – 100k</td></tr>
+      <tr><td>DPO</td><td>(prompt, y_w, y_l)</td><td>10k – 100k</td></tr>
+      <tr><td>GRPO</td><td>prompt + 可验证 reward</td><td>1k – 10k prompts, G=8~64</td></tr>
+      <tr><td>PPO RLHF</td><td>prompts + RM + ref</td><td>1k – 10k prompts</td></tr>
+      <tr><td>DDPO</td><td>prompts + reward fn</td><td>100 – 1k prompts</td></tr>
+      <tr><td>Diffusion-DPO</td><td>(prompt, img_w, img_l)</td><td>10k+ image pairs</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>表 B. 显存预算</strong> (以 SFT 单模型为 1.0× 基准):</p>
+
+  <table class="data-table">
+    <thead><tr><th>方法</th><th>显存</th><th>原因</th></tr></thead>
+    <tbody>
+      <tr><td>SFT</td><td>1.0×</td><td>只有 policy</td></tr>
+      <tr><td>DPO</td><td>1.5×</td><td>+ frozen ref (或预先缓存 ref logps, 可降到 1.1×)</td></tr>
+      <tr><td>GRPO</td><td>1.5×</td><td>+ frozen ref, 无 critic, 但要 G 倍 sampling 内存</td></tr>
+      <tr><td>PPO RLHF</td><td>2.5× – 3×</td><td>+ critic + RM + ref, 四个模型共存</td></tr>
+      <tr><td>DDPO</td><td>2.0×+</td><td>50 步 trajectory + image-space reward</td></tr>
+    </tbody>
+  </table>
+
+  <p><strong>表 C. 评估指标</strong> (开训前先把评测脚本写好, 不然训了等于没训):</p>
+
+  <table class="data-table">
+    <thead><tr><th>任务</th><th>常用指标</th></tr></thead>
+    <tbody>
+      <tr><td>数学 / 代码</td><td>GSM8K, MATH-500, HumanEval, pass@1</td></tr>
+      <tr><td>通用对话</td><td>MT-Bench, AlpacaEval 2, LC win-rate</td></tr>
+      <tr><td>偏好对齐</td><td>reward model score, pairwise win-rate vs ref</td></tr>
+      <tr><td>图像生成</td><td>CLIP score, aesthetic score, FID, HPS v2</td></tr>
+    </tbody>
+  </table>
+
+  <h3 id="sec-8-4">8.4 代码引用</h3>
+
+  <p class="code-source">sources/repos/huggingface-trl/trl/scripts/dpo.py:L64-L142 — End-to-end DPO training entry point</p>
+<pre><code class="language-python">def main(script_args, training_args, model_args, dataset_args):
+    import torch
+    from accelerate import logging
+    from datasets import load_dataset
+    from transformers import AutoModelForCausalLM
+
+    from trl import DPOTrainer, get_dataset, get_kbit_device_map, get_peft_config, get_quantization_config
+
+    logger = logging.get_logger(__name__)
+
+    ################
+    # Model
+    ###################
+    dtype = model_args.dtype if model_args.dtype in ["auto", None] else getattr(torch, model_args.dtype)
+    model_kwargs = dict(
+        revision=model_args.model_revision,
+        attn_implementation=model_args.attn_implementation,
+        dtype=dtype,
+    )
+    quantization_config = get_quantization_config(model_args)
+    if quantization_config is not None:
+        model_kwargs["device_map"] = get_kbit_device_map()
+        model_kwargs["quantization_config"] = quantization_config
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_args.model_name_or_path, trust_remote_code=model_args.trust_remote_code, **model_kwargs
+    )
+    peft_config = get_peft_config(model_args)
+    if script_args.ignore_bias_buffers:
+        model._ddp_params_and_buffers_to_ignore = [
+            name for name, buffer in model.named_buffers() if buffer.dtype == torch.bool
+        ]
+
+    # Load the dataset
+    if dataset_args.datasets and script_args.dataset_name:
+        logger.warning(
+            "Both `datasets` and `dataset_name` are provided. The `datasets` argument will be used to load the "
+            "dataset and `dataset_name` will be ignored."
+        )
+        dataset = get_dataset(dataset_args)
+    elif dataset_args.datasets and not script_args.dataset_name:
+        dataset = get_dataset(dataset_args)
+    elif not dataset_args.datasets and script_args.dataset_name:
+        dataset = load_dataset(
+            script_args.dataset_name, name=script_args.dataset_config, streaming=script_args.dataset_streaming
+        )
+    else:
+        raise ValueError("Either `datasets` or `dataset_name` must be provided.")
+
+    # Initialize the DPO trainer
+    trainer = DPOTrainer(
+        model,
+        args=training_args,
+        train_dataset=dataset[script_args.dataset_train_split],
+        eval_dataset=dataset[script_args.dataset_test_split] if training_args.eval_strategy != "no" else None,
+        peft_config=peft_config,
+    )
+
+    # Train the model
+    trainer.train()
+
+    # Log training complete
+    trainer.accelerator.print("Training completed.")
+
+    if training_args.eval_strategy != "no":
+        metrics = trainer.evaluate()
+        trainer.log_metrics("eval", metrics)
+        trainer.save_metrics("eval", metrics)
+
+    # Save and push to Hub
+    trainer.save_model(training_args.output_dir)
+    trainer.accelerator.print(f"Model saved to {training_args.output_dir}.")
+
+    if training_args.push_to_hub:
+        trainer.push_to_hub(dataset_name=script_args.dataset_name)
+</code></pre>
+
+  <p>整段 80 行可以分成四块: (1) <code>AutoModelForCausalLM.from_pretrained</code> 加载 policy —— 注意 trl 没有显式构造 ref model, <code>DPOTrainer</code> 内部会从同一 checkpoint 复制 frozen ref, 并在数据上 <strong>预先缓存 ref logps</strong>, 训练时不再前向 ref, 显存可压到 1.1×; (2) <code>load_dataset</code> + <code>get_dataset</code> 拉 preference 数据集 (字段固定为 <code>prompt / chosen / rejected</code>); (3) <code>DPOTrainer(...)</code> 实例化 —— 关键 hyperparams 都在 <code>DPOConfig</code> 里: <code>beta</code> (KL 强度, 0.05–0.5)、<code>learning_rate</code> (5e-7 – 1e-6)、<code>max_length</code>、<code>loss_type</code>; (4) <code>trainer.train()</code> 一行启动训练, accelerate 自动接管 DDP / DeepSpeed / FSDP, 你写的代码不必懂分布式. 训练完 <code>trainer.save_model()</code> 写出标准 HF checkpoint, 下游 <code>from_pretrained()</code> 直接加载.</p>
+
+  <p>把这段和 §8.2 的 30 行教学版对照: 核心 DPO 公式 (<code>-logsigmoid(β·Δ)</code>) 藏在 <code>DPOTrainer.compute_loss</code> 里仅 10 行; 外面这 80 行全是 dataset / accelerate / peft / quantization / hub 这些"非 DPO 本身"的支撑设施. <strong>这就是工业代码的真相: 算法 5%, 工程 95%</strong>.</p>
+
+  <h3 id="sec-8-5">8.5 洞察</h3>
+
+  <ul>
+    <li><strong>论文写的是 5%, 工业框架写的是 95%.</strong> ratio / clip / sigmoid 这些公式占代码量不到 5%; 剩下 95% 在 distributed sampling、async generation、KV cache 管理、gradient checkpointing、checkpoint resume、metrics logging —— paper 不讲, 但这些才是项目落地的瓶颈.</li>
+    <li><strong>DPO vs GRPO 的分水岭只有一个问题: 你能不能定义"程序可验证的 reward"?</strong> 代码对错、数学答案正确、单元测试通过 → GRPO 碾压一切; 只有人类偏好、没有规则裁判 → DPO 最稳. 这是 2024–2025 整个领域的真正分界线, 而不是某个 loss 公式的差异.</li>
+    <li><strong>别低估 SFT.</strong> 一个好的 SFT base 让任何 RL 方法的天花板抬高 5–10 个百分点. 实战上, "SFT 数据质量"上的投入比"选 DPO 还是 GRPO"重要得多. RL 是放大器, 不是发动机.</li>
+    <li><strong>Diffusion RL 的工程难度比 LLM 高一个数量级.</strong> 50 步去噪 trajectory + image-space reward + 一次 forward 一张 1024×1024 —— 显存、吞吐、reward 信噪比全是坑. 除非你真的在做图像/视频对齐产品, 否则别碰 DDPO 或 Diffusion-DPO.</li>
+    <li><strong>整篇 tutorial 一句收: 所有 RL 方法都在最大化 <code>reward − β·KL</code>.</strong> 区别只在三件事上 —— <em>怎么估 reward</em> (人类偏好 / RM / 规则 / 美学打分)、<em>怎么估 KL</em> (显式 ref / 闭式 sigmoid / token-level approx)、<em>用什么 advantage</em> (GAE / group baseline / 无). 把任何新论文按这三件事对号入座, 1 分钟就能读懂它在变量空间的哪个角落里做了一点改动.</li>
+  </ul>
+</section>
