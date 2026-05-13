@@ -246,7 +246,7 @@ footer {
 .toc {
   position: fixed;
   top: 3.5rem;
-  right: max(1.2rem, calc((100vw - 780px) / 2 - 260px));
+  left: max(1.2rem, calc((100vw - 780px) / 2 - 260px));
   width: 230px;
   max-height: calc(100vh - 7rem);
   overflow-y: auto;
