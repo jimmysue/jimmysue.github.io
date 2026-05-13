@@ -10,6 +10,12 @@ papers/*/repo/
 papers/*/repo_*/
 papers/*/eprint/
 
+# Writing-tutorial raw artifacts (only final figures + index.html + plan.md + MANIFEST.md
+# need to ship; sources and code-excerpts are large intermediate working files).
+tutorials/*/figures-raw/
+tutorials/*/sources/repos/
+tutorials/*/code-excerpts/
+
 # Local server log
 paper-reading-server.log
 

@@ -4,9 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this directory is
 
-`paper-reading/` is a **static HTML blog of academic paper analyses**, generated and maintained by the `reading-papers` skill that lives at `.claude/skills/reading-papers/` (project-local skill — moved out of `~/.claude/skills/` so it stays versioned with the workspace). It is content + presentation, not application code — no build step, no package manager, no tests.
+`paper-reading/` is a **static HTML blog**, generated and maintained by two project-local skills under `.claude/skills/`:
 
-The skill is the source of truth for the structure. When something feels prescriptive (layout, IDs, file names), check `.claude/skills/reading-papers/SKILL.md` before improvising.
+- **`reading-papers`** — turns one paper into one 5-section critique page at `papers/<slug>/index.html`.
+- **`writing-tutorial`** — turns one **domain** (multiple papers + ≥2 GitHub repos + optional blogs) into one deep tutorial page at `tutorials/<slug>/index.html`, with spiral-structure sections.
+
+Both are project-local (versioned with the workspace, not in `~/.claude/skills/`). They share the rendering stack (MathJax, highlight.js, TOC contract) and the shared `assets/style.css`.
+
+The skills are the source of truth for structure. When something feels prescriptive (layout, IDs, file names, citation format), check `.claude/skills/<name>/SKILL.md` before improvising.
 
 ## Serving the blog
 
@@ -34,6 +39,34 @@ papers/<slug>/
 ```
 
 **The slug is always `shorttitle-year`** — title-based, not author-based (e.g., `rls-razor-2025`, `flow-opd-2026`, `d-opsd-2026`). Bare arxiv IDs (e.g. `2509.04259`) are **not** acceptable as folder names — they're opaque and make the file tree unbrowsable. See `.claude/skills/reading-papers/SKILL.md` §1b for the exact construction rules. The shared `assets/style.css` and the top-level `index.html` (the homepage card grid) belong to the workspace, not any one paper.
+
+## Per-tutorial layout
+
+Each tutorial (output of the `writing-tutorial` skill) lives under `tutorials/<slug>/`:
+
+```
+tutorials/<slug>/
+  index.html              # the 图文 deep-dive tutorial page
+  plan.md                 # outline agreed with user — Phase-3 gate; checked in
+  figures/                # final cropped/drawn diagrams
+  figures-raw/            # intermediates (gitignored)
+  sources/
+    MANIFEST.md           # every cited paper/repo/blog + rationale (checked in)
+    papers/*.pdf          # anchor papers (checked in for provenance)
+    repos/<org>-<name>/   # cloned reference implementations (gitignored)
+  code-excerpts/          # pre-staged code snippets w/ citation header (gitignored —
+                          #   regeneratable from sources/repos/ at the cited line range)
+```
+
+**Slug rule**: same as papers — `<shorttitle>-<year>` where the year is the seminal paper's year, NOT today's year. Examples: `lora-2021`, `diffusion-2020`, `flow-matching-2023`. The slug is the canonical method name when one exists.
+
+**A tutorial is not a paper analysis.** Use `reading-papers` for "one paper → one critique". Use `writing-tutorial` for "one domain → one deep tutorial drawing from ≥2 papers + ≥2 repos." If unclear, the user's wording usually disambiguates: 精读 / 讲解 / critique / summarize → reading-papers; 写教程 / 讲透 / 系统讲解 / tutorial → writing-tutorial.
+
+**Per-tutorial page invariants** (enforced by `writing-tutorial` skill):
+- Every `<h2 id="sec-N">` has exactly 5 `<h3 id="sec-N-1..5">` sub-sections in the spiral order: 直觉 → 最小 demo → 正式化 → 代码引用 → 洞察.
+- Step 2 demo code blocks tagged `class="teaching-demo"` (hand-written, non-production); ALL other code blocks must be quoted verbatim from `sources/repos/...` with `<p class="code-source">…file:Lstart-Lend — role</p>` above.
+- Every display equation followed by a `<p class="math-translation">—— 翻译: …</p>` within 100 字.
+- Word count 10–20k 中文字 (or English equivalent ~6–13k words) per tutorial.
 
 ## The rendering stack (non-obvious bits)
 
@@ -103,6 +136,19 @@ This is the work of the `reading-papers` skill. Direct invocation flow (the skil
 8. Restart `./serve.sh` if not running and open the page.
 9. **Publish to GitHub Pages (project rule — see next section).**
 
+## Adding a new tutorial
+
+This is the work of the `writing-tutorial` skill. Six phases (skill executes; user gates Phase 3):
+
+1. **Scope** — `mkdir -p tutorials/<slug>/{figures,figures-raw,code-excerpts,sources/papers,sources/repos}`
+2. **Discover** — parallel Explore subagents search arxiv / GitHub (≥1k★ filter) / blogs. Skill writes `sources/MANIFEST.md`.
+3. **Plan** — main agent writes `tutorials/<slug>/plan.md` with 6–10 大节, each with 5-step briefs + drafting groups. **STOP. Ask user before continuing.**
+4. **Extract** — parallel Explore subagents pre-stage `figures/secN-*.png` and `code-excerpts/secN-step4-*.txt` (verbatim from cited repo with file:Lstart-Lend header).
+5. **Draft** — grouped-parallel general-purpose subagents, ONE per section, each emitting one `<section id="sec-N">` block following the spiral contract.
+6. **Assemble + Verify + Publish** — main agent stitches sections, builds TOC, runs the verification checklist (in `.claude/skills/writing-tutorial/SKILL.md`), restarts `./serve.sh`, prepends a `<a class="tutorial-card">` to a 教程 section ABOVE the 论文 grid in the top-level `index.html` (creating the section if it doesn't exist yet), and asks before `./publish.sh`.
+
+The skill is large — read `.claude/skills/writing-tutorial/SKILL.md` (~500 lines, includes rationalization table + red flags) before improvising.
+
 ## Publishing to GitHub Pages (PROJECT RULE)
 
 **This rule is project-specific and intentionally lives here, not in the skill** (skills are generic across workspaces; deploy targets are not).
@@ -132,7 +178,7 @@ The blog is deployed to `jimmysue/jimmysue.github.io` (live at <https://jimmysue
 
 - User explicitly says "draft only" / "本地预览就行" / "先不发布".
 - Page renders broken locally (TOC dangling, MathJax error, figures missing).
-- `git status` shows files outside `papers/<slug>/`, `index.html`, or `assets/` (unexpected scope — verify before pushing).
+- `git status` shows files outside `papers/<slug>/`, `tutorials/<slug>/`, `index.html`, or `assets/` (unexpected scope — verify before pushing).
 
 ### Ask before pushing
 
@@ -144,15 +190,16 @@ By default, **ask the user** before running `publish.sh` for any given paper, un
 - **Section reorder**: re-run the TOC count sanity check. Keep IDs in `sec-N-M` numerical order matching the visible numbering.
 - **Style changes**: edit `assets/style.css` (single source of truth — every paper inherits). If the change is paper-specific, that's a smell.
 
-## Updating the skill itself
+## Updating the skills
 
-The skill lives at `.claude/skills/reading-papers/` inside this project (versioned alongside the blog). Changes that should propagate to future paper analyses (new section requirements, new CSS, new verification checks) belong in the skill, not in any one paper's HTML. Pattern:
+Both `reading-papers` and `writing-tutorial` live at `.claude/skills/<name>/` inside this project (versioned alongside the blog). Changes that should propagate to future paper analyses / tutorials (new section requirements, new CSS, new verification checks) belong in the relevant skill, not in any one rendered page. Pattern:
 
-1. Update `.claude/skills/reading-papers/SKILL.md` (instructions + HTML skeleton).
-2. Update `.claude/skills/reading-papers/templates/style.css` if CSS changed.
-3. Backfill the change into existing `papers/*/index.html` if you want consistency.
+1. Update `.claude/skills/<name>/SKILL.md` (instructions + HTML skeleton).
+2. Update `.claude/skills/<name>/templates/*.css` if CSS changed (writing-tutorial uses `templates/style-additions.css`).
+3. Append/merge CSS changes into the shared `assets/style.css` (single source of truth at render time).
+4. Backfill the change into existing rendered pages if you want consistency.
 
-The CSS in `assets/style.css` was originally copied from the skill template. They drift if you edit only one side.
+The CSS in `assets/style.css` was originally copied from the skill templates. They drift if you edit only one side.
 
 ## Known gotchas seen during dev
 

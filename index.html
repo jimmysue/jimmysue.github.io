@@ -15,6 +15,11 @@
 
   <!-- PAPER-CARDS-START -->
   <div class="paper-grid">
+    <a class="paper-card" href="papers/self-flow-2026/index.html">
+      <div class="date">2026-05-13</div>
+      <h3>Self-Flow: Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
+      <p class="tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
+    </a>
     <a class="paper-card" href="papers/worldforge-2026/index.html">
       <div class="date">2026-05-13</div>
       <h3>WorldForge: 不训练把 6-DoF 相机轨迹注射进视频扩散模型</h3>
