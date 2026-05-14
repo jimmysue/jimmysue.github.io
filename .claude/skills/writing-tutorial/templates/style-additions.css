@@ -1,0 +1,203 @@
+/* =====================================================================
+   writing-tutorial — style additions
+   Append to (or import into) assets/style.css. Keeps the tutorial-specific
+   classes in one place so they can be backfilled into the shared sheet
+   when the first tutorial ships.
+   ===================================================================== */
+
+/* --- top-level homepage: tutorial card grid (sits ABOVE the paper grid) -- */
+.tutorial-section-header {
+  margin: 2.5rem 0 0.6rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+.tutorial-section-header h2 {
+  font-size: 1.6rem;
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+.tutorial-section-header .section-tag {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2, #c97043);
+  background: rgba(201, 112, 67, 0.08);
+  border: 1px solid rgba(201, 112, 67, 0.35);
+  padding: 0.18rem 0.55rem;
+  border-radius: 4px;
+}
+
+.tutorial-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 0.8rem 0 2rem;
+}
+
+.tutorial-card {
+  display: block;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--accent-2, #c97043);
+  border-radius: 6px;
+  background: var(--card-bg, #fff);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.tutorial-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+.tutorial-card .date {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+.tutorial-card h3 {
+  font-size: 1.08rem;
+  margin: 0.3rem 0 0.4rem;
+  color: var(--accent-2, #c97043);
+  border: none;
+  padding: 0;
+}
+.tutorial-card .tldr {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* --- tutorial page: badge in header ----------------------------------- */
+.tutorial-page .badge.tutorial-badge {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-2, #c97043);
+  border: 1px solid rgba(201, 112, 67, 0.45);
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  margin-bottom: 0.6rem;
+}
+
+.tutorial-page .lede {
+  font-size: 1.02rem;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  border-left: 3px solid var(--accent-2, #c97043);
+  padding-left: 1rem;
+  margin: 1.6rem 0 2rem;
+}
+
+/* --- weak-discovery warning aside ------------------------------------- */
+.provenance-warning {
+  margin: 1.4rem 0;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid #d9b15c;
+  border-left: 4px solid #d9b15c;
+  background: rgba(217, 177, 92, 0.08);
+  border-radius: 4px;
+  font-size: 0.92rem;
+  line-height: 1.65;
+}
+.provenance-warning .warn-title {
+  font-weight: 600;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a6a1d;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+/* --- spiral-step container styling ------------------------------------ */
+.spiral-step {
+  margin: 1.4rem 0 0.4rem;
+  padding-left: 0.9rem;
+  border-left: 3px solid transparent;
+}
+.spiral-step-1 { border-left-color: #5d8db6; }   /* 直觉 · 蓝 */
+.spiral-step-2 { border-left-color: #6a9a6a; }   /* demo · 绿 */
+.spiral-step-3 { border-left-color: #b06a8e; }   /* 正式化 · 紫 */
+.spiral-step-4 { border-left-color: #c4a14b; }   /* 代码 · 金 */
+.spiral-step-5 { border-left-color: #c97043; }   /* 洞察 · 橘 */
+
+.spiral-step h3 {
+  margin-top: 0.6rem;
+  font-family: var(--sans);
+}
+
+/* --- teaching-demo code block visual distinction ---------------------- */
+pre code.teaching-demo,
+.teaching-demo pre code,
+pre:has(code.teaching-demo) {
+  border: 1px dashed rgba(106, 154, 106, 0.45);
+}
+.code-source.teaching-demo-note {
+  font-style: italic;
+  color: #6a9a6a;
+}
+
+/* --- math 翻译 sentence ------------------------------------------------ */
+.math-translation {
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  margin: 0.35rem 0 0.85rem 1.2rem;
+  border-left: 2px solid var(--rule);
+  padding-left: 0.7rem;
+  font-style: italic;
+}
+
+/* --- 洞察 / insights bullet styling ----------------------------------- */
+ul.insights {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0;
+}
+ul.insights li {
+  padding: 0.45rem 0 0.45rem 1.4rem;
+  position: relative;
+  line-height: 1.65;
+}
+ul.insights li::before {
+  content: "▸";
+  position: absolute;
+  left: 0.2rem;
+  color: var(--accent-2, #c97043);
+  font-weight: 700;
+}
+
+.hand-off {
+  margin-top: 1.2rem;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* --- references section ----------------------------------------------- */
+.references {
+  margin-top: 3.5rem;
+  padding-top: 1.8rem;
+  border-top: 1px solid var(--rule);
+}
+.references h3 {
+  font-size: 1rem;
+  margin-top: 1.6rem;
+}
+ol.ref-list {
+  padding-left: 1.5rem;
+  margin: 0.4rem 0;
+  line-height: 1.7;
+}
+ol.ref-list li {
+  margin: 0.25rem 0;
+  font-size: 0.92rem;
+}

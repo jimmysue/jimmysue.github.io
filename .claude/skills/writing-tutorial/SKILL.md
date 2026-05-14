@@ -1,0 +1,379 @@
+---
+name: writing-tutorial
+description: Use when the user asks to write / 写 / 讲透 / 系统讲解 a domain (a method, an area, a family of techniques) as a single deep tutorial — not a single-paper analysis. Triggers include "写一篇 LoRA 的教程", "讲透扩散模型", "系统讲一下 flow matching", "write a tutorial on PPO", "tutorial on …". Input is a topic name; output is a 图文 HTML tutorial at tutorials/<slug>/index.html: spiral-structure sections (直觉 → 最小 demo → 正式化推导 → 真实代码引用 → 洞察), cited code from ≥2 high-quality GitHub repos, full math derivations, and parallel subagent-driven discovery/extraction/drafting.
+---
+
+# Writing Tutorials → 图文 Deep-Dive Blog
+
+## Overview
+
+A tutorial is not a paper analysis. A tutorial **synthesizes a whole domain** (multiple papers + multiple reference implementations + existing high-quality writeups) into one self-contained page that a motivated high-schooler can follow for intuition, a researcher can verify the math in, and an engineer can copy the cited code from.
+
+The output is a single page at `tutorials/<slug>/index.html`, parallel to (not inside) the `papers/` directory.
+
+```
+./paper-reading/
+  tutorials/
+    <slug>/
+      index.html               # the tutorial
+      plan.md                  # outline agreed with the user — Phase-3 gate
+      figures/                 # final figures (cropped or drawn)
+      figures-raw/             # intermediates (gitignored)
+      sources/
+        MANIFEST.md            # every cited paper/repo/blog + rationale
+        papers/*.pdf
+        repos/<org>-<name>/    # cloned reference implementations (gitignored)
+      code-excerpts/           # pre-staged code snippets w/ citation header
+```
+
+Six phases:
+
+1. **Scope** — slug + workspace
+2. **Discover** — parallel search subagents → MANIFEST
+3. **Plan** — main agent writes plan.md → **STOP, ask user**
+4. **Extract** — parallel subagents pre-stage figures + code excerpts
+5. **Draft** — grouped-parallel subagents, one per section
+6. **Assemble + Verify + Publish**
+
+## Core principle
+
+**Every code block must be quoted from a real GitHub repo with `file:Lstart-Lend`, except hand-written 教学示例 explicitly tagged `class="teaching-demo"`.** Every math step has a one-sentence 翻译 connecting it back to the intuition. Every `<h2>` section follows the spiral contract — no exceptions, no "we'll just blend them together this time".
+
+If discovery returns weak results (no >1k★ primary repo, <2 anchor papers), do **not** silently degrade — emit a `<aside class="provenance-warning">` describing the gap on the page.
+
+## When to use
+
+- User asks for a **domain tutorial / 系统讲解 / 深度讲透**, not a single-paper read
+- Examples: "讲透 LoRA / 扩散模型 / Flow Matching / PPO", "write a tutorial on retrieval-augmented generation"
+- User wants approachable intuition + rigorous math + real implementation — all three
+
+**Don't use for:**
+- A single paper → use `reading-papers` instead
+- A poster / one-page artifact → use `creating-posters-from-paper-and-code`
+- A 200-word concept explanation in chat (just answer)
+- A literature survey across papers without a coherent technique focus
+
+## Output language
+
+**Match the user's input language.** 中文 in → 中文 out. English in → English out. Math is LaTeX in either case.
+
+---
+
+## Phase 1 — Scope
+
+Parse the topic. Construct the slug: `<shorttitle>-<year>` where `year` is the seminal paper's year (NOT today's year). Use the canonical method name when one exists.
+
+Examples:
+- "讲透 LoRA" → `lora-2021` (Hu et al., 2021)
+- "扩散模型" → `diffusion-2020` (Ho et al., DDPM, 2020)
+- "flow matching" → `flow-matching-2023` (Lipman et al., 2023)
+- "PPO" → `ppo-2017` (Schulman et al., 2017)
+
+```bash
+SLUG=<shorttitle-year>
+ROOT=./tutorials/$SLUG
+mkdir -p "$ROOT"/{figures,figures-raw,code-excerpts,sources/papers,sources/repos}
+```
+
+If the topic is too broad for a single page (e.g. "深度学习"), say so explicitly and ask the user to narrow it. **Don't** silently produce a shallow overview.
+
+## Phase 2 — Discover (parallel subagents, fan-out)
+
+Dispatch **3 Explore subagents in one message** (parallel):
+
+### 2a. arxiv-searcher subagent
+> "Find 2–4 anchor papers for `<topic>`. Return arxiv IDs + 1-line rationale each. Prefer: the seminal paper + 1 modern improvement + 1 survey if one exists. Use arxiv search and Semantic Scholar. Do not include papers older than 5 years unless they are the seminal one."
+
+### 2b. github-searcher subagent
+> "Find 2–4 high-quality GitHub repos implementing `<topic>`. Hard filter: `stars >= 1000` OR `official organization (huggingface/, facebookresearch/, google-research/, openai/, microsoft/)` OR `first-author academic release`. Identify ONE PRIMARY repo to use as code spine — preferring active maintenance + clear file structure over star count alone. Return: repo URL, star count, last-commit date, primary file paths that map to the topic's core operations."
+
+### 2c. blog-searcher subagent
+> "Find 1–2 existing high-quality tutorials/blog posts on `<topic>` (Lilian Weng, distill.pub, official org blogs, well-cited Twitter threads with substance). Skip generic "What is X" SEO posts. Return URL + 1-line summary of what makes it useful as a reference."
+
+After all 3 return, main agent picks the final manifest and writes `sources/MANIFEST.md`:
+
+```markdown
+# MANIFEST — <topic>
+
+## Papers
+- [ANCHOR] <Title> (<authors>, <year>) — <1-line rationale>. arxiv:<id>
+- [SURVEY] ...
+
+## Repos
+- [PRIMARY] <org>/<repo> — <star>★, last commit <date> — code spine; key files: <a.py>, <b.py>
+- [COMPARE] <org>/<repo> — <star>★ — used for §N alternative implementation
+
+## Blogs (optional)
+- <author> — "<title>" — <url> — concept-map reference for §M
+```
+
+### Weak-discovery handling
+If primary repo has <1k★ AND no official/academic alternative exists, OR <2 anchor papers found: **proceed**, but record this gap. It will be surfaced in `<aside class="provenance-warning">` at the top of the tutorial page.
+
+Then clone the primary repo:
+```bash
+git clone --depth 1 -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 \
+  https://github.com/<org>/<repo>.git sources/repos/<org>-<repo>
+```
+(Project rule: proxy is required for `git clone`. See top-level CLAUDE.md.)
+
+Download the 2–4 anchor papers:
+```bash
+curl -L -o sources/papers/<slug>.pdf https://arxiv.org/pdf/<id>
+```
+
+## Phase 3 — Plan (main agent, **NO subagent**) — **USER GATE**
+
+This phase is coherence-critical. Subagents can't see the whole domain at once, so the main agent must hold the outline in its head.
+
+Read MANIFEST and skim the 1–2 anchor papers (`pdftotext -layout sources/papers/<slug>.pdf | head -300`). Then write `tutorials/<slug>/plan.md`:
+
+```markdown
+# Plan — <topic>
+
+## Audience contract
+"高中生能跟着 Step 1 + Step 2 走完每节; 本科生能补完 Step 3; 工程师能直接抄 Step 4."
+
+## Outline (6–10 大节, target 10–20k 字 total)
+
+### §1. <Section title>  (≈ 1500 字)
+Key takeaway: <one sentence>
+- Step 1 直觉: <approach, what figure to use>
+- Step 2 demo: <toy code idea, ~15 lines>
+- Step 3 推导: <equations to derive>
+- Step 4 代码: sources/repos/<org>-<repo>/<file>:Lxx-Lyy — <role>
+- Step 5 洞察: <what makes this design choice non-obvious>
+
+### §2. ...
+
+## Cross-section dependencies
+- §3 builds on notation introduced in §2
+- §5 callbacks the toy demo from §1
+
+## Drafting groups (for Phase 5 grouped-parallel)
+- Group A (parallel): §1, §2  — foundation, no inter-dependencies
+- Group B (parallel): §3, §4  — depends on A's notation
+- Group C (parallel): §5, §6  — depends on B's results
+- Group D (serial): §7 (synthesis) — depends on all
+```
+
+**STOP.** Print the outline to the user and ask:
+> "Outline 如上。要调整章节、增删、改顺序请直接说；确认无误后我开始抽图 + 起草。"
+
+Do **not** continue to Phase 4 until the user confirms or revises. The plan is the single source of truth — every downstream subagent reads it.
+
+## Phase 4 — Extract (parallel subagents, fan-out per section)
+
+Dispatch one Explore subagent per section in one message. Each subagent's prompt:
+
+> "You are extracting raw materials for `<slug>` §N (`<section title>`). The plan says this section needs:
+> - Figure: `<figure plan>`
+> - Code: `sources/repos/<org>-<repo>/<file>:Lxx-Lyy`
+>
+> Tasks:
+> 1. If the figure is a paper figure, identify the PDF page, render with `pdftoppm -png -r 200`, crop with `sips` to `tutorials/<slug>/figures/secN-<shortname>.png`. Note the exact crop offsets in figures-raw/CROPS.md.
+> 2. If the figure should be drawn fresh (e.g. an intuition diagram), say so explicitly in your output — do NOT make a fake crop. The main agent will decide.
+> 3. Read the cited code range. Save the snippet verbatim to `tutorials/<slug>/code-excerpts/secN-step4-1.txt` with this exact header on the first line:
+>    `<!-- sources/repos/<org>-<repo>/<file>:L<start>-L<end> — <one-line role> -->`
+> 4. If the section needs additional code snippets (comparison from another repo), do them too: `secN-step4-2.txt`, `secN-step4-3.txt`.
+>
+> Return: a short manifest of what you produced (file paths + line counts)."
+
+After Phase 4, `figures/` and `code-excerpts/` are fully populated. Drafters in Phase 5 will **not** re-read repos or PDFs — they read these pre-staged files.
+
+## Phase 5 — Draft (grouped parallel, general-purpose subagents)
+
+Groups are defined in `plan.md`. **Within a group, dispatch all section drafters in parallel in one message. Between groups, run serially.** Each subsequent group sees the previous group's final HTML.
+
+Each drafter receives:
+
+```
+You are drafting §N of tutorial `<slug>`. Return EXACTLY ONE <section id="sec-N">...</section> HTML block.
+
+ATTACHMENTS:
+- plan.md (full)
+- This section's brief (from plan §N)
+- Previously drafted sections (HTML, read-only) — only present in groups B+
+- 1-line outlines of FOLLOWING sections (for context, avoid duplication)
+- code-excerpts/secN-step4-*.txt (paths — open and quote verbatim)
+- figures/secN-*.png (paths — reference, don't re-crop)
+
+THE SPIRAL CONTRACT — your section MUST have these 5 sub-sections, in this order, with these IDs:
+
+  <h2 id="sec-N">N. <title></h2>
+
+  <h3 id="sec-N-1">N.1 直觉</h3>
+    - 100–200 字, zero undefined jargon
+    - First-use terms defined inline
+    - ≥1 figure (paper crop OR a fresh SVG)
+    - Open with a "高中生听得懂" everyday analogy
+
+  <h3 id="sec-N-2">N.2 最小 demo</h3>
+    - 10–30 lines numpy/python "教学示例 — 非生产代码"
+    - Wrap as: <pre><code class="language-python teaching-demo">...</code></pre>
+    - Should be runnable in head; toy example
+    - This is the ONLY block that may be hand-written
+
+  <h3 id="sec-N-3">N.3 正式化</h3>
+    - MathJax: $$...$$  for display, $...$ for inline
+    - Use \lt and \gt — NEVER literal < or > inside math
+    - Every variable defined on first use IN THE SAME PARAGRAPH
+    - Every non-trivial step followed by a one-sentence 翻译:
+      e.g. "—— 翻译: 这一步把"加噪过程"用一个高斯写完了."
+    - NO step-skipping: if you write "by SVD ...", expand or footnote
+
+  <h3 id="sec-N-4">N.4 代码引用</h3>
+    - Open the appropriate code-excerpts/secN-step4-*.txt
+    - The first line is the citation header — copy it as a <p class="code-source">
+    - Quote the remaining lines verbatim in <pre><code class="language-python">
+    - 10–40 lines per block. If concept needs multiple repos, show 2 side-by-side.
+    - After the snippet: a "对照" paragraph mapping each non-trivial line to a
+      specific equation from §N.3.
+
+  <h3 id="sec-N-5">N.5 洞察</h3>
+    - 1–3 bullets, ≤2 sentences each
+    - "为什么这样而不是那样" — design choices, when this fails, what to use instead
+    - This is what makes the tutorial >> a paraphrase
+
+LENGTH: target ~<plan-stated word count> 字 for this section. Under-shooting by >30% is a quality failure.
+
+HARD RULES (your output will be auto-rejected if violated):
+- Step 4 code block MUST quote the code-excerpts file verbatim, INCLUDING the citation header as <p class="code-source">
+- Step 2 code block MUST be tagged class="teaching-demo"
+- Every equation in Step 3 MUST be followed by a 翻译 sentence within 100 字
+- NO undefined jargon in Step 1
+- Length must hit the plan's target ±30%
+```
+
+Drafter returns a single `<section id="sec-N">...</section>` block.
+
+## Phase 5.5 — Assemble (main agent, small context)
+
+Main agent:
+
+1. Concatenate section blocks into the skeleton from `templates/skeleton.html`.
+2. Build the TOC last, after all IDs are stable:
+   - Every `<h2>` and every `<h3>` (all `sec-N-1..5`) becomes a `<li>` in `<nav class="toc">`
+   - `<li class="h2">` for top-level, `<li class="h3">` for sub-steps
+   - Count(`<a>` in TOC) must equal Count(`<h2 id^=sec->` + `<h3 id^=sec->`) in body
+3. Cross-section coherence checks:
+   - **Terminology**: grep first-uses of key terms across all sections. If §3 introduces "score function" and §5 uses "梯度" without bridging, fix.
+   - **Forward refs**: every "(§N 会展开)" / "(see §N)" must resolve to an existing section.
+   - **Notation drift**: a variable means the same thing throughout. `x_t` is the same `x_t` in §2 as in §5.
+4. Add the references section at the bottom listing every paper + repo + blog from MANIFEST.
+
+## Phase 6 — Verify + Publish
+
+Run the **verification checklist** (next section). Any failure → fix, do not proceed.
+
+Then:
+```bash
+chmod +x ./serve.sh
+./serve.sh 8765 -bg
+sleep 1
+curl -sI http://localhost:8765/ | head -1
+open "http://localhost:8765/tutorials/$SLUG/index.html"
+```
+
+Update the top-level `index.html` — prepend a `<a class="tutorial-card">` to the new 教程 section (above the existing 论文 grid). If the section doesn't exist yet, create it.
+
+Tell the user the local URL + the on-disk path. **Ask before running `./publish.sh`** (project rule from CLAUDE.md).
+
+---
+
+## Verification before delivery
+
+- [ ] **Source coverage**: ≥2 anchor papers + ≥2 GitHub repos cited; primary repo passes the quality filter OR a `<aside class="provenance-warning">` explains the gap
+- [ ] **Spiral integrity**: every `<h2 id="sec-N">` has exactly 5 `<h3 id="sec-N-1..5">` in order
+- [ ] **Code provenance**: every Step-4 `<pre><code>` has `<p class="code-source">` directly above; every cited file:Lstart-Lend matches verbatim text in `sources/repos/...`
+- [ ] **Step-2 tagging**: every Step-2 demo block has `class="teaching-demo"`
+- [ ] **Math 翻译**: every display equation followed by a 翻译 sentence within 100 字
+- [ ] **Math syntax**: `grep -E '\$[^$]*<[^$]*\$' index.html` returns empty (literal `<` in math = bug)
+- [ ] **MathJax sanity**: page loads with no "TeX parse error" in browser console
+- [ ] **Accessibility (Step 1)**: every Step-1 paragraph free of undefined jargon — define on first use
+- [ ] **Figures**: every `<h2>` section has ≥1 `<figure>` with `<figcaption>`
+- [ ] **TOC sanity**: `<nav class="toc">` present; Count(TOC `<a>`) == Count(`<h2|h3 id^=sec->` in body)
+- [ ] **Length**: word count 10–20k 字 (or English equivalent ~6–13k words). Under → flag as shallow; over → consider splitting (escalate)
+- [ ] **Cross-section coherence**: forward refs resolve; terminology + notation stable
+- [ ] **References section**: every MANIFEST entry appears in the page's references
+- [ ] **Top-level index updated**: new tutorial card added to homepage 教程 section
+- [ ] **Server running**: `curl -sI http://localhost:8765/` returns 200
+
+If any check fails — **go back and fix it** before reporting done.
+
+---
+
+## The "高中生能听懂" test
+
+> 一个高三学生, 课余学过基础线性代数 + Python, 读完每节的 Step 1 直觉 + Step 2 demo, 能用自己的话说出"这个机制在干什么". 他不必看懂 Step 3 的推导, 但应该相信"哦, 数学只是把刚才那个直觉写严格了."
+
+If they can't — the failure is **always in Step 1** (jargon, missing analogy, no concrete example). Fix Step 1, never simplify Step 3.
+
+---
+
+## Rationalizations to refuse
+
+These are exactly the failure modes observed in baseline testing (3 subagents under accessibility / depth / time pressure all hit these). When you catch yourself thinking any of these — STOP and apply the rule.
+
+| 借口 | 反驳 |
+|---|---|
+| "我知道 LoRA 怎么写, 直接手写代码就行" | 不行. Step 4 必须从真实 repo 引 file:Lstart-Lend. 手写的只能放 Step 2 并加 `teaching-demo`. |
+| "提一下 `huggingface/peft` 这个名字就够了, 不用 line numbers" | 不够. 没有 file:Lstart-Lend 的"引用"和编造没区别. |
+| "推导用 'by SVD' 一笔带过, 高中生不需要懂" | 跳过 = 偷懒. 要么展开 SVD (用一个小数值例子), 要么明说"这一步用了 X 定理, 第 §M 节有完整推导"——但必须给出 §M. |
+| "Step 1 直觉太啰嗦, 跳到数学吧" | 否. Step 1 是整节的"门票". 没有直觉, 后面全部读者都掉队. |
+| "用户说赶时间, 8000 字够了" | 不够. 短不等于深. 10k 字是为了让 5 个 sub-step 每个都到位. 真要短, 是单页教程降级为 paper analysis, 用 `reading-papers` 而不是这个. |
+| "Step 2 demo 和 Step 4 代码功能差不多, 砍掉 Step 2 吧" | 不行. Step 2 是给"代码恐惧者"的桥梁 —— 10 行 numpy 没有依赖, 没有抽象. Step 4 是工程实现. 两者读者群不同. |
+| "翻译每一步太啰嗦, 数学训练有素的人不需要" | 翻译写给"刚学完直觉的高中生回看推导"那一刻的自己, 不是给数学训练有素的人看的. 强制要求. |
+| "这两个公式紧挨着, 一句翻译涵盖两个就行" | 不行. **1 个 display equation = 1 个 `<p class="math-translation">`**, 严格 1:1. 共用翻译会让中间那个公式变成"读者自行脑补", 即 跳步 的隐藏形式. |
+| "上一节定义过这个符号了, 这节就不用再 inline 解释了" | 教程是给"任何一节都可能从 TOC 直接跳进来"的读者读的. 关键符号在每节首次出现时都要带一句 inline gloss (e.g. "秩 $r$ —— 矩阵能压缩成的最薄的厚度"). 别假设读者顺序读完. |
+| "primary repo 只有 800 星, 但很好, 标准放宽点" | 标准就是 1k★ OR 官方 OR 学术发布. 不达标就在页头加 `<aside class="provenance-warning">`. **不要静默降级.** |
+| "Plan 我自己定就行, 用户应该相信我" | 不. Phase 3 必须停下来给用户看 plan.md. 起草后再改大纲代价高 10 倍. |
+| "Phase 5 全并行最快, 让 Phase 5.5 缝合就行" | 分组并行. 全并行会让前后节互不相知, 5.5 缝合远不如分组节省成本. |
+| "discovery 慢, 我从记忆里写就行" | 不行. 记忆里的代码是手写, 不能引. Discovery 是这个 skill 存在的理由之一. |
+| "weak discovery 找不到好 repo, 算了不做了" | 不算了. 加 provenance-warning, 标注用了哪些更弱的来源, 继续做. 让读者知道证据强度. |
+| "TOC 50+ 项太多了, 只列 h2 吧" | 不行. Sub-step 列在 TOC 里是这个 skill 的视觉特征 —— 读者能看到"哦每节都走 5 步螺旋"才知道该怎么读. |
+
+## Red flags — start over if ANY apply
+
+- 任何代码块没有 `<p class="code-source">` 引用 (除 Step 2 demo)
+- 任何 Step 2 demo 没有 `class="teaching-demo"`
+- 任何 `<h2>` 缺 5 个 `<h3 id="sec-N-1..5">` 完整组
+- Step 3 推导出现 "by X" 但没有展开 / 没有指向具体后文
+- 任何数学块后面 100 字内没有"翻译"句
+- MathJax 里出现字面 `<` 或 `>` (应当用 `\lt` `\gt`)
+- `tutorials/<slug>/plan.md` 不存在, 或没有用户确认就开始 Phase 4
+- 任何 `sources/repos/<org>-<repo>/<file>:Lxx-Lyy` 的引用文件不存在 / 行号对不上
+- 任何 `file:Lstart-Lend` 引用未经 `diff <(sed -n '<start>,<end>p' <file>) <(grep -A 999 ...)` 比对就声称引自 repo —— 编出来的"真实行号"是这个 skill 最严重的违规
+- 任何两个相邻 display equation 共用一句 `math-translation` —— 必须 1:1
+- 字数 < 8000 (中) 或 < 5000 (英) —— 不是单页深度教程
+- TOC link count ≠ body `h2 + h3` count with `id^=sec-`
+- 顶层 `index.html` 没有添加新教程卡片
+- 没启动 `serve.sh` / 没给本地 URL
+- 输出语言不匹配用户输入语言
+
+---
+
+## Tooling notes
+
+- **PDF tooling** — same as `reading-papers`: `pdftotext -layout`, `pdftoppm -png -r 200`, `sips --cropOffset/--cropToHeightWidth`, `pdfinfo`. Letter-size pages at 200 DPI are 1700×2200 px.
+- **Cloning under proxy** — `git clone -c http.proxy=http://127.0.0.1:7897 -c https.proxy=http://127.0.0.1:7897 ...`. Raw file fetches via `curl` work without proxy flags.
+- **Star count check** — `gh api repos/<org>/<repo> --jq .stargazers_count` (requires `gh` CLI authed). Fallback: scrape from `curl -sL https://github.com/<org>/<repo> | grep -oE 'aria-label="[0-9,]+ users starred'`.
+- **Code excerpt extraction** — `sed -n '<start>,<end>p' sources/repos/<org>-<repo>/<file>` for exact line ranges.
+- **Verbatim verification** — when verifying Step-4 provenance, `diff <(sed -n '<start>,<end>p' <file>) <(extract from index.html)` must be empty.
+- **Word count** — for Chinese: `python3 -c "import re; print(len(re.findall(r'[一-鿿]', open('index.html').read())))"`. For English: `wc -w` after stripping tags.
+
+## Related skills
+
+- `reading-papers` — sibling skill, output is a single-paper analysis page. Use that for "讲一篇 paper"; use **this** for "讲一个领域 / 系统讲透".
+- `creating-posters-from-paper-and-code` — for a one-page poster instead of a tutorial. Don't confuse with this skill.
+- `frontend-design` — invoke after the tutorial is rendered if the user wants distinctive visual design. Default style.css inherits from the `reading-papers` blog.
+
+---
+
+## Skeleton + templates
+
+The HTML skeleton, the spiral-section template, and the CSS additions are in `templates/`. Use them — do not improvise the structure.
+
+- `templates/skeleton.html` — full page scaffold (head, MathJax, TOC stub, references stub, footer)
+- `templates/spiral-section.html` — the 5-sub-step structure for one `<h2>` section
+- `templates/style-additions.css` — `.teaching-demo`, `.provenance-warning`, `.tutorial-card`, spiral-step visual differentiation

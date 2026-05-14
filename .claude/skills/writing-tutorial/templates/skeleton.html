@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{TITLE}} — 教程</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$','$'], ['\\(','\\)']],
+        displayMath: [['$$','$$'], ['\\[','\\]']],
+        processEscapes: true
+      },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+</head>
+<body class="tutorial-page">
+
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">{{TOC_TITLE}}</div>
+  <ul>
+    <!-- INSERT-TOC-ITEMS-HERE -->
+    <!-- For each h2: <li class="h2"><a href="#sec-N">N. Title</a></li>      -->
+    <!-- For each h3: <li class="h3"><a href="#sec-N-M">N.M Step name</a></li> -->
+  </ul>
+</nav>
+
+<main class="tutorial">
+
+  <header class="paper-header">
+    <p class="badge tutorial-badge">教程 · Tutorial</p>
+    <h1>{{TITLE}}</h1>
+    <p class="subtitle">{{SUBTITLE}}</p>
+    <div class="meta">
+      <div><strong>读者画像</strong> {{AUDIENCE}}</div>
+      <div><strong>预计阅读</strong> {{READING_TIME}}</div>
+      <div><strong>主要资料</strong> {{KEY_SOURCES_INLINE}}</div>
+    </div>
+  </header>
+
+  <!-- Optional: provenance warning if Phase 2 found weak sources. Omit entirely otherwise. -->
+  {{PROVENANCE_WARNING_BLOCK}}
+
+  <!-- Optional: lede / 导读 paragraph before §1 -->
+  <section id="sec-0" class="lede">
+    <p>{{LEDE}}</p>
+  </section>
+
+  <!-- INSERT-SECTIONS-HERE -->
+  <!-- Each section produced by Phase 5 drafter goes here, in order.
+       Format: <section id="sec-N">...spiral 5 sub-steps...</section>
+       Templates: see templates/spiral-section.html
+  -->
+
+  <section id="references" class="references">
+    <h2 id="sec-refs">References</h2>
+    <h3 id="sec-refs-papers">论文 / Papers</h3>
+    <ol class="ref-list">
+      <!-- INSERT-PAPER-REFS-HERE -->
+    </ol>
+    <h3 id="sec-refs-repos">代码仓库 / Repositories</h3>
+    <ol class="ref-list">
+      <!-- INSERT-REPO-REFS-HERE -->
+    </ol>
+    <h3 id="sec-refs-blogs">参考博文 / Blogs</h3>
+    <ol class="ref-list">
+      <!-- INSERT-BLOG-REFS-HERE -->
+    </ol>
+  </section>
+
+  <footer class="paper-footer">
+    <p>{{FOOTER_NOTE}}</p>
+    <p><a href="../../index.html">← 返回首页</a></p>
+  </footer>
+
+</main>
+
+<!-- IntersectionObserver: highlight active TOC entry and auto-scroll the TOC.
+     Same pattern as reading-papers; lives inline so each tutorial is self-contained. -->
+<script>
+(function() {
+  const toc = document.querySelector('.toc');
+  if (!toc) return;
+  const links = Array.from(toc.querySelectorAll('a[href^="#"]'));
+  const targets = links
+    .map(a => document.getElementById(a.getAttribute('href').slice(1)))
+    .filter(Boolean);
+
+  function setActive(id) {
+    links.forEach(a => {
+      const on = a.getAttribute('href') === '#' + id;
+      a.classList.toggle('active', on);
+      if (on) {
+        const r = a.getBoundingClientRect();
+        const tr = toc.getBoundingClientRect();
+        if (r.top < tr.top + 40 || r.bottom > tr.bottom - 40) {
+          a.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+      }
+    });
+  }
+
+  const obs = new IntersectionObserver((entries) => {
+    const visible = entries
+      .filter(e => e.isIntersecting)
+      .sort((a, b) => a.target.offsetTop - b.target.offsetTop);
+    if (visible.length) setActive(visible[0].target.id);
+  }, { rootMargin: '-30% 0px -55% 0px', threshold: 0 });
+
+  targets.forEach(t => obs.observe(t));
+})();
+</script>
+
+</body>
+</html>

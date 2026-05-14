@@ -1,6 +1,5 @@
-# Claude Code metadata + skill source (internal authoring tooling — not for public display).
-# Remove this line if you want to publish the skill source alongside the blog.
-.claude/
+# Claude Code session state — not source of truth (only commit skills + settings, not transient project state).
+.claude/projects/
 
 # Paper-reading raw artifacts (heavy intermediate files — only the final cropped figures
 # in papers/*/figures/ ship to the published blog).
