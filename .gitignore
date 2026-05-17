@@ -7,6 +7,7 @@ papers/*/raw/
 papers/*/figures-raw/
 papers/*/repo/
 papers/*/repo_*/
+papers/*/repo-*/
 papers/*/eprint/
 
 # Writing-tutorial raw artifacts (only final figures + index.html + plan.md + MANIFEST.md
