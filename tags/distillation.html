@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>标签: distillation — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../tags.html">标签</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<main class="page page--tag">
+<h1>标签: distillation</h1>
+<p class="page__intro">共 3 篇 (3 论文 / 0 教程)</p>
+<p class="back-link"><a href="../tags.html">← 返回所有标签</a></p>
+<div class="post-grid">
+<a class="post-card post-card--paper" href="../papers/qwen-image-2-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
+  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="../tags/qwen.html">qwen</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/flow-opd-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">Flow-OPD: On-Policy Distillation for Flow Matching Models</h3>
+  <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="../tags/distillation.html">distillation</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/d-opsd-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models</h3>
+  <p class="post-card__tldr">HKUST/阿里 Z-Image Team:让 Z-Image-Turbo (8 步) 和 FLUX.2-klein (4 步) 能&quot;边用边学&quot;新概念 — 同一模型分饰 student (text) 和 teacher (text+target_img),在 student 自采轨迹上 self-distill,无需 reward。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="../tags/distillation.html">distillation</a>
+      <a class="tag-chip" href="../tags/flow-matching.html">flow-matching</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</a>
+</div>
+</main>
+</body>
+</html>

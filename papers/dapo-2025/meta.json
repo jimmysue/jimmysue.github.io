@@ -1,0 +1,16 @@
+{
+  "type": "paper",
+  "slug": "dapo-2025",
+  "title": "DAPO: An Open-Source LLM Reinforcement Learning System at Scale",
+  "date": "2026-05-12",
+  "tldr": "字节 + 清华 AIR 的 R1 复现:Qwen2.5-32B base 上 4 个工程修复 (Clip-Higher / Dynamic Sampling / Token-Level Loss / Overlong Reward Shaping) 把 GRPO 从 30 推到 50 AIME24,只用 R1-Zero 50% step。代码+数据+权重全开源。",
+  "tags": [
+    "rl",
+    "llm",
+    "grpo",
+    "reasoning",
+    "mathematical-reasoning",
+    "production"
+  ],
+  "tutorial_meta": null
+}

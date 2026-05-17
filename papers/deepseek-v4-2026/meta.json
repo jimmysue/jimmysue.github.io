@@ -1,0 +1,14 @@
+{
+  "type": "paper",
+  "slug": "deepseek-v4-2026",
+  "title": "DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence",
+  "date": "2026-05-12",
+  "tldr": "1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。",
+  "tags": [
+    "llm",
+    "attention",
+    "mixture-of-experts",
+    "system-paper"
+  ],
+  "tutorial_meta": null
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>标签: llm — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../tags.html">标签</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<main class="page page--tag">
+<h1>标签: llm</h1>
+<p class="page__intro">共 5 篇 (4 论文 / 1 教程)</p>
+<p class="back-link"><a href="../tags.html">← 返回所有标签</a></p>
+<div class="post-grid">
+<a class="post-card post-card--tutorial" href="../tutorials/rlhf-evolution-2024/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date">2026-05-14 · 12k 字 · 90–120 分钟</span>
+  </div>
+  <h3 class="post-card__title">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</h3>
+  <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/rl.html">rl</a>
+      <a class="tag-chip" href="../tags/llm.html">llm</a>
+      <a class="tag-chip" href="../tags/ppo.html">ppo</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/tuna-2/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
+  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="../tags/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="../tags/llm.html">llm</a>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/rls-razor-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</h3>
+  <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/rl.html">rl</a>
+      <a class="tag-chip" href="../tags/llm.html">llm</a>
+      <a class="tag-chip" href="../tags/alignment.html">alignment</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/deepseek-v4-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</h3>
+  <p class="post-card__tldr">1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/llm.html">llm</a>
+      <a class="tag-chip" href="../tags/attention.html">attention</a>
+      <a class="tag-chip" href="../tags/mixture-of-experts.html">mixture-of-experts</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/dapo-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">DAPO: An Open-Source LLM Reinforcement Learning System at Scale</h3>
+  <p class="post-card__tldr">字节 + 清华 AIR 的 R1 复现:Qwen2.5-32B base 上 4 个工程修复 (Clip-Higher / Dynamic Sampling / Token-Level Loss / Overlong Reward Shaping) 把 GRPO 从 30 推到 50 AIME24,只用 R1-Zero 50% step。代码+数据+权重全开源。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/rl.html">rl</a>
+      <a class="tag-chip" href="../tags/llm.html">llm</a>
+      <a class="tag-chip" href="../tags/grpo.html">grpo</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+</div>
+</main>
+</body>
+</html>

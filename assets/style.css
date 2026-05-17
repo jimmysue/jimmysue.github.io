@@ -557,3 +557,336 @@ ol.ref-list li {
   margin: 0.25rem 0;
   font-size: 0.92rem;
 }
+
+/* =====================================================================
+   Blog redesign 2026-05-17: nav + post cards + tag cloud
+   Appended; do not interleave with above. Old .paper-card/.tutorial-card
+   classes are preserved above for safety. New unified surface lives here.
+   ===================================================================== */
+
+/* ===== 1. Site nav ===== */
+.site-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 52px;
+  padding: 0 1.6rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--sans);
+  /* center inner content to match <main> max-width (780px) + nav side padding */
+  /* we achieve this by giving children a shared max-width via the row itself */
+  -webkit-backdrop-filter: saturate(180%) blur(10px);
+  backdrop-filter: saturate(180%) blur(10px);
+}
+/* center & cap the inner row width to align with <main> */
+.site-nav::before,
+.site-nav::after {
+  content: "";
+  flex: 1 1 0;
+  min-width: 0;
+}
+.site-nav > .site-nav__brand { order: 1; margin-right: auto; }
+.site-nav > .site-nav__links { order: 2; margin-left: auto; }
+.site-nav::before { order: 0; max-width: calc((100% - 780px) / 2); }
+.site-nav::after  { order: 3; max-width: calc((100% - 780px) / 2); }
+
+.site-nav__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 650;
+  font-size: 0.98rem;
+  letter-spacing: -0.01em;
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.site-nav__brand:hover {
+  color: var(--accent);
+  text-decoration: none;
+  background: var(--accent-soft);
+}
+
+.site-nav__home-icon {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.site-nav__brand-text {
+  white-space: nowrap;
+}
+
+.site-nav__links {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.site-nav__link {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 999px;
+  transition: color 0.15s ease, background 0.15s ease;
+  white-space: nowrap;
+}
+.site-nav__link:hover {
+  color: var(--text);
+  background: var(--rule);
+  text-decoration: none;
+}
+.site-nav__link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* ===== 2. Post cards (unified — replaces .paper-card / .tutorial-card) ===== */
+.post-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 1.25rem;
+  margin: 1.5rem 0 2rem;
+}
+
+.post-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+.post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+}
+
+.post-card--paper { border-left: 2px solid #3b82f6; }
+.post-card--tutorial { border-left: 2px solid #f59e0b; }
+
+.post-card__head {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.post-card__badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+.post-card__badge--paper {
+  background: #e8eef5;
+  color: #1e3a8a;
+}
+.post-card__badge--tutorial {
+  background: #fbeed8;
+  color: #92400e;
+}
+
+.post-card__date {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: #6b7280;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.post-card__title {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0f172a;
+  border: none;
+  padding: 0;
+}
+
+.post-card__tldr {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: #374151;
+  /* clamp to 4 lines */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-card__tags {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: auto;
+  padding-top: 0.2rem;
+}
+
+/* ===== 3. Tag chips (on cards) ===== */
+.tag-chip {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.tag-chip:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+  text-decoration: none;
+}
+.tag-chip--more {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px dashed #cbd5e1;
+  cursor: default;
+}
+.tag-chip--more:hover {
+  background: transparent;
+  color: #94a3b8;
+}
+
+/* ===== 4. Tag cloud (tags.html) ===== */
+.tag-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  align-items: baseline;
+  padding: 2rem 0;
+}
+.tag-cloud__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  color: #1e3a8a;
+  font-family: var(--sans);
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 0.15rem 0.3rem;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: background 0.12s ease, color 0.12s ease;
+  /* font-size is set inline by build.py (rem units) */
+}
+.tag-cloud__item:hover {
+  background: #f1f5f9;
+  color: #1e40af;
+  text-decoration: none;
+}
+.tag-cloud__count {
+  font-size: 0.7em;
+  color: #9ca3af;
+  margin-left: 0.2em;
+  font-weight: 400;
+  vertical-align: super;
+}
+
+/* ===== 5. Per-tag page ===== */
+.tag-page__header {
+  margin: 0 0 0.4rem;
+}
+.tag-page__header h1 {
+  font-family: var(--mono);
+  font-size: 2rem;
+  margin: 0;
+  color: #1e3a8a;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.tag-page__summary {
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin: 0.2rem 0 1.4rem;
+}
+.tag-page__back {
+  display: inline-block;
+  font-family: var(--sans);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+.tag-page__back:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.tag-page__back::before {
+  content: "← ";
+}
+
+/* ===== 6. Mobile (≤640px) ===== */
+@media (max-width: 640px) {
+  .site-nav {
+    padding: 0 0.9rem;
+    height: 48px;
+  }
+  .site-nav__brand-text {
+    display: none;
+  }
+  .site-nav__links {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    flex-wrap: nowrap;
+  }
+  .site-nav__links::-webkit-scrollbar { display: none; }
+  .site-nav__link {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.88rem;
+  }
+
+  .post-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .post-card {
+    padding: 0.9rem 1rem;
+  }
+}
+
+/* ===== 7. Body offset for sticky nav ===== */
+/* Reduce the existing top padding on <main> since the sticky nav already sits
+   above it. Existing rule: main { padding: 4rem 1.6rem 6rem }. The nav itself
+   contributes 52px (~3.25rem) of visual chrome; we trim top padding so total
+   visual gap stays similar. Per-paper pages are unaffected because the rule
+   targets only direct-child <main>. */
+body > main {
+  padding-top: 1.5rem;
+}
+@media (max-width: 600px) {
+  body > main { padding-top: 1rem; }
+}

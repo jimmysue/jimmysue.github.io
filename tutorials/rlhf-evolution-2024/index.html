@@ -22,6 +22,22 @@
   <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
 </head>
 <body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../tags.html">标签</a>
+  </div>
+</nav>
+<!-- NAV-END -->
 
 <nav class="toc" aria-label="目录">
   <div class="toc-title">教程目录</div>
@@ -1463,8 +1479,7 @@ for step in range(20):
 
   <footer class="paper-footer">
     <p>这是 paper-reading 博客的第一篇 <em>tutorial</em>; 整理自 7 篇 anchor papers + 4 个 GitHub 仓库 (huggingface/trl 18.4k★, volcengine/verl 21.3k★, kvablack/ddpo-pytorch, salesforce/DiffusionDPO) 的代码引用. 任何代码块均含 <code>file:Lstart-Lend</code> 可追溯引用. 如发现公式或代码引用有出入, 欢迎指出.</p>
-    <p><a href="../../index.html">← 返回首页</a></p>
-  </footer>
+</footer>
 
 </main>
 
