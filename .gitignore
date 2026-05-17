@@ -14,6 +14,9 @@ papers/*/eprint/
 tutorials/*/figures-raw/
 tutorials/*/sources/repos/
 tutorials/*/code-excerpts/
+tutorials/*/sources/papers/*.pdf
+tutorials/*/sources/papers/*.txt
+tutorials/*/drafts/
 
 # Local server log
 paper-reading-server.log
