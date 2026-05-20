@@ -25,8 +25,22 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 14 篇论文精读。</p>
+<p class="page__intro">共 15 篇论文精读。</p>
 <div class="post-grid">
+<a class="post-card post-card--paper" href="papers/starchild-1-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-19</span>
+  </div>
+  <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
+  <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="tags/video.html">video</a>
+      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="tags/world-model.html">world-model</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
 <a class="post-card post-card--paper" href="papers/awm-2025/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
