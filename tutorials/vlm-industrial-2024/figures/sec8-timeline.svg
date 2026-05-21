@@ -1,0 +1,182 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif">
+  <defs>
+    <marker id="arr8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="grad8a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
+    <linearGradient id="grad8b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fef9c3"/><stop offset="1" stop-color="#fde047"/></linearGradient>
+    <linearGradient id="grad8c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dcfce7"/><stop offset="1" stop-color="#86efac"/></linearGradient>
+  </defs>
+
+  <!-- Title -->
+  <text x="600" y="32" font-size="22" font-weight="600" fill="#0f172a" text-anchor="middle">SOTA 演进时间线 + 方法选择决策树</text>
+
+  <!-- ====== TIMELINE (TOP HALF) ====== -->
+  <text x="600" y="68" font-size="14" font-weight="600" fill="#1e3a8a" text-anchor="middle">2023 — 2026 关键工作</text>
+
+  <!-- Timeline axis -->
+  <line x1="80" y1="200" x2="1120" y2="200" stroke="#94a3b8" stroke-width="2"/>
+
+  <!-- Year ticks -->
+  <g font-size="12" fill="#64748b" text-anchor="middle">
+    <line x1="120" y1="195" x2="120" y2="205" stroke="#94a3b8"/>
+    <text x="120" y="222">2023</text>
+    <line x1="380" y1="195" x2="380" y2="205" stroke="#94a3b8"/>
+    <text x="380" y="222">2024</text>
+    <line x1="640" y1="195" x2="640" y2="205" stroke="#94a3b8"/>
+    <text x="640" y="222">2025</text>
+    <line x1="900" y1="195" x2="900" y2="205" stroke="#94a3b8"/>
+    <text x="900" y="222">2026</text>
+  </g>
+
+  <!-- Theme color bands above timeline -->
+  <g font-size="11" font-weight="500">
+    <rect x="80" y="92" width="1040" height="22" fill="#3b82f6" opacity="0.1"/>
+    <text x="92" y="107" fill="#1e3a8a">看清细节 (Theme 1)</text>
+    <rect x="80" y="120" width="1040" height="22" fill="#d97706" opacity="0.1"/>
+    <text x="92" y="135" fill="#7c2d12">数据制作 (Theme 2)</text>
+    <rect x="80" y="148" width="1040" height="22" fill="#15803d" opacity="0.1"/>
+    <text x="92" y="163" fill="#14532d">泛化能力 (Theme 3)</text>
+  </g>
+
+  <!-- Method nodes on timeline -->
+  <!-- WinCLIP 2023 Q1 -->
+  <g>
+    <circle cx="150" cy="200" r="7" fill="#3b82f6" stroke="white" stroke-width="2"/>
+    <line x1="150" y1="200" x2="150" y2="100" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="150" y="248" font-size="11.5" font-weight="600" fill="#1e3a8a" text-anchor="middle">WinCLIP</text>
+    <text x="150" y="262" font-size="10" fill="#475569" text-anchor="middle">CVPR'23</text>
+    <text x="150" y="275" font-size="9.5" fill="#475569" text-anchor="middle">多尺度窗口</text>
+    <!-- markers on theme bands -->
+    <circle cx="150" cy="103" r="4" fill="#3b82f6"/>
+    <circle cx="150" cy="159" r="4" fill="#15803d"/>
+  </g>
+
+  <!-- AnomalyCLIP 2023 Q3 -->
+  <g>
+    <circle cx="280" cy="200" r="7" fill="#15803d" stroke="white" stroke-width="2"/>
+    <line x1="280" y1="200" x2="280" y2="100" stroke="#15803d" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="280" y="248" font-size="11.5" font-weight="600" fill="#14532d" text-anchor="middle">AnomalyCLIP</text>
+    <text x="280" y="262" font-size="10" fill="#475569" text-anchor="middle">ICLR'24</text>
+    <text x="280" y="275" font-size="9.5" fill="#475569" text-anchor="middle">object-agnostic prompt</text>
+    <circle cx="280" cy="103" r="4" fill="#3b82f6"/>
+    <circle cx="280" cy="159" r="4" fill="#15803d"/>
+  </g>
+
+  <!-- AnomalyGPT 2023 Q3 -->
+  <g>
+    <circle cx="410" cy="200" r="8" fill="#d97706" stroke="white" stroke-width="2"/>
+    <line x1="410" y1="200" x2="410" y2="100" stroke="#d97706" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="410" y="248" font-size="11.5" font-weight="700" fill="#7c2d12" text-anchor="middle">AnomalyGPT</text>
+    <text x="410" y="262" font-size="10" fill="#475569" text-anchor="middle">AAAI'24 Oral</text>
+    <text x="410" y="275" font-size="9.5" fill="#475569" text-anchor="middle">首个 LVLM-based</text>
+    <text x="410" y="288" font-size="9.5" fill="#475569" text-anchor="middle">+ 合成数据范式</text>
+    <circle cx="410" cy="103" r="4" fill="#3b82f6"/>
+    <circle cx="410" cy="131" r="5" fill="#d97706"/>
+    <circle cx="410" cy="159" r="4" fill="#15803d"/>
+  </g>
+
+  <!-- LLaVA-1.6 / AnyRes 2024 -->
+  <g>
+    <circle cx="560" cy="200" r="6" fill="#7c3aed" stroke="white" stroke-width="2"/>
+    <line x1="560" y1="200" x2="560" y2="100" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="560" y="248" font-size="10.5" font-weight="500" fill="#4c1d95" text-anchor="middle">LLaVA-1.6 (AnyRes)</text>
+    <text x="560" y="262" font-size="9.5" fill="#475569" text-anchor="middle">通用 LVLM 高分输入</text>
+    <circle cx="560" cy="103" r="4" fill="#3b82f6"/>
+  </g>
+
+  <!-- IADGPT 2025 Q3 -->
+  <g>
+    <circle cx="720" cy="200" r="7" fill="#15803d" stroke="white" stroke-width="2"/>
+    <line x1="720" y1="200" x2="720" y2="100" stroke="#15803d" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="720" y="248" font-size="11" font-weight="600" fill="#14532d" text-anchor="middle">IADGPT</text>
+    <text x="720" y="262" font-size="10" fill="#475569" text-anchor="middle">2025 (arxiv 2508)</text>
+    <text x="720" y="275" font-size="9.5" fill="#475569" text-anchor="middle">few-shot in-context</text>
+    <circle cx="720" cy="131" r="4" fill="#d97706"/>
+    <circle cx="720" cy="159" r="5" fill="#15803d"/>
+  </g>
+
+  <!-- IMDD-1M 2025 Q4 -->
+  <g>
+    <circle cx="850" cy="200" r="7" fill="#d97706" stroke="white" stroke-width="2"/>
+    <line x1="850" y1="200" x2="850" y2="100" stroke="#d97706" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="850" y="248" font-size="11" font-weight="600" fill="#7c2d12" text-anchor="middle">IMDD-1M</text>
+    <text x="850" y="262" font-size="10" fill="#475569" text-anchor="middle">2025 (arxiv 2512)</text>
+    <text x="850" y="275" font-size="9.5" fill="#475569" text-anchor="middle">1M 多模态 + 基础模型</text>
+    <circle cx="850" cy="131" r="5" fill="#d97706"/>
+    <circle cx="850" cy="159" r="4" fill="#15803d"/>
+  </g>
+
+  <!-- AD-Copilot 2026 -->
+  <g>
+    <circle cx="980" cy="200" r="6" fill="#be123c" stroke="white" stroke-width="2"/>
+    <line x1="980" y1="200" x2="980" y2="100" stroke="#be123c" stroke-width="1" stroke-dasharray="3 3"/>
+    <text x="980" y="248" font-size="10.5" font-weight="500" fill="#881337" text-anchor="middle">AD-Copilot</text>
+    <text x="980" y="262" font-size="9.5" fill="#475569" text-anchor="middle">2026 (arxiv 2603)</text>
+    <text x="980" y="275" font-size="9.5" fill="#475569" text-anchor="middle">Comparison Encoder</text>
+    <circle cx="980" cy="131" r="4" fill="#d97706"/>
+    <circle cx="980" cy="159" r="4" fill="#15803d"/>
+  </g>
+
+  <!-- ====== DECISION TREE (BOTTOM HALF) ====== -->
+  <text x="600" y="340" font-size="14" font-weight="600" fill="#0f172a" text-anchor="middle">方法选择 Decision Tree (落地建议)</text>
+
+  <!-- Root -->
+  <rect x="500" y="365" width="200" height="50" rx="10" fill="#fff" stroke="#0f172a" stroke-width="2"/>
+  <text x="600" y="388" font-size="12" font-weight="600" fill="#0f172a" text-anchor="middle">你有多少 normal images?</text>
+  <text x="600" y="404" font-size="11" fill="#475569" text-anchor="middle">(MVTec-style 工业图)</text>
+
+  <!-- Branch labels -->
+  <line x1="600" y1="415" x2="200" y2="455" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr8)"/>
+  <line x1="600" y1="415" x2="600" y2="455" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr8)"/>
+  <line x1="600" y1="415" x2="1000" y2="455" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr8)"/>
+
+  <text x="380" y="440" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">≥ 1000 张</text>
+  <text x="600" y="442" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">50 — 100 张</text>
+  <text x="830" y="440" font-size="11" font-weight="600" fill="#475569" text-anchor="middle">0 张 / 跨域</text>
+
+  <!-- Branch 1: PatchCore -->
+  <rect x="100" y="460" width="220" height="100" rx="10" fill="url(#grad8a)" stroke="#1e40af" stroke-width="2"/>
+  <text x="210" y="484" font-size="13" font-weight="700" fill="#1e3a8a" text-anchor="middle">→ PatchCore (传统)</text>
+  <text x="210" y="503" font-size="10.5" fill="#475569" text-anchor="middle">openvinotoolkit/anomalib</text>
+  <text x="210" y="518" font-size="10.5" fill="#475569" text-anchor="middle">99% AUROC, &lt;10ms 推理</text>
+  <text x="210" y="533" font-size="10.5" fill="#475569" text-anchor="middle">单 GPU, 不需要 prompt</text>
+  <text x="210" y="552" font-size="10" font-style="italic" fill="#1e3a8a" text-anchor="middle">VLM 不一定更好</text>
+
+  <!-- Branch 2: AnomalyGPT -->
+  <rect x="490" y="460" width="220" height="100" rx="10" fill="url(#grad8b)" stroke="#a16207" stroke-width="2"/>
+  <text x="600" y="484" font-size="13" font-weight="700" fill="#713f12" text-anchor="middle">→ AnomalyGPT few-shot</text>
+  <text x="600" y="503" font-size="10.5" fill="#475569" text-anchor="middle">CASIA-IVA-Lab/AnomalyGPT</text>
+  <text x="600" y="518" font-size="10.5" fill="#475569" text-anchor="middle">86-94% AUROC, 多轮对话</text>
+  <text x="600" y="533" font-size="10.5" fill="#475569" text-anchor="middle">+ 缺陷描述 + 定位</text>
+  <text x="600" y="552" font-size="10" font-style="italic" fill="#713f12" text-anchor="middle">需要描述能力时选这个</text>
+
+  <!-- Branch 3: AnomalyCLIP -->
+  <rect x="890" y="460" width="220" height="100" rx="10" fill="url(#grad8c)" stroke="#166534" stroke-width="2"/>
+  <text x="1000" y="484" font-size="13" font-weight="700" fill="#14532d" text-anchor="middle">→ AnomalyCLIP zero-shot</text>
+  <text x="1000" y="503" font-size="10.5" fill="#475569" text-anchor="middle">zqhang/AnomalyCLIP</text>
+  <text x="1000" y="518" font-size="10.5" fill="#475569" text-anchor="middle">~90% AUROC 跨 17 数据集</text>
+  <text x="1000" y="533" font-size="10.5" fill="#475569" text-anchor="middle">含 industrial+medical</text>
+  <text x="1000" y="552" font-size="10" font-style="italic" fill="#14532d" text-anchor="middle">无数据 / 跨域 / 新品</text>
+
+  <!-- Bottom row: additional considerations -->
+  <text x="600" y="600" font-size="12" font-weight="600" fill="#0f172a" text-anchor="middle">其他 dimension</text>
+
+  <rect x="80" y="615" width="320" height="80" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="240" y="636" font-size="11.5" font-weight="600" fill="#0f172a" text-anchor="middle">缺陷类型固定 + 数据充足?</text>
+  <text x="240" y="654" font-size="10.5" fill="#475569" text-anchor="middle">→ EfficientAD / FastFlow</text>
+  <text x="240" y="670" font-size="10.5" fill="#475569" text-anchor="middle">(传统方法, 更快更准)</text>
+  <text x="240" y="688" font-size="10" fill="#64748b" text-anchor="middle" font-style="italic">VLM 是为解锁新能力, 不是取代</text>
+
+  <rect x="440" y="615" width="320" height="80" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="600" y="636" font-size="11.5" font-weight="600" fill="#0f172a" text-anchor="middle">需要描述 + 多轮 + 解释?</text>
+  <text x="600" y="654" font-size="10.5" fill="#475569" text-anchor="middle">→ AnomalyGPT / IADGPT</text>
+  <text x="600" y="670" font-size="10.5" fill="#475569" text-anchor="middle">(LVLM-based, 可与人协作)</text>
+  <text x="600" y="688" font-size="10" fill="#64748b" text-anchor="middle" font-style="italic">人机协同 review 的必选</text>
+
+  <rect x="800" y="615" width="320" height="80" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="960" y="636" font-size="11.5" font-weight="600" fill="#0f172a" text-anchor="middle">长尾 / 跨域 / 新品上线?</text>
+  <text x="960" y="654" font-size="10.5" fill="#475569" text-anchor="middle">→ AnomalyCLIP / WinCLIP+</text>
+  <text x="960" y="670" font-size="10.5" fill="#475569" text-anchor="middle">(prompt 学一次, 处处用)</text>
+  <text x="960" y="688" font-size="10" fill="#64748b" text-anchor="middle" font-style="italic">未来 open-vocab 方向</text>
+</svg>
