@@ -25,9 +25,23 @@
 <!-- NAV-END -->
 <main class="page page--tag">
 <h1>标签: autoregressive</h1>
-<p class="page__intro">共 1 篇 (1 论文 / 0 教程)</p>
+<p class="page__intro">共 2 篇 (2 论文 / 0 教程)</p>
 <p class="back-link"><a href="../tags.html">← 返回所有标签</a></p>
 <div class="post-grid">
+<a class="post-card post-card--paper" href="../papers/self-forcing-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-22</span>
+  </div>
+  <h3 class="post-card__title">Self Forcing: 自展开训练让因果视频扩散摆脱 exposure bias</h3>
+  <p class="post-card__tldr">Adobe + UT Austin (NeurIPS 2025)。把训练时序流程改成跟推理一样的 KV-cache 自回滚: 学生在自己生成的过去 frames 上 condition, 用 holistic DMD/SiD/GAN loss 直接匹配整段视频分布。靠一个随机选时间步 s + 只在第 s 步开梯度的 stochastic gradient truncation, 把『看似不能并行』的训练塞进 1.5 小时收敛 (64×H100)。配上 rolling KV cache + 训练时 mask 掉首 chunk 这两个工程细节, 1.3B 模型在单 H100 上跑 17 FPS、0.69s latency, VBench 反超 14B 教师模型 Wan2.1 (84.31 vs 84.26)。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/video.html">video</a>
+      <a class="tag-chip" href="../tags/autoregressive.html">autoregressive</a>
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
 <a class="post-card post-card--paper" href="../papers/starchild-1-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
