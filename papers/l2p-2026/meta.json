@@ -1,0 +1,15 @@
+{
+  "type": "paper",
+  "slug": "l2p-2026",
+  "title": "L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散",
+  "date": "2026-05-22",
+  "tldr": "南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。",
+  "tags": [
+    "diffusion",
+    "image-gen",
+    "pixel-space",
+    "transfer-learning",
+    "flow-matching"
+  ],
+  "tutorial_meta": null
+}
