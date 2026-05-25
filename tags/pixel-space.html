@@ -25,9 +25,37 @@
 <!-- NAV-END -->
 <main class="page page--tag">
 <h1>标签: pixel-space</h1>
-<p class="page__intro">共 1 篇 (1 论文 / 0 教程)</p>
+<p class="page__intro">共 3 篇 (3 论文 / 0 教程)</p>
 <p class="back-link"><a href="../tags.html">← 返回所有标签</a></p>
 <div class="post-grid">
+<a class="post-card post-card--paper" href="../papers/latent-to-pixel-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-25</span>
+  </div>
+  <h3 class="post-card__title">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</h3>
+  <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="../tags/pixel-space.html">pixel-space</a>
+      <a class="tag-chip" href="../tags/transfer-learning.html">transfer-learning</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="../papers/asymflow-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-25</span>
+  </div>
+  <h3 class="post-card__title">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</h3>
+  <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="../tags/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="../tags/pixel-space.html">pixel-space</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</a>
 <a class="post-card post-card--paper" href="../papers/l2p-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
