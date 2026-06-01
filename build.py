@@ -69,9 +69,14 @@ def slugify_tag(raw: str) -> str:
     return s
 
 
-def discover_posts(root: Path) -> list[dict]:
-    """Walk papers/<slug>/index.md and tutorials/<slug>/index.md."""
+def discover_posts(root: Path) -> tuple[list[dict], int]:
+    """Walk papers/<slug>/index.md and tutorials/<slug>/index.md.
+
+    Returns (posts, skip_count) where skip_count is the number of dirs
+    skipped due to missing index.md, parse errors, or validation errors.
+    """
     posts: list[dict] = []
+    skip_count = 0
     for kind, dirname in (("paper", "papers"), ("tutorial", "tutorials")):
         base = root / dirname
         if not base.is_dir():
@@ -82,18 +87,21 @@ def discover_posts(root: Path) -> list[dict]:
             md_path = sub / "index.md"
             if not md_path.is_file():
                 print(f"WARN: skipping {sub} (no index.md)", file=sys.stderr)
+                skip_count += 1
                 continue
             try:
                 text = md_path.read_text(encoding="utf-8")
                 meta, body = parse_frontmatter(text)
             except Exception as e:
                 print(f"WARN: skipping {md_path} (frontmatter parse error: {e})", file=sys.stderr)
+                skip_count += 1
                 continue
             errs = validate_frontmatter(meta, expected_slug=sub.name, expected_dir=dirname)
             if errs:
                 print(f"WARN: skipping {md_path}:", file=sys.stderr)
                 for err in errs:
                     print(f"  - {err}", file=sys.stderr)
+                skip_count += 1
                 continue
             # canonicalise tags (lowercase, hyphenated)
             meta["tags"] = [slugify_tag(t) for t in meta.get("tags", [])]
@@ -107,7 +115,7 @@ def discover_posts(root: Path) -> list[dict]:
             # tutorial_meta — map from frontmatter `tutorial:` block (if any)
             meta["tutorial_meta"] = meta.get("tutorial") or None
             posts.append(meta)
-    return posts
+    return posts, skip_count
 
 
 # ---------------------------------------------------------------------------
@@ -535,7 +543,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: root {root} is not a directory", file=sys.stderr)
         return 2
 
-    posts = discover_posts(root)
+    posts, skip_count = discover_posts(root)
     if not posts:
         print("WARN: no posts discovered — generated pages will be empty", file=sys.stderr)
 
@@ -559,10 +567,18 @@ def main(argv: list[str] | None = None) -> int:
                 current_post_dir=f"{Path(p['_url']).parent}",
             )
             all_warnings.extend(warns)
+        # Dedup wiki-link warnings (multiple [[broken-slug]] refs produce duplicates)
+        all_warnings = list(dict.fromkeys(all_warnings))
+        n_warn = len(all_warnings)
         if all_warnings:
             for w in all_warnings:
                 print(f"WARN: {w}", file=sys.stderr)
-            print(f"FAIL: {len(all_warnings)} warning(s).", file=sys.stderr)
+        if n_warn or skip_count:
+            print(
+                f"FAIL: {skip_count} post(s) skipped due to frontmatter errors, "
+                f"{n_warn} unique wiki-link warning(s).",
+                file=sys.stderr,
+            )
             return 1
         print(f"OK: {len(posts)} posts validated.")
         return 0
