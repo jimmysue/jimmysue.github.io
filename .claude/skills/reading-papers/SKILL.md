@@ -236,8 +236,11 @@ HTML. Then `git add papers/<slug>/index.md papers/<slug>/index.html`.
 If `./paper-reading/index.html` doesn't exist, create it from the template at
 `~/.claude/skills/reading-papers/templates/index.html`.
 
-Alternatively, if `build.py` exists, run `python3 build.py --index` to
-regenerate the homepage from all `papers/*/index.md` frontmatter automatically.
+In the normal workflow, just run `python3 build.py` (no flags) — it
+regenerates the homepage and all listing pages from every
+`papers/*/index.md` / `tutorials/*/index.md` frontmatter automatically.
+The manual `<a class="paper-card">` editing below is only relevant if
+`build.py` is unavailable.
 
 Then **prepend** a new `<a class="paper-card">…</a>` for the current paper inside the `<div class="paper-grid">` block (if not auto-generated). The card looks like:
 
