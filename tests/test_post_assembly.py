@@ -79,3 +79,15 @@ def test_assembled_page_includes_nav():
     )
     assert 'class="site-nav"' in out
     assert "HEADER" in out
+
+
+def test_title_html_special_chars_are_escaped():
+    """Title containing <, &, " must be HTML-escaped in the <title> tag."""
+    out = assemble_post_page(
+        meta={"title": '<b>Bold</b> & "Quoted"'},
+        body_html="<p>x</p>",
+        toc_html="",
+        nav_html="",
+        asset_prefix="../../",
+    )
+    assert "<title>&lt;b&gt;Bold&lt;/b&gt; &amp; &quot;Quoted&quot;</title>" in out

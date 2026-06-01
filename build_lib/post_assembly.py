@@ -14,6 +14,8 @@ import html as _html
 from typing import Any
 
 
+# NOTE: {{ and }} are escaped braces for str.format(); the only live placeholders are
+# {title} and {prefix}.
 HEAD_TMPL = """<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -25,7 +27,7 @@ HEAD_TMPL = """<!doctype html>
   <script>
     window.MathJax = {{ tex: {{ inlineMath: [['$','$'],['\\\\(','\\\\)']] }} }};
   </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
   <script defer src="{prefix}assets/lightbox.js"></script>
