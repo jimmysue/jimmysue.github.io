@@ -24,12 +24,15 @@ def _make_parser() -> MarkdownIt:
         MarkdownIt("commonmark", {"html": True, "linkify": False, "typographer": False})
         .enable("table")
         .enable("strikethrough")
-        .use(front_matter_plugin)          # tolerates frontmatter if present (already stripped by caller)
+        # front_matter_plugin: suppresses any un-stripped frontmatter (prevents YAML
+        # from rendering as body text with a leading <hr>). Belt-and-suspenders — caller
+        # is expected to strip via build_lib.frontmatter.parse first.
+        .use(front_matter_plugin)
         .use(
             dollarmath_plugin,
             allow_labels=False,
             allow_space=True,
-            allow_digits=True,
+            allow_digits=False,   # False prevents $5 / $10 currency from being parsed as math
             double_inline=False,
         )
     )

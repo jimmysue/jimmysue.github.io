@@ -16,19 +16,29 @@ def test_render_basic_markdown(slug_set_basic):
 def test_render_handles_inline_math(slug_set_basic):
     md = "Inline math: $x_t = \\sigma$ here."
     html, toc, warnings = render_post_body(md, slug_set_basic, current_post_dir="papers/x")
-    # markdown-it-py with dollarmath plugin emits math; specific markup varies.
-    # We assert that the dollar signs are NOT escaped and the content is preserved.
-    assert "x_t" in html
-    assert "\\sigma" in html or "σ" in html or "sigma" in html
+    # dollarmath_plugin output: <span class="math inline">x_t = \sigma</span>
+    assert '<span class="math inline">' in html
+    assert r"x_t = \sigma" in html
 
 
 def test_render_handles_display_math(slug_set_basic):
     md = "Before.\n\n$$ x_t = (1-\\sigma) x_0 $$\n\nAfter."
     html, toc, warnings = render_post_body(md, slug_set_basic, current_post_dir="papers/x")
-    # Display math should survive as $$ ... $$ for MathJax to pick up, OR be wrapped
-    # in some math container. Either way the LaTeX source must be present.
-    assert "x_t" in html
-    assert "(1-\\sigma)" in html or "1-σ" in html
+    # dollarmath_plugin output for display: <div class="math block">...</div>
+    assert '<div class="math block">' in html
+    assert r"x_t = (1-\sigma) x_0" in html
+
+
+def test_render_does_not_eat_dollar_amounts(slug_set_basic):
+    """With allow_digits=False, $5 and $10 should remain text (not math)."""
+    md = "Price between $5 and $10 per unit."
+    html, toc, warnings = render_post_body(md, slug_set_basic, current_post_dir="papers/x")
+    # Not parsed as math
+    assert "math inline" not in html
+    assert "math block" not in html
+    # Original dollar amounts preserved
+    assert "$5" in html
+    assert "$10" in html
 
 
 def test_render_wiki_links_resolved(slug_set_basic):
