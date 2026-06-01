@@ -72,3 +72,17 @@ def test_resolve_keeps_data_slug_attr(slug_set_basic):
     html = '<a class="wiki-link" data-slug="l2p-2026">link text</a>'
     out, _ = resolve(html, slug_set_basic, current_post_dir="papers/awm-2025")
     assert 'data-slug="l2p-2026"' in out
+
+
+def test_preprocess_escapes_html_in_alias():
+    """Alias text with < / > / & must be HTML-escaped before embedding."""
+    out = preprocess("See [[l2p-2026|A < B & C]] paper.")
+    assert '<a class="wiki-link" data-slug="l2p-2026">A &lt; B &amp; C</a>' in out
+
+
+def test_resolve_handles_escaped_alias(slug_set_basic):
+    """Resolved anchor with escaped chars in text still gets href."""
+    html = '<a class="wiki-link" data-slug="l2p-2026">A &lt; B</a>'
+    out, _ = resolve(html, slug_set_basic, current_post_dir="papers/awm-2025")
+    assert 'href="../l2p-2026/index.html"' in out
+    assert "A &lt; B" in out

@@ -8,15 +8,17 @@ Two-step design:
 """
 from __future__ import annotations
 
+import html as _html
 import re
 
 
-# slug = ASCII letters/digits/hyphens, no whitespace, no | or ]
+# slug = starts alphanumeric, then letters/digits/hyphens/underscores (no whitespace)
 WIKI_LINK_RE = re.compile(r"\[\[([A-Za-z0-9][A-Za-z0-9\-_]*)(?:\|([^\]]+))?\]\]")
 
-# Find <a class="wiki-link" ... data-slug="x">text</a> for resolve()
+# Strict attribute order required: class="wiki-link" then data-slug="..."
 WIKI_ANCHOR_RE = re.compile(
-    r'<a class="wiki-link" data-slug="([^"]+)">([^<]*)</a>'
+    r'<a class="wiki-link" data-slug="([^"]+)">(.*?)</a>',
+    re.DOTALL,
 )
 
 
@@ -28,7 +30,8 @@ def preprocess(md_text: str) -> str:
     """
     def _sub(m: re.Match) -> str:
         slug = m.group(1)
-        alias = m.group(2) if m.group(2) else slug
+        raw_alias = m.group(2) if m.group(2) else slug
+        alias = _html.escape(raw_alias, quote=False)
         return f'<a class="wiki-link" data-slug="{slug}">{alias}</a>'
     return WIKI_LINK_RE.sub(_sub, md_text)
 
@@ -36,10 +39,15 @@ def preprocess(md_text: str) -> str:
 def resolve(html: str, slug_set: set[str], current_post_dir: str) -> tuple[str, list[str]]:
     """Resolve wiki-link anchors. Returns (rewritten_html, warnings).
 
-    `current_post_dir` is like "papers/awm-2025" — used to compute relative
-    href (the target is always "../<target-slug>/index.html").
-
     Unknown slugs get class="wiki-link wiki-link-broken" and no href.
+    Valid slugs always resolve to "../<slug>/index.html" — all posts live
+    one level deep under their type directory.
+
+    `current_post_dir` (e.g. "papers/awm-2025") is included in warning messages
+    to identify the source file.
+
+    Warnings may contain duplicates if the same broken slug appears multiple
+    times in the same file.
     """
     warnings: list[str] = []
 
