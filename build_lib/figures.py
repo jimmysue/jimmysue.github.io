@@ -5,7 +5,7 @@ import re
 
 
 # Match <figure ...>...</figure> non-greedy, then transform <img> tags inside.
-FIGURE_RE = re.compile(r"<figure([^>]*)>(.*?)</figure>", re.DOTALL)
+_FIGURE_RE = re.compile(r"<figure([^>]*)>(.*?)</figure>", re.DOTALL)
 
 
 def tag_for_lightbox(html: str) -> str:
@@ -19,11 +19,11 @@ def tag_for_lightbox(html: str) -> str:
         new_inner = _retag_imgs(inner)
         return f"<figure{fig_attrs}>{new_inner}</figure>"
 
-    return FIGURE_RE.sub(_fig_sub, html)
+    return _FIGURE_RE.sub(_fig_sub, html)
 
 
 _IMG_OPEN_RE = re.compile(r"<img\b([^>]*?)/?>", re.DOTALL)
-_CLASS_ATTR_RE = re.compile(r'\bclass\s*=\s*"([^"]*)"')
+_CLASS_ATTR_RE = re.compile(r'''\bclass\s*=\s*(["'])([^"']*)\1''')
 
 
 def _retag_imgs(fragment: str) -> str:
@@ -31,11 +31,12 @@ def _retag_imgs(fragment: str) -> str:
         attrs = m.group(1)
         cm = _CLASS_ATTR_RE.search(attrs)
         if cm:
-            classes = cm.group(1).split()
+            classes = cm.group(2).split()
             if "zoomable" in classes:
                 return m.group(0)  # already has it
             classes.append("zoomable")
-            new_attrs = _CLASS_ATTR_RE.sub(f'class="{" ".join(classes)}"', attrs)
+            # Replace the matched class="..." (or class='...') with normalised double-quoted form
+            new_attrs = _CLASS_ATTR_RE.sub(f'class="{" ".join(classes)}"', attrs, count=1)
         else:
             new_attrs = ' class="zoomable"' + attrs
         return f"<img{new_attrs}>"

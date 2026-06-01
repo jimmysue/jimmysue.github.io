@@ -14,8 +14,18 @@ def test_tag_adds_zoomable_class():
 def test_tag_preserves_existing_img_class():
     html = '<figure><img class="big" src="x.png"></figure>'
     out = tag_for_lightbox(html)
-    assert "big" in out
-    assert "zoomable" in out
+    # Exact merged class list (order matters: existing first, zoomable appended)
+    assert 'class="big zoomable"' in out
+    # Exactly one class= attribute
+    assert out.count("class=") == 1
+
+
+def test_tag_handles_single_quoted_class():
+    """Single-quoted class= should be normalised to double-quotes + appended."""
+    html = "<figure><img class='big' src='x.png'></figure>"
+    out = tag_for_lightbox(html)
+    assert 'class="big zoomable"' in out
+    assert out.count("class=") == 1
 
 
 def test_tag_skips_img_outside_figure():
