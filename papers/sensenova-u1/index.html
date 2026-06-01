@@ -3,25 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>SenseNova-U1: NEO-unify 原生多模态统一 — 阅读笔记</title>
+  <title>SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</title>
   <link rel="stylesheet" href="../../assets/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script>
     window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
   </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
   <script defer src="../../assets/lightbox.js"></script>
   <script>
-    // TOC active-section highlight via IntersectionObserver
     document.addEventListener('DOMContentLoaded', () => {
       const links = document.querySelectorAll('.toc a');
       if (!links.length) return;
       const map = new Map();
       links.forEach(a => {
-        const id = a.getAttribute('href').slice(1);
-        const el = document.getElementById(id);
+        const el = document.getElementById(a.getAttribute('href').slice(1));
         if (el) map.set(el, a);
       });
       const observer = new IntersectionObserver((entries) => {
@@ -31,12 +29,8 @@
           if (e.isIntersecting) {
             links.forEach(l => l.classList.remove('active'));
             a.classList.add('active');
-            // Scroll TOC so active item is visible (without scrolling the page)
             const toc = document.querySelector('.toc');
-            if (toc && a.offsetTop !== undefined) {
-              const target = a.offsetTop - toc.clientHeight / 2;
-              toc.scrollTo({ top: target, behavior: 'smooth' });
-            }
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
           }
         });
       }, { rootMargin: '-20% 0px -70% 0px' });
@@ -55,97 +49,78 @@
     <span class="site-nav__brand-text">Paper Reading</span>
   </a>
   <div class="site-nav__links">
-    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
     <a class="site-nav__link" href="../../tutorials.html">教程</a>
     <a class="site-nav__link" href="../../tags.html">标签</a>
   </div>
 </nav>
 <!-- NAV-END -->
-
 <nav class="toc" aria-label="目录">
   <div class="toc-title">目录 / TOC</div>
   <ul>
-    <li class="h2"><a href="#sec-1">1. 出发点</a></li>
-    <li class="h2"><a href="#sec-2">2. 方法</a></li>
-    <li class="h3"><a href="#sec-2-intro">核心思想 (类比)</a></li>
-    <li class="h3"><a href="#sec-2-1">2.1 近无损视觉接口</a></li>
-    <li class="h3"><a href="#sec-2-2">2.2 像素空间 Flow Matching</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 分辨率自适应噪声</a></li>
-    <li class="h3"><a href="#sec-2-4">2.4 联合训练目标</a></li>
-    <li class="h3"><a href="#sec-2-5">2.5 Native MoT 主干</a></li>
-    <li class="h3"><a href="#sec-2-6">2.6 模型规模</a></li>
-    <li class="h3"><a href="#sec-2-7">2.7 推理流程 (CFG)</a></li>
-    <li class="h3"><a href="#sec-2-8">2.8 训练 Recipe</a></li>
-    <li class="h3"><a href="#sec-2-9">2.9 推理基础设施</a></li>
-    <li class="h2"><a href="#sec-3">3. 结论</a></li>
-    <li class="h3"><a href="#sec-3-1">3.1 理解 / OCR</a></li>
-    <li class="h3"><a href="#sec-3-2">3.2 文本 / Agent</a></li>
-    <li class="h3"><a href="#sec-3-3">3.3 图像生成</a></li>
-    <li class="h3"><a href="#sec-3-4">3.4 重建质量</a></li>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</a></li>
+    <li class="h3"><a href="#sec-2-1">核心思想 (类比)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.1 近无损视觉接口 (Near-Lossless Visual Interface)</a></li>
+    <li class="h3"><a href="#sec-2-3">2.2 像素空间 Flow Matching</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 分辨率自适应噪声尺度 \sigma_R — 论文最巧的一笔</a></li>
+    <li class="h3"><a href="#sec-2-5">2.4 联合训练目标</a></li>
+    <li class="h3"><a href="#sec-2-6">2.5 Native MoT (Mixture-of-Transformers) 主干</a></li>
+    <li class="h3"><a href="#sec-2-7">2.6 模型规模</a></li>
+    <li class="h3"><a href="#sec-2-8">2.7 推理流程 (含 CFG 双引导)</a></li>
+    <li class="h3"><a href="#sec-2-9">2.8 训练 Recipe (6 阶段)</a></li>
+    <li class="h3"><a href="#sec-2-10">2.9 推理基础设施</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 理解 / 推理 / 文档 OCR</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 文本理解 / 指令遵循 / Agent</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 图像生成 — GenEval 单项冠军</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 像素空间压缩对重建质量的影响</a></li>
     <li class="h3"><a href="#sec-3-5">3.5 数据规模效率</a></li>
-    <li class="h2"><a href="#sec-4">4. 实现细节</a></li>
-    <li class="h3"><a href="#sec-4-1">4.1 论文 vs 代码</a></li>
-    <li class="h3"><a href="#sec-4-2">4.2 默认推理超参</a></li>
-    <li class="h3"><a href="#sec-4-3">4.3 Prompt enhancer</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 论文 vs 代码 — 明确的不一致</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 默认推理超参 (来自 examples)</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 一个论文没强调的实际能力: 外挂 prompt enhancer</a></li>
     <li class="h3"><a href="#sec-4-4">4.4 KV cache 复用</a></li>
     <li class="h3"><a href="#sec-4-5">4.5 推理优化清单</a></li>
-    <li class="h2"><a href="#sec-5">5. 批判性总结</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
     <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
     <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
     <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
     <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
   </ul>
 </nav>
-
 <main>
 <h1>SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h1>
-
-  <div class="meta">
-    <div><strong>作者机构:</strong> SenseNova (商汤) 团队</div>
-    <div><strong>发布日期:</strong> 2026-05-10 (技术报告, 44 页)</div>
-    <div><strong>PDF:</strong> <a href="raw/paper.pdf">raw/paper.pdf</a> (5.3 MB) · <a href="https://github.com/OpenSenseNova/SenseNova-U1/blob/main/docs/pdf/SenseNOVA_U1.pdf">GitHub 原文</a></div>
-    <div><strong>代码:</strong> <a href="https://github.com/OpenSenseNova/SenseNova-U1">github.com/OpenSenseNova/SenseNova-U1</a> (仅推理代码, 训练代码未开源)</div>
-    <div><strong>模型:</strong> <a href="https://huggingface.co/collections/sensenova/sensenova-u1">HuggingFace</a> · <a href="https://unify.light-ai.top/">在线 Demo</a></div>
-    <div><strong>TL;DR:</strong> 一个不用 ViT 也不用 VAE 的"理解+生成"统一多模态模型, 直接在像素空间做 flow matching, 把两条流装进同一个 Mixture-of-Transformers backbone。</div>
-  </div>
-
-  <section>
-    <h2 id="sec-1">1. 出发点 (Motivation)</h2>
-    <p>过去几年 VLM (视觉语言模型) 一直处在两个被割裂的世界:</p>
-    <ul>
-      <li><strong>理解 (Understanding)</strong> — 用预训练 ViT/CLIP 类<strong>视觉编码器 (VE)</strong> 把图编成语义向量, 然后接 LLM</li>
-      <li><strong>生成 (Generation)</strong> — 用<strong>VAE</strong> 把图压成低维 latent, 然后用 diffusion / DiT 在 latent 空间去噪</li>
-    </ul>
-    <p>这种分裂带来三个具体问题:</p>
-    <ol>
-      <li><strong>表示空间不一致</strong> — VE 训练的目标 (对比学习 / 蒸馏) 跟 VAE 的目标 (像素重建) 完全不同, 同一张图在两套向量空间里互不兼容。</li>
-      <li><strong>双重信息瓶颈</strong> — VE 是有损的 (语义抽象会扔掉细节), VAE 也是有损的 (8× / 16× 下采样压缩)。理解和生成各自走了一遍信息瓶颈。</li>
-      <li><strong>架构臃肿</strong> — 之前的统一模型 (Show-o, Janus, BAGEL 等) 即便共享 backbone, 仍然在两侧挂着各自的 tokenizer / diffusion head, 训练 pipeline 是拼出来的, 不是一体的。</li>
-    </ol>
-    <p>论文的核心问题: <strong>能不能彻底丢掉 VE 和 VAE, 让一个模型直接吃像素、直接吐像素, 在端到端的统一训练里把"看懂"和"画出来"两件事自然涌现?</strong></p>
-    <p>SenseNova-U1 给的回答是: 把 NEO-unify 这条 native pixel-word 路线放大到 8B 和 30B-A3B 两种规模, 用 Mixture-of-Transformers 把两条流缝在一起。</p>
-  </section>
-
-  <section>
-    <h2 id="sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</h2>
-
-    <h3 id="sec-2-intro">核心思想 (类比)</h3>
-    <p>想象你要让一个学生既能看懂一张照片 (理解) 又能凭描述画出一张照片 (生成)。两种主流做法:</p>
-    <ul>
-      <li><strong>老办法</strong> = 给学生配两副眼镜。一副"读照片专用" (VE), 一副"画照片专用" (VAE)。两副眼镜的世界观不一样, 中间还要翻译。</li>
-      <li><strong>SenseNova-U1</strong> = 学生不戴眼镜, 直接看原始像素 + 原始文字。看的时候和画的时候用的是同一个大脑, 只是大脑里有一组"理解神经元"和一组"生成神经元", 它们共享注意力 (彼此能看见对方), 但各自有自己的处理流水线。 → 这就是 <strong>Mixture-of-Transformers (MoT)</strong>。</li>
-    </ul>
-    <p>"无需 VAE"意味着模型必须直接在<strong>原始像素</strong>上做扩散去噪, 这是过去十年扩散模型一直不敢做的事 (太大、太难训练) — JiT [Heinrich et al.] 和 NEO-unify 最近证明了像素空间扩散是可行的, U1 把这条线工程化到生产规模。</p>
-
-    <figure>
-      <img src="figures/fig4-architecture.png" alt="三种架构对比">
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>过去几年 VLM (视觉语言模型) 一直处在两个被割裂的世界:</p>
+<ul>
+<li><strong>理解 (Understanding)</strong> — 用预训练 ViT/CLIP 类<strong>视觉编码器 (VE)</strong> 把图编成语义向量, 然后接 LLM</li>
+<li><strong>生成 (Generation)</strong> — 用<strong>VAE</strong> 把图压成低维 latent, 然后用 diffusion / DiT 在 latent 空间去噪</li>
+</ul>
+<p>这种分裂带来三个具体问题:</p>
+<ol>
+<li><strong>表示空间不一致</strong> — VE 训练的目标 (对比学习 / 蒸馏) 跟 VAE 的目标 (像素重建) 完全不同, 同一张图在两套向量空间里互不兼容。</li>
+<li><strong>双重信息瓶颈</strong> — VE 是有损的 (语义抽象会扔掉细节), VAE 也是有损的 (8× / 16× 下采样压缩)。理解和生成各自走了一遍信息瓶颈。</li>
+<li><strong>架构臃肿</strong> — 之前的统一模型 (Show-o, Janus, BAGEL 等) 即便共享 backbone, 仍然在两侧挂着各自的 tokenizer / diffusion head, 训练 pipeline 是拼出来的, 不是一体的。</li>
+</ol>
+<p>论文的核心问题: <strong>能不能彻底丢掉 VE 和 VAE, 让一个模型直接吃像素、直接吐像素, 在端到端的统一训练里把&quot;看懂&quot;和&quot;画出来&quot;两件事自然涌现?</strong></p>
+<p>SenseNova-U1 给的回答是: 把 NEO-unify 这条 native pixel-word 路线放大到 8B 和 30B-A3B 两种规模, 用 Mixture-of-Transformers 把两条流缝在一起。</p>
+<h2 id="sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</h2>
+<h3 id="sec-2-1">核心思想 (类比)</h3>
+<p>想象你要让一个学生既能看懂一张照片 (理解) 又能凭描述画出一张照片 (生成)。两种主流做法:</p>
+<ul>
+<li><strong>老办法</strong> = 给学生配两副眼镜。一副&quot;读照片专用&quot; (VE), 一副&quot;画照片专用&quot; (VAE)。两副眼镜的世界观不一样, 中间还要翻译。</li>
+<li><strong>SenseNova-U1</strong> = 学生不戴眼镜, 直接看原始像素 + 原始文字。看的时候和画的时候用的是同一个大脑, 只是大脑里有一组&quot;理解神经元&quot;和一组&quot;生成神经元&quot;, 它们共享注意力 (彼此能看见对方), 但各自有自己的处理流水线。 → 这就是 <strong>Mixture-of-Transformers (MoT)</strong>。</li>
+</ul>
+<p>&quot;无需 VAE&quot;意味着模型必须直接在<strong>原始像素</strong>上做扩散去噪, 这是过去十年扩散模型一直不敢做的事 (太大、太难训练) — JiT [Heinrich et al.] 和 NEO-unify 最近证明了像素空间扩散是可行的, U1 把这条线工程化到生产规模。</p>
+<figure>
+      <img class="zoomable" alt="三种架构对比" src="figures/fig4-architecture.png">
       <figcaption>Fig. 4 — 三条路线的对比。① 顺序架构 (VE+VAE 编码, VAE 解码) ② 并行架构 (两个 VAE 共存) ③ <strong>SenseNova-U1 的原生路线</strong>: 极轻的 Encoding/Decoding 层 + MoT 主干, 不用 VE, 不用 VAE。</figcaption>
     </figure>
-
-    <h3 id="sec-2-1">2.1 近无损视觉接口 (Near-Lossless Visual Interface)</h3>
-    <p>视觉端只用两层卷积做编码, 一层 MLP 做解码 — "近无损"意味着不再像 VAE 那样有 8× 重建瓶颈。</p>
-    <p><strong>编码器:</strong> 两次卷积, 步长 16 和 2, 等效于<strong>把 32×32 像素压成一个 token</strong> (32× 下采样)。再加 GELU 激活、2D 位置编码:</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_vit.py:L117-L132 — NEOVisionEmbeddings.__init__</p>
+<h3 id="sec-2-2">2.1 近无损视觉接口 (Near-Lossless Visual Interface)</h3>
+<p>视觉端只用两层卷积做编码, 一层 MLP 做解码 — &quot;近无损&quot;意味着不再像 VAE 那样有 8× 重建瓶颈。</p>
+<p><strong>编码器:</strong> 两次卷积, 步长 16 和 2, 等效于<strong>把 32×32 像素压成一个 token</strong> (32× 下采样)。再加 GELU 激活、2D 位置编码:</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_vit.py:L117-L132 — NEOVisionEmbeddings.__init__</p>
 <pre><code class="language-python">class NEOVisionEmbeddings(nn.Module):
     def __init__(self, config: NEOVisionConfig):
         super().__init__()
@@ -163,63 +138,56 @@
             in_channels=self.embed_dim, out_channels=self.llm_embed_dim,
             kernel_size=self.downsample_factor, stride=self.downsample_factor)
         self.gelu = nn.GELU()
-        # 注: 论文 §3.1 说"2D sinusoidal positional encoding", 但代码这里用的是 2D RoPE
+        # 注: 论文 §3.1 说&quot;2D sinusoidal positional encoding&quot;, 但代码这里用的是 2D RoPE
         # (apply_2d_rotary_pos_emb), 不是 sin-cos —— 这是论文-代码的一处不一致, 见 §4
 </code></pre>
-    <p>两步卷积 stride 是 16 × 2 = 32, 所以 2048×2048 的图最终只有 (2048/32)² = 4096 个 token, 这个 32× 压缩比就是 §3 反复强调的"32× compression ratio"。</p>
-
-    <p><strong>解码器:</strong> 论文写的是"MLP head 直接预测像素 patch", 实际放出来的代码里有<strong>三种</strong>解码器实现 (MLP / PixelShuffle / ConvDecoder), 并且 §3 Stage 5 末尾就明确说"未来工作: 把 MLP 替换成 PixelShuffle + Conv 以缓解格子伪影" — 而代码里这个"未来"已经发生了。</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_fm_modules.py:L528-L550 — PatchDecoder_preps (实际发布的解码器之一)</p>
+<p>两步卷积 stride 是 16 × 2 = 32, 所以 2048×2048 的图最终只有 (2048/32)² = 4096 个 token, 这个 32× 压缩比就是 §3 反复强调的&quot;32× compression ratio&quot;。</p>
+<p><strong>解码器:</strong> 论文写的是&quot;MLP head 直接预测像素 patch&quot;, 实际放出来的代码里有<strong>三种</strong>解码器实现 (MLP / PixelShuffle / ConvDecoder), 并且 §3 Stage 5 末尾就明确说&quot;未来工作: 把 MLP 替换成 PixelShuffle + Conv 以缓解格子伪影&quot; — 而代码里这个&quot;未来&quot;已经发生了。</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_fm_modules.py:L528-L550 — PatchDecoder_preps (实际发布的解码器之一)</p>
 <pre><code class="language-python">class PatchDecoder_preps(nn.Module):
     def __init__(self):
         super().__init__()
-        # H/32 -> H/16 (2× upscale)
+        # H/32 -&gt; H/16 (2× upscale)
         self.ps1 = nn.PixelShuffle(2)
         self.conv1 = nn.Conv2d(1024, 1024, kernel_size=3, padding=1)
         self.act1 = nn.GELU()
-        # H/16 -> H/8 (2× upscale)
+        # H/16 -&gt; H/8 (2× upscale)
         self.ps2 = nn.PixelShuffle(2)
         self.conv2 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
-        # H/8 -> H (8× upscale)
+        # H/8 -&gt; H (8× upscale)
         self.ps3 = nn.PixelShuffle(8)
         self.conv3 = nn.Conv2d(4, 3, kernel_size=3, padding=1)
     def forward(self, x):
         # x shape: [B, 4096, H/32, W/32]
-        x = self.act1(self.conv1(self.ps1(x)))      # -> [B, 256, H/16, W/16]
-        x = self.act2(self.conv2(self.ps2(x)))      # -> [B, 256, H/8, W/8]
-        x = self.conv3(self.ps3(x))                 # -> [B, 3, H, W]
+        x = self.act1(self.conv1(self.ps1(x)))      # -&gt; [B, 256, H/16, W/16]
+        x = self.act2(self.conv2(self.ps2(x)))      # -&gt; [B, 256, H/8, W/8]
+        x = self.conv3(self.ps3(x))                 # -&gt; [B, 3, H, W]
         return x
 </code></pre>
-
-    <h3 id="sec-2-2">2.2 像素空间 Flow Matching</h3>
-    <p>生成端没有 VAE, 那扩散去噪在哪做? 答: 直接在像素空间。</p>
-    <p>用 <strong>Rectified Flow</strong> 的线性插值定义"含噪样本":</p>
-    $$z_t = t \cdot x + (1-t) \cdot \sigma_R \cdot \epsilon, \quad t \in [0, 1], \quad \epsilon \sim \mathcal{N}(0, I)$$
-    <ul>
-      <li>$x \in \mathbb{R}^{3 \times H \times W}$ 是干净的真实图像</li>
-      <li>$\epsilon$ 是标准高斯噪声, 形状与 $x$ 一致</li>
-      <li>$t=0$ 时 $z_0 = \sigma_R \epsilon$ (纯噪声), $t=1$ 时 $z_1 = x$ (干净图像) — 直觉: $t$ 像"信号纯度"刻度, 从 0 (全噪) 滑到 1 (全图)</li>
-      <li>$\sigma_R$ 是<strong>分辨率自适应噪声尺度</strong>, 待解释</li>
-    </ul>
-    <p>模型 $\hat{x}_\theta$ 学着从 $z_t$ 预测干净的 $x$, 然后转成"速度":</p>
-    $$v_\theta(z_t, t) = \frac{\hat{x}_\theta(z_t, t, s_t) - z_t}{1 - t}$$
-    <p>这个速度 $v$ 就是 ODE 里 $\frac{dz}{dt}$ 的预测。训练用 MSE 让 $v_\theta$ 逼近真实速度 $v_\star = \frac{x - z_t}{1-t}$:</p>
-    $$\mathcal{L}_{\text{Gen}} = \mathbb{E}_{t, x, \epsilon, (H,W)} \left[\, \| v_\theta(z_t, t) - v_\star \|_2^2 \,\right]$$
-    <p><strong>数值小例子:</strong> 假设 $t=0.6, x = 1.0, \epsilon = 0.0, \sigma_R = 1.0$, 则 $z_t = 0.6$, $v_\star = (1.0 - 0.6)/(1-0.6) = 1.0$。直觉: 离 $x$ 还差 $0.4$, 但剩余时间也是 $0.4$, 所以"速度"是 1.0。如果模型输出 $v_\theta = 1.0$ 就完美。</p>
-
-    <h3 id="sec-2-3">2.3 分辨率自适应噪声尺度 $\sigma_R$ — 论文最巧的一笔</h3>
-    <p>问题: 直接在像素空间训练, 不同分辨率的图 token 数差好几倍 (1024² 是 1024 个 token, 2048² 是 4096 个 token)。如果都用标准 $\mathcal{N}(0,I)$, 高分辨率图的噪声"总能量"会远大于信号能量, 信噪比 (SNR) 完全错配。</p>
-    <p>论文的做法: 让噪声的标准差随 token 数开根号增长, 保持<strong>每个 token 的噪声能量近似恒定</strong>。</p>
-    $$\sigma_R(H, W) = \sigma_0 \sqrt{\frac{N(H, W)}{N_0}}, \quad N(H,W) = \frac{HW}{32^2}$$
-    <ul>
-      <li>$N(H,W)$ = 该分辨率下的 token 数 (因为 32× 压缩, 一个 token 对应 32×32 像素)</li>
-      <li>$N_0$ = 参考 token 数 (代码里 = 64, 对应 256×256 图)</li>
-      <li>$\sigma_0$ = 基础噪声尺度 (= 1)</li>
-      <li>开根号是关键: token 总能量 ∝ N × σ², 想让能量随 N 线性增长就需要 σ ∝ √N</li>
-    </ul>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L815-L822 — 推理时计算 σ_R</p>
+<h3 id="sec-2-3">2.2 像素空间 Flow Matching</h3>
+<p>生成端没有 VAE, 那扩散去噪在哪做? 答: 直接在像素空间。</p>
+<p>用 <strong>Rectified Flow</strong> 的线性插值定义&quot;含噪样本&quot;:</p>
+<ul>
+<li><span class="math inline">x \in \mathbb{R}^{3 \times H \times W}</span> 是干净的真实图像</li>
+<li><span class="math inline">\epsilon</span> 是标准高斯噪声, 形状与 <span class="math inline">x</span> 一致</li>
+<li><span class="math inline">t=0</span> 时 <span class="math inline">z_0 = \sigma_R \epsilon</span> (纯噪声), <span class="math inline">t=1</span> 时 <span class="math inline">z_1 = x</span> (干净图像) — 直觉: <span class="math inline">t</span> 像&quot;信号纯度&quot;刻度, 从 0 (全噪) 滑到 1 (全图)</li>
+<li><span class="math inline">\sigma_R</span> 是<strong>分辨率自适应噪声尺度</strong>, 待解释</li>
+</ul>
+<p>模型 <span class="math inline">\hat{x}_\theta</span> 学着从 <span class="math inline">z_t</span> 预测干净的 <span class="math inline">x</span>, 然后转成&quot;速度&quot;:</p>
+<p>这个速度 <span class="math inline">v</span> 就是 ODE 里 <span class="math inline">\frac{dz}{dt}</span> 的预测。训练用 MSE 让 <span class="math inline">v_\theta</span> 逼近真实速度 <span class="math inline">v_\star = \frac{x - z_t}{1-t}</span>:</p>
+<p><strong>数值小例子:</strong> 假设 <span class="math inline">t=0.6, x = 1.0, \epsilon = 0.0, \sigma_R = 1.0</span>, 则 <span class="math inline">z_t = 0.6</span>, <span class="math inline">v_\star = (1.0 - 0.6)/(1-0.6) = 1.0</span>。直觉: 离 <span class="math inline">x</span> 还差 <span class="math inline">0.4</span>, 但剩余时间也是 <span class="math inline">0.4</span>, 所以&quot;速度&quot;是 1.0。如果模型输出 <span class="math inline">v_\theta = 1.0</span> 就完美。</p>
+<h3 id="sec-2-4">2.3 分辨率自适应噪声尺度 <span class="math inline">\sigma_R</span> — 论文最巧的一笔</h3>
+<p>问题: 直接在像素空间训练, 不同分辨率的图 token 数差好几倍 (1024² 是 1024 个 token, 2048² 是 4096 个 token)。如果都用标准 <span class="math inline">\mathcal{N}(0,I)</span>, 高分辨率图的噪声&quot;总能量&quot;会远大于信号能量, 信噪比 (SNR) 完全错配。</p>
+<p>论文的做法: 让噪声的标准差随 token 数开根号增长, 保持<strong>每个 token 的噪声能量近似恒定</strong>。</p>
+<ul>
+<li><span class="math inline">N(H,W)</span> = 该分辨率下的 token 数 (因为 32× 压缩, 一个 token 对应 32×32 像素)</li>
+<li><span class="math inline">N_0</span> = 参考 token 数 (代码里 = 64, 对应 256×256 图)</li>
+<li><span class="math inline">\sigma_0</span> = 基础噪声尺度 (= 1)</li>
+<li>开根号是关键: token 总能量 ∝ N × σ², 想让能量随 N 线性增长就需要 σ ∝ √N</li>
+</ul>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L815-L822 — 推理时计算 σ_R</p>
 <pre><code class="language-python">noise_scale = self.noise_scale                          # σ_0
-if self.noise_scale_mode in ("resolution", "dynamic", 'dynamic_sqrt'):
+if self.noise_scale_mode in (&quot;resolution&quot;, &quot;dynamic&quot;, 'dynamic_sqrt'):
     base = float(self.noise_scale_base_image_seq_len)   # N_0 (e.g. 64)
     # σ_R = σ_0 * √(N(H,W) / N_0), 正是论文 §3.1 Dynamic Noise Scale
     noise_scale = math.sqrt(
@@ -230,43 +198,37 @@ if self.noise_scale_mode in ("resolution", "dynamic", 'dynamic_sqrt'):
 noise_scale = min(noise_scale, self.noise_scale_max_value)  # σ ≤ σ_max = 8
 image_prediction = noise_scale * torch.randn(...)       # 初始 z_0 = σ_R · ε
 </code></pre>
-    <p>注意: 代码里实际有<strong>三种</strong>模式 (resolution / dynamic / <code>dynamic_sqrt</code>), 论文只描述了开根号那一种。<code>dynamic_sqrt</code> 是开两次根号 (= 四次方根), 论文没解释为什么需要这个。</p>
-
-    <h3 id="sec-2-4">2.4 联合训练目标</h3>
-    <p>整体训练 loss 是文本 next-token CE 和像素 flow matching MSE 的加权和:</p>
-    $$\mathcal{L}_{\text{total}} = \lambda_1 \cdot \mathcal{L}_{\text{Und}} + \lambda_2 \cdot \mathcal{L}_{\text{Gen}}$$
-    $$\mathcal{L}_{\text{Und}} = -\frac{1}{N} \sum_{n=1}^N \log p_\theta(x_n \mid x_{\lt n}, c)$$
-    <p>论文 Table 2 显示 Stage 3 (统一中训练) 之后 $\lambda_1 = 0.1, \lambda_2 = 1.0$ — 也就是 <strong>生成 loss 权重比理解 loss 大 10 倍</strong>。这暗示了一个工程现实: 生成更难收敛, 需要更多梯度。</p>
-
-    <h3 id="sec-2-5">2.5 Native MoT (Mixture-of-Transformers) 主干</h3>
-    <p>这是 SenseNova-U1 跟之前统一模型最不一样的一笔。架构上是单个 Transformer, 但每一层里有<strong>两套独立的 Q/K/V 投影、Norm、FFN</strong>:</p>
-    <ul>
-      <li><strong>Understanding stream</strong> 处理干净的图像 token 和所有文本 token</li>
-      <li><strong>Generation stream</strong> 处理带噪的图像 token</li>
-      <li>共享一个 self-attention 矩阵 (所以两条流彼此能看见), 但<strong>参数完全解耦</strong>, 按 token 类型动态路由</li>
-    </ul>
-    <p>注意力掩码也是精心设计的混合模式:</p>
-    <ul>
-      <li>文本 token: 标准因果 (causal)</li>
-      <li>同一图像块内的图像 token: 双向 attend</li>
-      <li>带噪 token: 能看见所有干净上下文; 干净 token <strong>看不见</strong>带噪 token (防止 leakage)</li>
-    </ul>
-
-    <figure>
-      <img src="figures/fig6-hybrid-attention.png" alt="混合注意力 mask">
+<p>注意: 代码里实际有<strong>三种</strong>模式 (resolution / dynamic / <code>dynamic_sqrt</code>), 论文只描述了开根号那一种。<code>dynamic_sqrt</code> 是开两次根号 (= 四次方根), 论文没解释为什么需要这个。</p>
+<h3 id="sec-2-5">2.4 联合训练目标</h3>
+<p>整体训练 loss 是文本 next-token CE 和像素 flow matching MSE 的加权和:</p>
+<p>论文 Table 2 显示 Stage 3 (统一中训练) 之后 <span class="math inline">\lambda_1 = 0.1, \lambda_2 = 1.0</span> — 也就是 <strong>生成 loss 权重比理解 loss 大 10 倍</strong>。这暗示了一个工程现实: 生成更难收敛, 需要更多梯度。</p>
+<h3 id="sec-2-6">2.5 Native MoT (Mixture-of-Transformers) 主干</h3>
+<p>这是 SenseNova-U1 跟之前统一模型最不一样的一笔。架构上是单个 Transformer, 但每一层里有<strong>两套独立的 Q/K/V 投影、Norm、FFN</strong>:</p>
+<ul>
+<li><strong>Understanding stream</strong> 处理干净的图像 token 和所有文本 token</li>
+<li><strong>Generation stream</strong> 处理带噪的图像 token</li>
+<li>共享一个 self-attention 矩阵 (所以两条流彼此能看见), 但<strong>参数完全解耦</strong>, 按 token 类型动态路由</li>
+</ul>
+<p>注意力掩码也是精心设计的混合模式:</p>
+<ul>
+<li>文本 token: 标准因果 (causal)</li>
+<li>同一图像块内的图像 token: 双向 attend</li>
+<li>带噪 token: 能看见所有干净上下文; 干净 token <strong>看不见</strong>带噪 token (防止 leakage)</li>
+</ul>
+<figure>
+      <img class="zoomable" alt="混合注意力 mask" src="figures/fig6-hybrid-attention.png">
       <figcaption>Fig. 6 — 统一多模态 prefill 的混合注意力模式: 文本行走因果, 图像行能 attend 到完整的 text prefix + 整个图像 span。serving 时只对包含 image token 的 M-block 扩展 K 范围, 纯文本 block 保留 vanilla FlashAttention3 快速路径。</figcaption>
     </figure>
-
-    <p><strong>MoT 在代码中的体现:</strong> 不是花式 routing 算子, 而是干脆造了两个并列的 vision model 实例, 用一个 <code>gen_model</code> 布尔开关挑哪个。</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L168-L170, L304-L307</p>
+<p><strong>MoT 在代码中的体现:</strong> 不是花式 routing 算子, 而是干脆造了两个并列的 vision model 实例, 用一个 <code>gen_model</code> 布尔开关挑哪个。</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L168-L170, L304-L307</p>
 <pre><code class="language-python"># __init__ 里同时创建两个 vision model:
 self.vision_model = NEOVisionModel(config.vision_config)        # understanding stream
 vision_model_mot_gen = NEOVisionModel(config.vision_config)     # generation stream
 ...
 self.fm_modules = nn.ModuleDict({
-    "vision_model_mot_gen": vision_model_mot_gen,
-    "timestep_embedder": TimestepEmbedder(llm_hidden_size),
-    "fm_head": fm_head,
+    &quot;vision_model_mot_gen&quot;: vision_model_mot_gen,
+    &quot;timestep_embedder&quot;: TimestepEmbedder(llm_hidden_size),
+    &quot;fm_head&quot;: fm_head,
 })
 
 # 用 gen_model 标志位决定走哪个 stream:
@@ -278,16 +240,14 @@ def extract_feature(self, pixel_values, gen_model=False, grid_hw=None):
         ).last_hidden_state
     # ... else 走 self.vision_model
 </code></pre>
-
-    <h3 id="sec-2-6">2.6 模型规模</h3>
-    <figure>
-      <img src="figures/tab1-config.png" alt="架构配置表">
+<h3 id="sec-2-7">2.6 模型规模</h3>
+<figure>
+      <img class="zoomable" alt="架构配置表" src="figures/tab1-config.png">
       <figcaption>Table 1 — 两个变体的架构配置. <strong>8B-MoT</strong>: dense, 42 层, 8.2B/8.2B (Und/Gen) — 两条流都是 8B。<strong>A3B-MoT</strong>: MoE, 48 层, Und 用 128 个专家 (共 30B, 推理时激活 8 个); Gen 用 32 个专家 (共 8B, 激活 8 个 = A3B 即"激活 3B")。</figcaption>
     </figure>
-
-    <h3 id="sec-2-7">2.7 推理流程 (含 CFG 双引导)</h3>
-    <p>推理时 ODE 用 Euler 解, $z_{t+\Delta t} = z_t + \Delta t \cdot v_\theta$。代码里就是一行:</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L397-L399, L915-L916</p>
+<h3 id="sec-2-8">2.7 推理流程 (含 CFG 双引导)</h3>
+<p>推理时 ODE 用 Euler 解, <span class="math inline">z_{t+\Delta t} = z_t + \Delta t \cdot v_\theta</span>。代码里就是一行:</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L397-L399, L915-L916</p>
 <pre><code class="language-python">def _euler_step(self, v_pred, z, t, t_next):
     z_next = z + (t_next - t) * v_pred
     return z_next
@@ -296,47 +256,43 @@ def extract_feature(self, pixel_values, gen_model=False, grid_hw=None):
 z = z + (t_next - t) * v_pred
 image_prediction = self.unpatchify(z, self.patch_size * merge_size, ...)
 </code></pre>
-
-    <h4>Unified model 里 "空 prompt" 有<strong>两种</strong></h4>
-    <p>SD/SDXL 那种单一文本条件的 CFG 只需要一个 "uncond" (空字符串 / negative prompt)。但 SenseNova-U1 是 unified model, 输入是 <em>(图像上下文, 文本指令)</em> 两路条件, "空"得拆开做:</p>
-    <ul>
-      <li><strong>Text Uncondition (tu)</strong>: 文本"空", 图像上下文<strong>保留</strong> → 对应分布 $p(x \mid c_\text{img})$</li>
-      <li><strong>Image Uncondition (iu)</strong>: 文本空, 图像也<strong>不放</strong> → 对应分布 $p(x)$, 真正的"无条件"</li>
-    </ul>
-    <p>推理一开始就同时跑 <strong>3 次 prefill</strong>, 拿到三套 KV cache, 后续每个 Euler step 都复用它们做 forward:</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L682-L721 — 三套 KV cache 的构造</p>
+<h4>Unified model 里 &quot;空 prompt&quot; 有<strong>两种</strong></h4>
+<p>SD/SDXL 那种单一文本条件的 CFG 只需要一个 &quot;uncond&quot; (空字符串 / negative prompt)。但 SenseNova-U1 是 unified model, 输入是 <em>(图像上下文, 文本指令)</em> 两路条件, &quot;空&quot;得拆开做:</p>
+<ul>
+<li><strong>Text Uncondition (tu)</strong>: 文本&quot;空&quot;, 图像上下文<strong>保留</strong> → 对应分布 <span class="math inline">p(x \mid c_\text{img})</span></li>
+<li><strong>Image Uncondition (iu)</strong>: 文本空, 图像也<strong>不放</strong> → 对应分布 <span class="math inline">p(x)</span>, 真正的&quot;无条件&quot;</li>
+</ul>
+<p>推理一开始就同时跑 <strong>3 次 prefill</strong>, 拿到三套 KV cache, 后续每个 Euler step 都复用它们做 forward:</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L682-L721 — 三套 KV cache 的构造</p>
 <pre><code class="language-python"># 1. Condition cache (真实 prompt + 真实图像) → p(x | c_img, c_txt)
 template_cond.append_message(roles[0], prompt)
-query_cond = template_cond.get_prompt() + '<think>\n\n</think>\n\n'
+query_cond = template_cond.get_prompt() + '\n\n\n\n'
 query_cond = replace_image_tokens(query_cond, grid_hw)
 past_key_values_cond = self.language_model(inputs_embeds=...).past_key_values
 
-# 2. Text Uncondition cache (文本"空"但保留图像) → p(x | c_img)
-# 关键: user message 只用 '<image>' 占位符, 占住图像 token 位置, 不放任何文字指令
-question_text_uncondition = '<image>' * len(images)
+# 2. Text Uncondition cache (文本&quot;空&quot;但保留图像) → p(x | c_img)
+# 关键: user message 只用 '' 占位符, 占住图像 token 位置, 不放任何文字指令
+question_text_uncondition = '' * len(images)
 template_tu.append_message(roles[0], question_text_uncondition)
 past_key_values_tu = ...
 
 # 3. Image Uncondition cache (文本和图像都空) → p(x)
-query_img_uncond = self._build_t2i_query("", append_text=IMG_START_TOKEN)
+query_img_uncond = self._build_t2i_query(&quot;&quot;, append_text=IMG_START_TOKEN)
 past_key_values_iu = ...
 </code></pre>
-    <p><strong>注意</strong> <code>tu</code> 不是真的空字符串 — user message 是 <code>'&lt;image&gt;' * N</code>, 占位符让图像 token 留在原位置。这样 "cond − tu" 才严格等于 "<em>加上文本指令带来的边际贡献</em>", 而不会同时混入"图像被移除"的扰动。</p>
-
-    <h4>三分支 CFG 公式</h4>
-    <p>三个 cache 各跑一次 forward, 得到三个速度预测 $v_\text{cond}, v_\text{img-cond}, v_\text{uncond}$, 按论文 Eq. 6 组合:</p>
-    $$v_\text{pred} = v_\text{uncond} + \gamma \cdot (v_\text{cond} - v_\text{img-cond}) + \gamma_\text{img} \cdot (v_\text{img-cond} - v_\text{uncond})$$
-    <p>拆开看两个差分项的几何意义:</p>
-    <ul>
-      <li>$v_\text{cond} - v_\text{img-cond}$ = "加上文本后比只有图像多出来的方向" → 用 $\gamma$ 放大 = <strong>文本听话度</strong></li>
-      <li>$v_\text{img-cond} - v_\text{uncond}$ = "加上图像后比纯空白多出来的方向" → 用 $\gamma_\text{img}$ 放大 = <strong>图像上下文影响力</strong></li>
-    </ul>
-    <p>论文推荐 $\gamma = 4, \gamma_\text{img} = 1$ — <strong>只放大文本, 不动图像</strong>。作者在 §3.3 解释: "<em>model already captures visual conditioning effectively, while stronger guidance is primarily needed to enforce textual alignment</em>" — unified 训练的副产品是模型对图像上下文已经"自然听话", 文本反而需要外加引导, 跟普通 latent diffusion 的情况相反。</p>
-
-    <h4>代码实现的 4 个分支</h4>
-    <p>实际代码并不总是跑完整的 3 路 CFG。根据 $\gamma$ 和 $\gamma_\text{img}$ 的组合, 走不同的快速路径:</p>
-    <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L883-L902 — 三分支 CFG 推理</p>
-<pre><code class="language-python">use_cfg = (t > cfg_interval[0] and t < cfg_interval[1]) or cfg_interval[0] == 0
+<p><strong>注意</strong> <code>tu</code> 不是真的空字符串 — user message 是 <code>'&lt;image&gt;' * N</code>, 占位符让图像 token 留在原位置。这样 &quot;cond − tu&quot; 才严格等于 &quot;<em>加上文本指令带来的边际贡献</em>&quot;, 而不会同时混入&quot;图像被移除&quot;的扰动。</p>
+<h4>三分支 CFG 公式</h4>
+<p>三个 cache 各跑一次 forward, 得到三个速度预测 <span class="math inline">v_\text{cond}, v_\text{img-cond}, v_\text{uncond}</span>, 按论文 Eq. 6 组合:</p>
+<p>拆开看两个差分项的几何意义:</p>
+<ul>
+<li><span class="math inline">v_\text{cond} - v_\text{img-cond}</span> = &quot;加上文本后比只有图像多出来的方向&quot; → 用 <span class="math inline">\gamma</span> 放大 = <strong>文本听话度</strong></li>
+<li><span class="math inline">v_\text{img-cond} - v_\text{uncond}</span> = &quot;加上图像后比纯空白多出来的方向&quot; → 用 <span class="math inline">\gamma_\text{img}</span> 放大 = <strong>图像上下文影响力</strong></li>
+</ul>
+<p>论文推荐 <span class="math inline">\gamma = 4, \gamma_\text{img} = 1</span> — <strong>只放大文本, 不动图像</strong>。作者在 §3.3 解释: &quot;<em>model already captures visual conditioning effectively, while stronger guidance is primarily needed to enforce textual alignment</em>&quot; — unified 训练的副产品是模型对图像上下文已经&quot;自然听话&quot;, 文本反而需要外加引导, 跟普通 latent diffusion 的情况相反。</p>
+<h4>代码实现的 4 个分支</h4>
+<p>实际代码并不总是跑完整的 3 路 CFG。根据 <span class="math inline">\gamma</span> 和 <span class="math inline">\gamma_\text{img}</span> 的组合, 走不同的快速路径:</p>
+<p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L883-L902 — 三分支 CFG 推理</p>
+<pre><code class="language-python">use_cfg = (t &gt; cfg_interval[0] and t &lt; cfg_interval[1]) or cfg_interval[0] == 0
 out_cond = self._t2i_predict_v(image_embeds, indexes_image_condition, ...)
 if not use_cfg or (cfg_scale == 1 and img_cfg_scale == 1):
     v_pred = out_cond                                        # ① 不开 CFG, 1 次 forward
@@ -358,11 +314,10 @@ else:                                                        # ④ 双 CFG, 3 �
               + cfg_scale * (out_cond - out_img_cond)
               + img_cfg_scale * (out_img_cond - out_uncond))
 </code></pre>
-    <p><strong>默认 T2I 的参数</strong> (<code>cfg_scale=4.0, img_cfg_scale=1.0</code>) 走的是 <strong>分支 ②</strong>, 每步只需 2 次 forward, iu 那一路 cache 虽然算了但没用到 (浪费? 是, 但代码统一这么写)。</p>
-
-    <h4>不同任务下三个 cache 的差异</h4>
-    <table>
-      <tr><th>任务</th><th>cond</th><th>tu</th><th>iu</th><th>典型分支</th></tr>
+<p><strong>默认 T2I 的参数</strong> (<code>cfg_scale=4.0, img_cfg_scale=1.0</code>) 走的是 <strong>分支 ②</strong>, 每步只需 2 次 forward, iu 那一路 cache 虽然算了但没用到 (浪费? 是, 但代码统一这么写)。</p>
+<h4>不同任务下三个 cache 的差异</h4>
+<table>
+      <tbody><tr><th>任务</th><th>cond</th><th>tu</th><th>iu</th><th>典型分支</th></tr>
       <tr>
         <td>纯 T2I</td>
         <td>prompt + 无输入图</td>
@@ -384,201 +339,161 @@ else:                                                        # ④ 双 CFG, 3 �
         <td>空指令 + 无上下文</td>
         <td>② / ④ (每生成一张图重算三个 cache)</td>
       </tr>
-    </table>
-
-    <h4>关于 negative prompt</h4>
-    <p>代码<strong>没有暴露 negative prompt 接口</strong>。三个 cache 都是"unconditional"的对照点, 不是反向引导。架构上是支持的 — 把 <code>tu</code> 那一支的 <code>question_text_uncondition</code> 从占位符换成 "ugly, lowres, distorted" 就能拿到 negative prompt 效果 — 但官方没把这个开关放出来。这与 SD/SDXL 生态里 negative prompt 是一等公民的做法不同, 推测原因: unified 训练时 conditioning drop 用的是空字符串 (论文 §3.3: 10% drop text, 额外 10% drop both), 模型在训练时没见过"反向描述", 直接换成 negative prompt 行为可能不稳定。</p>
-
-    <h3 id="sec-2-8">2.8 训练 Recipe (6 阶段)</h3>
-    <p>整套训练流水线是<strong>6 个 stage</strong>, 不是单次 end-to-end:</p>
-    <ol>
-      <li><strong>Stage 1</strong>: Understanding warmup — 初始化自 NEO, 先做 attention-fusion (合并 Q/K projection), 再 full-model 继续训练。</li>
-      <li><strong>Stage 2</strong>: Generation pre-training (3 phases) — <strong>冻结理解分支</strong>, 单训生成分支。Phase I 256²→512², Phase II 512²→2048², Phase III 加入 editing/interleaved 数据。</li>
-      <li><strong>Stage 3</strong>: Unified mid-training — 全量 joint training, 84K steps, $\lambda_1{:}\lambda_2 = 0.1{:}1.0$。数据配比 Und : Gen : Edit : Interleave = 0.33 : 0.37 : 0.24 : 0.06。</li>
-      <li><strong>Stage 4</strong>: Unified SFT — 9K steps, cosine 衰减, 同样的 loss 权重。</li>
-      <li><strong>Stage 5</strong>: RL post-training — Flow-GRPO + 三个 reward (OCR IoU / VLM style judge / HPSv3 美学)。</li>
-      <li><strong>Stage 6</strong>: DMD2 蒸馏 — 把 100 NFE 蒸到 8 NFE, 推理大幅加速。</li>
-    </ol>
-    <p>整个训练大约 <strong>3.5T tokens</strong> (0.75T + 0.25T + 0.25T + 0.88T + 1.19T + 0.13T)。</p>
-
-    <h3 id="sec-2-9">2.9 推理基础设施</h3>
-    <figure>
-      <img src="figures/fig5-disaggregated-inference.png" alt="解耦推理架构">
+    </tbody></table>
+<h4>关于 negative prompt</h4>
+<p>代码<strong>没有暴露 negative prompt 接口</strong>。三个 cache 都是&quot;unconditional&quot;的对照点, 不是反向引导。架构上是支持的 — 把 <code>tu</code> 那一支的 <code>question_text_uncondition</code> 从占位符换成 &quot;ugly, lowres, distorted&quot; 就能拿到 negative prompt 效果 — 但官方没把这个开关放出来。这与 SD/SDXL 生态里 negative prompt 是一等公民的做法不同, 推测原因: unified 训练时 conditioning drop 用的是空字符串 (论文 §3.3: 10% drop text, 额外 10% drop both), 模型在训练时没见过&quot;反向描述&quot;, 直接换成 negative prompt 行为可能不稳定。</p>
+<h3 id="sec-2-9">2.8 训练 Recipe (6 阶段)</h3>
+<p>整套训练流水线是<strong>6 个 stage</strong>, 不是单次 end-to-end:</p>
+<ol>
+<li><strong>Stage 1</strong>: Understanding warmup — 初始化自 NEO, 先做 attention-fusion (合并 Q/K projection), 再 full-model 继续训练。</li>
+<li><strong>Stage 2</strong>: Generation pre-training (3 phases) — <strong>冻结理解分支</strong>, 单训生成分支。Phase I 256²→512², Phase II 512²→2048², Phase III 加入 editing/interleaved 数据。</li>
+<li><strong>Stage 3</strong>: Unified mid-training — 全量 joint training, 84K steps, <span class="math inline">\lambda_1{:}\lambda_2 = 0.1{:}1.0</span>。数据配比 Und : Gen : Edit : Interleave = 0.33 : 0.37 : 0.24 : 0.06。</li>
+<li><strong>Stage 4</strong>: Unified SFT — 9K steps, cosine 衰减, 同样的 loss 权重。</li>
+<li><strong>Stage 5</strong>: RL post-training — Flow-GRPO + 三个 reward (OCR IoU / VLM style judge / HPSv3 美学)。</li>
+<li><strong>Stage 6</strong>: DMD2 蒸馏 — 把 100 NFE 蒸到 8 NFE, 推理大幅加速。</li>
+</ol>
+<p>整个训练大约 <strong>3.5T tokens</strong> (0.75T + 0.25T + 0.25T + 0.88T + 1.19T + 0.13T)。</p>
+<h3 id="sec-2-10">2.9 推理基础设施</h3>
+<figure>
+      <img class="zoomable" alt="解耦推理架构" src="figures/fig5-disaggregated-inference.png">
       <figcaption>Fig. 5 — <strong>解耦部署</strong>: 理解和生成跑在两个独立引擎里 (LightLLM 处理多模态理解+文本流, LightX2V 处理图像生成), 通过 pinned shared memory 交换状态。可分离 (Separate) 部署或共置 (Colocate) 部署。在 2048×2048 生成时, TP2+CFG2 配置下 5090 GPU 每步 0.415s, L40S 每步 0.443s。</figcaption>
     </figure>
-  </section>
-
-  <section>
-    <h2 id="sec-3">3. 结论 (Key Findings)</h2>
-
-    <h3 id="sec-3-1">3.1 理解 / 推理 / 文档 OCR</h3>
-    <figure>
-      <img src="figures/tab3-understanding.png" alt="多模态理解 benchmark">
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<h3 id="sec-3-1">3.1 理解 / 推理 / 文档 OCR</h3>
+<figure>
+      <img class="zoomable" alt="多模态理解 benchmark" src="figures/tab3-understanding.png">
       <figcaption>Tab. 3 — 多模态理解 benchmark. SenseNova-U1 (8B/A3B) 在没有专门做理解 RL 的情况下, 对标 Qwen3VL-8B / Qwen3.5-9B (同样 LLM backbone) 全面对手, 在数学推理、空间智能、视觉中心推理上明显占优。</figcaption>
     </figure>
-    <p>具体数字 (8B-Think / A3B-Think):</p>
-    <ul>
-      <li><strong>MMMU</strong>: 74.78 / <strong>80.55</strong> (vs Qwen3VL-8B 74.10, Qwen3VL-30BA3B 76.00)</li>
-      <li><strong>MathVision</strong>: 75.82 / <strong>79.63</strong> (vs Qwen3VL 62.70 / 65.70 — 提升 +13 pt)</li>
-      <li><strong>VSI-Bench</strong> (空间智能, 32 帧): 62.66 / 56.90 (vs Qwen3VL 32 帧 = 56.61* / 51.56*)</li>
-      <li><strong>MindCube-Tiny</strong>: 62.01 / <strong>70.86</strong> (vs Qwen3VL 43.17 / 40.86 — 跳了 +20-30 pt)</li>
-      <li><strong>OCRBench</strong>: 82.10 / 91.90 (vs Qwen3.5-9B 89.20, Qwen3.5-35BA3B 91.00)</li>
-    </ul>
-    <p>意外: 空间智能上的提升幅度远大于一般 VQA — 论文归因为"端到端像素表示保留了几何细节, 不被 VE 抹平"。</p>
-
-    <h3 id="sec-3-2">3.2 文本理解 / 指令遵循 / Agent</h3>
-    <ul>
-      <li><strong>IFEval</strong>: 91.13 / 92.39 (vs Qwen3.5-9B 91.50, Qwen3.5-35BA3B 91.90) — A3B 反超</li>
-      <li><strong>IFBench</strong>: 67.01 / <strong>79.79</strong> (vs Qwen3.5-9B 64.50, Qwen3.5-35BA3B 70.20) — 大幅领先</li>
-      <li><strong>Tau2 agent</strong>: 71.70 / 75.39, <strong>Claw-Eval</strong>: 58.90 / 58.50</li>
-    </ul>
-    <p>多模态训练<strong>没有损坏</strong>纯文本能力, 反而在指令遵循上比纯文本 baseline 还好 (论文未给出具体原因)。</p>
-
-    <h3 id="sec-3-3">3.3 图像生成 — GenEval 单项冠军</h3>
-    <figure>
-      <img src="figures/tab5-geneval.png" alt="GenEval 结果">
+<p>具体数字 (8B-Think / A3B-Think):</p>
+<ul>
+<li><strong>MMMU</strong>: 74.78 / <strong>80.55</strong> (vs Qwen3VL-8B 74.10, Qwen3VL-30BA3B 76.00)</li>
+<li><strong>MathVision</strong>: 75.82 / <strong>79.63</strong> (vs Qwen3VL 62.70 / 65.70 — 提升 +13 pt)</li>
+<li><strong>VSI-Bench</strong> (空间智能, 32 帧): 62.66 / 56.90 (vs Qwen3VL 32 帧 = 56.61* / 51.56*)</li>
+<li><strong>MindCube-Tiny</strong>: 62.01 / <strong>70.86</strong> (vs Qwen3VL 43.17 / 40.86 — 跳了 +20-30 pt)</li>
+<li><strong>OCRBench</strong>: 82.10 / 91.90 (vs Qwen3.5-9B 89.20, Qwen3.5-35BA3B 91.00)</li>
+</ul>
+<p>意外: 空间智能上的提升幅度远大于一般 VQA — 论文归因为&quot;端到端像素表示保留了几何细节, 不被 VE 抹平&quot;。</p>
+<h3 id="sec-3-2">3.2 文本理解 / 指令遵循 / Agent</h3>
+<ul>
+<li><strong>IFEval</strong>: 91.13 / 92.39 (vs Qwen3.5-9B 91.50, Qwen3.5-35BA3B 91.90) — A3B 反超</li>
+<li><strong>IFBench</strong>: 67.01 / <strong>79.79</strong> (vs Qwen3.5-9B 64.50, Qwen3.5-35BA3B 70.20) — 大幅领先</li>
+<li><strong>Tau2 agent</strong>: 71.70 / 75.39, <strong>Claw-Eval</strong>: 58.90 / 58.50</li>
+</ul>
+<p>多模态训练<strong>没有损坏</strong>纯文本能力, 反而在指令遵循上比纯文本 baseline 还好 (论文未给出具体原因)。</p>
+<h3 id="sec-3-3">3.3 图像生成 — GenEval 单项冠军</h3>
+<figure>
+      <img class="zoomable" alt="GenEval 结果" src="figures/tab5-geneval.png">
       <figcaption>Tab. 5 — GenEval 组合生成评测. SenseNova-U1 (8B 和 A3B) <strong>都达到 0.91 总分</strong>, 超过 GPT-Image-1 / Seedream 4.0 / Seedream 3.0 (均为 0.84) 这些闭源模型, 也超过 NEO-unify (0.90), Qwen-Image (0.87), BAGEL (0.82), FLUX.1-dev (0.66)。</figcaption>
     </figure>
-    <ul>
-      <li>Single Object: 1.00, Two Object: 0.96, Counting: 0.89-0.92, Colors: 0.91-0.92, Position: 0.91-0.92</li>
-      <li>Attribute Binding 是唯一短板 (0.76-0.77 vs OneCAT 0.80) — 多目标属性绑定还有 gap</li>
-      <li>关键: <strong>能跟 OneCAT / Mogao (同样 native) 在内部并列前列, 同时显著领先 Janus-Pro / BAGEL 这些有 VE / VAE 的方案</strong></li>
-    </ul>
-
-    <h3 id="sec-3-4">3.4 像素空间压缩对重建质量的影响</h3>
-    <figure>
-      <img src="figures/fig10-reconstruction.png" alt="重建质量对比">
+<ul>
+<li>Single Object: 1.00, Two Object: 0.96, Counting: 0.89-0.92, Colors: 0.91-0.92, Position: 0.91-0.92</li>
+<li>Attribute Binding 是唯一短板 (0.76-0.77 vs OneCAT 0.80) — 多目标属性绑定还有 gap</li>
+<li>关键: <strong>能跟 OneCAT / Mogao (同样 native) 在内部并列前列, 同时显著领先 Janus-Pro / BAGEL 这些有 VE / VAE 的方案</strong></li>
+</ul>
+<h3 id="sec-3-4">3.4 像素空间压缩对重建质量的影响</h3>
+<figure>
+      <img class="zoomable" alt="重建质量对比" src="figures/fig10-reconstruction.png">
       <figcaption>Fig. 10 / Tab. 23 — 32× 压缩比下的重建质量. NEO-unify (2B) 在 32× 下达到 PSNR 31.56 / SSIM 0.85 — 跟 FLUX.1-dev VAE 在 8× 下的 31.56/0.93 几乎一致。论文用这个证据反驳"高压缩会丢细节"的传统认知: 在端到端框架下, 32× 压缩也能保留语义和像素细节。</figcaption>
     </figure>
-
-    <h3 id="sec-3-5">3.5 数据规模效率</h3>
-    <p>论文 §5.2.3 提到 Stage 3 在约 80M 样本时<strong>40K steps 就接近收敛</strong> (总训练是 84K steps), 暗示这个 native 架构的数据效率比模块化 UMM 更高 — 但论文没给出严格的对比曲线。</p>
-  </section>
-
-  <section>
-    <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
-    <p>这一节专门记<strong>代码里关键、但论文未充分说明 (或与论文不一致) </strong>的工程细节。</p>
-
-    <h3 id="sec-4-1">4.1 论文 vs 代码 — 明确的不一致</h3>
-    <ul>
-      <li>
-        <strong>视觉位置编码: 论文写 "2D sinusoidal positional encoding", 代码用 2D RoPE.</strong><br>
-        论文 §3.1 Patch Encoding Layer 明说"GELU activation and 2D sinusoidal positional encoding", 但 <code>modeling_neo_vit.py:L81-L109 apply_2d_rotary_pos_emb</code> 实现的是 <strong>2D 旋转位置编码</strong>。两者在功能上类似但不等价 (RoPE 是相对位置, sinusoidal 是绝对位置)。
-      </li>
-      <li>
-        <strong>像素 decoder: 论文写 "MLP head", 代码用 PixelShuffle+Conv.</strong><br>
-        论文 §3.1 Patch Decoding Layer: "directly predicts pixel patches via a multi-layer perceptron (MLP) head"。但 §3 Stage 5 末尾紧接着说"<em>A promising direction for future work is to replace the MLP head with PixelShuffle modules followed by two convolutional layers</em>" — 而 <code>modeling_fm_modules.py:L508-L591</code> 已经实现了 <code>PatchDecoder_postps / PatchDecoder_preps / ConvDecoder</code> 等多种 PixelShuffle 方案, 并由 <code>use_pixel_head</code> 配置项选择 (<code>modeling_neo_chat.py:L198-L199</code>)。<strong>放出的模型用的是已经迭代过的版本</strong>, 不是论文主架构那张图里的纯 MLP。
-      </li>
-      <li>
-        <strong>训练前向不在仓库里.</strong><br>
-        <code>modeling_neo_chat.py:L225-L239</code> 的 <code>NEOChatModel.forward()</code> 第一行就是 <code>raise NotImplementedError('forward')</code>。README ToDo List 也明确列出"Training code of SenseNova-U1"未发布。所有的 §3.3 联合 loss、§3.4 训练 recipe 都<strong>无代码可对照</strong> — 这是个 paper-only 的 claim。
-      </li>
-      <li>
-        <strong>额外的 <code>dynamic_sqrt</code> 噪声模式.</strong><br>
-        <code>modeling_neo_chat.py:L820-L821</code> 有一个 <code>noise_scale_mode == 'dynamic_sqrt'</code> 分支会对 σ_R 再开一次根号 (变成四次方根)。论文 §3.1 Dynamic Noise Scale 只描述了单根号。这个额外模式可能是工程后加的稳定性 trick。
-      </li>
-    </ul>
-
-    <h3 id="sec-4-2">4.2 默认推理超参 (来自 examples)</h3>
-    <p class="code-source">repo/examples/t2i/inference.py:L215-L234</p>
-<pre><code class="language-python">p.add_argument("--cfg_scale", type=float, default=4.0)        # 论文 γ=4 ✓
-p.add_argument("--cfg_norm", default="none",
-               choices=["none", "global", "channel", "cfg_zero_star"])
-p.add_argument("--timestep_shift", type=float, default=3.0)    # 论文 §3.3 时移=3.0 ✓
-p.add_argument("--cfg_interval", type=float, nargs=2, default=[0.0, 1.0])
-p.add_argument("--num_steps", type=int, default=50)            # 论文 100→8 DMD, 默认 50
-p.add_argument("--seed", type=int, default=42)
+<h3 id="sec-3-5">3.5 数据规模效率</h3>
+<p>论文 §5.2.3 提到 Stage 3 在约 80M 样本时<strong>40K steps 就接近收敛</strong> (总训练是 84K steps), 暗示这个 native 架构的数据效率比模块化 UMM 更高 — 但论文没给出严格的对比曲线。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>这一节专门记**代码里关键、但论文未充分说明 (或与论文不一致)**的工程细节。</p>
+<h3 id="sec-4-1">4.1 论文 vs 代码 — 明确的不一致</h3>
+<ul>
+<li>
+<p><strong>视觉位置编码: 论文写 &quot;2D sinusoidal positional encoding&quot;, 代码用 2D RoPE.</strong></p>
+<pre><code>  论文 §3.1 Patch Encoding Layer 明说&quot;GELU activation and 2D sinusoidal positional encoding&quot;, 但 `modeling_neo_vit.py:L81-L109 apply_2d_rotary_pos_emb` 实现的是 **2D 旋转位置编码**。两者在功能上类似但不等价 (RoPE 是相对位置, sinusoidal 是绝对位置)。
 </code></pre>
-    <ul>
-      <li>默认 <strong>50 步</strong> Euler — 比论文宣称的 DMD2 蒸馏后 8 步多很多, 暗示默认权重还<strong>不是</strong>蒸馏版。要 8 步需要单独的蒸馏 checkpoint。</li>
-      <li>训练分辨率 buckets 写死: 2048×2048, 2720×1536, 1536×2720, 2496×1664, ... — 不在 bucket 里会打 warning, 质量可能下降。这是论文没强调的限制 (代码 <code>SUPPORTED_RESOLUTIONS</code>, L30-L42)。</li>
-      <li>dtype 默认 <code>bfloat16</code>, attn 默认自动选 (有 flash-attn 用 flash, 否则 SDPA)。</li>
-    </ul>
-
-    <h3 id="sec-4-3">4.3 一个论文没强调的实际能力: 外挂 prompt enhancer</h3>
-    <p class="code-source">repo/examples/t2i/inference.py:L283-L298</p>
-<pre><code class="language-python">p.add_argument("--enhance", action="store_true", help=(
-    "Run the user prompt through an LLM enhancer before T2I inference. "
-    "Helpful for short / loose prompts, especially infographic-style "
-    "generation. Configure via U1_ENHANCE_{BACKEND,ENDPOINT,API_KEY,MODEL} "
-    "env vars; defaults target Gemini 3.1 Pro."
+</li>
+<li>
+<p><strong>像素 decoder: 论文写 &quot;MLP head&quot;, 代码用 PixelShuffle+Conv.</strong></p>
+<pre><code>  论文 §3.1 Patch Decoding Layer: &quot;directly predicts pixel patches via a multi-layer perceptron (MLP) head&quot;。但 §3 Stage 5 末尾紧接着说&quot;*A promising direction for future work is to replace the MLP head with PixelShuffle modules followed by two convolutional layers*&quot; — 而 `modeling_fm_modules.py:L508-L591` 已经实现了 `PatchDecoder_postps / PatchDecoder_preps / ConvDecoder` 等多种 PixelShuffle 方案, 并由 `use_pixel_head` 配置项选择 (`modeling_neo_chat.py:L198-L199`)。**放出的模型用的是已经迭代过的版本**, 不是论文主架构那张图里的纯 MLP。
+</code></pre>
+</li>
+<li>
+<p><strong>训练前向不在仓库里.</strong></p>
+<pre><code>  `modeling_neo_chat.py:L225-L239` 的 `NEOChatModel.forward()` 第一行就是 `raise NotImplementedError('forward')`。README ToDo List 也明确列出&quot;Training code of SenseNova-U1&quot;未发布。所有的 §3.3 联合 loss、§3.4 训练 recipe 都**无代码可对照** — 这是个 paper-only 的 claim。
+</code></pre>
+</li>
+<li>
+<p><strong>额外的 <code>dynamic_sqrt</code> 噪声模式.</strong></p>
+<pre><code>  `modeling_neo_chat.py:L820-L821` 有一个 `noise_scale_mode == 'dynamic_sqrt'` 分支会对 σ_R 再开一次根号 (变成四次方根)。论文 §3.1 Dynamic Noise Scale 只描述了单根号。这个额外模式可能是工程后加的稳定性 trick。
+</code></pre>
+</li>
+</ul>
+<h3 id="sec-4-2">4.2 默认推理超参 (来自 examples)</h3>
+<p class="code-source">repo/examples/t2i/inference.py:L215-L234</p>
+<pre><code class="language-python">p.add_argument(&quot;--cfg_scale&quot;, type=float, default=4.0)        # 论文 γ=4 ✓
+p.add_argument(&quot;--cfg_norm&quot;, default=&quot;none&quot;,
+               choices=[&quot;none&quot;, &quot;global&quot;, &quot;channel&quot;, &quot;cfg_zero_star&quot;])
+p.add_argument(&quot;--timestep_shift&quot;, type=float, default=3.0)    # 论文 §3.3 时移=3.0 ✓
+p.add_argument(&quot;--cfg_interval&quot;, type=float, nargs=2, default=[0.0, 1.0])
+p.add_argument(&quot;--num_steps&quot;, type=int, default=50)            # 论文 100→8 DMD, 默认 50
+p.add_argument(&quot;--seed&quot;, type=int, default=42)
+</code></pre>
+<ul>
+<li>默认 <strong>50 步</strong> Euler — 比论文宣称的 DMD2 蒸馏后 8 步多很多, 暗示默认权重还<strong>不是</strong>蒸馏版。要 8 步需要单独的蒸馏 checkpoint。</li>
+<li>训练分辨率 buckets 写死: 2048×2048, 2720×1536, 1536×2720, 2496×1664, ... — 不在 bucket 里会打 warning, 质量可能下降。这是论文没强调的限制 (代码 <code>SUPPORTED_RESOLUTIONS</code>, L30-L42)。</li>
+<li>dtype 默认 <code>bfloat16</code>, attn 默认自动选 (有 flash-attn 用 flash, 否则 SDPA)。</li>
+</ul>
+<h3 id="sec-4-3">4.3 一个论文没强调的实际能力: 外挂 prompt enhancer</h3>
+<p class="code-source">repo/examples/t2i/inference.py:L283-L298</p>
+<pre><code class="language-python">p.add_argument(&quot;--enhance&quot;, action=&quot;store_true&quot;, help=(
+    &quot;Run the user prompt through an LLM enhancer before T2I inference. &quot;
+    &quot;Helpful for short / loose prompts, especially infographic-style &quot;
+    &quot;generation. Configure via U1_ENHANCE_{BACKEND,ENDPOINT,API_KEY,MODEL} &quot;
+    &quot;env vars; defaults target Gemini 3.1 Pro.&quot;
 ))
 </code></pre>
-    <p><strong>注意:</strong> 默认的 enhance 后端是 <strong>Gemini 3.1 Pro</strong> (Google 的模型!), 而不是 SenseNova 自家的模型。意味着论文里展示的"复杂 infographic 生成"等惊艳例子, 实际部署时<strong>可能依赖一个外部 LLM 把用户 prompt 重写得更详细</strong>。论文里没强调这一点。</p>
-
-    <h3 id="sec-4-4">4.4 KV cache 复用</h3>
-    <p>推理时, prefill 阶段对 understanding stream 算出来的 KV 同时给生成 stream 用 (它们共享 self-attention)。<code>prepare_flash_kv_cache</code> (<code>modeling_neo_chat.py:L30-L79</code>) 一次性把 prefix cache 转成 flash-attn 友好的 <code>[B, S, H, D]</code> 布局, 然后预分配 <code>prefix + denoise_steps</code> 大小的整块, 后续每步直接 in-place 写。这是<strong>论文 §3.5 提到的"生成阶段 KV 由理解模块提供"</strong>的实际实现。</p>
-
-    <h3 id="sec-4-5">4.5 推理优化清单</h3>
-    <ul>
-      <li><strong>三套 cache 同时维护</strong>: <code>past_key_values_cond</code> (条件), <code>past_key_values_tu</code> (text-uncondition), <code>past_key_values_iu</code> (image-uncondition) — 一次 prefill 出三套, 每个 Euler step 复用 (<code>modeling_neo_chat.py:L703-L725</code>)</li>
-      <li><strong>EMA 比率</strong>: Stage 2-4 用 0.9999, Stage 3-4 切到 0.999 (Table 2)</li>
-      <li><strong>梯度裁剪</strong>: 全程 1.0</li>
-      <li><strong>优化器</strong>: AdamW (β₁=0.9, β₂=0.95, ε=1e-8), weight decay = 0.0 (注意是 0)</li>
-      <li><strong>MoE balance loss</strong>: A3B 变体 Stage 2 用 5e-3, Stage 3 之后降到 1e-3 (避免专家坍塌)</li>
-      <li><strong>Conditioning drop 概率</strong>: 10% drop text, 额外 10% drop both — 训练时学条件 / image-only / unconditional 三种模式</li>
-    </ul>
-  </section>
-
-  <section>
-    <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
-
-    <h3 id="sec-5-1">5.1 优点</h3>
-    <ul>
-      <li><strong>真正端到端</strong>. 第一次在 8B 量级把 "no VE, no VAE" 的方案做到 Qwen3VL 同等理解水平 + GenEval 0.91 的生成水平。这不是 toy 模型, 是商业部署级别 (有官方在线 demo, ComfyUI 集成, GGUF 量化)。</li>
-      <li><strong>架构简化带来真实收益</strong>. Fig. 4 的对比说服力强 — 比起 Sequential / Parallel 两种 VE+VAE 路线, 原生路线参数更少、训练 pipeline 更短。</li>
-      <li><strong>分辨率自适应噪声 (σ_R)</strong> 是一个清晰、可验证的小创新, 解决了像素空间扩散在变分辨率下的 SNR 错配问题。代码实现 (一行 math.sqrt) 跟公式严格一致。</li>
-      <li><strong>空间智能的提升幅度大</strong>. MindCube-Tiny +20-30 pt, ViewSpatial +10 pt — 这是 native 像素表示的合理收益。</li>
-      <li><strong>开源诚意</strong>. 仓库虽然没放训练代码, 但放了完整推理 + 量化 (GGUF) + 部署示例 + 评测脚本, 比"只有 demo"的发布要扎实。</li>
-    </ul>
-
-    <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
-    <ul>
-      <li>
-        <strong>核心创新无法独立验证.</strong> "MoT 比 dense / shared backbone 更好"是论文反复强调的卖点, 但 §5.2 的 ablation 只在 2B 量级做了, 而且 baseline 都是论文自家的 (NEO-unify / NEO + simple unify), <strong>没和 Show-o, Janus-Pro, BAGEL 在公平 setting 下做 head-to-head ablation</strong>。MoT 跟单纯多任务训练相比到底差多少? 没有数字。
-      </li>
-      <li>
-        <strong>训练代码不开源 = 复现门槛极高.</strong> 整套 6-stage recipe 涉及 3.5T tokens、CFG drop 率、MoE balance loss schedule、attention-fusion 这些细节, 仅靠论文文字几乎不可能精确复现。<code>NotImplementedError('forward')</code> 这行代码是最大的"trust me bro"。
-      </li>
-      <li>
-        <strong>论文-代码不一致的几处都指向同一个方向: 代码比论文新.</strong> Decoder 从 MLP 换成 PixelShuffle, 位置编码从 sinusoidal 换成 RoPE, 多出 dynamic_sqrt 噪声模式 — 说明论文是<strong>早期版本</strong>, 模型一直在迭代但论文没同步。读者按论文实现可能拿不到同样的效果。
-      </li>
-      <li>
-        <strong>"高分辨率生成" 的代价没充分讨论.</strong> 2048×2048 在 5090 上每步 0.415s, 默认 50 步 = 20.75s/张 (单卡, 单图). 对比 FLUX-dev (12B, 25 步 ≈ 5s/张 in latent), <strong>像素空间扩散的延迟代价远高于 latent 扩散</strong>。论文用"32× 压缩比"这个数字做了 framing 但回避了端到端延迟比较。
-      </li>
-      <li>
-        <strong>外部 prompt enhancer 的依赖.</strong> 默认 enhancer 后端是<strong>外部模型 Gemini 3.1 Pro</strong> (代码 <code>examples/t2i/inference.py:L290</code>)。论文里展示的复杂 infographic / 文本渲染示例, 真实部署里到底是 U1 自己的能力还是 enhancer 把 prompt 强化后的功劳? 论文没区分。这是一个潜在的"评测污染"风险。
-      </li>
-      <li>
-        <strong>Attribute Binding 弱.</strong> GenEval 唯一不到 0.8 的项 — 多个物体属性 (颜色、材质、位置) 同时正确还有差距。对"红色立方体在蓝色球旁边"这类基础 compositional prompt 仍未完全解决。
-      </li>
-      <li>
-        <strong>"native"的边界不清.</strong> 模型仍然初始化自 NEO + Qwen3, 训练时用 frozen-und-train-gen 策略 (Stage 2), 用预训练的语言/视觉先验 — 严格意义上不是 from scratch 的"native"。论文标题里的 "native" 主要指<strong>架构上没有 VE/VAE</strong>, 不是<strong>训练上没有先验</strong>。
-      </li>
-      <li>
-        <strong>评测 benchmark 选择有 cherry-picking 嫌疑.</strong> 报告里 Qwen3VL 在 VSI-Bench 上用 32 帧而不是它推荐的 128 帧, 论文用脚注解释但仍按 32 帧报告主表 — 是公平比较但需要读者注意脚注。
-      </li>
-    </ul>
-
-    <h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
-    <ul>
-      <li>✅ <strong>适用</strong>: 需要单模型同时做理解和生成的产品 (聊天+画图); 重视 layout / 文字渲染 (infographic, 海报, 漫画) 的场景; 空间智能 / VLA / world model 的研究 baseline。</li>
-      <li>❌ <strong>不适用</strong>: 纯文生图、对延迟极敏感的应用 (latent 扩散更快); 需要从头复现训练 pipeline 的研究 (代码不开源); 严苛属性绑定的组合生成 (GenEval Attribute Binding 还有 +0.05 gap)。</li>
-    </ul>
-
-    <h3 id="sec-5-4">5.4 进一步阅读</h3>
-    <ul>
-      <li><strong>NEO</strong> [Chen et al. 2025] — SenseNova-U1 的直接前作, 提出"native pixel-word primitive"</li>
-      <li><strong>NEO-unify</strong> [Chen et al. 2026 blog] — 把 NEO 扩到 unified 场景的中间步</li>
-      <li><strong>JiT</strong> [Heinrich et al.] — x-predict + v-loss 的来源, 像素空间扩散可行性的关键证据</li>
-      <li><strong>BAGEL</strong> / <strong>Janus-Pro</strong> / <strong>Show-o2</strong> — 模块化统一模型的对照</li>
-      <li><strong>Flow-GRPO</strong> [Liu et al. 2025] / <strong>DMD2</strong> — Stage 5/6 的 post-training 工具</li>
-      <li><strong>Phased DMD</strong> [Geng et al. 2025] — 蒸馏超参的来源</li>
-    </ul>
-  </section>
-
-  <hr>
-  <footer>
+<p><strong>注意:</strong> 默认的 enhance 后端是 <strong>Gemini 3.1 Pro</strong> (Google 的模型!), 而不是 SenseNova 自家的模型。意味着论文里展示的&quot;复杂 infographic 生成&quot;等惊艳例子, 实际部署时<strong>可能依赖一个外部 LLM 把用户 prompt 重写得更详细</strong>。论文里没强调这一点。</p>
+<h3 id="sec-4-4">4.4 KV cache 复用</h3>
+<p>推理时, prefill 阶段对 understanding stream 算出来的 KV 同时给生成 stream 用 (它们共享 self-attention)。<code>prepare_flash_kv_cache</code> (<code>modeling_neo_chat.py:L30-L79</code>) 一次性把 prefix cache 转成 flash-attn 友好的 <code>[B, S, H, D]</code> 布局, 然后预分配 <code>prefix + denoise_steps</code> 大小的整块, 后续每步直接 in-place 写。这是**论文 §3.5 提到的&quot;生成阶段 KV 由理解模块提供&quot;**的实际实现。</p>
+<h3 id="sec-4-5">4.5 推理优化清单</h3>
+<ul>
+<li><strong>三套 cache 同时维护</strong>: <code>past_key_values_cond</code> (条件), <code>past_key_values_tu</code> (text-uncondition), <code>past_key_values_iu</code> (image-uncondition) — 一次 prefill 出三套, 每个 Euler step 复用 (<code>modeling_neo_chat.py:L703-L725</code>)</li>
+<li><strong>EMA 比率</strong>: Stage 2-4 用 0.9999, Stage 3-4 切到 0.999 (Table 2)</li>
+<li><strong>梯度裁剪</strong>: 全程 1.0</li>
+<li><strong>优化器</strong>: AdamW (β₁=0.9, β₂=0.95, ε=1e-8), weight decay = 0.0 (注意是 0)</li>
+<li><strong>MoE balance loss</strong>: A3B 变体 Stage 2 用 5e-3, Stage 3 之后降到 1e-3 (避免专家坍塌)</li>
+<li><strong>Conditioning drop 概率</strong>: 10% drop text, 额外 10% drop both — 训练时学条件 / image-only / unconditional 三种模式</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>真正端到端</strong>. 第一次在 8B 量级把 &quot;no VE, no VAE&quot; 的方案做到 Qwen3VL 同等理解水平 + GenEval 0.91 的生成水平。这不是 toy 模型, 是商业部署级别 (有官方在线 demo, ComfyUI 集成, GGUF 量化)。</li>
+<li><strong>架构简化带来真实收益</strong>. Fig. 4 的对比说服力强 — 比起 Sequential / Parallel 两种 VE+VAE 路线, 原生路线参数更少、训练 pipeline 更短。</li>
+<li><strong>分辨率自适应噪声 (σ_R)</strong> 是一个清晰、可验证的小创新, 解决了像素空间扩散在变分辨率下的 SNR 错配问题。代码实现 (一行 math.sqrt) 跟公式严格一致。</li>
+<li><strong>空间智能的提升幅度大</strong>. MindCube-Tiny +20-30 pt, ViewSpatial +10 pt — 这是 native 像素表示的合理收益。</li>
+<li><strong>开源诚意</strong>. 仓库虽然没放训练代码, 但放了完整推理 + 量化 (GGUF) + 部署示例 + 评测脚本, 比&quot;只有 demo&quot;的发布要扎实。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>核心创新无法独立验证.</strong> &quot;MoT 比 dense / shared backbone 更好&quot;是论文反复强调的卖点, 但 §5.2 的 ablation 只在 2B 量级做了, 而且 baseline 都是论文自家的 (NEO-unify / NEO + simple unify), <strong>没和 Show-o, Janus-Pro, BAGEL 在公平 setting 下做 head-to-head ablation</strong>。MoT 跟单纯多任务训练相比到底差多少? 没有数字。</li>
+<li><strong>训练代码不开源 = 复现门槛极高.</strong> 整套 6-stage recipe 涉及 3.5T tokens、CFG drop 率、MoE balance loss schedule、attention-fusion 这些细节, 仅靠论文文字几乎不可能精确复现。<code>NotImplementedError('forward')</code> 这行代码是最大的&quot;trust me bro&quot;。</li>
+<li><strong>论文-代码不一致的几处都指向同一个方向: 代码比论文新.</strong> Decoder 从 MLP 换成 PixelShuffle, 位置编码从 sinusoidal 换成 RoPE, 多出 dynamic_sqrt 噪声模式 — 说明论文是<strong>早期版本</strong>, 模型一直在迭代但论文没同步。读者按论文实现可能拿不到同样的效果。</li>
+<li><strong>&quot;高分辨率生成&quot; 的代价没充分讨论.</strong> 2048×2048 在 5090 上每步 0.415s, 默认 50 步 = 20.75s/张 (单卡, 单图). 对比 FLUX-dev (12B, 25 步 ≈ 5s/张 in latent), <strong>像素空间扩散的延迟代价远高于 latent 扩散</strong>。论文用&quot;32× 压缩比&quot;这个数字做了 framing 但回避了端到端延迟比较。</li>
+<li><strong>外部 prompt enhancer 的依赖.</strong> 默认 enhancer 后端是<strong>外部模型 Gemini 3.1 Pro</strong> (代码 <code>examples/t2i/inference.py:L290</code>)。论文里展示的复杂 infographic / 文本渲染示例, 真实部署里到底是 U1 自己的能力还是 enhancer 把 prompt 强化后的功劳? 论文没区分。这是一个潜在的&quot;评测污染&quot;风险。</li>
+<li><strong>Attribute Binding 弱.</strong> GenEval 唯一不到 0.8 的项 — 多个物体属性 (颜色、材质、位置) 同时正确还有差距。对&quot;红色立方体在蓝色球旁边&quot;这类基础 compositional prompt 仍未完全解决。</li>
+<li><strong>&quot;native&quot;的边界不清.</strong> 模型仍然初始化自 NEO + Qwen3, 训练时用 frozen-und-train-gen 策略 (Stage 2), 用预训练的语言/视觉先验 — 严格意义上不是 from scratch 的&quot;native&quot;。论文标题里的 &quot;native&quot; 主要指<strong>架构上没有 VE/VAE</strong>, 不是<strong>训练上没有先验</strong>。</li>
+<li><strong>评测 benchmark 选择有 cherry-picking 嫌疑.</strong> 报告里 Qwen3VL 在 VSI-Bench 上用 32 帧而不是它推荐的 128 帧, 论文用脚注解释但仍按 32 帧报告主表 — 是公平比较但需要读者注意脚注。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 需要单模型同时做理解和生成的产品 (聊天+画图); 重视 layout / 文字渲染 (infographic, 海报, 漫画) 的场景; 空间智能 / VLA / world model 的研究 baseline。</li>
+<li>❌ <strong>不适用</strong>: 纯文生图、对延迟极敏感的应用 (latent 扩散更快); 需要从头复现训练 pipeline 的研究 (代码不开源); 严苛属性绑定的组合生成 (GenEval Attribute Binding 还有 +0.05 gap)。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>NEO</strong> [Chen et al. 2025] — SenseNova-U1 的直接前作, 提出&quot;native pixel-word primitive&quot;</li>
+<li><strong>NEO-unify</strong> [Chen et al. 2026 blog] — 把 NEO 扩到 unified 场景的中间步</li>
+<li><strong>JiT</strong> [Heinrich et al.] — x-predict + v-loss 的来源, 像素空间扩散可行性的关键证据</li>
+<li><strong>BAGEL</strong> / <strong>Janus-Pro</strong> / <strong>Show-o2</strong> — 模块化统一模型的对照</li>
+<li><strong>Flow-GRPO</strong> [Liu et al. 2025] / <strong>DMD2</strong> — Stage 5/6 的 post-training 工具</li>
+<li><strong>Phased DMD</strong> [Geng et al. 2025] — 蒸馏超参的来源</li>
+</ul>
+<hr />
+<footer>
     <p>Read on 2026-05-11 · Generated with the <code>reading-papers</code> skill · 论文 PDF: 44 页 · 代码: ~6,400 行 (inference-only)</p>
   </footer>
 </main>

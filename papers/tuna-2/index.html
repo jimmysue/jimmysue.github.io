@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tuna-2: Pixel Embeddings Beat Vision Encoders — 阅读笔记</title>
+  <title>Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</title>
   <link rel="stylesheet" href="../../assets/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script>
     window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
   </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
   <script defer src="../../assets/lightbox.js"></script>
@@ -49,158 +49,124 @@
     <span class="site-nav__brand-text">Paper Reading</span>
   </a>
   <div class="site-nav__links">
-    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
     <a class="site-nav__link" href="../../tutorials.html">教程</a>
     <a class="site-nav__link" href="../../tags.html">标签</a>
   </div>
 </nav>
 <!-- NAV-END -->
-
 <nav class="toc" aria-label="目录">
   <div class="toc-title">目录 / TOC</div>
   <ul>
-    <li class="h2"><a href="#sec-1">1. 出发点</a></li>
-    <li class="h2"><a href="#sec-2">2. 方法</a></li>
-    <li class="h3"><a href="#sec-2-intro">核心思想 (类比)</a></li>
-    <li class="h3"><a href="#sec-2-1">2.1 三阶段架构演化</a></li>
-    <li class="h3"><a href="#sec-2-2">2.2 像素 Flow Matching</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 Masking 特征学习</a></li>
-    <li class="h3"><a href="#sec-2-4">2.4 两阶段训练 Pipeline</a></li>
-    <li class="h3"><a href="#sec-2-5">2.5 与代码对照</a></li>
-    <li class="h2"><a href="#sec-3">3. 结论</a></li>
-    <li class="h3"><a href="#sec-3-1">3.1 理解 — Tuna-2 反超</a></li>
-    <li class="h3"><a href="#sec-3-2">3.2 生成 — Tuna-R 微胜</a></li>
-    <li class="h3"><a href="#sec-3-3">3.3 重建 — PSNR 32.80</a></li>
-    <li class="h3"><a href="#sec-3-4">3.4 Attention 可视化</a></li>
-    <li class="h3"><a href="#sec-3-5">3.5 Scaling 行为</a></li>
-    <li class="h2"><a href="#sec-4">4. 实现细节</a></li>
-    <li class="h3"><a href="#sec-4-1">4.1 核心超参</a></li>
-    <li class="h3"><a href="#sec-4-2">4.2 v-loss 重加权</a></li>
-    <li class="h3"><a href="#sec-4-3">4.3 Masking 实现</a></li>
-    <li class="h3"><a href="#sec-4-4">4.4 训练 settings</a></li>
-    <li class="h3"><a href="#sec-4-5">4.5 论文 vs 代码</a></li>
-    <li class="h3"><a href="#sec-4-6">4.6 Loss 曲线观察</a></li>
-    <li class="h2"><a href="#sec-5">5. 批判性总结</a></li>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</a></li>
+    <li class="h3"><a href="#sec-2-1">核心思想 (类比)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.1 三阶段架构演化</a></li>
+    <li class="h3"><a href="#sec-2-3">2.2 像素空间 Flow Matching (x-prediction + v-loss)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 Masking-based Visual Representation Learning (论文最关键的 trick)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.4 两阶段训练 Pipeline</a></li>
+    <li class="h3"><a href="#sec-2-6">2.5 与代码对照 (Cross-Read)</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 多模态理解 — Tuna-2 反超 Tuna-R</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 图像生成 — Tuna-R 微胜, 但差距随数据规模缩小</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 图像重建 — PSNR 32.80 / SSIM 0.93, 同分辨率超过 FLUX VAE</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 Attention map 可视化分析 — Tuna-2 不被语言先验带跑偏</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 Scaling 行为 — Tuna-R 早期领先, Tuna-2 晚期反超</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 核心架构超参</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 v-loss 重加权 + 数值稳定</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 Masking 应用细节</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 训练 settings (按论文 §3.1)</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 论文 vs 代码的几处不一致</a></li>
+    <li class="h3"><a href="#sec-4-6">4.6 训练 loss 曲线观察 (Fig. 5)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
     <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
     <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
     <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
     <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
   </ul>
 </nav>
-
 <main>
 <h1>Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h1>
-
-  <div class="meta">
-    <div><strong>作者机构:</strong> Meta AI · The University of Hong Kong · University of Waterloo</div>
-    <div><strong>第一作者 (共一):</strong> Zhiheng Liu, Weiming Ren (按姓氏字母序列出)</div>
-    <div><strong>发布日期:</strong> 2026-04-28 (arxiv v1, 20 页)</div>
-    <div><strong>arXiv:</strong> <a href="https://arxiv.org/abs/2604.24763">arxiv.org/abs/2604.24763</a> · <a href="raw/paper.pdf">本地 PDF</a> (15 MB)</div>
-    <div><strong>代码:</strong> <a href="https://github.com/facebookresearch/tuna-2">github.com/facebookresearch/tuna-2</a> (有完整训练 + 推理 + 评测代码)</div>
-    <div><strong>项目主页:</strong> <a href="https://tuna-ai.org/tuna-2">tuna-ai.org/tuna-2</a></div>
-    <div><strong>TL;DR:</strong> 把 Tuna 的 VAE 砍掉变成 Tuna-R, 再把 representation encoder 也砍掉变成 Tuna-2 (只剩一个 Conv2d patchify), 用 75% masking 当 regularizer, 结果<strong>理解反而更强</strong>了。</div>
-  </div>
-
-  <section>
-    <h2 id="sec-1">1. 出发点 (Motivation)</h2>
-    <p>这篇论文是 SenseNova-U1 在 GenEval 表里反复对比的 Tuna 系列的<strong>正式续作</strong>。背景跟 SenseNova-U1 几乎一样的诉求 — 干掉 VAE 和 vision encoder 做端到端 — 但 Meta+港大+滑铁卢这队用更"实验科学"的路数: 给出三个连续简化的变体, 做<strong>受控对比</strong>。</p>
-    <p>具体要解决的痛点:</p>
-    <ol>
-      <li><strong>表示空间错位</strong>: 传统 UMM 用 CLIP/SigLIP 做理解, 用 VQ-VAE 做生成, 两套编码器目标完全不同, 训出来的特征互不兼容。</li>
-      <li><strong>VAE 信息瓶颈</strong>: 8× / 16× 压缩本质上是有损的, 把图先过 VAE 再过 vision encoder 等于两次降维, 对<strong>细粒度感知</strong> (小物体、稠密细节) 是致命的。</li>
-      <li><strong>预训练编码器的归纳偏置</strong>: 固定输入分辨率、抽象掉低层视觉细节、对 OCR / counting 等任务不友好。</li>
-    </ol>
-    <p>核心问题: <strong>能不能彻底丢掉预训练 vision encoder, 让模型直接从原始像素端到端学习, 并且<em>反过来</em>得到更强的视觉表征?</strong></p>
-    <p>论文的答案是"可以, 而且 understanding 上更好" — 这跟传统直觉是相反的 (大家以为 SigLIP/DINO 的语义 prior 是宝贵的)。证据是一个三阶段对照实验:</p>
-    <table>
-      <tr><th>变体</th><th>VAE</th><th>Repr Encoder</th><th>用什么编图</th></tr>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>这篇论文是 SenseNova-U1 在 GenEval 表里反复对比的 Tuna 系列的<strong>正式续作</strong>。背景跟 SenseNova-U1 几乎一样的诉求 — 干掉 VAE 和 vision encoder 做端到端 — 但 Meta+港大+滑铁卢这队用更&quot;实验科学&quot;的路数: 给出三个连续简化的变体, 做<strong>受控对比</strong>。</p>
+<p>具体要解决的痛点:</p>
+<ol>
+<li><strong>表示空间错位</strong>: 传统 UMM 用 CLIP/SigLIP 做理解, 用 VQ-VAE 做生成, 两套编码器目标完全不同, 训出来的特征互不兼容。</li>
+<li><strong>VAE 信息瓶颈</strong>: 8× / 16× 压缩本质上是有损的, 把图先过 VAE 再过 vision encoder 等于两次降维, 对<strong>细粒度感知</strong> (小物体、稠密细节) 是致命的。</li>
+<li><strong>预训练编码器的归纳偏置</strong>: 固定输入分辨率、抽象掉低层视觉细节、对 OCR / counting 等任务不友好。</li>
+</ol>
+<p>核心问题: <strong>能不能彻底丢掉预训练 vision encoder, 让模型直接从原始像素端到端学习, 并且<em>反过来</em>得到更强的视觉表征?</strong></p>
+<p>论文的答案是&quot;可以, 而且 understanding 上更好&quot; — 这跟传统直觉是相反的 (大家以为 SigLIP/DINO 的语义 prior 是宝贵的)。证据是一个三阶段对照实验:</p>
+<table>
+      <tbody><tr><th>变体</th><th>VAE</th><th>Repr Encoder</th><th>用什么编图</th></tr>
       <tr><td>Tuna (基线)</td><td>✓</td><td>✓ (SigLIP 2)</td><td>VAE latent 后再过 SigLIP</td></tr>
       <tr><td>Tuna-R (中间)</td><td>✗</td><td>✓ (SigLIP 2)</td><td>原始像素 → SigLIP</td></tr>
       <tr><td>Tuna-2 (终态)</td><td>✗</td><td>✗</td><td>原始像素 → Conv2d patchify</td></tr>
-    </table>
-  </section>
-
-  <section>
-    <h2 id="sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</h2>
-
-    <h3 id="sec-2-intro">核心思想 (类比)</h3>
-    <p>把"看懂图"和"画图"这两件事放进同一个 transformer 里, 有三种做法:</p>
-    <ul>
-      <li><strong>双眼镜派 (Tuna)</strong>: 戴一副"看图眼镜" (SigLIP) 看图, 戴一副"画图眼镜" (VAE) 画图。问题: 两副眼镜的世界观不同, 中间还要翻译。</li>
-      <li><strong>单眼镜派 (Tuna-R)</strong>: 只戴"看图眼镜" (SigLIP), 看的时候直接用、画的时候也强行用同一副 — 比上面好, 但 SigLIP 是为"分类"训练的, 不擅长画细节。</li>
-      <li><strong>裸眼派 (Tuna-2)</strong>: 不戴眼镜, 直接拿肉眼看像素。看似最弱, 但训练数据一多, <strong>肉眼反而看得最准</strong>, 尤其是数细节 (counting、OCR、小物体识别)。</li>
-    </ul>
-    <p>"裸眼"具体是: <strong>一个 Conv2d + RMSNorm</strong> 就完了。没有预训练 VE, 没有 VAE, patch 之后直接当 token 喂给 LLM。</p>
-
-    <figure>
-      <img src="figures/fig1-architecture-evolution.png" alt="三阶段架构演化">
+    </tbody></table>
+<h2 id="sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</h2>
+<h3 id="sec-2-1">核心思想 (类比)</h3>
+<p>把&quot;看懂图&quot;和&quot;画图&quot;这两件事放进同一个 transformer 里, 有三种做法:</p>
+<ul>
+<li><strong>双眼镜派 (Tuna)</strong>: 戴一副&quot;看图眼镜&quot; (SigLIP) 看图, 戴一副&quot;画图眼镜&quot; (VAE) 画图。问题: 两副眼镜的世界观不同, 中间还要翻译。</li>
+<li><strong>单眼镜派 (Tuna-R)</strong>: 只戴&quot;看图眼镜&quot; (SigLIP), 看的时候直接用、画的时候也强行用同一副 — 比上面好, 但 SigLIP 是为&quot;分类&quot;训练的, 不擅长画细节。</li>
+<li><strong>裸眼派 (Tuna-2)</strong>: 不戴眼镜, 直接拿肉眼看像素。看似最弱, 但训练数据一多, <strong>肉眼反而看得最准</strong>, 尤其是数细节 (counting、OCR、小物体识别)。</li>
+</ul>
+<p>&quot;裸眼&quot;具体是: <strong>一个 Conv2d + RMSNorm</strong> 就完了。没有预训练 VE, 没有 VAE, patch 之后直接当 token 喂给 LLM。</p>
+<figure>
+      <img class="zoomable" alt="三阶段架构演化" src="figures/fig1-architecture-evolution.png">
       <figcaption>Fig. 1 — 三个变体的简化过程。左到右逐步剥离编码组件: Tuna 有 VAE + Repr Encoder, Tuna-R 砍掉 VAE, Tuna-2 把 Repr Encoder 也砍掉只剩 Patchify Layer。右侧雷达图显示 Tuna-2 在多数 benchmark 上反而最优。</figcaption>
     </figure>
-
-    <h3 id="sec-2-1">2.1 三阶段架构演化</h3>
-
-    <h4>从 Tuna 砍到 Tuna-2</h4>
-    <p>共同 backbone: <strong>Qwen2.5-7B-Instruct</strong>。Diffusion head 是一个 10 层的 ModulatedAttentionBlock 串接 (类 DiT)。三个版本的差异只在视觉编码:</p>
-    <ul>
-      <li><strong>Tuna</strong>: VAE encoder → SigLIP 2 → connector → LLM</li>
-      <li><strong>Tuna-R</strong>: SigLIP 2 (直接吃原图) → connector → LLM。Connector 需要单独 alignment stage (3K steps, lr=5e-4)。</li>
-      <li><strong>Tuna-2</strong>: <code>nn.Conv2d(3, 1152, kernel=16, stride=16) + RMSNorm</code> → LLM。<strong>不需要 connector alignment stage</strong>, 训练 pipeline 进一步简化。</li>
-    </ul>
-
-    <p class="code-source">repo/tuna/models/vision/patch_embed.py:L14-L64 — 整个 SimplePatchEmbedding 就这么短</p>
+<h3 id="sec-2-2">2.1 三阶段架构演化</h3>
+<h4>从 Tuna 砍到 Tuna-2</h4>
+<p>共同 backbone: <strong>Qwen2.5-7B-Instruct</strong>。Diffusion head 是一个 10 层的 ModulatedAttentionBlock 串接 (类 DiT)。三个版本的差异只在视觉编码:</p>
+<ul>
+<li><strong>Tuna</strong>: VAE encoder → SigLIP 2 → connector → LLM</li>
+<li><strong>Tuna-R</strong>: SigLIP 2 (直接吃原图) → connector → LLM。Connector 需要单独 alignment stage (3K steps, lr=5e-4)。</li>
+<li><strong>Tuna-2</strong>: <code>nn.Conv2d(3, 1152, kernel=16, stride=16) + RMSNorm</code> → LLM。<strong>不需要 connector alignment stage</strong>, 训练 pipeline 进一步简化。</li>
+</ul>
+<p class="code-source">repo/tuna/models/vision/patch_embed.py:L14-L64 — 整个 SimplePatchEmbedding 就这么短</p>
 <pre><code class="language-python">class SimplePatchEmbedding(nn.Module):
-    """Simple Conv2D-based patchifier with RMSNorm.
-    Used by the "no encoder" Tuna variant (variant C). Takes raw RGB pixel
+    &quot;&quot;&quot;Simple Conv2D-based patchifier with RMSNorm.
+    Used by the &quot;no encoder&quot; Tuna variant (variant C). Takes raw RGB pixel
     values, splits them into non-overlapping patches via a strided Conv2d,
-    and applies RMSNorm on the channel dimension."""
+    and applies RMSNorm on the channel dimension.&quot;&quot;&quot;
     def __init__(self, patch_size: int = 16, hidden_size: int = 1152, in_channels: int = 3):
         super().__init__()
-        # Conv2d patchify: (B, C, H, W) -> (B, hidden_size, H/p, W/p)
+        # Conv2d patchify: (B, C, H, W) -&gt; (B, hidden_size, H/p, W/p)
         self.patch_embedding = nn.Conv2d(
             in_channels=in_channels, out_channels=hidden_size,
             kernel_size=patch_size, stride=patch_size, bias=True,
         )
         self.norm = nn.RMSNorm(hidden_size)
 
-    def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+    def forward(self, pixel_values: torch.Tensor) -&gt; torch.Tensor:
         embeddings = self.patch_embedding(pixel_values)          # (B, h, H/p, W/p)
         b, c, h, w = embeddings.shape
         embeddings = embeddings.reshape(b, c, h * w).transpose(1, 2)  # (B, N, h)
         return self.norm(embeddings)
 </code></pre>
-    <p>对比 SenseNova-U1 那个两层卷积 + 2D RoPE 的"近无损接口"<strong>更朴素</strong> — Tuna-2 就一层 Conv2d (kernel=stride=16) + RMSNorm, 没有 2D 位置编码 (位置信息靠 LLM 的 1D RoPE 加 modality-aware 改造)。</p>
-
-    <h3 id="sec-2-2">2.2 像素空间 Flow Matching (x-prediction + v-loss)</h3>
-
-    <p>生成端没有 VAE, 直接在像素空间做扩散去噪。沿用 <strong>JiT</strong> (Li & He, 2025) 的两个 trick: <strong>x-prediction</strong> 和 <strong>v-loss reweighting</strong>。</p>
-
-    <h4>定义</h4>
-    <p>Rectified flow 线性插值定义"含噪像素" (Eq. 1):</p>
-    $$x_t = t \cdot x_1 + (1-t) \cdot x_0, \quad t \in [0, 1], \quad x_0 \sim \mathcal{N}(0, I)$$
-    <ul>
-      <li>$x_1$: 真实干净图 (注意论文用 $x_1$ 表示"目的地"; 部分扩散文献用 $x_0$, 容易混淆)</li>
-      <li>$x_0$: 起点纯噪声</li>
-      <li>$t$ 是"信号纯度"刻度: $t=0$ 全噪, $t=1$ 干净图</li>
-    </ul>
-
-    <p>模型 $\pi_\theta$ <strong>直接预测干净图</strong> $x_\theta$ (Eq. 2):</p>
-    $$x_\theta = \pi_\theta(x_t, c, t)$$
-    <p>其中 $c$ 是条件 (T2I 时是文本, 编辑时是文本+源图)。</p>
-
-    <p>预测的 $x_\theta$ 转换为速度 (Eq. 3):</p>
-    $$v_\theta = \frac{x_\theta - x_t}{1 - t}$$
-    <p>训练时用 MSE 让 $v_\theta$ 逼近真速度 $v = x_1 - x_0$ (Eq. 4):</p>
-    $$\mathcal{L}_{\text{flow}} = \mathbb{E}_{t, c, x_1, x_0}\,\|v_\theta - v\|_2^2$$
-
-    <h4>为什么是 "x-prediction + v-loss" 这个组合?</h4>
-    <p>直接看 Eq. 3 可以推出: 在 v-loss 上做 MSE, 等价于在 x-prediction 上做<strong>带 $1/(1-t)^2$ 权重的 MSE</strong>。代入:</p>
-    $$\|v_\theta - v\|^2 = \left\|\frac{x_\theta - x_t}{1-t} - \frac{x_1 - x_0}{1-t}\right\|^2 \cdot \text{(展开后)} = \frac{1}{(1-t)^2}\|x_\theta - x_1\|^2$$
-    <p>这个权重的好处是: 当 $t \to 1$ (接近干净图), 权重 $\to \infty$, 强迫模型在<strong>低噪声端</strong>预测得更准 — 而这正是肉眼最敏感的细节区域。代码里这个权重显式写出来:</p>
-
-    <p class="code-source">repo/tuna/models/jit_utils.py:L74-L90 — JiT-style x0 prediction loss with v-loss reweighting</p>
+<p>对比 SenseNova-U1 那个两层卷积 + 2D RoPE 的&quot;近无损接口&quot;<strong>更朴素</strong> — Tuna-2 就一层 Conv2d (kernel=stride=16) + RMSNorm, 没有 2D 位置编码 (位置信息靠 LLM 的 1D RoPE 加 modality-aware 改造)。</p>
+<h3 id="sec-2-3">2.2 像素空间 Flow Matching (x-prediction + v-loss)</h3>
+<p>生成端没有 VAE, 直接在像素空间做扩散去噪。沿用 <strong>JiT</strong> (Li &amp; He, 2025) 的两个 trick: <strong>x-prediction</strong> 和 <strong>v-loss reweighting</strong>。</p>
+<h4>定义</h4>
+<p>Rectified flow 线性插值定义&quot;含噪像素&quot; (Eq. 1):</p>
+<ul>
+<li><span class="math inline">x_1</span>: 真实干净图 (注意论文用 <span class="math inline">x_1</span> 表示&quot;目的地&quot;; 部分扩散文献用 <span class="math inline">x_0</span>, 容易混淆)</li>
+<li><span class="math inline">x_0</span>: 起点纯噪声</li>
+<li><span class="math inline">t</span> 是&quot;信号纯度&quot;刻度: <span class="math inline">t=0</span> 全噪, <span class="math inline">t=1</span> 干净图</li>
+</ul>
+<p>模型 <span class="math inline">\pi_\theta</span> <strong>直接预测干净图</strong> <span class="math inline">x_\theta</span> (Eq. 2):</p>
+<p>其中 <span class="math inline">c</span> 是条件 (T2I 时是文本, 编辑时是文本+源图)。</p>
+<p>预测的 <span class="math inline">x_\theta</span> 转换为速度 (Eq. 3):</p>
+<p>训练时用 MSE 让 <span class="math inline">v_\theta</span> 逼近真速度 <span class="math inline">v = x_1 - x_0</span> (Eq. 4):</p>
+<h4>为什么是 &quot;x-prediction + v-loss&quot; 这个组合?</h4>
+<p>直接看 Eq. 3 可以推出: 在 v-loss 上做 MSE, 等价于在 x-prediction 上做<strong>带 <span class="math inline">1/(1-t)^2</span> 权重的 MSE</strong>。代入:</p>
+<p>这个权重的好处是: 当 <span class="math inline">t \to 1</span> (接近干净图), 权重 <span class="math inline">\to \infty</span>, 强迫模型在<strong>低噪声端</strong>预测得更准 — 而这正是肉眼最敏感的细节区域。代码里这个权重显式写出来:</p>
+<p class="code-source">repo/tuna/models/jit_utils.py:L74-L90 — JiT-style x0 prediction loss with v-loss reweighting</p>
 <pre><code class="language-python">def jit_x0_prediction_loss(x0_pred, x0_target, t=None, mask=None):
-    """MSE on x0 with optional 1/(1-t)^2 weighting and a token mask."""
-    loss = F.mse_loss(x0_pred, x0_target, reduction="none")
+    &quot;&quot;&quot;MSE on x0 with optional 1/(1-t)^2 weighting and a token mask.&quot;&quot;&quot;
+    loss = F.mse_loss(x0_pred, x0_target, reduction=&quot;none&quot;)
     if t is not None and t.shape[0] == loss.shape[0]:
         t_expand = t.view(-1, *([1] * (loss.ndim - 1)))
         weights = 1.0 / (1.0 - t_expand).clamp(min=5e-2) ** 2  # ← v-loss 重加权
@@ -211,37 +177,29 @@
         loss = loss.mean()
     return loss
 </code></pre>
-    <p><code>clamp(min=5e-2)</code> 这里关键 — 防止 $t \to 1$ 时权重爆炸, 把 $(1-t)$ 下限钉在 0.05, 等效最大权重 $1/0.05^2 = 400$。这是论文没提的<strong>数值稳定 trick</strong>。</p>
-
-    <h4>采样</h4>
-    <p>推理时 Euler 求解 ODE: $x_{t'} = x_t + (t' - t) v_\theta$。代码里默认 50 步, 也支持 Heun。</p>
-
-    <h3 id="sec-2-3">2.3 Masking-based Visual Representation Learning (论文最关键的 trick)</h3>
-
-    <p>这是 Tuna-2 区别于 NEO / SenseNova-U1 等同类工作的地方。<strong>问题</strong>: 像素空间维度太高, 模型容易学到"作弊捷径" (例如复制粘贴局部纹理而不理解语义)。</p>
-
-    <p><strong>方案</strong>: 训练时随机 mask 一部分 patch, 用<strong>可学习的 mask token</strong> 替代:</p>
-
-    <figure>
-      <img src="figures/fig3-masking-scheme.png" alt="Masking 训练方案">
+<p><code>clamp(min=5e-2)</code> 这里关键 — 防止 <span class="math inline">t \to 1</span> 时权重爆炸, 把 <span class="math inline">(1-t)</span> 下限钉在 0.05, 等效最大权重 <span class="math inline">1/0.05^2 = 400</span>。这是论文没提的<strong>数值稳定 trick</strong>。</p>
+<h4>采样</h4>
+<p>推理时 Euler 求解 ODE: <span class="math inline">x_{t'} = x_t + (t' - t) v_\theta</span>。代码里默认 50 步, 也支持 Heun。</p>
+<h3 id="sec-2-4">2.3 Masking-based Visual Representation Learning (论文最关键的 trick)</h3>
+<p>这是 Tuna-2 区别于 NEO / SenseNova-U1 等同类工作的地方。<strong>问题</strong>: 像素空间维度太高, 模型容易学到&quot;作弊捷径&quot; (例如复制粘贴局部纹理而不理解语义)。</p>
+<p><strong>方案</strong>: 训练时随机 mask 一部分 patch, 用<strong>可学习的 mask token</strong> 替代:</p>
+<figure>
+      <img class="zoomable" alt="Masking 训练方案" src="figures/fig3-masking-scheme.png">
       <figcaption>Fig. 3 — 同一套 masking 应用到两种任务: <strong>生成时</strong> 模型在 noisy 输入上还要预测被 mask 区域的干净像素 (更难的去噪问题, 强迫 mask token 吸收上下文信息); <strong>理解时</strong> 模型在部分 mask 的图上回答问题 (regularization, 防止依赖 superficial 视觉 shortcut)。</figcaption>
     </figure>
-
-    <p><strong>统一的 masking 操作, 两种角色:</strong></p>
-    <ol>
-      <li><strong>生成任务</strong>: 让 mask token 必须凭借可见 patch 推断被遮的内容 → 类似 <strong>MaskGIT</strong> / <strong>DeTok</strong> 的"补全"训练。</li>
-      <li><strong>理解任务</strong>: 让模型在<strong>不完整视觉输入</strong>下也能答对问题 → 类似 <strong>MAE</strong> / <strong>SigLIP 2</strong> 的"掩码语义学习"。</li>
-    </ol>
-
-    <h4>关键工程细节</h4>
-    <ul>
-      <li>Mask ratio 默认 <strong>75%</strong> (跟 MAE 一样), 但每个样本独立从 $[\text{min}, 0.75]$ 均匀采样</li>
-      <li>Mask token 初始化为 <code>scale * randn</code>, 其中 <code>scale = hidden_size^{-0.5}</code></li>
-      <li><strong>Masking 不是从头开 — 只在 pretraining 最后 40% 启用</strong>。前 60% 让模型先建立基础多模态能力, 再加 mask 当 regularizer。</li>
-      <li>消融显示 (Tab. 6): Tuna-2 比 Tuna-R 更受益于 masking (Tuna-R 用 SigLIP 2, 而 SigLIP 2 本身预训练就有类似 masked 目标, 边际收益小)。</li>
-    </ul>
-
-    <p class="code-source">repo/tuna/models/tuna_2_pixel.py:L397-L415 — masking 应用 (训练时, 在 patch embedding 之后)</p>
+<p><strong>统一的 masking 操作, 两种角色:</strong></p>
+<ol>
+<li><strong>生成任务</strong>: 让 mask token 必须凭借可见 patch 推断被遮的内容 → 类似 <strong>MaskGIT</strong> / <strong>DeTok</strong> 的&quot;补全&quot;训练。</li>
+<li><strong>理解任务</strong>: 让模型在<strong>不完整视觉输入</strong>下也能答对问题 → 类似 <strong>MAE</strong> / <strong>SigLIP 2</strong> 的&quot;掩码语义学习&quot;。</li>
+</ol>
+<h4>关键工程细节</h4>
+<ul>
+<li>Mask ratio 默认 <strong>75%</strong> (跟 MAE 一样), 但每个样本独立从 <span class="math inline">[\text{min}, 0.75]</span> 均匀采样</li>
+<li>Mask token 初始化为 <code>scale * randn</code>, 其中 <code>scale = hidden_size^{-0.5}</code></li>
+<li><strong>Masking 不是从头开 — 只在 pretraining 最后 40% 启用</strong>。前 60% 让模型先建立基础多模态能力, 再加 mask 当 regularizer。</li>
+<li>消融显示 (Tab. 6): Tuna-2 比 Tuna-R 更受益于 masking (Tuna-R 用 SigLIP 2, 而 SigLIP 2 本身预训练就有类似 masked 目标, 边际收益小)。</li>
+</ul>
+<p class="code-source">repo/tuna/models/tuna_2_pixel.py:L397-L415 — masking 应用 (训练时, 在 patch embedding 之后)</p>
 <pre><code class="language-python"># Apply masked image (DeTok-style) after patch embedding
 if self.enable_mask_token and self.training:
     import random
@@ -257,26 +215,22 @@ if self.enable_mask_token and self.training:
         )
         num_masked = int(N * mask_ratio)
 
-        if num_masked > 0:
+        if num_masked &gt; 0:
             mask_indices = np.random.choice(N, num_masked, replace=False)
             image_embeds[batch_idx, mask_indices] = self.mask_token
 </code></pre>
-    <p><strong>注意</strong>: 实现是 per-sample Python for 循环 + <code>np.random.choice</code> — 不是向量化的。在大 batch + 高分辨率下应该是个 <strong>训练性能瓶颈</strong>, 但论文没提。</p>
-
-    <h3 id="sec-2-4">2.4 两阶段训练 Pipeline</h3>
-    <p>整套训练只有两阶段, 跟 SenseNova-U1 的六阶段比简单很多:</p>
-    <ul>
-      <li><strong>Stage 1 — Full-model pretraining (300K steps)</strong>: 端到端联合训练理解 (image captioning) + 生成 (text-to-image) + 纯文本 (Nemotron)。数据配比 70% caption : 30% T2I, 加 20% text-only。LR = 1e-4, AdamW, 64 节点。</li>
-      <li><strong>Stage 2 — Supervised finetuning (50K steps)</strong>: 加入 image editing (OmniEdit 2M), instruction following (FineVision 13M), high-quality T2I 数据。LR = 2e-5。</li>
-    </ul>
-    <p>共 <strong>550M image-text pairs</strong> 用于 Stage 1。Sequence length 固定 16K tokens/GPU。</p>
-    <p>Tuna-R 多一个 <strong>connector alignment stage</strong> (Stage 0): 只训 SigLIP-LLM 中间的 projection, 3K steps, lr=5e-4。Tuna-2 因为没 connector 跳过这一步 — 这是 architecture 简化带来的<strong>真实节省</strong>。</p>
-
-    <h3 id="sec-2-5">2.5 与代码对照 (Cross-Read)</h3>
-
-    <p>主模型 <code>Tuna2Pixel</code> 的核心 forward 流程: 文本 token + 图像 patch (可选 mask) → 拼成 sequence → Qwen2.5 LLM → 分两路: text logits 走 NTP loss, image hidden states 走 diffusion head 预测 x0:</p>
-
-    <p class="code-source">repo/tuna/models/tuna_2_pixel.py:L316-L322 — JiT-style x0 prediction head</p>
+<p><strong>注意</strong>: 实现是 per-sample Python for 循环 + <code>np.random.choice</code> — 不是向量化的。在大 batch + 高分辨率下应该是个 <strong>训练性能瓶颈</strong>, 但论文没提。</p>
+<h3 id="sec-2-5">2.4 两阶段训练 Pipeline</h3>
+<p>整套训练只有两阶段, 跟 SenseNova-U1 的六阶段比简单很多:</p>
+<ul>
+<li><strong>Stage 1 — Full-model pretraining (300K steps)</strong>: 端到端联合训练理解 (image captioning) + 生成 (text-to-image) + 纯文本 (Nemotron)。数据配比 70% caption : 30% T2I, 加 20% text-only。LR = 1e-4, AdamW, 64 节点。</li>
+<li><strong>Stage 2 — Supervised finetuning (50K steps)</strong>: 加入 image editing (OmniEdit 2M), instruction following (FineVision 13M), high-quality T2I 数据。LR = 2e-5。</li>
+</ul>
+<p>共 <strong>550M image-text pairs</strong> 用于 Stage 1。Sequence length 固定 16K tokens/GPU。</p>
+<p>Tuna-R 多一个 <strong>connector alignment stage</strong> (Stage 0): 只训 SigLIP-LLM 中间的 projection, 3K steps, lr=5e-4。Tuna-2 因为没 connector 跳过这一步 — 这是 architecture 简化带来的<strong>真实节省</strong>。</p>
+<h3 id="sec-2-6">2.5 与代码对照 (Cross-Read)</h3>
+<p>主模型 <code>Tuna2Pixel</code> 的核心 forward 流程: 文本 token + 图像 patch (可选 mask) → 拼成 sequence → Qwen2.5 LLM → 分两路: text logits 走 NTP loss, image hidden states 走 diffusion head 预测 x0:</p>
+<p class="code-source">repo/tuna/models/tuna_2_pixel.py:L316-L322 — JiT-style x0 prediction head</p>
 <pre><code class="language-python"># Predict x0 (clean image) directly - JiT style
 x0_pred = self.diffusion_head_b(last_hidden_states, time_embeds, modality_positions)
 loss_disp = torch.tensor(0.0, device=device)
@@ -285,10 +239,8 @@ if image_latents is None:
     loss_flow = torch.tensor(0.0, device=device)
     return logits, loss_ntp, loss_flow, loss_disp
 </code></pre>
-
-    <p>Loss 组合: NTP (cross-entropy) + JiT (mse on x0 with v-loss reweight):</p>
-
-    <p class="code-source">repo/tuna/models/tuna_2_pixel.py:L325-L340 — 损失计算入口</p>
+<p>Loss 组合: NTP (cross-entropy) + JiT (mse on x0 with v-loss reweight):</p>
+<p class="code-source">repo/tuna/models/tuna_2_pixel.py:L325-L340 — 损失计算入口</p>
 <pre><code class="language-python">from tuna.models.misc import jit_x0_prediction_loss
 loss_ntp = next_token_prediction(logits, text_labels, self.config.llm_vocab_size)
 # JiT-style loss: directly predict clean images (x0)
@@ -303,83 +255,68 @@ loss_flow = jit_x0_prediction_loss(
 )
 return logits, loss_ntp, loss_flow, loss_disp
 </code></pre>
-    <p>注意中间那段处理 <strong>CFG 训练时的 t 交错</strong>: 当 batch 维度被翻倍 (cond + uncond), 只取一半的 t 用于 loss reweighting — 这是论文也没提的实现细节。</p>
-  </section>
-
-  <section>
-    <h2 id="sec-3">3. 结论 (Key Findings)</h2>
-
-    <h3 id="sec-3-1">3.1 多模态理解 — Tuna-2 反超 Tuna-R</h3>
-    <figure>
-      <img src="figures/tab1-understanding.png" alt="Understanding 评测">
+<p>注意中间那段处理 <strong>CFG 训练时的 t 交错</strong>: 当 batch 维度被翻倍 (cond + uncond), 只取一半的 t 用于 loss reweighting — 这是论文也没提的实现细节。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<h3 id="sec-3-1">3.1 多模态理解 — Tuna-2 反超 Tuna-R</h3>
+<figure>
+      <img class="zoomable" alt="Understanding 评测" src="figures/tab1-understanding.png">
       <figcaption>Tab. 1 — 在 9 个 VQA benchmark 上, Tuna-2 (7B) 全面超越同尺寸 native UMM (BAGEL/Janus-Pro/Show-o2 等), 同时<strong>在大多数任务上反超 Tuna-R</strong> (该模型有 SigLIP 2 编码器)。最右三列 V* / CountBench / VisuLogic 是 "pixel-centric" 细粒度任务, Tuna-2 的优势更明显。</figcaption>
     </figure>
-    <p><strong>关键数字 (Tuna-2 7B):</strong></p>
-    <ul>
-      <li>GQA <strong>65.0</strong> (vs Tuna 63.9, Tuna-R 63.5)</li>
-      <li>MMVet <strong>51.7</strong> (vs Tuna 42.9, Tuna-R 46.7) — 提升 +9 pt</li>
-      <li>MMVP <strong>77.3</strong> (vs Tuna 70.7, Tuna-R 74.7)</li>
-      <li>OCRBench <strong>79.7</strong> (vs Tuna 74.3, Tuna-R 78.3)</li>
-      <li><strong>V*</strong> (find tiny objects in high-res images): Tuna-2 <strong>59.2</strong> vs Tuna 52.4, Tuna-R 57.6</li>
-      <li><strong>CountBench</strong>: Tuna-2 <strong>81.7</strong> vs Tuna 73.5, Tuna-R 77.8</li>
-    </ul>
-    <p>解释: 去掉 SigLIP 这种 "为分类训练" 的语义编码器, 模型反而能保留更多<strong>低层像素细节</strong>, 在数细节 / 找小物体的任务上反超。</p>
-
-    <h3 id="sec-3-2">3.2 图像生成 — Tuna-R 微胜, 但差距随数据规模缩小</h3>
-    <figure>
-      <img src="figures/tab2-generation.png" alt="Generation 评测">
+<p><strong>关键数字 (Tuna-2 7B):</strong></p>
+<ul>
+<li>GQA <strong>65.0</strong> (vs Tuna 63.9, Tuna-R 63.5)</li>
+<li>MMVet <strong>51.7</strong> (vs Tuna 42.9, Tuna-R 46.7) — 提升 +9 pt</li>
+<li>MMVP <strong>77.3</strong> (vs Tuna 70.7, Tuna-R 74.7)</li>
+<li>OCRBench <strong>79.7</strong> (vs Tuna 74.3, Tuna-R 78.3)</li>
+<li><strong>V</strong>* (find tiny objects in high-res images): Tuna-2 <strong>59.2</strong> vs Tuna 52.4, Tuna-R 57.6</li>
+<li><strong>CountBench</strong>: Tuna-2 <strong>81.7</strong> vs Tuna 73.5, Tuna-R 77.8</li>
+</ul>
+<p>解释: 去掉 SigLIP 这种 &quot;为分类训练&quot; 的语义编码器, 模型反而能保留更多<strong>低层像素细节</strong>, 在数细节 / 找小物体的任务上反超。</p>
+<h3 id="sec-3-2">3.2 图像生成 — Tuna-R 微胜, 但差距随数据规模缩小</h3>
+<figure>
+      <img class="zoomable" alt="Generation 评测" src="figures/tab2-generation.png">
       <figcaption>Tab. 2 — GenEval 上 Tuna 0.90, Tuna-R 0.88, Tuna-2 0.87。Tuna-R 在生成上稍强 (semantic prior 帮忙), 但 Tuna-2 也只差 0.01-0.02。DPG-Bench 上三者基本一致 (86.76 / 86.35 / 86.54)。</figcaption>
     </figure>
-    <p>更有意思的是 <strong>LLM-as-judge 评测</strong> (Tab. 3, GPT-5.4 / Claude Opus 4.7): Tuna-2 在 <strong>diversity</strong> 上显著最优 (48.4% / 41.9% 偏好率), quality 跟 Tuna-R 相当。生成 diversity 高可能是因为没有 SigLIP 这种"语义收敛器"压制了 mode collapse。</p>
-
-    <h3 id="sec-3-3">3.3 图像重建 — PSNR 32.80 / SSIM 0.93, 同分辨率超过 FLUX VAE</h3>
-    <figure>
-      <img src="figures/tab5-reconstruction.png" alt="重建质量对比">
+<p>更有意思的是 <strong>LLM-as-judge 评测</strong> (Tab. 3, GPT-5.4 / Claude Opus 4.7): Tuna-2 在 <strong>diversity</strong> 上显著最优 (48.4% / 41.9% 偏好率), quality 跟 Tuna-R 相当。生成 diversity 高可能是因为没有 SigLIP 这种&quot;语义收敛器&quot;压制了 mode collapse。</p>
+<h3 id="sec-3-3">3.3 图像重建 — PSNR 32.80 / SSIM 0.93, 同分辨率超过 FLUX VAE</h3>
+<figure>
+      <img class="zoomable" alt="重建质量对比" src="figures/tab5-reconstruction.png">
       <figcaption>Tab. 5 — 在 ImageNet val 上, 经过 lightweight 重建 finetune 后, <strong>Tuna-2 PSNR 32.80 / SSIM 0.93</strong> @ 512²。同分辨率下接近 FLUX.1[dev] VAE 的 33.65 / 0.93, 远超其他 "unified tokenizer" (RAE 19.20 / 0.44, X-Omni 15.66 / 0.38)。说明像素空间表示能保留高质量重建信息, 不必非要走 VAE 通路。</figcaption>
     </figure>
-
-    <h3 id="sec-3-4">3.4 Attention map 可视化分析 — Tuna-2 不被语言先验带跑偏</h3>
-    <figure>
-      <img src="figures/fig7-attention.png" alt="Attention map 可视化">
+<h3 id="sec-3-4">3.4 Attention map 可视化分析 — Tuna-2 不被语言先验带跑偏</h3>
+<figure>
+      <img class="zoomable" alt="Attention map 可视化" src="figures/fig7-attention.png">
       <figcaption>Fig. 7 — 论文设计了几个"反直觉" prompt 测 Tuna-2 是否容易被语言先验骗。最有意思的是<strong>足球场案例</strong>: prompt 写"球员在踢东西", 图里有醒目的足球作为视觉干扰, 但<strong>实际被踢的是玻璃杯</strong>。LLaVA-OV / Penguin-VL / Qwen2.5-VL / Tuna 全部 attention 错聚焦到足球, 只有 Tuna-2 精确定位到杯子。证明 encoder-free 设计减少了对预训练语义先验的依赖。</figcaption>
     </figure>
-
-    <h3 id="sec-3-5">3.5 Scaling 行为 — Tuna-R 早期领先, Tuna-2 晚期反超</h3>
-    <figure>
-      <img src="figures/fig6-scaling.png" alt="Scaling curves">
+<h3 id="sec-3-5">3.5 Scaling 行为 — Tuna-R 早期领先, Tuna-2 晚期反超</h3>
+<figure>
+      <img class="zoomable" alt="Scaling curves" src="figures/fig6-scaling.png">
       <figcaption>Fig. 6 — 在 OCRBench / MMVP / V* / GenEval 上随 training tokens 增长的曲线。Tuna-R 早期 (~10B tokens) 占优 — SigLIP 的语义 prior 提供初始 boost; <strong>但 Tuna-2 在 ~30B tokens 之后反超</strong>。论文的判断: <em>large-scale unified pretraining 更适合 monolithic 架构, encoder-based 的 inductive bias 反而成为天花板</em>。</figcaption>
     </figure>
-    <p>生成端 (GenEval) 上 Tuna-R 一直略胜, 但 gap 随 token 数<strong>缓慢收敛</strong>, SFT 之后几乎并列。</p>
-  </section>
-
-  <section>
-    <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
-
-    <h3 id="sec-4-1">4.1 核心架构超参</h3>
-    <ul>
-      <li><strong>LLM backbone</strong>: Qwen2.5-7B-Instruct, attn_implementation="sdpa"</li>
-      <li><strong>Patch size</strong>: 16 (默认 Conv2d kernel=stride=16; SimplePatchEmbedding 中)</li>
-      <li><strong>Hidden size (vision side)</strong>: 1152 (SimplePatchEmbedding 默认) — 比 LLM hidden 3584 小</li>
-      <li><strong>Diffusion head</strong>: 10 层 <code>ModulatedAttentionBlock</code> + 1 层 <code>FinalLayer</code> (类 DiT, AdaLN 风格)</li>
-      <li><strong>Mask token init</strong>: <code>scale * randn(1, 1, hidden_size)</code>, scale = hidden_size^{-0.5}</li>
-      <li><strong>位置编码</strong>: 共用 LLM 的 1D RoPE + 一个 image_position_ids buffer; <strong>不像 SenseNova-U1 那样有显式的 2D 位置编码</strong></li>
-    </ul>
-
-    <h3 id="sec-4-2">4.2 v-loss 重加权 + 数值稳定</h3>
-    <p>代码里 <code>jit_x0_prediction_loss</code> 把 v-loss 等价转写成 x-loss × $1/(1-t)^2$ 权重 (见 §2.2)。<code>(1-t).clamp(min=5e-2)</code> 把权重最大值钉在 400, 防止 $t \to 1$ 时梯度爆炸 — 论文 §2 没提这个 clamp, 但它对训练稳定性<strong>非常关键</strong>。</p>
-
-    <h3 id="sec-4-3">4.3 Masking 应用细节</h3>
-    <ul>
-      <li><strong>触发条件</strong>: <code>self.enable_mask_token and self.training</code> — 只在训练且开启该 flag 时生效, 推理时不 mask</li>
-      <li><strong>逐样本独立采样</strong>: per-sample for 循环, <code>random.uniform(min_ratio, 0.75)</code></li>
-      <li><strong>masked_image_ratio_min 默认 0.0</strong> — 也就是 mask 比例从 0% 到 75% 均匀采样, 不是固定 75%</li>
-      <li>替换是 in-place: <code>image_embeds[batch_idx, mask_indices] = self.mask_token</code></li>
-      <li><strong>论文-代码 gap</strong>: §2.2 描述说"masking 应用到 generation 和 understanding examples", 但代码这段是无差别对所有 image 输入应用 mask, <strong>没有区分两类任务</strong>。任务区分体现在 loss 计算: 生成任务有 flow loss, 理解任务只有 NTP loss。</li>
-    </ul>
-
-    <h3 id="sec-4-4">4.4 训练 settings (按论文 §3.1)</h3>
-    <table>
-      <tr><th>项目</th><th>Stage 1 Pretraining</th><th>Stage 2 SFT</th></tr>
+<p>生成端 (GenEval) 上 Tuna-R 一直略胜, 但 gap 随 token 数<strong>缓慢收敛</strong>, SFT 之后几乎并列。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<h3 id="sec-4-1">4.1 核心架构超参</h3>
+<ul>
+<li><strong>LLM backbone</strong>: Qwen2.5-7B-Instruct, attn_implementation=&quot;sdpa&quot;</li>
+<li><strong>Patch size</strong>: 16 (默认 Conv2d kernel=stride=16; SimplePatchEmbedding 中)</li>
+<li><strong>Hidden size (vision side)</strong>: 1152 (SimplePatchEmbedding 默认) — 比 LLM hidden 3584 小</li>
+<li><strong>Diffusion head</strong>: 10 层 <code>ModulatedAttentionBlock</code> + 1 层 <code>FinalLayer</code> (类 DiT, AdaLN 风格)</li>
+<li><strong>Mask token init</strong>: <code>scale * randn(1, 1, hidden_size)</code>, scale = hidden_size^{-0.5}</li>
+<li><strong>位置编码</strong>: 共用 LLM 的 1D RoPE + 一个 image_position_ids buffer; <strong>不像 SenseNova-U1 那样有显式的 2D 位置编码</strong></li>
+</ul>
+<h3 id="sec-4-2">4.2 v-loss 重加权 + 数值稳定</h3>
+<p>代码里 <code>jit_x0_prediction_loss</code> 把 v-loss 等价转写成 x-loss × <span class="math inline">1/(1-t)^2</span> 权重 (见 §2.2)。<code>(1-t).clamp(min=5e-2)</code> 把权重最大值钉在 400, 防止 <span class="math inline">t \to 1</span> 时梯度爆炸 — 论文 §2 没提这个 clamp, 但它对训练稳定性<strong>非常关键</strong>。</p>
+<h3 id="sec-4-3">4.3 Masking 应用细节</h3>
+<ul>
+<li><strong>触发条件</strong>: <code>self.enable_mask_token and self.training</code> — 只在训练且开启该 flag 时生效, 推理时不 mask</li>
+<li><strong>逐样本独立采样</strong>: per-sample for 循环, <code>random.uniform(min_ratio, 0.75)</code></li>
+<li><strong>masked_image_ratio_min 默认 0.0</strong> — 也就是 mask 比例从 0% 到 75% 均匀采样, 不是固定 75%</li>
+<li>替换是 in-place: <code>image_embeds[batch_idx, mask_indices] = self.mask_token</code></li>
+<li><strong>论文-代码 gap</strong>: §2.2 描述说&quot;masking 应用到 generation 和 understanding examples&quot;, 但代码这段是无差别对所有 image 输入应用 mask, <strong>没有区分两类任务</strong>。任务区分体现在 loss 计算: 生成任务有 flow loss, 理解任务只有 NTP loss。</li>
+</ul>
+<h3 id="sec-4-4">4.4 训练 settings (按论文 §3.1)</h3>
+<table>
+      <tbody><tr><th>项目</th><th>Stage 1 Pretraining</th><th>Stage 2 SFT</th></tr>
       <tr><td>Steps</td><td>300K</td><td>50K</td></tr>
       <tr><td>LR</td><td>1e-4</td><td>2e-5</td></tr>
       <tr><td>Optimizer</td><td>AdamW</td><td>AdamW</td></tr>
@@ -387,103 +324,56 @@ return logits, loss_ntp, loss_flow, loss_disp
       <tr><td>Seq length</td><td>16K tokens/GPU</td><td>16K tokens/GPU</td></tr>
       <tr><td>数据</td><td>550M I-T pairs (70% cap + 30% T2I) + 20% text-only (Nemotron)</td><td>FineVision 13M + OmniEdit 2M + HQ T2I</td></tr>
       <tr><td>Masking</td><td>仅最后 40% 启用, p=50% 概率</td><td>—</td></tr>
-    </table>
-
-    <h3 id="sec-4-5">4.5 论文 vs 代码的几处不一致</h3>
-    <ul>
-      <li>
-        <strong>v-loss reweighting clamp</strong>: 论文 Eq. 3-4 是纯数学公式 $v = (x_\theta - x_t)/(1-t)$, 没提 $1-t$ 的下限。代码 <code>jit_utils.py:L84</code> 用 <code>clamp(min=5e-2)</code> — 这是 max-weight=400 的隐含截断, 不是数学定义。
-      </li>
-      <li>
-        <strong>masked_image_ratio_min</strong>: 论文 §2.2 说 "according to a masking ratio", 暗示是单一 ratio。代码默认 <code>min=0.0, max=0.75</code>, 每个样本从这个区间均匀采样 — <strong>实际 mask 比例的均值是 37.5%, 不是 75%</strong>。
-      </li>
-      <li>
-        <strong>Masking 应用时机</strong>: 论文 §3.4 说"masking 应用在 pretraining 最后 40% 步数", 代码里这个开关是 <code>enable_mask_token</code> 配置项, 由训练脚本控制何时启用, 不是模型自身知道当前 step 然后切换 — 需要外部 scheduler 配合。
-      </li>
-      <li>
-        <strong>CFG drop 概率</strong>: 论文里完全没提 CFG 训练时如何 drop conditioning。代码 <code>tuna_2_pixel.py:L325-L340</code> 暗示 batch 维度有 cond/uncond 交错 (<code>t[1::2]</code>), 但具体 drop 概率没在公开代码里找到 — 训练时由外部数据 pipeline 决定。
-      </li>
-      <li>
-        <strong>Patch size</strong>: 论文 Fig.1 写 "Patchify Layer" 没具体说 patch_size。<code>patch_embed.py</code> 默认 16; 但 <code>Tuna2Pixel.__init__</code> 默认 <code>patch_size=2, image_latent_dim=16</code> — 这是 VAE-latent 输入路径的默认值, <strong>真实 pure-pixel 配置需要 patch_size=16, in_channels=3</strong>, 通过外部 config 覆盖。论文没明确说哪种是 main config。
-      </li>
-    </ul>
-
-    <h3 id="sec-4-6">4.6 训练 loss 曲线观察 (Fig. 5)</h3>
-    <figure>
-      <img src="figures/fig5-loss-curves.png" alt="不同 g:u ratio 的 loss 曲线">
+    </tbody></table>
+<h3 id="sec-4-5">4.5 论文 vs 代码的几处不一致</h3>
+<ul>
+<li><strong>v-loss reweighting clamp</strong>: 论文 Eq. 3-4 是纯数学公式 <span class="math inline">v = (x_\theta - x_t)/(1-t)</span>, 没提 <span class="math inline">1-t</span> 的下限。代码 <code>jit_utils.py:L84</code> 用 <code>clamp(min=5e-2)</code> — 这是 max-weight=400 的隐含截断, 不是数学定义。</li>
+<li><strong>masked_image_ratio_min</strong>: 论文 §2.2 说 &quot;according to a masking ratio&quot;, 暗示是单一 ratio。代码默认 <code>min=0.0, max=0.75</code>, 每个样本从这个区间均匀采样 — <strong>实际 mask 比例的均值是 37.5%, 不是 75%</strong>。</li>
+<li><strong>Masking 应用时机</strong>: 论文 §3.4 说&quot;masking 应用在 pretraining 最后 40% 步数&quot;, 代码里这个开关是 <code>enable_mask_token</code> 配置项, 由训练脚本控制何时启用, 不是模型自身知道当前 step 然后切换 — 需要外部 scheduler 配合。</li>
+<li><strong>CFG drop 概率</strong>: 论文里完全没提 CFG 训练时如何 drop conditioning。代码 <code>tuna_2_pixel.py:L325-L340</code> 暗示 batch 维度有 cond/uncond 交错 (<code>t[1::2]</code>), 但具体 drop 概率没在公开代码里找到 — 训练时由外部数据 pipeline 决定。</li>
+<li><strong>Patch size</strong>: 论文 Fig.1 写 &quot;Patchify Layer&quot; 没具体说 patch_size。<code>patch_embed.py</code> 默认 16; 但 <code>Tuna2Pixel.__init__</code> 默认 <code>patch_size=2, image_latent_dim=16</code> — 这是 VAE-latent 输入路径的默认值, <strong>真实 pure-pixel 配置需要 patch_size=16, in_channels=3</strong>, 通过外部 config 覆盖。论文没明确说哪种是 main config。</li>
+</ul>
+<h3 id="sec-4-6">4.6 训练 loss 曲线观察 (Fig. 5)</h3>
+<figure>
+      <img class="zoomable" alt="不同 g:u ratio 的 loss 曲线" src="figures/fig5-loss-curves.png">
       <figcaption>Fig. 5 + Tab. 6 — 测了 8g2u / 7g3u / 5g5u / 3g7u 等数据配比。<strong>7:3 是最优 trade-off</strong> (生成 loss 收敛快, 理解 loss 也没受影响)。Tab. 6 验证 masking 对两个变体都有提升, Tuna-2 收益更大 (+1.5-3 pt 在 MMVP/CountBench)。</figcaption>
     </figure>
-  </section>
-
-  <section>
-    <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
-
-    <h3 id="sec-5-1">5.1 优点</h3>
-    <ul>
-      <li>
-        <strong>论文结构罕见地"实验科学"</strong>: 不是直接提一个新架构, 而是通过 Tuna → Tuna-R → Tuna-2 的连续简化, 给出受控对比。Reader 能看清楚"砍掉 VAE 带来什么变化 (Tuna→Tuna-R) " vs "再砍掉 SigLIP 带来什么变化 (Tuna-R→Tuna-2)"。这比 SenseNova-U1 那种 "一锅端" 的论文叙事更有说服力。
-      </li>
-      <li>
-        <strong>反直觉的结论被 Scaling Curve 实证</strong>: 不是仅靠最终 benchmark 数字声称 "encoder-free 更好", 而是给了 Fig. 6 的训练曲线 — Tuna-R 早期领先, 后期被 Tuna-2 反超。这清楚说明: SigLIP 的语义先验是<strong>训练加速器, 不是天花板提升器</strong>。
-      </li>
-      <li>
-        <strong>训练 pipeline 极简 + 完整开源</strong>: 只有 2 个阶段 (vs SenseNova-U1 的 6 阶段), 训练代码完整放出 (vs SenseNova-U1 的 inference-only). 实验复现门槛低得多。
-      </li>
-      <li>
-        <strong>Pixel-centric benchmark 的设计</strong>: V* / CountBench / VisuLogic 这三个 "细粒度" 任务是论文论点的关键证据 — encoder-free 设计在这些任务上获益最大, 跟 motivation 完全闭环。
-      </li>
-      <li>
-        <strong>Masking 复用 MAE/DeTok 的设计很巧</strong>: 同一个 75% mask 操作同时充当生成的 inpainting 任务和理解的 regularization, 一份 trick 双倍收益。Tab. 6 证明对 Tuna-2 增益更大 (因为 SigLIP-based Tuna-R 已经吃过类似训练目标)。
-      </li>
-    </ul>
-
-    <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
-    <ul>
-      <li>
-        <strong>Tuna-2 在生成上一直略输</strong>. GenEval 0.87 vs Tuna-R 0.88 / Tuna 0.90 — 差距虽然小但<strong>稳定存在</strong>。论文 framing 成"sufficient pretraining 后趋同", 但实际差距没消失。生成弱意味着 unify 的代价在哪一端被消化是不平衡的。
-      </li>
-      <li>
-        <strong>SFT 之后的趋同是 SFT 自身的功劳, 不一定证明架构</strong>. Fig. 6 显示 Tuna-2 在 SFT 之后才完全追上 Tuna-R, 但 SFT 数据量很大 (FineVision 13M + OmniEdit 2M), <strong>SFT 本身就能拉平很多差异</strong>。"native architecture 更受益于 scale"的结论需要更长的 pretraining curve 才更可信。
-      </li>
-      <li>
-        <strong>Masking ratio 区间没充分消融</strong>. 代码默认 [0, 0.75] 均匀采样 (均值 37.5%), 论文 §2.2 又说 75%。这个 区间宽度对效果的影响没做 ablation, 而 MAE 系列论文已经知道 mask 比例非常 sensitive。
-      </li>
-      <li>
-        <strong>Attention map 可视化的"反直觉"案例 cherry-picked 风险</strong>. Fig. 7 的足球/玻璃杯案例只展示了 Tuna-2 答对的情况 — 这种 prompt 设计本身就偏向"裸眼看像素"派的优势。没看到 Tuna-2 答错而 Tuna-R 答对的反向例子, 这种<strong>失败案例的对称展示</strong>缺失。
-      </li>
-      <li>
-        <strong>跟 SenseNova-U1 / NEO-unify 的对比缺位</strong>. 这俩是同期 native-encoder-free 路线的直接竞品 (从 Tuna-2 引用列表里能看到这两篇都已发表), 但 Tab. 1/Tab. 2 都没列。论文只跟 Tuna 系列内部和较老的 BAGEL/Janus-Pro 比, 漏掉了最直接的竞品。
-      </li>
-      <li>
-        <strong>Per-sample Python for 循环做 masking</strong>. <code>tuna_2_pixel.py:L407-L415</code> 用 Python 层循环 + numpy 选 indices, 不是向量化的 torch ops。在大 batch (64 节点) + 高分辨率下, 这是<strong>训练吞吐瓶颈</strong>, 但论文没讨论 throughput。
-      </li>
-      <li>
-        <strong>Patch size = 16 是否最优? 没消融</strong>. 不像 SenseNova-U1 那种 32× 激进压缩, Tuna-2 是 16× — 但论文没尝试更大 patch (32×) 或更小 (8×) 看 trade-off。考虑到 V* / CountBench 这种细粒度任务获益于细 patch, 这个超参的扫描本应该是重要消融。
-      </li>
-      <li>
-        <strong>"Pixel embeddings beat vision encoders" 的标题略 oversell</strong>. 准确说法是"在 SigLIP-2 + Qwen2.5-7B 的特定组合下, 经过 300K steps 训练后, Tuna-2 在<em>多数 understanding 任务</em>上略胜 Tuna-R"。Beat 听上去更强。
-      </li>
-    </ul>
-
-    <h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
-    <ul>
-      <li>✅ <strong>适用</strong>: 需要 fine-grained visual reasoning (OCR / counting / 小目标) 的 unified model 场景; 想要简单可复现训练 pipeline 的研究项目; 希望摆脱 VE/VAE 双重依赖的 native UMM 探索。</li>
-      <li>❌ <strong>不适用</strong>: 对生成 quality (尤其是 attribute binding) 要求极高的场景 (Tuna-R / 闭源大模型仍占优); 受限训练算力 (Tuna-2 需要 64 节点 ×300K steps, 不是小作坊能复现的); 短期就要部署的产品 (训练曲线证明它"晚到", 没有足够 token 时反不如 encoder-based)。</li>
-    </ul>
-
-    <h3 id="sec-5-4">5.4 进一步阅读</h3>
-    <ul>
-      <li><strong>JiT</strong> [Li & He, 2025] — x-prediction + v-loss 的来源, Tuna-2 的训练 loss 直接 import</li>
-      <li><strong>Tuna</strong> [Liu et al., 2025] — 同作者的前作, 完整的 VAE + SigLIP 双 encoder 设计</li>
-      <li><strong>NEO</strong> / <strong>Mono-InternVL</strong> [Diao et al., 2025; Luo et al., 2025] — 同期"encoder-free for understanding"探索</li>
-      <li><strong>SenseNova-U1</strong> / <strong>NEO-unify</strong> — 同期 native UMM 竞品 (本博客已读, 见 <a href="../sensenova-u1/index.html">这里</a>)</li>
-      <li><strong>MAE</strong> [He et al., 2022] / <strong>DeTok</strong> [Yang et al., 2025] / <strong>MaskGIT</strong> [Chang et al., 2022] — Tuna-2 masking 策略的思想源头</li>
-      <li><strong>REPA</strong> [Yu et al., 2024] — 解释了为什么 SigLIP 的 semantic prior 对生成质量重要 (Tuna-2 的 limitation 也由此可解释)</li>
-    </ul>
-  </section>
-
-  <hr>
-  <footer>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>论文结构罕见地&quot;实验科学&quot;</strong>: 不是直接提一个新架构, 而是通过 Tuna → Tuna-R → Tuna-2 的连续简化, 给出受控对比。Reader 能看清楚&quot;砍掉 VAE 带来什么变化 (Tuna→Tuna-R) &quot; vs &quot;再砍掉 SigLIP 带来什么变化 (Tuna-R→Tuna-2)&quot;。这比 SenseNova-U1 那种 &quot;一锅端&quot; 的论文叙事更有说服力。</li>
+<li><strong>反直觉的结论被 Scaling Curve 实证</strong>: 不是仅靠最终 benchmark 数字声称 &quot;encoder-free 更好&quot;, 而是给了 Fig. 6 的训练曲线 — Tuna-R 早期领先, 后期被 Tuna-2 反超。这清楚说明: SigLIP 的语义先验是<strong>训练加速器, 不是天花板提升器</strong>。</li>
+<li><strong>训练 pipeline 极简 + 完整开源</strong>: 只有 2 个阶段 (vs SenseNova-U1 的 6 阶段), 训练代码完整放出 (vs SenseNova-U1 的 inference-only). 实验复现门槛低得多。</li>
+<li><strong>Pixel-centric benchmark 的设计</strong>: V* / CountBench / VisuLogic 这三个 &quot;细粒度&quot; 任务是论文论点的关键证据 — encoder-free 设计在这些任务上获益最大, 跟 motivation 完全闭环。</li>
+<li><strong>Masking 复用 MAE/DeTok 的设计很巧</strong>: 同一个 75% mask 操作同时充当生成的 inpainting 任务和理解的 regularization, 一份 trick 双倍收益。Tab. 6 证明对 Tuna-2 增益更大 (因为 SigLIP-based Tuna-R 已经吃过类似训练目标)。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>Tuna-2 在生成上一直略输</strong>. GenEval 0.87 vs Tuna-R 0.88 / Tuna 0.90 — 差距虽然小但<strong>稳定存在</strong>。论文 framing 成&quot;sufficient pretraining 后趋同&quot;, 但实际差距没消失。生成弱意味着 unify 的代价在哪一端被消化是不平衡的。</li>
+<li><strong>SFT 之后的趋同是 SFT 自身的功劳, 不一定证明架构</strong>. Fig. 6 显示 Tuna-2 在 SFT 之后才完全追上 Tuna-R, 但 SFT 数据量很大 (FineVision 13M + OmniEdit 2M), <strong>SFT 本身就能拉平很多差异</strong>。&quot;native architecture 更受益于 scale&quot;的结论需要更长的 pretraining curve 才更可信。</li>
+<li><strong>Masking ratio 区间没充分消融</strong>. 代码默认 [0, 0.75] 均匀采样 (均值 37.5%), 论文 §2.2 又说 75%。这个 区间宽度对效果的影响没做 ablation, 而 MAE 系列论文已经知道 mask 比例非常 sensitive。</li>
+<li><strong>Attention map 可视化的&quot;反直觉&quot;案例 cherry-picked 风险</strong>. Fig. 7 的足球/玻璃杯案例只展示了 Tuna-2 答对的情况 — 这种 prompt 设计本身就偏向&quot;裸眼看像素&quot;派的优势。没看到 Tuna-2 答错而 Tuna-R 答对的反向例子, 这种<strong>失败案例的对称展示</strong>缺失。</li>
+<li><strong>跟 SenseNova-U1 / NEO-unify 的对比缺位</strong>. 这俩是同期 native-encoder-free 路线的直接竞品 (从 Tuna-2 引用列表里能看到这两篇都已发表), 但 Tab. 1/Tab. 2 都没列。论文只跟 Tuna 系列内部和较老的 BAGEL/Janus-Pro 比, 漏掉了最直接的竞品。</li>
+<li><strong>Per-sample Python for 循环做 masking</strong>. <code>tuna_2_pixel.py:L407-L415</code> 用 Python 层循环 + numpy 选 indices, 不是向量化的 torch ops。在大 batch (64 节点) + 高分辨率下, 这是<strong>训练吞吐瓶颈</strong>, 但论文没讨论 throughput。</li>
+<li><strong>Patch size = 16 是否最优? 没消融</strong>. 不像 SenseNova-U1 那种 32× 激进压缩, Tuna-2 是 16× — 但论文没尝试更大 patch (32×) 或更小 (8×) 看 trade-off。考虑到 V* / CountBench 这种细粒度任务获益于细 patch, 这个超参的扫描本应该是重要消融。</li>
+<li><strong>&quot;Pixel embeddings beat vision encoders&quot; 的标题略 oversell</strong>. 准确说法是&quot;在 SigLIP-2 + Qwen2.5-7B 的特定组合下, 经过 300K steps 训练后, Tuna-2 在<em>多数 understanding 任务</em>上略胜 Tuna-R&quot;。Beat 听上去更强。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 需要 fine-grained visual reasoning (OCR / counting / 小目标) 的 unified model 场景; 想要简单可复现训练 pipeline 的研究项目; 希望摆脱 VE/VAE 双重依赖的 native UMM 探索。</li>
+<li>❌ <strong>不适用</strong>: 对生成 quality (尤其是 attribute binding) 要求极高的场景 (Tuna-R / 闭源大模型仍占优); 受限训练算力 (Tuna-2 需要 64 节点 ×300K steps, 不是小作坊能复现的); 短期就要部署的产品 (训练曲线证明它&quot;晚到&quot;, 没有足够 token 时反不如 encoder-based)。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>JiT</strong> [Li &amp; He, 2025] — x-prediction + v-loss 的来源, Tuna-2 的训练 loss 直接 import</li>
+<li><strong>Tuna</strong> [Liu et al., 2025] — 同作者的前作, 完整的 VAE + SigLIP 双 encoder 设计</li>
+<li><strong>NEO</strong> / <strong>Mono-InternVL</strong> [Diao et al., 2025; Luo et al., 2025] — 同期&quot;encoder-free for understanding&quot;探索</li>
+<li><strong>SenseNova-U1</strong> / <strong>NEO-unify</strong> — 同期 native UMM 竞品 (本博客已读, 见 <a href="../sensenova-u1/index.html">这里</a>)</li>
+<li><strong>MAE</strong> [He et al., 2022] / <strong>DeTok</strong> [Yang et al., 2025] / <strong>MaskGIT</strong> [Chang et al., 2022] — Tuna-2 masking 策略的思想源头</li>
+<li><strong>REPA</strong> [Yu et al., 2024] — 解释了为什么 SigLIP 的 semantic prior 对生成质量重要 (Tuna-2 的 limitation 也由此可解释)</li>
+</ul>
+<hr />
+<footer>
     <p>Read on 2026-05-12 · Generated with the <code>reading-papers</code> skill · 论文 PDF: 20 页 · 代码: 1884 文件 (~250K LoC 主要来自 lmms-eval 评测框架, 核心 Tuna 模块 ~10K LoC)</p>
   </footer>
 </main>

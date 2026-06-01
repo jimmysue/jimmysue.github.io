@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>DAPO — 精读</title>
+  <title>DAPO: An Open-Source LLM Reinforcement Learning System at Scale</title>
   <link rel="stylesheet" href="../../assets/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
   <script>
     window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
   </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
   <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
   <script defer src="../../assets/lightbox.js"></script>
@@ -49,206 +49,147 @@
     <span class="site-nav__brand-text">Paper Reading</span>
   </a>
   <div class="site-nav__links">
-    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
     <a class="site-nav__link" href="../../tutorials.html">教程</a>
     <a class="site-nav__link" href="../../tags.html">标签</a>
   </div>
 </nav>
 <!-- NAV-END -->
-
 <nav class="toc" aria-label="目录">
   <div class="toc-title">目录 / TOC</div>
   <ul>
-    <li class="h2"><a href="#sec-1">1. 出发点</a></li>
-    <li class="h2"><a href="#sec-2">2. 方法</a></li>
-    <li class="h3"><a href="#sec-2-intro">核心思想 (类比)</a></li>
-    <li class="h3"><a href="#sec-2-1">2.1 GRPO 起点 + 公式</a></li>
-    <li class="h3"><a href="#sec-2-2">2.2 Clip-Higher</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 Dynamic Sampling</a></li>
-    <li class="h3"><a href="#sec-2-4">2.4 Token-Level Loss</a></li>
-    <li class="h3"><a href="#sec-2-5">2.5 Overlong Reward Shaping</a></li>
-    <li class="h3"><a href="#sec-2-6">2.6 完整 DAPO 目标 + 算法</a></li>
-    <li class="h3"><a href="#sec-2-7">2.7 与代码对照</a></li>
-    <li class="h2"><a href="#sec-3">3. 结论</a></li>
-    <li class="h2"><a href="#sec-4">4. 实现细节</a></li>
-    <li class="h2"><a href="#sec-5">5. 批判性总结</a></li>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">核心思想 (类比)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.1 GRPO 起点 + 公式</a></li>
+    <li class="h3"><a href="#sec-2-3">2.2 Clip-Higher (raise the upper bound)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 Dynamic Sampling (filter dead groups)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.4 Token-Level Policy Gradient Loss (long-CoT 关键)</a></li>
+    <li class="h3"><a href="#sec-2-6">2.5 Overlong Reward Shaping (truncation noise)</a></li>
+    <li class="h3"><a href="#sec-2-7">2.6 完整 DAPO 目标 + 算法</a></li>
+    <li class="h3"><a href="#sec-2-8">2.7 与代码对照</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
     <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
     <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
     <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
     <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
   </ul>
 </nav>
-
 <main>
 <h1>DAPO: An Open-Source LLM Reinforcement Learning System at Scale</h1>
-
-  <div class="meta">
-    <div><strong>作者:</strong> Qiying Yu (Lead), Zheng Zhang, Ruofei Zhu, Yufeng Yuan, Xiaochen Zuo, Yu Yue, ... (33+ 人) — ByteDance Seed + 清华 AIR + HKU + SIA-Lab</div>
-    <div><strong>Venue / Year:</strong> arXiv preprint, 2025-03-17 (v1) → 2025-05-20 (v2)</div>
-    <div><strong>arXiv:</strong> <a href="https://arxiv.org/abs/2503.14476">2503.14476</a> · <a href="https://dapo-sia.github.io/">项目主页</a></div>
-    <div><strong>Code:</strong> <a href="https://github.com/BytedTsinghua-SIA/DAPO">BytedTsinghua-SIA/DAPO</a> (eval + 数据) · <a href="https://github.com/volcengine/verl/tree/main/recipe/dapo">verl/recipe/dapo</a> (训练 recipe) · <a href="https://huggingface.co/datasets/BytedTsinghua-SIA/DAPO-Math-17k">DAPO-Math-17k</a> · <a href="https://huggingface.co/BytedTsinghua-SIA/DAPO-Qwen-32B">checkpoint</a></div>
-    <div><strong>TL;DR:</strong> 把"复现 R1"在 Qwen2.5-32B 上从 30 分 (vanilla GRPO) 推到 <strong>50 分 AIME24</strong> (50% 训练步数超过 R1-Zero-Qwen-32B 的 47 分)。四个不起眼但关键的工程修复:(1) Clip-Higher 分离 $\varepsilon_{\text{low}}/\varepsilon_{\text{high}}$ 防 entropy collapse;(2) Dynamic Sampling 过滤 acc=0/1 的死 group;(3) Token-Level Loss 解决长 CoT 下长序列贡献被稀释的问题;(4) Overlong Reward Shaping 软惩罚截断样本。全套训练代码 + 数据 + 模型权重开源。</div>
-  </div>
-
-  <section>
-    <h2 id="sec-1">1. 出发点 (Motivation)</h2>
-
-    <p>2025 年初 OpenAI o1 + DeepSeek R1 把"long-CoT RL"推上了 LLM 范式革命的中心 — 但<strong>实际算法和训练 recipe 几乎全是黑盒</strong>。R1 技术报告只给了 framework 级别的描述,社区想复现 Qwen2.5-32B 上的 47% AIME24 时全都卡住,普遍只能拿到 30 分左右。DAPO 作者团队 (字节 + 清华 AIR) 的诊断:</p>
-    <ul>
-      <li><strong>naive GRPO baseline 有几个具体的故障模式</strong> — 不是"算法不行",是 4 个不起眼但 load-bearing 的工程问题没解决:
-        <ul>
-          <li><strong>entropy collapse:</strong> 训几百步后 policy entropy 急剧下降,sampled responses 几乎一样 — 没探索就没法 scale。</li>
-          <li><strong>gradient 死亡:</strong> 当一个 prompt 的 $G$ 个 outputs 全对 (acc=1) 或全错 (acc=0),GRPO advantage 是 0,这组 prompt 的 gradient 也是 0。训练越久全对的 prompt 越多,有效 batch 越小。</li>
-          <li><strong>长序列贡献被稀释:</strong> GRPO 默认 sample-level loss aggregation (先对每个 sample 内 token 取平均,再 sample 之间平均)。结果:长 CoT (几千 token) 的每个 token 贡献 = 短 CoT 每个 token 贡献 / 长度比。长序列里 gibberish/repetition 的负 reward 信号几乎消失 → 模型刹不住车。</li>
-          <li><strong>truncation reward noise:</strong> 超长样本默认给一个固定 negative reward。但一个 reasoning 过程<em>本来对</em>但写得长就被惩罚,reward 信号污染整个训练。</li>
-        </ul>
-      </li>
-      <li><strong>关闭整个 recipe 是知识封锁。</strong> 学界根本无法验证 "R1 算法是不是真的好"。DAPO 把所有 4 个修复 + 代码 + 数据 + 权重 全部公开,作为反封锁的样本。</li>
-    </ul>
-
-    <p>论文的 4 个 named 技术合起来叫 <strong>DAPO</strong> (<strong>D</strong>ecoupled clip + <strong>D</strong>ynamic s<strong>A</strong>mpling <strong>P</strong>olicy <strong>O</strong>ptimization)。Qwen2.5-32B base → 50% AIME24,只用 R1-Zero 50% 的 step:</p>
-
-    <figure>
-      <img src="figures/fig1-aime-curve.png" alt="AIME 2024 curve">
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>2025 年初 OpenAI o1 + DeepSeek R1 把&quot;long-CoT RL&quot;推上了 LLM 范式革命的中心 — 但<strong>实际算法和训练 recipe 几乎全是黑盒</strong>。R1 技术报告只给了 framework 级别的描述,社区想复现 Qwen2.5-32B 上的 47% AIME24 时全都卡住,普遍只能拿到 30 分左右。DAPO 作者团队 (字节 + 清华 AIR) 的诊断:</p>
+<ul>
+<li><strong>naive GRPO baseline 有几个具体的故障模式</strong> — 不是&quot;算法不行&quot;,是 4 个不起眼但 load-bearing 的工程问题没解决:
+<ul>
+<li><strong>entropy collapse:</strong> 训几百步后 policy entropy 急剧下降,sampled responses 几乎一样 — 没探索就没法 scale。</li>
+<li><strong>gradient 死亡:</strong> 当一个 prompt 的 <span class="math inline">G</span> 个 outputs 全对 (acc=1) 或全错 (acc=0),GRPO advantage 是 0,这组 prompt 的 gradient 也是 0。训练越久全对的 prompt 越多,有效 batch 越小。</li>
+<li><strong>长序列贡献被稀释:</strong> GRPO 默认 sample-level loss aggregation (先对每个 sample 内 token 取平均,再 sample 之间平均)。结果:长 CoT (几千 token) 的每个 token 贡献 = 短 CoT 每个 token 贡献 / 长度比。长序列里 gibberish/repetition 的负 reward 信号几乎消失 → 模型刹不住车。</li>
+<li><strong>truncation reward noise:</strong> 超长样本默认给一个固定 negative reward。但一个 reasoning 过程<em>本来对</em>但写得长就被惩罚,reward 信号污染整个训练。</li>
+</ul></li>
+<li><strong>关闭整个 recipe 是知识封锁。</strong> 学界根本无法验证 &quot;R1 算法是不是真的好&quot;。DAPO 把所有 4 个修复 + 代码 + 数据 + 权重 全部公开,作为反封锁的样本。</li>
+</ul>
+<p>论文的 4 个 named 技术合起来叫 <strong>DAPO</strong> (<strong>D</strong>ecoupled clip + <strong>D</strong>ynamic s<strong>A</strong>mpling <strong>P</strong>olicy <strong>O</strong>ptimization)。Qwen2.5-32B base → 50% AIME24,只用 R1-Zero 50% 的 step:</p>
+<figure>
+      <img class="zoomable" alt="AIME 2024 curve" src="figures/fig1-aime-curve.png">
       <figcaption>Fig. 1 — DAPO 在 Qwen2.5-32B base 上的 AIME 2024 学习曲线。avg@32 (紫,solid) 在 ~5000 step 达到 50%,pass@32 (青,triangle-down) 超 70%,cons@32 (蓝,triangle-up) 在 60% 附近震荡。DeepSeek-R1-Zero-Qwen-32B (右侧蓝色 horizontal line) 用了 10000 step 才到 47%。<strong>DAPO 50% step 数,超 3 pt。</strong></figcaption>
     </figure>
-  </section>
-
-  <section>
-    <h2 id="sec-2">2. 方法 (Method)</h2>
-
-    <h3 id="sec-2-intro">核心思想 (类比)</h3>
-    <p>把 long-CoT RL 训练想成"教学生做一道很长的证明题":</p>
-    <ul>
-      <li><strong>Clip-Higher</strong> = 老师之前对每个学生的进步幅度都设了同样的上下限 (±20%)。问题:好学生本来就接近满分,稍微再涨一点不难;差学生想从 1 分涨到 10 分却被限死。<strong>DAPO 解法:把上限放宽 (+28%) 让低概率"探索性"动作更容易被提升,下限保持 -20%。</strong></li>
-      <li><strong>Dynamic Sampling</strong> = 老师批作业。如果一组 16 个学生<em>全做对</em>或<em>全做错</em>,这组作业不能教你"哪种解法好"(没对比信号)。<strong>DAPO 解法:把这种死组扔掉,继续抽到攒够 batch 为止。</strong></li>
-      <li><strong>Token-Level Loss</strong> = 老师本来按"每个学生权重相等"打分。问题:学生 A 写 100 词、学生 B 写 5000 词,B 里的每个词只占 A 的 1/50 的影响 — 这意味着 B 写的 gibberish 里掺了一句很关键的洞见会被"平均"掉,B 写的 repetitive 废话也不会被惩罚。<strong>DAPO 解法:全 batch 所有 token 一视同仁取平均 — 长 sequence 自然在 loss 里贡献更多。</strong></li>
-      <li><strong>Overlong Reward Shaping</strong> = "超过字数就 0 分"的惩罚太粗暴。<strong>DAPO 解法:超过 max-buffer 才完全 -1,在 buffer 区间内线性降 — 给模型一个明确的"长度梯度"。</strong></li>
-    </ul>
-    <p>这 4 个修复没一个是惊天动地的算法 — 都是"现有方法里某个不显眼的角落里有 bug"。但合在一起,30 → 50 分。</p>
-
-    <h3 id="sec-2-1">2.1 GRPO 起点 + 公式</h3>
-
-    <p>DAPO 基于 GRPO (Shao et al. 2024)。GRPO vs PPO 的核心区别:<strong>不用 value 网络,直接 group-wise 标准化做 advantage</strong>。对一个 prompt $q$ 采样 $G$ 个回复,advantage 是:</p>
-    $$\hat A_{i,t} = \frac{r_i - \mathrm{mean}(\{R_i\}_{i=1}^G)}{\mathrm{std}(\{R_i\}_{i=1}^G)}$$
-    <p>注意所有 token 共享同一个 sequence-level advantage $\hat A_i$。GRPO 的 clipped surrogate (PPO style):</p>
-    $$\mathcal J_{\text{GRPO}}(\theta) = \mathbb E\!\left[\frac{1}{G}\sum_{i=1}^G \frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \min\!\Big(r_{i,t}(\theta)\hat A_{i,t},\, \mathrm{clip}(r_{i,t}, 1-\varepsilon, 1+\varepsilon)\hat A_{i,t}\Big) - \beta D_{\mathrm{KL}}(\pi_\theta \| \pi_{\text{ref}})\right]$$
-    <p>其中 $r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q, o_{i,\lt t}) / \pi_{\theta_{\text{old}}}(o_{i,t}|q, o_{i,\lt t})$。</p>
-
-    <p><strong>关键观察:</strong> GRPO 的内层 $\frac{1}{|o_i|}\sum_t$ 是<em>sample-level token-mean</em>,外层 $\frac{1}{G}\sum_i$ 是 sample 上平均。这两层平均的组合,就是 Token-Level Loss 要修的东西 — 见 §2.4。</p>
-
-    <p><strong>额外:DAPO 去掉了 KL 项</strong> ($\beta = 0$)。逻辑:RLHF 里要约束 model 不偏离原模型 (因为想保留通用对齐);但 long-CoT reasoning 训练里 policy<em>必然</em>大幅偏离 base (要学新的"思考"模式),KL 约束反而阻碍。</p>
-
-    <p><strong>额外:rule-based reward 而不是 reward model</strong>。$R(\hat y, y) = 1$ if answer 正确 else $-1$。避免 reward hacking。</p>
-
-    <h3 id="sec-2-2">2.2 Clip-Higher (raise the upper bound)</h3>
-
-    <figure>
-      <img src="figures/fig2-clip-higher.png" alt="Clip-Higher effect">
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">核心思想 (类比)</h3>
+<p>把 long-CoT RL 训练想成&quot;教学生做一道很长的证明题&quot;:</p>
+<ul>
+<li><strong>Clip-Higher</strong> = 老师之前对每个学生的进步幅度都设了同样的上下限 (±20%)。问题:好学生本来就接近满分,稍微再涨一点不难;差学生想从 1 分涨到 10 分却被限死。<strong>DAPO 解法:把上限放宽 (+28%) 让低概率&quot;探索性&quot;动作更容易被提升,下限保持 -20%。</strong></li>
+<li><strong>Dynamic Sampling</strong> = 老师批作业。如果一组 16 个学生<em>全做对</em>或<em>全做错</em>,这组作业不能教你&quot;哪种解法好&quot;(没对比信号)。<strong>DAPO 解法:把这种死组扔掉,继续抽到攒够 batch 为止。</strong></li>
+<li><strong>Token-Level Loss</strong> = 老师本来按&quot;每个学生权重相等&quot;打分。问题:学生 A 写 100 词、学生 B 写 5000 词,B 里的每个词只占 A 的 1/50 的影响 — 这意味着 B 写的 gibberish 里掺了一句很关键的洞见会被&quot;平均&quot;掉,B 写的 repetitive 废话也不会被惩罚。<strong>DAPO 解法:全 batch 所有 token 一视同仁取平均 — 长 sequence 自然在 loss 里贡献更多。</strong></li>
+<li><strong>Overlong Reward Shaping</strong> = &quot;超过字数就 0 分&quot;的惩罚太粗暴。<strong>DAPO 解法:超过 max-buffer 才完全 -1,在 buffer 区间内线性降 — 给模型一个明确的&quot;长度梯度&quot;。</strong></li>
+</ul>
+<p>这 4 个修复没一个是惊天动地的算法 — 都是&quot;现有方法里某个不显眼的角落里有 bug&quot;。但合在一起,30 → 50 分。</p>
+<h3 id="sec-2-2">2.1 GRPO 起点 + 公式</h3>
+<p>DAPO 基于 GRPO (Shao et al. 2024)。GRPO vs PPO 的核心区别:<strong>不用 value 网络,直接 group-wise 标准化做 advantage</strong>。对一个 prompt <span class="math inline">q</span> 采样 <span class="math inline">G</span> 个回复,advantage 是:</p>
+<p>注意所有 token 共享同一个 sequence-level advantage <span class="math inline">\hat A_i</span>。GRPO 的 clipped surrogate (PPO style):</p>
+<p>其中 <span class="math inline">r_{i,t}(\theta) = \pi_\theta(o_{i,t}|q, o_{i,\lt t}) / \pi_{\theta_{\text{old}}}(o_{i,t}|q, o_{i,\lt t})</span>。</p>
+<p><strong>关键观察:</strong> GRPO 的内层 <span class="math inline">\frac{1}{|o_i|}\sum_t</span> 是<em>sample-level token-mean</em>,外层 <span class="math inline">\frac{1}{G}\sum_i</span> 是 sample 上平均。这两层平均的组合,就是 Token-Level Loss 要修的东西 — 见 §2.4。</p>
+<p><strong>额外:DAPO 去掉了 KL 项</strong> (<span class="math inline">\beta = 0</span>)。逻辑:RLHF 里要约束 model 不偏离原模型 (因为想保留通用对齐);但 long-CoT reasoning 训练里 policy<em>必然</em>大幅偏离 base (要学新的&quot;思考&quot;模式),KL 约束反而阻碍。</p>
+<p><strong>额外:rule-based reward 而不是 reward model</strong>。<span class="math inline">R(\hat y, y) = 1</span> if answer 正确 else <span class="math inline">-1</span>。避免 reward hacking。</p>
+<h3 id="sec-2-3">2.2 Clip-Higher (raise the upper bound)</h3>
+<figure>
+      <img class="zoomable" alt="Clip-Higher effect" src="figures/fig2-clip-higher.png">
       <figcaption>Fig. 2 — w/o Clip-Higher 的 entropy 在 ~500 step 后跌到接近 0 (青线,右图),AIME 准确率停在 0.22 左右 (青线,左图)。w/ Clip-Higher (紫线) entropy 长期保持在 0.4-0.5,AIME 涨到 0.38+。</figcaption>
     </figure>
-
-    <p><strong>问题:</strong> PPO/GRPO 默认 $\varepsilon = 0.2$,新概率被 clip 到 $[\pi_{\text{old}} \cdot 0.8,\ \pi_{\text{old}} \cdot 1.2]$。<u>这个 clip 对"高概率 exploitation token"和"低概率 exploration token"的影响不对称:</u></p>
-    <ul>
-      <li>$\pi_{\text{old}} = 0.9$ 的 exploitation token → 上限 $0.9 \times 1.2 = 1.08$ (实际 cap 在 1),空间大。</li>
-      <li>$\pi_{\text{old}} = 0.01$ 的 exploration token → 上限 $0.01 \times 1.2 = 0.012$,几乎不能涨。</li>
-    </ul>
-
-    <p>结果:exploitation token 持续被强化,exploration token 永远涨不起来 → entropy 崩溃。Fig 3a 实测:被上界 clip 的 token 平均概率 $\lt 0.2$ — 印证了"上界主要在卡低概率 token"。</p>
-
-    <figure>
-      <img src="figures/fig3-up-clipped.png" alt="Up-clipped probability + acc=1 samples">
-      <figcaption>Fig. 3 — (a) 被 upper-clip 的 token,平均概率长期 < 0.2 (大多 0.10-0.15),说明 upper clip 主要在<em>卡低概率 exploration token 的提升</em>;(b) avg@32 = 100% 的 prompt 比例从 0 涨到 0.6+,意味着越往后训练有效 batch 越少 — 这正是 §2.3 Dynamic Sampling 要解决的问题。</figcaption>
+<p><strong>问题:</strong> PPO/GRPO 默认 <span class="math inline">\varepsilon = 0.2</span>,新概率被 clip 到 <span class="math inline">[\pi_{\text{old}} \cdot 0.8,\ \pi_{\text{old}} \cdot 1.2]</span>。<u>这个 clip 对&quot;高概率 exploitation token&quot;和&quot;低概率 exploration token&quot;的影响不对称:</u></p>
+<ul>
+<li><span class="math inline">\pi_{\text{old}} = 0.9</span> 的 exploitation token → 上限 <span class="math inline">0.9 \times 1.2 = 1.08</span> (实际 cap 在 1),空间大。</li>
+<li><span class="math inline">\pi_{\text{old}} = 0.01</span> 的 exploration token → 上限 <span class="math inline">0.01 \times 1.2 = 0.012</span>,几乎不能涨。</li>
+</ul>
+<p>结果:exploitation token 持续被强化,exploration token 永远涨不起来 → entropy 崩溃。Fig 3a 实测:被上界 clip 的 token 平均概率 <span class="math inline">\lt 0.2</span> — 印证了&quot;上界主要在卡低概率 token&quot;。</p>
+<figure>
+      <img class="zoomable" alt="Up-clipped probability + acc=1 samples" src="figures/fig3-up-clipped.png">
+      <figcaption>Fig. 3 — (a) 被 upper-clip 的 token,平均概率长期 &lt; 0.2 (大多 0.10-0.15),说明 upper clip 主要在<em>卡低概率 exploration token 的提升</em>;(b) avg@32 = 100% 的 prompt 比例从 0 涨到 0.6+,意味着越往后训练有效 batch 越少 — 这正是 §2.3 Dynamic Sampling 要解决的问题。</figcaption>
     </figure>
-
-    <p><strong>DAPO 修复:</strong>分离上下 clip 边界</p>
-    $$\mathrm{clip}(r_{i,t}, 1 - \varepsilon_{\text{low}}, 1 + \varepsilon_{\text{high}})$$
-    <p>实验设 $\varepsilon_{\text{low}} = 0.2$ (维持原值,防止低概率 token 被压到 0)、$\varepsilon_{\text{high}} = 0.28$。<u>这一个超参的微调就让 entropy 不再 collapse。</u></p>
-
-    <h3 id="sec-2-3">2.3 Dynamic Sampling (filter dead groups)</h3>
-
-    <p><strong>问题 (Fig 3b):</strong> 训练后期,acc=1 的 prompt 占比从 0 涨到 ~0.6。这些 prompt 的整个 group reward 都是 1,group-std = 0,advantage = 0,贡献 0 gradient。<strong>有效 batch 在悄悄变小</strong>。</p>
-
-    <p><strong>DAPO 修复:</strong> 在 batch 级别<em>过采样</em>,过滤掉 group 内 reward 全 0 或全 1 的 prompt,直到攒够目标 batch size。形式化加在 DAPO 目标里:</p>
-    $$\text{s.t. } 0 \lt |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| \lt G$$
-    <p>(每个 prompt 的 $G$ 个 output 里必须至少有 1 个对、至少有 1 个错。)</p>
-
-    <p>实现层面 — verl 的 <code>filter_groups.enable=True</code>:用 <code>gen_batch_size</code>(例:1536) 采样,过滤 → 目标 <code>train_batch_size</code>(例:512)。如果一次过滤后<不够,继续采,最多 <code>max_num_gen_batches</code> 次。</p>
-
-    <figure>
-      <img src="figures/fig6-dynamic-sampling.png" alt="Dynamic sampling progress">
+<p>**DAPO 修复:**分离上下 clip 边界</p>
+<p>实验设 <span class="math inline">\varepsilon_{\text{low}} = 0.2</span> (维持原值,防止低概率 token 被压到 0)、<span class="math inline">\varepsilon_{\text{high}} = 0.28</span>。<u>这一个超参的微调就让 entropy 不再 collapse。</u></p>
+<h3 id="sec-2-4">2.3 Dynamic Sampling (filter dead groups)</h3>
+<p><strong>问题 (Fig 3b):</strong> 训练后期,acc=1 的 prompt 占比从 0 涨到 ~0.6。这些 prompt 的整个 group reward 都是 1,group-std = 0,advantage = 0,贡献 0 gradient。<strong>有效 batch 在悄悄变小</strong>。</p>
+<p><strong>DAPO 修复:</strong> 在 batch 级别<em>过采样</em>,过滤掉 group 内 reward 全 0 或全 1 的 prompt,直到攒够目标 batch size。形式化加在 DAPO 目标里:</p>
+<p>(每个 prompt 的 <span class="math inline">G</span> 个 output 里必须至少有 1 个对、至少有 1 个错。)</p>
+<p>实现层面 — verl 的 <code>filter_groups.enable=True</code>:用 <code>gen_batch_size</code>(例:1536) 采样,过滤 → 目标 <code>train_batch_size</code>(例:512)。如果一次过滤后&lt;不够,继续采,最多 <code>max_num_gen_batches</code> 次。</p>
+<figure>
+      <img class="zoomable" alt="Dynamic sampling progress" src="figures/fig6-dynamic-sampling.png">
       <figcaption>Fig. 6 — 看似"多采样应该慢",但 w/ Dynamic Sampling (紫) 在 ~2300 step 就达到 0.42,而 w/o (青) 跑到 6000+ step 才匹配。<strong>每个 step 信息量更大,总训练 time 反而更短。</strong></figcaption>
     </figure>
-
-    <h3 id="sec-2-4">2.4 Token-Level Policy Gradient Loss (long-CoT 关键)</h3>
-
-    <p><strong>问题:</strong> GRPO 的 loss aggregation 是 <em>sample-level</em>:</p>
-    $$\mathcal L_{\text{GRPO sample}} = \frac{1}{G}\sum_{i=1}^G \underbrace{\frac{1}{|o_i|}\sum_{t=1}^{|o_i|} \ell_{i,t}}_{\text{sample 内 token mean}}$$
-    <p>意味着 <em>每个 sample 贡献相同的 loss 权重</em>,不管它是 100 token 还是 5000 token。在 long-CoT 场景,这有两个问题:</p>
-    <ul>
-      <li><em>高质量长样本</em> 里某个关键 reasoning step 的 reward 信号被 $1/|o_i|$ 严重稀释 — 模型学不到 "这一步的思考方式对了"。</li>
-      <li><em>劣质长样本</em>(gibberish, repetition) 里每个差 token 也被 $1/|o_i|$ 稀释 — 模型刹不住"越写越长越烂"的循环。</li>
-    </ul>
-
-    <p><strong>DAPO 修复:</strong>改成 <em>token-level mean</em> — 所有 batch 里的 token 一视同仁:</p>
-    $$\mathcal L_{\text{DAPO token}} = \frac{1}{\sum_{i=1}^G |o_i|} \sum_{i=1}^G \sum_{t=1}^{|o_i|} \ell_{i,t}$$
-    <p>长 sample 自动在 loss 里占更大权重(它有更多 token 贡献)。</p>
-
-    <p><strong>没有这个修复</strong>(Fig 4 in paper):entropy 在长序列出现后失控,response length 也持续上涨到不健康水平。<u>这是 long-CoT 跟 short-CoT(RLHF instruction-following)的本质区别 — 长度差异从"几十倍"变成"几百倍",sample-level mean 直接失效</u>。</p>
-
-    <h3 id="sec-2-5">2.5 Overlong Reward Shaping (truncation noise)</h3>
-
-    <p><strong>问题:</strong> 训练设 max length(如 20480 token)。超出的样本默认<em>直接给 -1 reward</em>。但很多被截断的样本<em>推理本身是对的</em>,只是写得长 — 一个 sound reasoning 因为长度被打 -1,模型学到的是"长 = 错",这是 reward noise。</p>
-
-    <p><strong>DAPO 解法 1 — Overlong Filtering:</strong>直接 mask 掉被截断样本的 loss(让它不贡献 gradient)。简单粗暴但有效。Fig 5 显示这就能稳住 entropy。</p>
-
-    <figure>
-      <img src="figures/fig5-overlong.png" alt="Overlong filtering effect">
+<h3 id="sec-2-5">2.4 Token-Level Policy Gradient Loss (long-CoT 关键)</h3>
+<p><strong>问题:</strong> GRPO 的 loss aggregation 是 <em>sample-level</em>:</p>
+<p>意味着 <em>每个 sample 贡献相同的 loss 权重</em>,不管它是 100 token 还是 5000 token。在 long-CoT 场景,这有两个问题:</p>
+<ul>
+<li><em>高质量长样本</em> 里某个关键 reasoning step 的 reward 信号被 <span class="math inline">1/|o_i|</span> 严重稀释 — 模型学不到 &quot;这一步的思考方式对了&quot;。</li>
+<li><em>劣质长样本</em>(gibberish, repetition) 里每个差 token 也被 <span class="math inline">1/|o_i|</span> 稀释 — 模型刹不住&quot;越写越长越烂&quot;的循环。</li>
+</ul>
+<p>**DAPO 修复:**改成 <em>token-level mean</em> — 所有 batch 里的 token 一视同仁:</p>
+<p>长 sample 自动在 loss 里占更大权重(它有更多 token 贡献)。</p>
+<p><strong>没有这个修复</strong>(Fig 4 in paper):entropy 在长序列出现后失控,response length 也持续上涨到不健康水平。<u>这是 long-CoT 跟 short-CoT(RLHF instruction-following)的本质区别 — 长度差异从&quot;几十倍&quot;变成&quot;几百倍&quot;,sample-level mean 直接失效</u>。</p>
+<h3 id="sec-2-6">2.5 Overlong Reward Shaping (truncation noise)</h3>
+<p><strong>问题:</strong> 训练设 max length(如 20480 token)。超出的样本默认<em>直接给 -1 reward</em>。但很多被截断的样本<em>推理本身是对的</em>,只是写得长 — 一个 sound reasoning 因为长度被打 -1,模型学到的是&quot;长 = 错&quot;,这是 reward noise。</p>
+<p>**DAPO 解法 1 — Overlong Filtering:**直接 mask 掉被截断样本的 loss(让它不贡献 gradient)。简单粗暴但有效。Fig 5 显示这就能稳住 entropy。</p>
+<figure>
+      <img class="zoomable" alt="Overlong filtering effect" src="figures/fig5-overlong.png">
       <figcaption>Fig. 5 — (a) w/o overlong filtering AIME 在 3500 step 后开始震荡下降;(b) w/o overlong filtering 的 entropy 在 3500 step 后炸到 4-5 (gibberish 模式);带 filtering 后 entropy 接近 0 并稳定。<strong>不处理截断 reward → 训练后期崩。</strong></figcaption>
     </figure>
-
-    <p><strong>DAPO 解法 2 — Soft Overlong Punishment (Eq 13):</strong>不是 0/1 切断,而是 length-aware 软惩罚。设 $L_{\max}$ = max 输出长度(20480),$L_{\text{cache}}$ = buffer 长度(4096):</p>
-    $$R_{\text{length}}(y) = \begin{cases}0, & |y| \leq L_{\max} - L_{\text{cache}} \\ \dfrac{(L_{\max} - L_{\text{cache}}) - |y|}{L_{\text{cache}}}, & L_{\max} - L_{\text{cache}} \lt |y| \leq L_{\max} \\ -1, & |y| \gt L_{\max} \end{cases}$$
-
-    <p>所以:</p>
-    <ul>
-      <li>0 - 16384 token:零惩罚 (写多长都行)</li>
-      <li>16384 - 20480 token:线性 0 → -1 惩罚 (鼓励刹车)</li>
-      <li>> 20480 token:full -1 (硬截断)</li>
-    </ul>
-
-    <p>这个 reward 加在原 correctness reward (±1) 上 — 信号"模型,你<em>可以</em>写长,但越过 16k 就开始算笔账"。</p>
-
-    <h3 id="sec-2-6">2.6 完整 DAPO 目标 + 算法</h3>
-
-    <p>把 4 个技巧塞进同一个目标 (Eq 10/11/12):</p>
-    $$\mathcal J_{\text{DAPO}}(\theta) = \mathbb E_{(q,a) \sim \mathcal D,\, \{o_i\}_{i=1}^G \sim \pi_{\theta_{\text{old}}}}\!\left[\frac{1}{\sum_{i=1}^G|o_i|}\sum_{i=1}^G\sum_{t=1}^{|o_i|}\min\Big(r_{i,t}\hat A_{i,t},\,\mathrm{clip}(r_{i,t}, 1-\varepsilon_{\text{low}}, 1+\varepsilon_{\text{high}})\hat A_{i,t}\Big)\right]$$
-    $$\text{s.t. } 0 \lt |\{o_i \mid \mathrm{is\_equivalent}(a, o_i)\}| \lt G$$
-
-    <p>对照标准 GRPO:</p>
-    <ul>
-      <li>Clip-Higher:$\varepsilon \to (\varepsilon_{\text{low}}, \varepsilon_{\text{high}})$ 分离</li>
-      <li>Token-level loss:$\sum$ 的归一化分母从 $G\cdot|o_i|$ → $\sum_i|o_i|$</li>
-      <li>Dynamic sampling:约束 $0 \lt |\text{correct}| \lt G$</li>
-      <li>Overlong shaping:reward $r_i$ 里加入 $R_{\text{length}}$ 项</li>
-      <li>KL 项:整个去掉</li>
-    </ul>
-
-    <figure>
-      <img src="figures/alg1-dapo.png" alt="Algorithm 1: DAPO">
+<p>**DAPO 解法 2 — Soft Overlong Punishment (Eq 13):**不是 0/1 切断,而是 length-aware 软惩罚。设 <span class="math inline">L_{\max}</span> = max 输出长度(20480),<span class="math inline">L_{\text{cache}}</span> = buffer 长度(4096):</p>
+<p>所以:</p>
+<ul>
+<li>0 - 16384 token:零惩罚 (写多长都行)</li>
+<li>16384 - 20480 token:线性 0 → -1 惩罚 (鼓励刹车)</li>
+<li>
+<blockquote>
+<p>20480 token:full -1 (硬截断)</p>
+</blockquote>
+</li>
+</ul>
+<p>这个 reward 加在原 correctness reward (±1) 上 — 信号&quot;模型,你<em>可以</em>写长,但越过 16k 就开始算笔账&quot;。</p>
+<h3 id="sec-2-7">2.6 完整 DAPO 目标 + 算法</h3>
+<p>把 4 个技巧塞进同一个目标 (Eq 10/11/12):</p>
+<p>对照标准 GRPO:</p>
+<ul>
+<li>Clip-Higher:<span class="math inline">\varepsilon \to (\varepsilon_{\text{low}}, \varepsilon_{\text{high}})</span> 分离</li>
+<li>Token-level loss:<span class="math inline">\sum</span> 的归一化分母从 <span class="math inline">G\cdot|o_i|</span> → <span class="math inline">\sum_i|o_i|</span></li>
+<li>Dynamic sampling:约束 <span class="math inline">0 \lt |\text{correct}| \lt G</span></li>
+<li>Overlong shaping:reward <span class="math inline">r_i</span> 里加入 <span class="math inline">R_{\text{length}}</span> 项</li>
+<li>KL 项:整个去掉</li>
+</ul>
+<figure>
+      <img class="zoomable" alt="Algorithm 1: DAPO" src="figures/alg1-dapo.png">
       <figcaption>Algorithm 1 — 完整 DAPO 训练循环。Line 6-8 是 Dynamic Sampling 的实现:filter → if 没满,continue (回 Line 2 重采样)。Line 11 用 Eq 8 (含 Clip-Higher) 更新 policy。</figcaption>
     </figure>
-
-    <h3 id="sec-2-7">2.7 与代码对照</h3>
-
-    <p>DAPO 训练 recipe 在 <a href="https://github.com/volcengine/verl/tree/main/recipe/dapo">volcengine/verl <code>recipe/dapo/</code></a>。核心算法实现在 <code>verl/trainer/ppo/core_algos.py</code> 和 <code>verl/workers/reward_manager/dapo.py</code>。下面引的是<em>当前 main 分支</em>的代码 — 命名跟 paper 直接对得上。</p>
-
-    <p><strong>(a) Clip-Higher — 分离 $\varepsilon_{\text{low}} / \varepsilon_{\text{high}}$:</strong>论文 Eq 10 的 <code>clip(r, 1-ε_low, 1+ε_high)</code> 这一行。</p>
-    <p class="code-source">repo_verl/verl/trainer/ppo/core_algos.py:L1278-L1346 — compute_policy_loss_vanilla</p>
-    <pre><code class="language-python">@register_policy_loss("vanilla")
+<h3 id="sec-2-8">2.7 与代码对照</h3>
+<p>DAPO 训练 recipe 在 <a href="https://github.com/volcengine/verl/tree/main/recipe/dapo">volcengine/verl <code>recipe/dapo/</code></a>。核心算法实现在 <code>verl/trainer/ppo/core_algos.py</code> 和 <code>verl/workers/reward_manager/dapo.py</code>。下面引的是<em>当前 main 分支</em>的代码 — 命名跟 paper 直接对得上。</p>
+<p>**(a) Clip-Higher — 分离 <span class="math inline">\varepsilon_{\text{low}} / \varepsilon_{\text{high}}</span>:**论文 Eq 10 的 <code>clip(r, 1-ε_low, 1+ε_high)</code> 这一行。</p>
+<p class="code-source">repo_verl/verl/trainer/ppo/core_algos.py:L1278-L1346 — compute_policy_loss_vanilla</p>
+<pre><code class="language-python">@register_policy_loss(&quot;vanilla&quot;)
 def compute_policy_loss_vanilla(
     old_log_prob, log_prob, advantages, response_mask,
-    loss_agg_mode="token-mean",        # ← Token-Level Loss (§2.4)
+    loss_agg_mode=&quot;token-mean&quot;,        # ← Token-Level Loss (§2.4)
     config=None,
     rollout_is_weights=None,
 ):
@@ -269,58 +210,58 @@ def compute_policy_loss_vanilla(
     # ... (dual-clip for negative advantages omitted) ...
     pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask,
                        loss_agg_mode=loss_agg_mode, **config.global_batch_info)
-    return pg_loss, pg_metrics</code></pre>
-    <p>L1314-L1315 是 paper Eq 10 的 $\varepsilon_{\text{low}}, \varepsilon_{\text{high}}$ 实现。L1340-L1342 把它们用进 <code>torch.clamp</code>。<strong>DAPO 跟 vanilla GRPO 在<u>这两行</u>就分叉了</strong> — 其余 PPO 数学完全一样。</p>
-
-    <p><strong>(b) Token-Level Loss — loss aggregation mode:</strong>paper §3.3 的 token-mean 实现。</p>
-    <p class="code-source">repo_verl/verl/trainer/ppo/core_algos.py:L1138-L1199 — agg_loss</p>
-    <pre><code class="language-python">def agg_loss(loss_mat, loss_mask, loss_agg_mode, dp_size=1, batch_num_tokens=None, ...):
-    """Aggregate the loss across global batch."""
-    if loss_agg_mode == "token-mean":                              # ← DAPO Token-Level Loss
+    return pg_loss, pg_metrics
+</code></pre>
+<p>L1314-L1315 是 paper Eq 10 的 <span class="math inline">\varepsilon_{\text{low}}, \varepsilon_{\text{high}}</span> 实现。L1340-L1342 把它们用进 <code>torch.clamp</code>。<strong>DAPO 跟 vanilla GRPO 在<u>这两行</u>就分叉了</strong> — 其余 PPO 数学完全一样。</p>
+<p>**(b) Token-Level Loss — loss aggregation mode:**paper §3.3 的 token-mean 实现。</p>
+<p class="code-source">repo_verl/verl/trainer/ppo/core_algos.py:L1138-L1199 — agg_loss</p>
+<pre><code class="language-python">def agg_loss(loss_mat, loss_mask, loss_agg_mode, dp_size=1, batch_num_tokens=None, ...):
+    &quot;&quot;&quot;Aggregate the loss across global batch.&quot;&quot;&quot;
+    if loss_agg_mode == &quot;token-mean&quot;:                              # ← DAPO Token-Level Loss
         if batch_num_tokens is None:
             batch_num_tokens = loss_mask.sum()
         loss = verl_F.masked_sum(loss_mat, loss_mask) / batch_num_tokens * dp_size
 
-    elif loss_agg_mode in ["seq-mean-token-sum", "seq-mean-token-sum-norm"]:
+    elif loss_agg_mode in [&quot;seq-mean-token-sum&quot;, &quot;seq-mean-token-sum-norm&quot;]:
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1)
-        seq_mask = (torch.sum(loss_mask, dim=-1) > 0).float()
+        seq_mask = (torch.sum(loss_mask, dim=-1) &gt; 0).float()
         # ... seq-mean over sequences ...
 
-    elif loss_agg_mode == "seq-mean-token-mean":                   # ← vanilla GRPO 默认
+    elif loss_agg_mode == &quot;seq-mean-token-mean&quot;:                   # ← vanilla GRPO 默认
         seq_mask = torch.sum(loss_mask, dim=-1)
         seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) / (seq_mask + 1e-8)
-        seq_mask = (seq_mask > 0).float()
+        seq_mask = (seq_mask &gt; 0).float()
         loss = verl_F.masked_sum(seq_losses, seq_mask) / global_batch_size * dp_size
     else:
-        raise ValueError(f"Invalid loss_agg_mode: {loss_agg_mode}")
-    return loss</code></pre>
-    <p>三个模式的<em>数学</em>差别就在归一化分母:</p>
-    <ul>
-      <li><code>token-mean</code> (DAPO):$\sum_{i,t}\ell_{i,t} / \sum_i |o_i|$ — 全 batch token 一视同仁</li>
-      <li><code>seq-mean-token-mean</code> (vanilla GRPO):$\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \ell_{i,t}$ — 每个 sample 等权重</li>
-      <li><code>seq-mean-token-sum</code>:介于两者之间</li>
-    </ul>
-
-    <p><strong>(c) Overlong Reward Shaping — Eq 13 在 reward manager 里:</strong></p>
-    <p class="code-source">repo_verl/verl/workers/reward_manager/dapo.py:L121-L131 — overlong penalty inside __call__</p>
-    <pre><code class="language-python">if self.overlong_buffer_cfg.enable:
+        raise ValueError(f&quot;Invalid loss_agg_mode: {loss_agg_mode}&quot;)
+    return loss
+</code></pre>
+<p>三个模式的<em>数学</em>差别就在归一化分母:</p>
+<ul>
+<li><code>token-mean</code> (DAPO):<span class="math inline">\sum_{i,t}\ell_{i,t} / \sum_i |o_i|</span> — 全 batch token 一视同仁</li>
+<li><code>seq-mean-token-mean</code> (vanilla GRPO):<span class="math inline">\frac{1}{G}\sum_i \frac{1}{|o_i|}\sum_t \ell_{i,t}</span> — 每个 sample 等权重</li>
+<li><code>seq-mean-token-sum</code>:介于两者之间</li>
+</ul>
+<p><strong>(c) Overlong Reward Shaping — Eq 13 在 reward manager 里:</strong></p>
+<p class="code-source">repo_verl/verl/workers/reward_manager/dapo.py:L121-L131 — overlong penalty inside __call__</p>
+<pre><code class="language-python">if self.overlong_buffer_cfg.enable:
     overlong_buffer_len = self.overlong_buffer_cfg.len           # 4096 in paper
     expected_len = self.max_resp_len - overlong_buffer_len       # 20480 - 4096 = 16384
-    exceed_len = valid_response_length - expected_len            # >0 if in overlong buffer
+    exceed_len = valid_response_length - expected_len            # &gt;0 if in overlong buffer
     overlong_penalty_factor = self.overlong_buffer_cfg.penalty_factor   # 1.0
     overlong_reward = min(-exceed_len / overlong_buffer_len * overlong_penalty_factor, 0)
     reward += overlong_reward
     if self.overlong_buffer_cfg.log:
-        reward_extra_info["overlong_reward"].append(overlong_reward)
-        reward_extra_info["overlong"].append(overlong_reward < 0)</code></pre>
-    <p>逐行对照 Eq 13:<code>exceed_len</code> 是 $|y| - (L_{\max} - L_{\text{cache}})$,<code>-exceed_len / overlong_buffer_len</code> 就是 $-(|y| - (L_{\max} - L_{\text{cache}}))/L_{\text{cache}}$,<code>min(..., 0)</code> 保证只在超过 expected_len 时才施惩罚。<u>简单 5 行实现 Eq 13。</u></p>
-
-    <p><strong>(d) Dynamic Sampling — Group Filtering:</strong>不在 loss 里,在 trainer 的 rollout 阶段实现 (来自 docs/algo/dapo.md)。</p>
-    <p class="code-source">verl/recipe/dapo/dapo_ray_trainer.py (paraphrased from docs/algo/dapo.md) — over-sample + filter loop</p>
-    <pre><code class="language-python">prompt_bsz = self.config.data.train_batch_size           # 512
+        reward_extra_info[&quot;overlong_reward&quot;].append(overlong_reward)
+        reward_extra_info[&quot;overlong&quot;].append(overlong_reward &lt; 0)
+</code></pre>
+<p>逐行对照 Eq 13:<code>exceed_len</code> 是 <span class="math inline">|y| - (L_{\max} - L_{\text{cache}})</span>,<code>-exceed_len / overlong_buffer_len</code> 就是 <span class="math inline">-(|y| - (L_{\max} - L_{\text{cache}}))/L_{\text{cache}}</span>,<code>min(..., 0)</code> 保证只在超过 expected_len 时才施惩罚。<u>简单 5 行实现 Eq 13。</u></p>
+<p>**(d) Dynamic Sampling — Group Filtering:**不在 loss 里,在 trainer 的 rollout 阶段实现 (来自 docs/algo/dapo.md)。</p>
+<p class="code-source">verl/recipe/dapo/dapo_ray_trainer.py (paraphrased from docs/algo/dapo.md) — over-sample + filter loop</p>
+<pre><code class="language-python">prompt_bsz = self.config.data.train_batch_size           # 512
 num_prompt_in_batch = 0
 num_gen_batches = 0
-while num_prompt_in_batch < prompt_bsz:
+while num_prompt_in_batch &lt; prompt_bsz:
     gen_batch = sample_gen_batch(size=self.config.data.gen_batch_size)   # 1536
     gen_batch = run_rollout(gen_batch)                                   # 16 rollouts per prompt
     gen_batch = compute_rewards(gen_batch)
@@ -333,127 +274,99 @@ while num_prompt_in_batch < prompt_bsz:
 
     num_gen_batches += 1
     max_num_gen_batches = self.config.algorithm.filter_groups.max_num_gen_batches
-    if max_num_gen_batches > 0 and num_gen_batches >= max_num_gen_batches:
-        raise ValueError(f"{num_gen_batches=} >= {max_num_gen_batches=}. Generated too many.")
+    if max_num_gen_batches &gt; 0 and num_gen_batches &gt;= max_num_gen_batches:
+        raise ValueError(f&quot;{num_gen_batches=} &gt;= {max_num_gen_batches=}. Generated too many.&quot;)
 
 # Align the batch to exactly train_batch_size * n_rollouts
 traj_bsz = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
-batch = batch[:traj_bsz]</code></pre>
-    <p>$\mathrm{gen\_batch\_size} > \mathrm{train\_batch\_size}$ 是关键(例:1536 > 512),给过滤留余量。<code>max_num_gen_batches</code> 是安全闸 — 防止数据集太简单导致死循环重采。</p>
-  </section>
-
-  <section>
-    <h2 id="sec-3">3. 结论 (Key Findings)</h2>
-
-    <p><strong>主结果:</strong></p>
-    <figure>
-      <img src="figures/tab1-progressive.png" alt="Table 1: progressive techniques">
+batch = batch[:traj_bsz]
+</code></pre>
+<p><span class="math inline">\mathrm{gen\_batch\_size} &gt; \mathrm{train\_batch\_size}</span> 是关键(例:1536 &gt; 512),给过滤留余量。<code>max_num_gen_batches</code> 是安全闸 — 防止数据集太简单导致死循环重采。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<p><strong>主结果:</strong></p>
+<figure>
+      <img class="zoomable" alt="Table 1: progressive techniques" src="figures/tab1-progressive.png">
       <figcaption>Tab. 1 — 4 个技术的累积贡献 (AIME 2024 avg@32)。Naive GRPO <strong>30</strong> → +Overlong Filtering <strong>36</strong> (+6) → +Clip-Higher <strong>38</strong> (+2) → +Soft Overlong Punishment <strong>41</strong> (+3) → +Token-level Loss <strong>42</strong> (+1) → +Dynamic Sampling = <strong>DAPO 50</strong> (+8)。<u>Dynamic Sampling 是单一最大涨幅</u>(+8)。Overlong-related 改进 (filtering + soft punishment) 合起来也是 +9。Clip-Higher 单独贡献 +2 (但 entropy collapse 修复后才能让其他改进发挥作用)。</figcaption>
     </figure>
-
-    <p><strong>训练动态健康指标 (Fig 7 — DAPO 的训练长这样):</strong></p>
-    <figure>
-      <img src="figures/fig7-training-dynamics.png" alt="Training dynamics">
+<p><strong>训练动态健康指标 (Fig 7 — DAPO 的训练长这样):</strong></p>
+<figure>
+      <img class="zoomable" alt="Training dynamics" src="figures/fig7-training-dynamics.png">
       <figcaption>Fig. 7 — DAPO 5000 step 的训练曲线。(a) 平均响应长度 从 ~700 token 持续涨到 ~4500 — <strong>healthy growth</strong>,代表 model 学会更长的 CoT。(b) Reward score 从 -0.8 稳定涨到 +0.4。(c) Entropy 先降到 0.35 (开始 commit) 再缓慢回升到 0.55 — <strong>受控的探索回升</strong>。(d) Mean probability 0.78 → 0.86 → 回落到 0.74 — 跟 entropy 反向变化,说明 model 在前半段 commit 后半段重新探索。<strong>这 4 条曲线是健康 long-CoT RL 训练的"教科书形状"。</strong></figcaption>
     </figure>
-
-    <p><strong>关键数字:</strong></p>
-    <ul>
-      <li><strong>AIME 2024 avg@32:</strong> Qwen2.5-32B base 30 → DAPO 50 (+20 pt)</li>
-      <li><strong>vs DeepSeek-R1-Zero-Qwen-32B:</strong> 47 → 50 (+3 pt),且只用<strong>50% 训练 step</strong></li>
-      <li><strong>Dynamic Sampling 总训练时间:</strong> 虽然每个 step 多采样了,但 step 数大幅减少 (Fig 6:2300 step vs 6000+ step),总时间反而短</li>
-      <li><strong>Clip-Higher $\varepsilon_{\text{high}}$ tuning 区间:</strong> 0.28 (papers vs default 0.20)</li>
-      <li><strong>Overlong soft punishment buffer:</strong> $L_{\max}=20480$,$L_{\text{cache}}=4096$ (即 16384-20480 是线性惩罚区间)</li>
-    </ul>
-  </section>
-
-  <section>
-    <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
-
-    <p>DAPO 不只是<em>说</em>什么 work,而是把 recipe 拆解到可复现级别。整套训练代码、数据、checkpoint 全开源。下方列细节都从论文 §4.1 或 verl repo 配置文件提取:</p>
-
-    <ul>
-      <li><strong>Base model:</strong> Qwen2.5-32B base (非 instruct,非 SFT — 直接从 base 做 RL,类似 R1-Zero)。<code>repo_verl/recipe/dapo/run_dapo_qwen2.5_32b.sh</code> (paper § 项目页)</li>
-      <li><strong>硬件:</strong> 128 H20 (paper 报告) / 16x8x H800 (verl 复现); <code>repo_verl/docs/algo/dapo.md:L34</code> 列出复现配置。</li>
-      <li><strong>Optimizer:</strong> AdamW,constant lr <strong>1e-6</strong>,linear warmup 20 rollout steps。<code>paper §4.1</code></li>
-      <li><strong>Rollout:</strong> Prompt batch 512,16 responses per prompt → 8192 sequences per rollout step。<code>paper §4.1</code></li>
-      <li><strong>Training:</strong> Mini-batch 512 (= 16 gradient updates per rollout)。<code>paper §4.1</code></li>
-      <li><strong>Generation length:</strong> $L_{\max}$ = 16384 + 4096 (Lcache) = <strong>20480 tokens</strong>。<code>repo_verl/docs/algo/dapo.md:L142</code></li>
-      <li><strong>Clip:</strong> $\varepsilon_{\text{low}}$ = 0.2,$\varepsilon_{\text{high}}$ = <strong>0.28</strong>。<code>repo_verl/verl/trainer/ppo/core_algos.py:L1314-L1315</code></li>
-      <li><strong>KL coefficient:</strong> $\beta = 0$ — <strong>整个 KL 项被去掉</strong>。<code>paper §2.3</code></li>
-      <li><strong>Reward:</strong> rule-based ±1,不用 reward model。<code>repo_verl/verl/utils/reward_score/math_dapo.py</code> — 解析 \boxed{...} 然后字符串等价比较。<code>paper §2.4 Eq 7</code></li>
-      <li><strong>Dynamic Sampling:</strong> <code>filter_groups.enable=True</code>,metric="acc",<code>max_num_gen_batches=10</code> (上限,防数据集太难时无限重采)。<code>repo_verl/docs/algo/dapo.md:L77-L82</code></li>
-      <li><strong>Loss aggregation:</strong> <code>loss_agg_mode="token-mean"</code> (verl 默认),paper Eq 12 实现。<code>repo_verl/verl/trainer/ppo/core_algos.py:L1168-L1173</code></li>
-      <li><strong>Overlong penalty:</strong> <code>overlong_buffer.enable=True</code>, <code>len=4096</code>, <code>penalty_factor=1.0</code>。<code>repo_verl/verl/workers/reward_manager/dapo.py:L121-L131</code></li>
-      <li><strong>Evaluation:</strong> AIME 测试集 repeat 32 次,avg@32;temperature 1.0,top-p 0.7。<code>paper §4.1</code></li>
-      <li><strong>Dataset:</strong> DAPO-Math-17K — 把所有题答案都转成整数 (e.g., $\frac{a + \sqrt{c}\, b}{}$ → $a+b+c$),便于 rule-based 解析。<code>paper §3.5</code></li>
-      <li><strong>Code-vs-paper 不一致:</strong> 论文 §3.4 提到"Overlong Filtering" (硬 mask) 和"Soft Overlong Punishment" (Eq 13),paper Table 1 把两者都列了 (+6 / +3)。但 verl 实现里<strong>只 ship 了 Soft Punishment</strong>。FAQ 说 "they overlap" 所以不 ship Filtering — 第三方按 paper 全套复现时,Filtering 这块要自己加。<code>repo_verl/docs/algo/dapo.md FAQ §1</code></li>
-    </ul>
-  </section>
-
-  <section>
-    <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
-
-    <h3 id="sec-5-1">5.1 优点</h3>
-    <ul>
-      <li><strong>"反封锁"的价值大于 4 个 trick 本身。</strong> 2025 上半年学界拼命想复现 R1,Qwen2.5-32B 上的 47 分都摸不到,普遍在 30 分附近。DAPO 把整套 recipe + 数据 + 权重 + W&B 训练日志全开源,直接把"long-CoT RL"从黑魔法变成可工程化的流程。这条 contribution 本身就值得发表 — 4 个 trick 是附赠。</li>
-      <li><strong>每个 trick 都有清晰的 failure mode + 修复 + ablation。</strong> 不是"我们用了 trick A,效果好" — 而是"vanilla GRPO 训到 step 500 entropy 崩了,因为 upper clip 在卡低概率 token (Fig 3a 量化),我们改 ε_high 到 0.28 修复 (Fig 2 对比)"。每条都有数据图证明因果。这种叙事比绝大多数 RL paper 干净。</li>
-      <li><strong>Token-level loss 这条洞察非平凡。</strong> "sample-level vs token-level loss"看起来是小细节,但在 long-CoT (千-万 token 量级) 下,sample-level 平均会让长 sequence 的 gradient 信号被压成几乎 0。这是 RLHF 短指令对齐场景下不会出现的问题 — 是 long-CoT 独有 bug。文中清楚指出"sample-level 在 long-CoT 上会让 gibberish 模式刹不住车",并 ablation 证明 (Fig 4 entropy 与 length 失控)。这条<em>到 2025 年还有人不知道</em>。</li>
-      <li><strong>Dynamic Sampling 的 trick 简单但有效。</strong> 过滤 acc=0/1 的 group 单一贡献 +8 pt(Tab 1 里最大单项)。直觉对:这种 group 的 GRPO advantage 就是 0,等于浪费 batch。但社区之前都没人系统化地报告这个 fix。</li>
-      <li><strong>Overlong Reward Shaping 是 reward design 工艺。</strong> 区分 "硬截断 = -1" 和 "在 buffer 区间内线性衰减"是非平凡的 — 给了模型"长度梯度",而不是离散的悬崖。FAQ 里诚实承认 paper 的 Overlong Filtering 跟 Soft Punishment 功能重叠,实现里只 ship 后者 — 学术诚信加分。</li>
-      <li><strong>"无 KL"是有论证的选择,不是丢一句"KL=0"了事。</strong> 论证逻辑:RLHF 想约束 model 不偏离 base 是因为想保留通用对齐;long-CoT 训练里 base 本来就没有正确的 reasoning 模式,policy<em>必然</em>大幅偏离 base,KL 约束反而阻碍。这套 reasoning 后来在 RL's Razor (arxiv 2509.04259) 里被更严格地分析 — DAPO 是早期实证。</li>
-      <li><strong>verl 框架本身是大贡献。</strong> 字节内部把 verl 开放给社区,这是工业级 LLM RL infra 第一个真正可用的开源版本(对比 OpenRLHF / TRL,verl 在 32B+ 规模有验证)。DAPO recipe 只是 verl 上一个 use-case。</li>
-    </ul>
-
-    <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
-    <ul>
-      <li><strong>只在数学一个 domain 验证。</strong> AIME / Math 测得很满,但论文自己说 "this can be readily transferred to other tasks" — 没证。Code、scientific reasoning、agentic tool use 等场景上 DAPO 是否同样有效,纯 claim。事实上后续工作 (Flow-GRPO 用 reward-based, MixGRPO) 在视觉生成上发现单纯把 DAPO trick 移植效果不好。</li>
-
-      <li><strong>4 个 trick 的 ordering 影响没消融。</strong> Table 1 是按"先 Overlong Filtering → Clip-Higher → Soft Punishment → Token-Level → Dynamic Sampling"的固定顺序加,每个 trick 累积一个增量。但如果换不同顺序,各自的边际贡献会怎么变?例如:先加 Dynamic Sampling 再加 Clip-Higher,Clip-Higher 还会贡献那 +2 吗?paper 没有 randomized/permuted ablation。</li>
-
-      <li><strong>"DAPO 50 用 R1-Zero 50% step 数"这个比较的细节模糊。</strong> R1-Zero 的 step 是 10000,DAPO 是 ~5000,但<u>step 大小不同</u>:DAPO 一个 step = 512 prompt × 16 rollout = 8192 sequences;R1-Zero 的 step size 没披露。"50% step" 不等于 "50% wall-clock" 或 "50% compute"。若 DAPO 的 step 是 R1-Zero 的 2 倍大,总 compute 持平。</li>
-
-      <li><strong>Dynamic Sampling 的 max_num_gen_batches 上限是个工程妥协。</strong> 如果数据集真的太简单 (大多数 group 都全对),不停重采会浪费时间;如果太难,可能根本攒不够 batch。实操里这个超参对训练稳定性影响如何,paper 没 ablate。</li>
-
-      <li><strong>Clip-Higher 的 $\varepsilon_{\text{high}}$ 只测了 0.28。</strong> 没有 sweep 表明 0.24 / 0.30 / 0.35 会怎样,也没说 0.28 是怎么选出来的(只有 "effectively balance" 这句话)。如果 0.28 是 cherry-picked 出来的,迁移到别的 model / domain 时可能要重新 tune。</li>
-
-      <li><strong>Rule-based reward 只在<em>答案能枚举</em>的数学题上 work。</strong> "把答案转换成整数"这条数据预处理 (§3.5) 是有损的,会过滤掉一大类对模型推理能力<em>更有价值</em>的题(图论证明、几何构造、定性分析)。这相当于把题目分布 narrow 到"答案是整数"的窄子集 — 提高了 reward 信号清晰度,降低了任务多样性。</li>
-
-      <li><strong>训练计算量披露不够。</strong> 128 H20 是 paper 报告的硬件,但训练时长(几小时?几天?)没说。Token-per-step / GPU-second 也没说。读者无法估算"自己想复现要花多少钱"。</li>
-
-      <li><strong>vs SFT 基线缺失。</strong> Paper 默认 RL > SFT 的前提,但没在同一 dataset 上对比 SFT(用同样 DAPO-Math-17K 做 SFT 能拿多少分?)。R1 paper 至少做了 "Zero" (直接 RL) vs "R1" (SFT + RL) 的对比,DAPO 没。</li>
-
-      <li><strong>"No KL penalty"在 long-horizon 上的副作用没监控.</strong> 去掉 KL 让 model 自由偏离 base,但 base 上的<em>通用能力</em>(MMLU / IFEval / HumanEval 等)会不会被腐蚀?paper 没测。RL's Razor 后续表明 "RL 自带 KL-min 偏置" — DAPO 没显式 KL,实际上是 implicit 走 KL-min,但 implicit 与 explicit 在 long-horizon 上未必等价。</li>
-
-      <li><strong>Dataset 不开源 prompts 来源.</strong> 17K 数学题来自"web scraping + manual annotation",但具体来源、过滤标准、答案 transformation 实现没披露。HF 上 dataset 公开但 provenance 模糊。</li>
-    </ul>
-
-    <h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
-    <ul>
-      <li>✅ <strong>适用:</strong> 数学 reasoning RL post-training (AIME / MATH-500 / OlympiadBench) — DAPO 是事实上的 SOTA recipe。</li>
-      <li>✅ <strong>适用:</strong> 任何 <em>verifiable reward</em>(答案可枚举可校验)的 long-CoT 任务 — code synthesis with unit tests, formal theorem proving。</li>
-      <li>✅ <strong>方法论上适用:</strong> 4 个 trick 都可以拆开用 — Clip-Higher 和 Token-Level Loss 几乎是 long-CoT RL 的"必修课",任何 GRPO 类 trainer 都该加。</li>
-      <li>❌ <strong>不适用:</strong> RLHF 通用偏好对齐 (helpfulness / harmlessness) — short-response,长度差不大,sample-level loss 没问题;reward model 不可枚举,rule-based reward 也不可用。</li>
-      <li>❌ <strong>不适用:</strong> Vision generative RL — DAPO 的 token-level loss 跟 flow matching 的连续 latent 不对应,直接套等于失配。需要类比改 (Flow-GRPO / Flow-OPD 做了这一步)。</li>
-      <li>❌ <strong>不适用:</strong> 没足够算力 (32 GPU+) 跑 GRPO + dynamic sampling 的环境 — 这个 recipe 是<em>32B 模型 + 128 GPU</em> 验证出来的,7B 上的有效性有 verl 复现但小模型上 ablation 不完整。</li>
-      <li>⚠️ <strong>谨慎:</strong> 论文报告的 ablation 顺序是固定的,换 model / domain 时各 trick 的边际贡献不一定相同;建议优先打开 Dynamic Sampling 和 Clip-Higher 这两个最大单项。</li>
-      <li>⚠️ <strong>谨慎:</strong> 复现 Table 1 的"+Overlong Filtering +6 pt"需要自己加,verl 里只 ship 了 Soft Punishment。</li>
-    </ul>
-
-    <h3 id="sec-5-4">5.4 进一步阅读</h3>
-    <ul>
-      <li><a href="https://arxiv.org/abs/2402.03300">Shao et al. 2024 — DeepSeekMath / GRPO</a>:DAPO 的算法基础,GRPO 原始论文。</li>
-      <li><a href="https://arxiv.org/abs/2501.12948">DeepSeek R1 (Guo et al. 2025)</a>:DAPO 主要对照工作 — paper 的 47% AIME baseline 就是 R1-Zero-Qwen-32B。R1 没公开 RL 训练细节,DAPO 是社区的反封锁回应。</li>
-      <li><a href="https://github.com/volcengine/verl">volcengine/verl</a>:开源 RL infra,DAPO 的实现底盘。</li>
-      <li><a href="https://arxiv.org/abs/2509.04259">RL's Razor (Shenfeld et al. 2025)</a>:论证 on-policy RL 天然 KL-min 偏置 — DAPO 去掉显式 KL 后仍稳定,这条规律是部分解释。</li>
-      <li><a href="https://arxiv.org/abs/2505.05470">Flow-GRPO (Liu et al. 2025)</a>:GRPO 的 flow matching 域移植,讨论 DAPO trick 在视觉生成上的迁移问题。</li>
-      <li><a href="https://arxiv.org/abs/2503.20783">Dr. GRPO (Liu et al. 2025)</a>:对 GRPO 的 length bias 做了进一步纠正,被 Flow-OPD 等后续工作采用。</li>
-      <li><a href="https://github.com/BytedTsinghua-SIA/DAPO-Math-17k">DAPO-Math-17K dataset</a> + <a href="https://huggingface.co/BytedTsinghua-SIA/DAPO-Qwen-32B">DAPO-Qwen-32B weights</a>。</li>
-    </ul>
-  </section>
-
-  <footer>
-    <hr>
+<p><strong>关键数字:</strong></p>
+<ul>
+<li><strong>AIME 2024 avg@32:</strong> Qwen2.5-32B base 30 → DAPO 50 (+20 pt)</li>
+<li><strong>vs DeepSeek-R1-Zero-Qwen-32B:</strong> 47 → 50 (+3 pt),且只用<strong>50% 训练 step</strong></li>
+<li><strong>Dynamic Sampling 总训练时间:</strong> 虽然每个 step 多采样了,但 step 数大幅减少 (Fig 6:2300 step vs 6000+ step),总时间反而短</li>
+<li><strong>Clip-Higher <span class="math inline">\varepsilon_{\text{high}}</span> tuning 区间:</strong> 0.28 (papers vs default 0.20)</li>
+<li><strong>Overlong soft punishment buffer:</strong> <span class="math inline">L_{\max}=20480</span>,<span class="math inline">L_{\text{cache}}=4096</span> (即 16384-20480 是线性惩罚区间)</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>DAPO 不只是<em>说</em>什么 work,而是把 recipe 拆解到可复现级别。整套训练代码、数据、checkpoint 全开源。下方列细节都从论文 §4.1 或 verl repo 配置文件提取:</p>
+<ul>
+<li><strong>Base model:</strong> Qwen2.5-32B base (非 instruct,非 SFT — 直接从 base 做 RL,类似 R1-Zero)。<code>repo_verl/recipe/dapo/run_dapo_qwen2.5_32b.sh</code> (paper § 项目页)</li>
+<li><strong>硬件:</strong> 128 H20 (paper 报告) / 16x8x H800 (verl 复现); <code>repo_verl/docs/algo/dapo.md:L34</code> 列出复现配置。</li>
+<li><strong>Optimizer:</strong> AdamW,constant lr <strong>1e-6</strong>,linear warmup 20 rollout steps。<code>paper §4.1</code></li>
+<li><strong>Rollout:</strong> Prompt batch 512,16 responses per prompt → 8192 sequences per rollout step。<code>paper §4.1</code></li>
+<li><strong>Training:</strong> Mini-batch 512 (= 16 gradient updates per rollout)。<code>paper §4.1</code></li>
+<li><strong>Generation length:</strong> <span class="math inline">L_{\max}</span> = 16384 + 4096 (Lcache) = <strong>20480 tokens</strong>。<code>repo_verl/docs/algo/dapo.md:L142</code></li>
+<li><strong>Clip:</strong> <span class="math inline">\varepsilon_{\text{low}}</span> = 0.2,<span class="math inline">\varepsilon_{\text{high}}</span> = <strong>0.28</strong>。<code>repo_verl/verl/trainer/ppo/core_algos.py:L1314-L1315</code></li>
+<li><strong>KL coefficient:</strong> <span class="math inline">\beta = 0</span> — <strong>整个 KL 项被去掉</strong>。<code>paper §2.3</code></li>
+<li><strong>Reward:</strong> rule-based ±1,不用 reward model。<code>repo_verl/verl/utils/reward_score/math_dapo.py</code> — 解析 \boxed{...} 然后字符串等价比较。<code>paper §2.4 Eq 7</code></li>
+<li><strong>Dynamic Sampling:</strong> <code>filter_groups.enable=True</code>,metric=&quot;acc&quot;,<code>max_num_gen_batches=10</code> (上限,防数据集太难时无限重采)。<code>repo_verl/docs/algo/dapo.md:L77-L82</code></li>
+<li><strong>Loss aggregation:</strong> <code>loss_agg_mode=&quot;token-mean&quot;</code> (verl 默认),paper Eq 12 实现。<code>repo_verl/verl/trainer/ppo/core_algos.py:L1168-L1173</code></li>
+<li><strong>Overlong penalty:</strong> <code>overlong_buffer.enable=True</code>, <code>len=4096</code>, <code>penalty_factor=1.0</code>。<code>repo_verl/verl/workers/reward_manager/dapo.py:L121-L131</code></li>
+<li><strong>Evaluation:</strong> AIME 测试集 repeat 32 次,avg@32;temperature 1.0,top-p 0.7。<code>paper §4.1</code></li>
+<li><strong>Dataset:</strong> DAPO-Math-17K — 把所有题答案都转成整数 (e.g., <span class="math inline">\frac{a + \sqrt{c}\, b}{}</span> → <span class="math inline">a+b+c</span>),便于 rule-based 解析。<code>paper §3.5</code></li>
+<li><strong>Code-vs-paper 不一致:</strong> 论文 §3.4 提到&quot;Overlong Filtering&quot; (硬 mask) 和&quot;Soft Overlong Punishment&quot; (Eq 13),paper Table 1 把两者都列了 (+6 / +3)。但 verl 实现里<strong>只 ship 了 Soft Punishment</strong>。FAQ 说 &quot;they overlap&quot; 所以不 ship Filtering — 第三方按 paper 全套复现时,Filtering 这块要自己加。<code>repo_verl/docs/algo/dapo.md FAQ §1</code></li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>&quot;反封锁&quot;的价值大于 4 个 trick 本身。</strong> 2025 上半年学界拼命想复现 R1,Qwen2.5-32B 上的 47 分都摸不到,普遍在 30 分附近。DAPO 把整套 recipe + 数据 + 权重 + W&amp;B 训练日志全开源,直接把&quot;long-CoT RL&quot;从黑魔法变成可工程化的流程。这条 contribution 本身就值得发表 — 4 个 trick 是附赠。</li>
+<li><strong>每个 trick 都有清晰的 failure mode + 修复 + ablation。</strong> 不是&quot;我们用了 trick A,效果好&quot; — 而是&quot;vanilla GRPO 训到 step 500 entropy 崩了,因为 upper clip 在卡低概率 token (Fig 3a 量化),我们改 ε_high 到 0.28 修复 (Fig 2 对比)&quot;。每条都有数据图证明因果。这种叙事比绝大多数 RL paper 干净。</li>
+<li><strong>Token-level loss 这条洞察非平凡。</strong> &quot;sample-level vs token-level loss&quot;看起来是小细节,但在 long-CoT (千-万 token 量级) 下,sample-level 平均会让长 sequence 的 gradient 信号被压成几乎 0。这是 RLHF 短指令对齐场景下不会出现的问题 — 是 long-CoT 独有 bug。文中清楚指出&quot;sample-level 在 long-CoT 上会让 gibberish 模式刹不住车&quot;,并 ablation 证明 (Fig 4 entropy 与 length 失控)。这条<em>到 2025 年还有人不知道</em>。</li>
+<li><strong>Dynamic Sampling 的 trick 简单但有效。</strong> 过滤 acc=0/1 的 group 单一贡献 +8 pt(Tab 1 里最大单项)。直觉对:这种 group 的 GRPO advantage 就是 0,等于浪费 batch。但社区之前都没人系统化地报告这个 fix。</li>
+<li><strong>Overlong Reward Shaping 是 reward design 工艺。</strong> 区分 &quot;硬截断 = -1&quot; 和 &quot;在 buffer 区间内线性衰减&quot;是非平凡的 — 给了模型&quot;长度梯度&quot;,而不是离散的悬崖。FAQ 里诚实承认 paper 的 Overlong Filtering 跟 Soft Punishment 功能重叠,实现里只 ship 后者 — 学术诚信加分。</li>
+<li><strong>&quot;无 KL&quot;是有论证的选择,不是丢一句&quot;KL=0&quot;了事。</strong> 论证逻辑:RLHF 想约束 model 不偏离 base 是因为想保留通用对齐;long-CoT 训练里 base 本来就没有正确的 reasoning 模式,policy<em>必然</em>大幅偏离 base,KL 约束反而阻碍。这套 reasoning 后来在 RL's Razor (arxiv 2509.04259) 里被更严格地分析 — DAPO 是早期实证。</li>
+<li><strong>verl 框架本身是大贡献。</strong> 字节内部把 verl 开放给社区,这是工业级 LLM RL infra 第一个真正可用的开源版本(对比 OpenRLHF / TRL,verl 在 32B+ 规模有验证)。DAPO recipe 只是 verl 上一个 use-case。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>只在数学一个 domain 验证。</strong> AIME / Math 测得很满,但论文自己说 &quot;this can be readily transferred to other tasks&quot; — 没证。Code、scientific reasoning、agentic tool use 等场景上 DAPO 是否同样有效,纯 claim。事实上后续工作 (Flow-GRPO 用 reward-based, MixGRPO) 在视觉生成上发现单纯把 DAPO trick 移植效果不好。</li>
+<li><strong>4 个 trick 的 ordering 影响没消融。</strong> Table 1 是按&quot;先 Overlong Filtering → Clip-Higher → Soft Punishment → Token-Level → Dynamic Sampling&quot;的固定顺序加,每个 trick 累积一个增量。但如果换不同顺序,各自的边际贡献会怎么变?例如:先加 Dynamic Sampling 再加 Clip-Higher,Clip-Higher 还会贡献那 +2 吗?paper 没有 randomized/permuted ablation。</li>
+<li><strong>&quot;DAPO 50 用 R1-Zero 50% step 数&quot;这个比较的细节模糊。</strong> R1-Zero 的 step 是 10000,DAPO 是 ~5000,但<u>step 大小不同</u>:DAPO 一个 step = 512 prompt × 16 rollout = 8192 sequences;R1-Zero 的 step size 没披露。&quot;50% step&quot; 不等于 &quot;50% wall-clock&quot; 或 &quot;50% compute&quot;。若 DAPO 的 step 是 R1-Zero 的 2 倍大,总 compute 持平。</li>
+<li><strong>Dynamic Sampling 的 max_num_gen_batches 上限是个工程妥协。</strong> 如果数据集真的太简单 (大多数 group 都全对),不停重采会浪费时间;如果太难,可能根本攒不够 batch。实操里这个超参对训练稳定性影响如何,paper 没 ablate。</li>
+<li><strong>Clip-Higher 的 <span class="math inline">\varepsilon_{\text{high}}</span> 只测了 0.28。</strong> 没有 sweep 表明 0.24 / 0.30 / 0.35 会怎样,也没说 0.28 是怎么选出来的(只有 &quot;effectively balance&quot; 这句话)。如果 0.28 是 cherry-picked 出来的,迁移到别的 model / domain 时可能要重新 tune。</li>
+<li><strong>Rule-based reward 只在<em>答案能枚举</em>的数学题上 work。</strong> &quot;把答案转换成整数&quot;这条数据预处理 (§3.5) 是有损的,会过滤掉一大类对模型推理能力<em>更有价值</em>的题(图论证明、几何构造、定性分析)。这相当于把题目分布 narrow 到&quot;答案是整数&quot;的窄子集 — 提高了 reward 信号清晰度,降低了任务多样性。</li>
+<li><strong>训练计算量披露不够。</strong> 128 H20 是 paper 报告的硬件,但训练时长(几小时?几天?)没说。Token-per-step / GPU-second 也没说。读者无法估算&quot;自己想复现要花多少钱&quot;。</li>
+<li><strong>vs SFT 基线缺失。</strong> Paper 默认 RL &gt; SFT 的前提,但没在同一 dataset 上对比 SFT(用同样 DAPO-Math-17K 做 SFT 能拿多少分?)。R1 paper 至少做了 &quot;Zero&quot; (直接 RL) vs &quot;R1&quot; (SFT + RL) 的对比,DAPO 没。</li>
+<li><strong>&quot;No KL penalty&quot;在 long-horizon 上的副作用没监控.</strong> 去掉 KL 让 model 自由偏离 base,但 base 上的<em>通用能力</em>(MMLU / IFEval / HumanEval 等)会不会被腐蚀?paper 没测。RL's Razor 后续表明 &quot;RL 自带 KL-min 偏置&quot; — DAPO 没显式 KL,实际上是 implicit 走 KL-min,但 implicit 与 explicit 在 long-horizon 上未必等价。</li>
+<li><strong>Dataset 不开源 prompts 来源.</strong> 17K 数学题来自&quot;web scraping + manual annotation&quot;,但具体来源、过滤标准、答案 transformation 实现没披露。HF 上 dataset 公开但 provenance 模糊。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用:</strong> 数学 reasoning RL post-training (AIME / MATH-500 / OlympiadBench) — DAPO 是事实上的 SOTA recipe。</li>
+<li>✅ <strong>适用:</strong> 任何 <em>verifiable reward</em>(答案可枚举可校验)的 long-CoT 任务 — code synthesis with unit tests, formal theorem proving。</li>
+<li>✅ <strong>方法论上适用:</strong> 4 个 trick 都可以拆开用 — Clip-Higher 和 Token-Level Loss 几乎是 long-CoT RL 的&quot;必修课&quot;,任何 GRPO 类 trainer 都该加。</li>
+<li>❌ <strong>不适用:</strong> RLHF 通用偏好对齐 (helpfulness / harmlessness) — short-response,长度差不大,sample-level loss 没问题;reward model 不可枚举,rule-based reward 也不可用。</li>
+<li>❌ <strong>不适用:</strong> Vision generative RL — DAPO 的 token-level loss 跟 flow matching 的连续 latent 不对应,直接套等于失配。需要类比改 (Flow-GRPO / Flow-OPD 做了这一步)。</li>
+<li>❌ <strong>不适用:</strong> 没足够算力 (32 GPU+) 跑 GRPO + dynamic sampling 的环境 — 这个 recipe 是<em>32B 模型 + 128 GPU</em> 验证出来的,7B 上的有效性有 verl 复现但小模型上 ablation 不完整。</li>
+<li>⚠️ <strong>谨慎:</strong> 论文报告的 ablation 顺序是固定的,换 model / domain 时各 trick 的边际贡献不一定相同;建议优先打开 Dynamic Sampling 和 Clip-Higher 这两个最大单项。</li>
+<li>⚠️ <strong>谨慎:</strong> 复现 Table 1 的&quot;+Overlong Filtering +6 pt&quot;需要自己加,verl 里只 ship 了 Soft Punishment。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><a href="https://arxiv.org/abs/2402.03300">Shao et al. 2024 — DeepSeekMath / GRPO</a>:DAPO 的算法基础,GRPO 原始论文。</li>
+<li><a href="https://arxiv.org/abs/2501.12948">DeepSeek R1 (Guo et al. 2025)</a>:DAPO 主要对照工作 — paper 的 47% AIME baseline 就是 R1-Zero-Qwen-32B。R1 没公开 RL 训练细节,DAPO 是社区的反封锁回应。</li>
+<li><a href="https://github.com/volcengine/verl">volcengine/verl</a>:开源 RL infra,DAPO 的实现底盘。</li>
+<li><a href="https://arxiv.org/abs/2509.04259">RL's Razor (Shenfeld et al. 2025)</a>:论证 on-policy RL 天然 KL-min 偏置 — DAPO 去掉显式 KL 后仍稳定,这条规律是部分解释。</li>
+<li><a href="https://arxiv.org/abs/2505.05470">Flow-GRPO (Liu et al. 2025)</a>:GRPO 的 flow matching 域移植,讨论 DAPO trick 在视觉生成上的迁移问题。</li>
+<li><a href="https://arxiv.org/abs/2503.20783">Dr. GRPO (Liu et al. 2025)</a>:对 GRPO 的 length bias 做了进一步纠正,被 Flow-OPD 等后续工作采用。</li>
+<li><a href="https://github.com/BytedTsinghua-SIA/DAPO-Math-17k">DAPO-Math-17K dataset</a> + <a href="https://huggingface.co/BytedTsinghua-SIA/DAPO-Qwen-32B">DAPO-Qwen-32B weights</a>。</li>
+</ul>
+<footer>
+    <hr/>
     <p class="meta">Read on 2026-05-12 · Generated with the <code>reading-papers</code> skill</p>
   </footer>
 </main>
