@@ -45,6 +45,8 @@ def test_inject_ids_preserves_existing_attributes():
     assert 'id="sec-1"' in out
     assert 'class="custom"' in out
     assert ">X</h2>" in out
+    # Exactly one id= attribute (catches duplicate-attribute bug)
+    assert out.count('id=') == 1
 
 
 def test_inject_ids_skips_h1_h4():
@@ -56,6 +58,28 @@ def test_inject_ids_skips_h1_h4():
     assert "<h4>note</h4>" in out
     # h2 gets id
     assert 'id="sec-1"' in out
+
+
+# --- TOC ---
+
+def test_inject_ids_skips_heading_with_existing_id():
+    """If h2 has id=, don't inject another. Output remains valid HTML."""
+    html = '<h2 id="custom">X</h2><h2>Y</h2>'
+    out = inject_ids(html)
+    # h2 with custom id: untouched
+    assert '<h2 id="custom">X</h2>' in out
+    # Next h2 still gets sec-2 (counter incremented past the custom one)
+    assert 'id="sec-2"' in out
+    # Critically: no duplicate id attributes
+    assert out.count('id="') == 2  # one custom, one sec-2
+
+
+def test_inject_ids_is_idempotent():
+    """Calling inject_ids twice on the same input produces the same output."""
+    html = "<h2>A</h2><h3>a1</h3><h2>B</h2>"
+    once = inject_ids(html)
+    twice = inject_ids(once)
+    assert once == twice
 
 
 # --- TOC ---

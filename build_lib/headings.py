@@ -31,6 +31,16 @@ def inject_ids(html: str) -> str:
         tag = m.group(1)
         attrs = m.group(2) or ""
         text = m.group(3)
+        attrs_str = attrs.strip()
+
+        # If this heading already has an id=, leave it alone (idempotency).
+        # Still update counters so subsequent headings stay consistent.
+        if re.search(r'\bid\s*=', attrs_str):
+            if tag == "h2":
+                h2_count += 1
+                h3_count = 0
+            return m.group(0)
+
         if tag == "h2":
             h2_count += 1
             h3_count = 0
@@ -42,7 +52,6 @@ def inject_ids(html: str) -> str:
             h3_count += 1
             heading_id = f"sec-{h2_count}-{h3_count}"
         # Preserve any existing attributes (class, etc.), prepend id=
-        attrs_str = attrs.strip()
         if attrs_str:
             new_open = f'<{tag} id="{heading_id}" {attrs_str}>'
         else:
