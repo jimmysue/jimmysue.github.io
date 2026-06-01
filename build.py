@@ -513,6 +513,18 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Run an in-memory smoke test against /tmp/build-smoke/ and exit.",
     )
+    parser.add_argument(
+        "--post",
+        metavar="SLUG",
+        default=None,
+        help="Render only a single post (papers/<slug> or tutorials/<slug>).",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Validate frontmatter + wiki-links across all posts; "
+             "exit non-zero on any warning. Don't write HTML.",
+    )
     args = parser.parse_args(argv)
 
     if args.smoke_test:
@@ -526,6 +538,34 @@ def main(argv: list[str] | None = None) -> int:
     posts = discover_posts(root)
     if not posts:
         print("WARN: no posts discovered — generated pages will be empty", file=sys.stderr)
+
+    if args.post:
+        posts = [p for p in posts if p["slug"] == args.post]
+        if not posts:
+            print(f"ERROR: no post with slug {args.post!r}", file=sys.stderr)
+            return 2
+        # Build only this post, skip site-level pages
+        nav_tmpl = load_nav_header(root)
+        n = build_posts(posts, nav_tmpl)
+        print(f"Rendered {n} post(s).")
+        return 0
+
+    if args.check:
+        slug_set = {p["slug"] for p in posts}
+        all_warnings: list[str] = []
+        for p in posts:
+            _, _, warns = render_post_body(
+                p["_body_md"], slug_set,
+                current_post_dir=f"{Path(p['_url']).parent}",
+            )
+            all_warnings.extend(warns)
+        if all_warnings:
+            for w in all_warnings:
+                print(f"WARN: {w}", file=sys.stderr)
+            print(f"FAIL: {len(all_warnings)} warning(s).", file=sys.stderr)
+            return 1
+        print(f"OK: {len(posts)} posts validated.")
+        return 0
 
     nav_tmpl = load_nav_header(root)
     summary = build_site(posts, root, nav_tmpl)
