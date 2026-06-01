@@ -5,7 +5,9 @@ title: "REPLACE: tutorial title"
 date: REPLACE-YYYY-MM-DD
 tldr: |
   REPLACE: 1-3 sentences summarising what this tutorial covers.
-tags: [REPLACE, COMMA, SEPARATED]
+concepts: [REPLACE, COMMA, SEPARATED]
+citations: []                  # papers this tutorial covers (renders as `covers` edge in graph)
+repos: []                      # GitHub repos referenced
 tutorial:
   word_count: "REPLACE"
   reading_minutes: "REPLACE"

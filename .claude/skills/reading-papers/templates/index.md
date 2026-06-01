@@ -5,13 +5,14 @@ title: "REPLACE TITLE"
 date: REPLACE-YYYY-MM-DD
 tldr: |
   REPLACE multi-line summary (1-3 sentences).
-tags: [REPLACE, COMMA, SEPARATED]
+concepts: [REPLACE, COMMA, SEPARATED]
+citations: []                  # optional: paper/tutorial slugs this paper extends/cites
+repos: []                      # optional: GitHub URLs related to this paper
 paper:
   arxiv_id: ""
   authors: ""
   venue: ""
   project_page: ""
-  code_url: ""
   weights_url: ""
 ---
 

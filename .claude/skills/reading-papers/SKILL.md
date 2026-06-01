@@ -219,8 +219,17 @@ The source of truth for a paper is `papers/<slug>/index.md`. Use
 `templates/index.md` as the starting point. Replace placeholders, then
 fill the 5 sections.
 
+**Frontmatter fields:**
+- `type`, `slug`, `title`, `date`, `tldr` — required (Phase 1)
+- `concepts: [...]` — required list of concept slugs this paper touches (was `tags:` in Phase 1)
+- `citations: [...]` — optional list of other paper/tutorial slugs this paper extends/cites/criticises
+- `repos: [...]` — optional list of GitHub URLs (replaces the old `paper.code_url` single value)
+- `paper.arxiv_id`, `paper.authors`, `paper.venue`, `paper.project_page`, `paper.weights_url` — optional metadata
+
+The body may also contain `[[other-slug]]` wiki-links to other papers; these are auto-extracted as citation edges by `build.py`. You don't need to repeat them in `citations:`.
+
 **Conventions:**
-- Top-of-file YAML frontmatter (required: type, slug, title, date, tldr, tags)
+- Top-of-file YAML frontmatter (required: type, slug, title, date, tldr, concepts)
 - Figures: use `<figure><img><figcaption>` HTML (caption can be rich)
 - Math translation: `<p class="math-translation">—— 翻译: ...</p>` right after a `$$...$$` block
 - Code citation: `<p class="code-source">repo/path:Lstart-Lend — role</p>` right before a fenced code block
@@ -281,7 +290,7 @@ Then deliver a **terse 5-bullet summary** of the paper in chat (one bullet per s
 
 ## Verification before delivery
 
-- [ ] `papers/<slug>/index.md` exists with valid YAML frontmatter (type, slug, title, date, tldr, tags)
+- [ ] `papers/<slug>/index.md` exists with valid YAML frontmatter (type, slug, title, date, tldr, concepts)
 - [ ] `python3 build.py --post <slug>` ran successfully and `papers/<slug>/index.html` is up to date
 - [ ] §2 has at least one LaTeX equation rendered via MathJax (unless paper genuinely has no method)
 - [ ] §2 has at least one analogy / intuition paragraph per key equation
@@ -327,7 +336,7 @@ If they can't, add: (a) an analogy, (b) symbol-by-symbol breakdown, (c) a small 
 ## Red flags — start over if ANY apply
 
 - 直接输出裸 HTML 而没有先写 `index.md` 源文件
-- `index.md` 缺少 YAML frontmatter 或 frontmatter 里缺少必填字段
+- `index.md` 缺少 YAML frontmatter 或 frontmatter 里缺少必填字段 (type, slug, title, date, tldr, concepts)
 - 没有运行 `python3 build.py --post <slug>` 来渲染 HTML
 - §2 没有 MathJax 公式
 - 没有从 PDF 抠图 (figures/ 是空的)

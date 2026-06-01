@@ -255,6 +255,12 @@ Drafter returns a single markdown section block starting with `## N. <title>` an
 Main agent:
 
 1. Concatenate section blocks into the YAML-frontmatter skeleton from `templates/skeleton.md` to produce `tutorials/<slug>/index.md`.
+
+**Frontmatter fields** (fill before running `build.py`):
+- `type`, `slug`, `title`, `date`, `tldr` — required
+- `concepts: [...]` — required list of concept/domain slugs this tutorial covers (was `tags:` in older templates)
+- `citations: [...]` — optional list of paper/tutorial slugs this tutorial covers; these become `covers` edges in the knowledge graph (distinct from `cites` edges used by paper pages)
+- `repos: [...]` — optional list of GitHub URLs for all repos referenced in the tutorial (replaces any ad-hoc repo mention in body text)
 2. Run `python3 build.py --post <slug>` to render `index.html`. The build script auto-assigns `id="sec-N"` / `id="sec-N-M"` on headings and generates the TOC — do NOT write IDs yourself.
 3. Cross-section coherence checks:
    - **Terminology**: grep first-uses of key terms across all sections. If §3 introduces "score function" and §5 uses "梯度" without bridging, fix.
