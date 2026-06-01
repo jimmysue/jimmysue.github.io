@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from bs4 import BeautifulSoup, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, NavigableString, Tag
 
 
 # Tags whose entire HTML we keep as a raw island (the markdown is HTML).
@@ -64,6 +64,9 @@ def html_to_md(html: str, meta: dict[str, Any]) -> str:
     blocks: list[str] = []
     for el in list(main.children):
         if isinstance(el, NavigableString):
+            # Comment is a NavigableString subclass — must check before .strip()
+            if isinstance(el, Comment):
+                continue
             txt = str(el).strip()
             if txt:
                 blocks.append(txt)

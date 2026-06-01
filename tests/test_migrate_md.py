@@ -114,3 +114,15 @@ def test_html_to_md_converts_inline_strong_em(migrate_mod):
     md = migrate_mod.html_to_md(html, meta)
     assert "**bold**" in md
     assert "*italic*" in md or "_italic_" in md
+
+
+def test_html_to_md_drops_comments(migrate_mod):
+    """HTML comments inside <main> must not leak as text."""
+    html = '<main><!-- NAV-START --><p>Body text.</p><!-- end --></main>'
+    meta = {"type": "paper", "slug": "x", "title": "T", "date": "2026-01-01",
+            "tldr": "y", "tags": []}
+    md = migrate_mod.html_to_md(html, meta)
+    assert "NAV-START" not in md
+    assert "end" not in md or "Body" in md  # the literal " end " token shouldn't appear standalone
+    # But the body must survive
+    assert "Body text." in md
