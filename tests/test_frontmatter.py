@@ -12,7 +12,7 @@ def test_parse_extracts_metadata_and_body(sample_frontmatter_paper):
     assert meta["title"] == "L2P: example"
     assert meta["date"] == "2026-05-22"
     assert "A multi-line" in meta["tldr"]
-    assert meta["tags"] == ["diffusion", "flow-matching"]
+    assert meta["concepts"] == ["diffusion", "flow-matching"]
     assert meta["paper"]["arxiv_id"] == "2605.12013"
     assert body.lstrip().startswith("# L2P")
 
@@ -38,11 +38,11 @@ def test_validate_passes_on_valid_paper(sample_frontmatter_paper):
 
 
 def test_validate_catches_missing_required():
-    meta = {"type": "paper", "slug": "x", "title": "X"}  # missing date/tldr/tags
+    meta = {"type": "paper", "slug": "x", "title": "X"}  # missing date/tldr/concepts
     errors = validate(meta, expected_slug="x", expected_dir="papers")
     assert any("date" in e for e in errors)
     assert any("tldr" in e for e in errors)
-    assert any("tags" in e for e in errors)
+    assert any("concepts" in e for e in errors)
 
 
 def test_validate_catches_slug_mismatch(sample_frontmatter_paper):
@@ -53,14 +53,14 @@ def test_validate_catches_slug_mismatch(sample_frontmatter_paper):
 
 def test_validate_catches_bad_type():
     meta = {"type": "blog-post", "slug": "x", "title": "X", "date": "2026-01-01",
-            "tldr": "y", "tags": []}
+            "tldr": "y", "concepts": []}
     errors = validate(meta, expected_slug="x", expected_dir="papers")
     assert any("type" in e for e in errors)
 
 
 def test_validate_catches_bad_date_format():
     meta = {"type": "paper", "slug": "x", "title": "X", "date": "May 22 2026",
-            "tldr": "y", "tags": []}
+            "tldr": "y", "concepts": []}
     errors = validate(meta, expected_slug="x", expected_dir="papers")
     assert any("date" in e for e in errors)
 
@@ -85,6 +85,13 @@ def test_parse_normalizes_yaml_date_to_string():
 
 def test_validate_catches_tutorial_under_papers():
     meta = {"type": "tutorial", "slug": "x", "title": "X", "date": "2026-01-01",
-            "tldr": "y", "tags": []}
+            "tldr": "y", "concepts": []}
     errors = validate(meta, expected_slug="x", expected_dir="papers")
     assert any("type" in e.lower() or "directory" in e.lower() for e in errors)
+
+
+def test_validate_warns_on_legacy_tags():
+    meta = {"type": "paper", "slug": "x", "title": "X", "date": "2026-01-01",
+            "tldr": "y", "concepts": [], "tags": ["legacy"]}
+    errors = validate(meta, expected_slug="x", expected_dir="papers")
+    assert any("legacy" in e.lower() and "tags" in e.lower() for e in errors)

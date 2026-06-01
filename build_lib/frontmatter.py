@@ -8,7 +8,9 @@ from typing import Any
 import yaml
 
 
-REQUIRED_KEYS = {"type", "slug", "title", "date", "tldr", "tags"}
+REQUIRED_KEYS = {"type", "slug", "title", "date", "tldr", "concepts"}
+# `tags` is legacy from Phase 1; readers should migrate to `concepts`.
+LEGACY_KEYS = {"tags"}
 VALID_TYPES = {"paper", "tutorial"}
 ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -51,6 +53,11 @@ def validate(meta: dict[str, Any], expected_slug: str, expected_dir: str) -> lis
     for key in sorted(missing):
         errors.append(f"missing required key: {key}")
 
+    # Legacy-key warnings (don't fail, just signal user should migrate)
+    legacy_present = LEGACY_KEYS & set(meta.keys())
+    for k in sorted(legacy_present):
+        errors.append(f"legacy key {k!r} present; run migrate-concepts.py to rename to 'concepts'")
+
     if "type" in meta and meta["type"] not in VALID_TYPES:
         errors.append(f"invalid type: {meta['type']!r} (must be paper|tutorial)")
 
@@ -72,6 +79,11 @@ def validate(meta: dict[str, Any], expected_slug: str, expected_dir: str) -> lis
         if not ISO_DATE_RE.match(date_str):
             errors.append(f"date {date!r} is not ISO 8601 (YYYY-MM-DD)")
 
+    # concepts must be a list (new canonical field)
+    if "concepts" in meta and not isinstance(meta["concepts"], list):
+        errors.append(f"concepts must be a list, got {type(meta['concepts']).__name__}")
+
+    # tags is legacy; if present, also check it's a list (cosmetic — already warned above)
     if "tags" in meta and not isinstance(meta["tags"], list):
         errors.append(f"tags must be a list, got {type(meta['tags']).__name__}")
 

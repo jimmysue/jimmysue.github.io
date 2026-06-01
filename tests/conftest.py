@@ -14,7 +14,7 @@ date: 2026-05-22
 tldr: |
   A multi-line
   summary.
-tags: [diffusion, flow-matching]
+concepts: [diffusion, flow-matching]
 paper:
   arxiv_id: "2605.12013"
   authors: "Author A, Author B"
