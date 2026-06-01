@@ -1,7 +1,7 @@
 """Tests for build_lib/graph.py."""
 from __future__ import annotations
 
-from build_lib.graph import parse_repo_url, extract_graph
+from build_lib.graph import parse_repo_url, extract_graph, render_concept_page, render_graph_page
 
 
 # --- parse_repo_url ---
@@ -137,3 +137,48 @@ def test_extract_graph_version_and_generated_at():
     g = extract_graph([], {})
     assert g["version"] == 1
     assert "generated_at" in g
+
+
+# --- render_concept_page ---
+
+def test_render_concept_page_includes_name_and_user_body():
+    posts_mentioning = [
+        {"type": "paper", "slug": "x", "title": "X", "date": "2026-01-01",
+         "tldr": "summary", "tags": ["flow-matching"], "_url": "papers/x/index.html"},
+    ]
+    html = render_concept_page(
+        slug="flow-matching",
+        concept_meta={"name": "Flow Matching", "aliases": ["FM"], "parent": None,
+                      "body_md": "Some intro paragraph."},
+        posts_mentioning=posts_mentioning,
+        nav_html='<nav class="site-nav"></nav>',
+    )
+    assert "Flow Matching" in html
+    assert "Some intro paragraph" in html
+    assert "../papers/x/index.html" in html
+
+
+def test_render_concept_page_with_no_user_body():
+    posts_mentioning = [
+        {"type": "paper", "slug": "x", "title": "X", "date": "2026-01-01",
+         "tldr": "", "tags": ["lora"], "_url": "papers/x/index.html"},
+    ]
+    html = render_concept_page(
+        slug="lora",
+        concept_meta={"name": "lora", "aliases": [], "parent": None, "body_md": ""},
+        posts_mentioning=posts_mentioning,
+        nav_html="",
+    )
+    assert "lora" in html.lower()
+    assert "../papers/x/index.html" in html
+
+
+def test_render_graph_page_embeds_graph_json():
+    graph = {"version": 1, "generated_at": "x", "nodes": [
+        {"id": "papers/x", "type": "paper", "slug": "x", "title": "X",
+         "date": "2026-01-01", "tldr": "", "url": "papers/x/index.html"}
+    ], "edges": []}
+    html = render_graph_page(graph, nav_html="")
+    assert "cytoscape" in html.lower()
+    assert "papers/x" in html
+    assert "window.__GRAPH__" in html or '"nodes"' in html
