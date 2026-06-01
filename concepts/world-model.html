@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>概念: world-model — paper-reading</title>
+  <title>world-model — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -23,11 +23,15 @@
   </div>
 </nav>
 <!-- NAV-END -->
-<main class="page page--tag">
-<h1>概念: world-model</h1>
-<p class="page__intro">共 2 篇 (2 论文 / 0 教程)</p>
-<p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
-<div class="post-grid">
+
+<main class="page page--concept">
+  <h1>world-model</h1>
+  
+  <div class="concept__body">
+
+  </div>
+  <h2>提到此概念的论文 / 教程</h2>
+  <div class="post-grid">
 <a class="post-card post-card--paper" href="../papers/starchild-1-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -35,12 +39,6 @@
   </div>
   <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
   <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/video.html">video</a>
-      <a class="tag-chip" href="../concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="../concepts/world-model.html">world-model</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
 </a>
 <a class="post-card post-card--paper" href="../papers/worldforge-2026/index.html">
   <div class="post-card__head">
@@ -49,14 +47,10 @@
   </div>
   <h3 class="post-card__title">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</h3>
   <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/video.html">video</a>
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/wan2.html">wan2</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
-  </div>
 </a>
 </div>
+
+  <p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
 </main>
 </body>
 </html>

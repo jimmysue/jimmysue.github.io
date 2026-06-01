@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>概念: image-gen — paper-reading</title>
+  <title>image-gen — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -23,25 +23,15 @@
   </div>
 </nav>
 <!-- NAV-END -->
-<main class="page page--tag">
-<h1>概念: image-gen</h1>
-<p class="page__intro">共 10 篇 (10 论文 / 0 教程)</p>
-<p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
-<div class="post-grid">
-<a class="post-card post-card--paper" href="../papers/latent-to-pixel-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-25</span>
+
+<main class="page page--concept">
+  <h1>image-gen</h1>
+  
+  <div class="concept__body">
+
   </div>
-  <h3 class="post-card__title">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</h3>
-  <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/pixel-space.html">pixel-space</a>
-      <a class="tag-chip" href="../concepts/transfer-learning.html">transfer-learning</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
+  <h2>提到此概念的论文 / 教程</h2>
+  <div class="post-grid">
 <a class="post-card post-card--paper" href="../papers/asymflow-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -49,95 +39,6 @@
   </div>
   <h3 class="post-card__title">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</h3>
   <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="../concepts/pixel-space.html">pixel-space</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/l2p-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-22</span>
-  </div>
-  <h3 class="post-card__title">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</h3>
-  <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="../concepts/pixel-space.html">pixel-space</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/self-flow-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-13</span>
-  </div>
-  <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
-  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/multimodal.html">multimodal</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/tuna-2/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
-  </div>
-  <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
-  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="../concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="../concepts/llm.html">llm</a>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/qwen-image-2-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
-  </div>
-  <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
-  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/qwen.html">qwen</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/leap-align-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
-  </div>
-  <h3 class="post-card__title">LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories</h3>
-  <p class="post-card__tldr">ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="../concepts/rl.html">rl</a>
-      <a class="tag-chip" href="../concepts/alignment.html">alignment</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="../papers/flow-opd-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
-  </div>
-  <h3 class="post-card__title">Flow-OPD: On-Policy Distillation for Flow Matching Models</h3>
-  <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/distillation.html">distillation</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
 </a>
 <a class="post-card post-card--paper" href="../papers/d-opsd-2026/index.html">
   <div class="post-card__head">
@@ -146,12 +47,54 @@
   </div>
   <h3 class="post-card__title">D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models</h3>
   <p class="post-card__tldr">HKUST/阿里 Z-Image Team:让 Z-Image-Turbo (8 步) 和 FLUX.2-klein (4 步) 能&quot;边用边学&quot;新概念 — 同一模型分饰 student (text) 和 teacher (text+target_img),在 student 自采轨迹上 self-distill,无需 reward。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="../concepts/distillation.html">distillation</a>
-      <a class="tag-chip" href="../concepts/flow-matching.html">flow-matching</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
+</a>
+<a class="post-card post-card--paper" href="../papers/flow-opd-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
   </div>
+  <h3 class="post-card__title">Flow-OPD: On-Policy Distillation for Flow Matching Models</h3>
+  <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/l2p-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-22</span>
+  </div>
+  <h3 class="post-card__title">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</h3>
+  <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/latent-to-pixel-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-25</span>
+  </div>
+  <h3 class="post-card__title">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</h3>
+  <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/leap-align-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories</h3>
+  <p class="post-card__tldr">ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/qwen-image-2-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
+  </div>
+  <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
+  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/self-flow-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-13</span>
+  </div>
+  <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
+  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
 </a>
 <a class="post-card post-card--paper" href="../papers/sensenova-u1/index.html">
   <div class="post-card__head">
@@ -160,14 +103,18 @@
   </div>
   <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
   <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="../concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="../concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="../concepts/image-gen.html">image-gen</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
+</a>
+<a class="post-card post-card--paper" href="../papers/tuna-2/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date">2026-05-12</span>
   </div>
+  <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
+  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
 </a>
 </div>
+
+  <p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
 </main>
 </body>
 </html>

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import re
 import shutil
@@ -23,6 +24,12 @@ from pathlib import Path
 
 from build_lib.frontmatter import parse as parse_frontmatter
 from build_lib.frontmatter import validate as validate_frontmatter
+from build_lib.graph import (
+    discover_concepts as graph_discover_concepts,
+    extract_graph as graph_extract,
+    render_concept_page as graph_render_concept_page,
+    render_graph_page as graph_render_graph_page,
+)
 from build_lib.markdown import render_post_body
 from build_lib.post_assembly import assemble_post_page
 
@@ -316,23 +323,6 @@ def build_tags_cloud(posts: list[dict], nav_tmpl: str) -> str:
     return body
 
 
-def build_tag_page(tag: str, tagged: list[dict], nav_tmpl: str) -> str:
-    tagged = _stable_desc(tagged)
-    n_paper = sum(1 for p in tagged if p["type"] == "paper")
-    n_tut = sum(1 for p in tagged if p["type"] == "tutorial")
-    body = render_head(f"概念: {tag} — paper-reading", "../assets/style.css")
-    body += render_nav(nav_tmpl, active="concepts", depth=1)
-    body += '<main class="page page--tag">\n'
-    body += f"<h1>概念: {esc(tag)}</h1>\n"
-    body += (
-        f'<p class="page__intro">共 {len(tagged)} 篇 '
-        f'({n_paper} 论文 / {n_tut} 教程)</p>\n'
-    )
-    body += '<p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>\n'
-    body += render_grid(tagged, depth=1)
-    body += "</main>\n"
-    body += PAGE_TAIL
-    return body
 
 
 # ---------------------------------------------------------------------------
@@ -399,10 +389,6 @@ def build_site(posts: list[dict], out_root: Path, nav_tmpl: str) -> dict:
     n_pages += 1
 
     by_tag = _tag_index(posts)
-    for tag in sorted(by_tag.keys()):
-        page = build_tag_page(tag, by_tag[tag], nav_tmpl)
-        (out_root / "concepts" / f"{tag}.html").write_text(page, encoding="utf-8")
-        n_pages += 1
 
     n_paper = sum(1 for p in posts if p["type"] == "paper")
     n_tut = sum(1 for p in posts if p["type"] == "tutorial")
@@ -461,9 +447,9 @@ def run_smoke_test() -> int:
     summary = build_site(SMOKE_POSTS, out, nav_tmpl)
 
     # verify every expected file exists
+    # Note: per-concept pages (concepts/<slug>.html) are written in Pass 5 of main(),
+    # not in build_site(), so they are not present in smoke-test output.
     expected = ["index.html", "papers.html", "tutorials.html", "concepts.html"]
-    tags = sorted({t for p in SMOKE_POSTS for t in p["tags"]})
-    expected += [f"concepts/{t}.html" for t in tags]
     missing = [name for name in expected if not (out / name).is_file()]
     if missing:
         print(f"FAIL: missing files: {missing}", file=sys.stderr)
@@ -487,14 +473,6 @@ def run_smoke_test() -> int:
         return 1
     if "font-size:" not in cloud:
         print("FAIL: tag cloud font-size missing", file=sys.stderr)
-        return 1
-
-    tag_page = (out / "concepts" / "diffusion.html").read_text(encoding="utf-8")
-    if "../papers/" not in tag_page or "../concepts.html" not in tag_page:
-        print("FAIL: tag page paths not relative", file=sys.stderr)
-        return 1
-    if "../assets/style.css" not in tag_page:
-        print("FAIL: tag page css path wrong", file=sys.stderr)
         return 1
 
     # idempotency: rebuild and diff
@@ -602,6 +580,35 @@ def main(argv: list[str] | None = None) -> int:
     )
     n_posts = build_posts(posts, nav_tmpl)
     print(f"Rendered {n_posts} per-post HTML pages from markdown.")
+
+    # Pass 4: knowledge graph extraction
+    concepts_info = graph_discover_concepts(root)
+    graph = graph_extract(posts, concepts_info)
+    (root / "graph.json").write_text(
+        json.dumps(graph, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote graph.json: {len(graph['nodes'])} nodes, {len(graph['edges'])} edges.")
+
+    # Pass 5: render concepts/<slug>.html (aggregation pages)
+    (root / "concepts").mkdir(parents=True, exist_ok=True)
+    concept_slugs = sorted({n["slug"] for n in graph["nodes"] if n["type"] == "concept"})
+    nav_concept = render_nav(nav_tmpl, active="concepts", depth=1)
+    for slug in concept_slugs:
+        meta = concepts_info.get(slug) or {
+            "name": slug, "aliases": [], "parent": None, "body_md": "",
+        }
+        mentioning = [p for p in posts if slug in (p.get("concepts") or [])]
+        page = graph_render_concept_page(slug, meta, mentioning, nav_concept)
+        (root / "concepts" / f"{slug}.html").write_text(page, encoding="utf-8")
+    print(f"Wrote {len(concept_slugs)} concept page(s).")
+
+    # Pass 6: render /graph.html
+    nav_graph = render_nav(nav_tmpl, active="", depth=0)
+    graph_html = graph_render_graph_page(graph, nav_graph)
+    (root / "graph.html").write_text(graph_html, encoding="utf-8")
+    print("Wrote graph.html.")
+
     return 0
 
 
