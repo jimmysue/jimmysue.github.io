@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>flow-matching — paper-reading</title>
+  <title>Flow Matching — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -25,9 +25,26 @@
 <!-- NAV-END -->
 
 <main class="page page--concept">
-  <h1>flow-matching</h1>
-  
+  <h1>Flow Matching</h1>
+  <p class="concept__aliases">aliases: <code>flow matching</code>, <code>FM</code>, <code>rectified flow</code></p>
   <div class="concept__body">
+<h1>Flow Matching</h1>
+<p>Flow matching 是把&quot;从噪声生成数据&quot;建模成一个<strong>连续时间 ODE</strong> 的方法。</p>
+<h2>直觉</h2>
+<ul>
+<li>DDPM 学的是 score $\nabla_x \log p_t(x)$ 的近似,反向 SDE 走轨迹。</li>
+<li>Flow matching 学的是<strong>速度场</strong> $v(x, t)$,反向 ODE 走轨迹。直观上&quot;更短更直&quot;。</li>
+<li>训练目标:让模型预测的速度匹配 $\epsilon - x_0$ 这条线性插值的方向。</li>
+</ul>
+<h2>跟 DDPM 的关键差别</h2>
+<p>| 维度 | DDPM | Flow Matching |
+|---|---|---|
+| 模型预测什么 | noise / x0 / v | velocity $u(x, t)$ |
+| 采样器 | SDE / DDIM | ODE (Euler / Heun) |
+| 训练 loss | MSE 在 noise 空间 | MSE 在 velocity 空间 |
+| 与 OT 关系 | 间接 | 直接 (rectified flow / OT-CFM) |</p>
+<h2>工业级实现</h2>
+<p>进一步看 <a href="https://stability.ai/news/stable-diffusion-3-research-paper">SD3</a> 和 <a href="https://github.com/black-forest-labs/flux">Flux</a>,这两个都是 flow matching 的工业级实现。</p>
 
   </div>
   <h2>提到此概念的论文 / 教程</h2>

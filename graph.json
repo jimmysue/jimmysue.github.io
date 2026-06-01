@@ -236,8 +236,8 @@
       "id": "concepts/flow-matching",
       "type": "concept",
       "slug": "flow-matching",
-      "name": "flow-matching",
-      "has_file": false,
+      "name": "Flow Matching",
+      "has_file": true,
       "url": "concepts/flow-matching.html"
     },
     {
