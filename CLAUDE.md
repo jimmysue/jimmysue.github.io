@@ -41,6 +41,13 @@ papers/<slug>/
 
 Note: `meta.json` no longer exists — its content lives in the YAML frontmatter at the top of `index.md`.
 
+The frontmatter at the top of `index.md` carries the structured metadata:
+`type`, `slug`, `title`, `date`, `tldr`, **`concepts:`** (list of concept slugs
+this paper mentions — was `tags:` before Phase 2), optional **`citations:`**
+(list of paper/tutorial slugs this paper directly extends or builds on),
+optional **`repos:`** (list of GitHub URLs for reference implementations),
+and `paper:` (sub-keys: `arxiv_id`, `authors`, `venue`, `year`).
+
 **The slug is always `shorttitle-year`** — title-based, not author-based (e.g., `rls-razor-2025`, `flow-opd-2026`, `d-opsd-2026`). Bare arxiv IDs (e.g. `2509.04259`) are **not** acceptable as folder names — they're opaque and make the file tree unbrowsable. See `.claude/skills/reading-papers/SKILL.md` §1b for the exact construction rules. The shared `assets/style.css` and the top-level `index.html` (the homepage card grid) belong to the workspace, not any one paper.
 
 ## Per-tutorial layout
@@ -63,6 +70,12 @@ tutorials/<slug>/
 ```
 
 Note: `meta.json` no longer exists — its content lives in the YAML frontmatter at the top of `index.md`.
+
+Tutorial frontmatter fields are the same as papers (`type`, `slug`, `title`, `date`,
+`tldr`, `concepts:`, `citations:`, `repos:`) except `paper:` is omitted and `type`
+is `"tutorial"`. Tutorial `citations:` entries become **`covers`** edges in the
+knowledge graph (not `cites`), reflecting that a tutorial surveys multiple papers
+rather than extending a specific one.
 
 **Slug rule**: same as papers — `<shorttitle>-<year>` where the year is the seminal paper's year, NOT today's year. Examples: `lora-2021`, `diffusion-2020`, `flow-matching-2023`. The slug is the canonical method name when one exists.
 
@@ -102,6 +115,52 @@ Authors write `## ` and `### ` in markdown; `build.py` assigns `id="sec-N"` to h
 and `id="sec-N-M"` to h3 (h2-scoped numbering). Do not write IDs yourself.
 
 TOC is hidden via media query at viewport ≤ 1200px (handled in `assets/style.css`); don't try to force it visible on mobile.
+
+## Knowledge graph
+
+Every `python3 build.py` regenerates three knowledge-graph artifacts:
+
+- **`graph.json`** — structured nodes + edges for AI/RAG ingestion.
+  Schema: 4 node types (`paper`, `tutorial`, `concept`, `repo`) +
+  4 edge kinds (`mentions`, `cites`, `covers`, `implements`).
+  See `docs/superpowers/specs/2026-05-29-md-blog-phase2-design.md` §5.
+- **`graph.html`** — interactive force-directed visualization
+  (cytoscape.js + cose-bilkent layout). Filter by node type,
+  search by slug/title, click to jump to the corresponding page.
+- **`concepts/<slug>.html`** — per-concept aggregation page listing all
+  papers/tutorials that mention that concept. Optionally enriched by
+  a hand-written `concepts/<slug>.md`.
+
+### Adding user notes for a concept
+
+Create `concepts/<slug>.md`:
+
+```yaml
+---
+slug: flow-matching
+name: "Flow Matching"
+aliases: ["flow matching", "FM"]
+---
+
+# Flow Matching
+
+(your notes here, full markdown supported)
+```
+
+Rebuild (`python3 build.py`) and the notes will render above the auto-aggregated
+paper list on `concepts/<slug>.html`.
+
+### Edges from body wiki-links
+
+In addition to explicit `citations:` in frontmatter, `[[other-slug]]` wiki-links
+in the `index.md` body are auto-extracted as `cites`/`covers` edges. You do not
+need to repeat them in `citations:` frontmatter.
+
+### Stale concept pages
+
+`build.py` does **not** garbage-collect stale `concepts/<slug>.html` files when a
+concept is removed from all frontmatters. Manually `rm` the file if it is no
+longer relevant; it will not be regenerated.
 
 ## Figure extraction (the part that takes the most tooling)
 
