@@ -39,7 +39,7 @@ DEFAULT_NAV_HEADER = """\
       <a class="site-nav__link{ACTIVE_HOME}" href="{HOME_URL}">首页</a>
       <a class="site-nav__link{ACTIVE_PAPERS}" href="{PAPERS_URL}">论文</a>
       <a class="site-nav__link{ACTIVE_TUTORIALS}" href="{TUTORIALS_URL}">教程</a>
-      <a class="site-nav__link{ACTIVE_TAGS}" href="{TAGS_URL}">标签</a>
+      <a class="site-nav__link{ACTIVE_CONCEPTS}" href="{CONCEPTS_URL}">概念</a>
     </nav>
   </div>
 </header>
@@ -103,8 +103,9 @@ def discover_posts(root: Path) -> tuple[list[dict], int]:
                     print(f"  - {err}", file=sys.stderr)
                 skip_count += 1
                 continue
-            # canonicalise tags (lowercase, hyphenated)
-            meta["tags"] = [slugify_tag(t) for t in meta.get("tags", [])]
+            # Phase 2: `concepts` is the canonical field; legacy `tags` accepted as fallback during transition.
+            raw = meta.get("concepts") or meta.get("tags") or []
+            meta["tags"] = [slugify_tag(t) for t in raw]  # keep internal key "tags" for now to minimize churn
             # `date` may have been parsed as datetime.date — normalise to ISO string
             if not isinstance(meta.get("date"), str):
                 meta["date"] = str(meta["date"])
@@ -149,7 +150,7 @@ def render_nav(nav_tmpl: str, active: str, depth: int) -> str:
         "home": "",
         "papers": "",
         "tutorials": "",
-        "tags": "",
+        "concepts": "",
     }
     if active in actives:
         actives[active] = " active"
@@ -157,11 +158,11 @@ def render_nav(nav_tmpl: str, active: str, depth: int) -> str:
         HOME_URL=f"{prefix}index.html",
         PAPERS_URL=f"{prefix}papers.html",
         TUTORIALS_URL=f"{prefix}tutorials.html",
-        TAGS_URL=f"{prefix}tags.html",
+        CONCEPTS_URL=f"{prefix}concepts.html",
         ACTIVE_HOME=actives["home"],
         ACTIVE_PAPERS=actives["papers"],
         ACTIVE_TUTORIALS=actives["tutorials"],
-        ACTIVE_TAGS=actives["tags"],
+        ACTIVE_CONCEPTS=actives["concepts"],
     )
 
 
@@ -198,7 +199,7 @@ def render_card(post: dict, depth: int) -> str:
     tags = post.get("tags", [])
     shown = tags[:MAX_CARD_TAGS]
     tag_html_parts = [
-        f'<a class="tag-chip" href="{prefix}tags/{esc(t)}.html">{esc(t)}</a>'
+        f'<a class="tag-chip" href="{prefix}concepts/{esc(t)}.html">{esc(t)}</a>'
         for t in shown
     ]
     if len(tags) > MAX_CARD_TAGS:
@@ -285,11 +286,11 @@ def _tag_index(posts: list[dict]) -> dict[str, list[dict]]:
 def build_tags_cloud(posts: list[dict], nav_tmpl: str) -> str:
     by_tag = _tag_index(posts)
     counts = {t: len(ps) for t, ps in by_tag.items()}
-    body = render_head("标签 — paper-reading", "assets/style.css")
-    body += render_nav(nav_tmpl, active="tags", depth=0)
+    body = render_head("概念 — paper-reading", "assets/style.css")
+    body += render_nav(nav_tmpl, active="concepts", depth=0)
     body += '<main class="page page--tags">\n'
-    body += "<h1>标签</h1>\n"
-    body += f'<p class="page__intro">共 {len(counts)} 个标签。</p>\n'
+    body += "<h1>概念</h1>\n"
+    body += f'<p class="page__intro">共 {len(counts)} 个概念。</p>\n'
 
     if counts:
         min_c = min(counts.values())
@@ -301,7 +302,7 @@ def build_tags_cloud(posts: list[dict], nav_tmpl: str) -> str:
             size = 0.9 + 1.3 * (c - min_c) / spread
             size_str = f"{size:.2f}"
             body += (
-                f'  <a class="tag-cloud__item" href="tags/{esc(tag)}.html" '
+                f'  <a class="tag-cloud__item" href="concepts/{esc(tag)}.html" '
                 f'style="font-size: {size_str}rem;">\n'
                 f'    {esc(tag)} <span class="tag-cloud__count">{c}</span>\n'
                 f'  </a>\n'
@@ -319,15 +320,15 @@ def build_tag_page(tag: str, tagged: list[dict], nav_tmpl: str) -> str:
     tagged = _stable_desc(tagged)
     n_paper = sum(1 for p in tagged if p["type"] == "paper")
     n_tut = sum(1 for p in tagged if p["type"] == "tutorial")
-    body = render_head(f"标签: {tag} — paper-reading", "../assets/style.css")
-    body += render_nav(nav_tmpl, active="tags", depth=1)
+    body = render_head(f"概念: {tag} — paper-reading", "../assets/style.css")
+    body += render_nav(nav_tmpl, active="concepts", depth=1)
     body += '<main class="page page--tag">\n'
-    body += f"<h1>标签: {esc(tag)}</h1>\n"
+    body += f"<h1>概念: {esc(tag)}</h1>\n"
     body += (
         f'<p class="page__intro">共 {len(tagged)} 篇 '
         f'({n_paper} 论文 / {n_tut} 教程)</p>\n'
     )
-    body += '<p class="back-link"><a href="../tags.html">← 返回所有标签</a></p>\n'
+    body += '<p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>\n'
     body += render_grid(tagged, depth=1)
     body += "</main>\n"
     body += PAGE_TAIL
@@ -384,7 +385,7 @@ def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = No
 def build_site(posts: list[dict], out_root: Path, nav_tmpl: str) -> dict:
     """Write all generated pages. Returns a small summary dict."""
     out_root.mkdir(parents=True, exist_ok=True)
-    (out_root / "tags").mkdir(parents=True, exist_ok=True)
+    (out_root / "concepts").mkdir(parents=True, exist_ok=True)
 
     n_pages = 0
 
@@ -394,13 +395,13 @@ def build_site(posts: list[dict], out_root: Path, nav_tmpl: str) -> dict:
     n_pages += 1
     (out_root / "tutorials.html").write_text(build_tutorials(posts, nav_tmpl), encoding="utf-8")
     n_pages += 1
-    (out_root / "tags.html").write_text(build_tags_cloud(posts, nav_tmpl), encoding="utf-8")
+    (out_root / "concepts.html").write_text(build_tags_cloud(posts, nav_tmpl), encoding="utf-8")
     n_pages += 1
 
     by_tag = _tag_index(posts)
     for tag in sorted(by_tag.keys()):
         page = build_tag_page(tag, by_tag[tag], nav_tmpl)
-        (out_root / "tags" / f"{tag}.html").write_text(page, encoding="utf-8")
+        (out_root / "concepts" / f"{tag}.html").write_text(page, encoding="utf-8")
         n_pages += 1
 
     n_paper = sum(1 for p in posts if p["type"] == "paper")
@@ -460,9 +461,9 @@ def run_smoke_test() -> int:
     summary = build_site(SMOKE_POSTS, out, nav_tmpl)
 
     # verify every expected file exists
-    expected = ["index.html", "papers.html", "tutorials.html", "tags.html"]
+    expected = ["index.html", "papers.html", "tutorials.html", "concepts.html"]
     tags = sorted({t for p in SMOKE_POSTS for t in p["tags"]})
-    expected += [f"tags/{t}.html" for t in tags]
+    expected += [f"concepts/{t}.html" for t in tags]
     missing = [name for name in expected if not (out / name).is_file()]
     if missing:
         print(f"FAIL: missing files: {missing}", file=sys.stderr)
@@ -480,7 +481,7 @@ def run_smoke_test() -> int:
         print("FAIL: tutorial meta not rendered with en-dash", file=sys.stderr)
         return 1
 
-    cloud = (out / "tags.html").read_text(encoding="utf-8")
+    cloud = (out / "concepts.html").read_text(encoding="utf-8")
     if 'class="tag-cloud"' not in cloud or "tag-cloud__count" not in cloud:
         print("FAIL: tag cloud markup off", file=sys.stderr)
         return 1
@@ -488,8 +489,8 @@ def run_smoke_test() -> int:
         print("FAIL: tag cloud font-size missing", file=sys.stderr)
         return 1
 
-    tag_page = (out / "tags" / "diffusion.html").read_text(encoding="utf-8")
-    if "../papers/" not in tag_page or "../tags.html" not in tag_page:
+    tag_page = (out / "concepts" / "diffusion.html").read_text(encoding="utf-8")
+    if "../papers/" not in tag_page or "../concepts.html" not in tag_page:
         print("FAIL: tag page paths not relative", file=sys.stderr)
         return 1
     if "../assets/style.css" not in tag_page:
