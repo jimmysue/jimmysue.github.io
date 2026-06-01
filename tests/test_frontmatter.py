@@ -27,7 +27,7 @@ def test_parse_no_frontmatter_returns_empty_meta():
 def test_parse_empty_frontmatter():
     text = "---\n---\n\n# Body"
     meta, body = parse(text)
-    assert meta == {} or meta is None or meta == {}
+    assert meta == {}
     assert "# Body" in body
 
 
@@ -63,6 +63,24 @@ def test_validate_catches_bad_date_format():
             "tldr": "y", "tags": []}
     errors = validate(meta, expected_slug="x", expected_dir="papers")
     assert any("date" in e for e in errors)
+
+
+def test_parse_raises_on_malformed_yaml():
+    with pytest.raises(ValidationError, match="YAML parse error"):
+        parse("---\nkey: : invalid\n---\nbody\n")
+
+
+def test_parse_raises_on_non_mapping_root():
+    with pytest.raises(ValidationError, match="must be a mapping"):
+        parse("---\n- item1\n- item2\n---\nbody\n")
+
+
+def test_parse_normalizes_yaml_date_to_string():
+    """PyYAML parses '2026-05-22' as datetime.date; parse() must coerce to str."""
+    text = "---\ndate: 2026-05-22\n---\nbody\n"
+    meta, _ = parse(text)
+    assert meta["date"] == "2026-05-22"
+    assert isinstance(meta["date"], str)
 
 
 def test_validate_catches_tutorial_under_papers():

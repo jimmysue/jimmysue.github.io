@@ -54,7 +54,7 @@ def validate(meta: dict[str, Any], expected_slug: str, expected_dir: str) -> lis
     if "type" in meta and meta["type"] not in VALID_TYPES:
         errors.append(f"invalid type: {meta['type']!r} (must be paper|tutorial)")
 
-    if "type" in meta and expected_dir:
+    if "type" in meta and meta["type"] in VALID_TYPES and expected_dir:
         expected_type = "paper" if expected_dir == "papers" else "tutorial"
         if meta["type"] != expected_type:
             errors.append(
