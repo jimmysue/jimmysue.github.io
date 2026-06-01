@@ -29,7 +29,6 @@ from build_lib.post_assembly import assemble_post_page
 # ---------------------------------------------------------------------------
 # constants
 
-VALID_TYPES = {"paper", "tutorial"}
 MAX_CARD_TAGS = 3
 
 DEFAULT_NAV_HEADER = """\
@@ -93,8 +92,8 @@ def discover_posts(root: Path) -> list[dict]:
             errs = validate_frontmatter(meta, expected_slug=sub.name, expected_dir=dirname)
             if errs:
                 print(f"WARN: skipping {md_path}:", file=sys.stderr)
-                for e in errs:
-                    print(f"  - {e}", file=sys.stderr)
+                for err in errs:
+                    print(f"  - {err}", file=sys.stderr)
                 continue
             # canonicalise tags (lowercase, hyphenated)
             meta["tags"] = [slugify_tag(t) for t in meta.get("tags", [])]
@@ -135,8 +134,9 @@ def render_nav(nav_tmpl: str, active: str, depth: int) -> str:
 
     depth=0 → root-level page (index.html, papers.html, tags.html, …)
     depth=1 → tags/<slug>.html (links go up one level)
+    depth=2 → papers/<slug>/index.html or tutorials/<slug>/index.html
     """
-    prefix = "" if depth == 0 else "../"
+    prefix = "../" * depth
     actives = {
         "home": "",
         "papers": "",
@@ -221,12 +221,6 @@ def render_grid(posts: list[dict], depth: int) -> str:
 
 # ---------------------------------------------------------------------------
 # page assemblers
-
-def sort_posts(posts: list[dict]) -> list[dict]:
-    # Sort by date desc, ties broken by slug asc for determinism.
-    return sorted(posts, key=lambda p: (p["date"], p["slug"]), reverse=False)[::-1] \
-        if False else sorted(posts, key=lambda p: (p["date"], p["slug"]))[::-1]
-
 
 def _stable_desc(posts: list[dict]) -> list[dict]:
     # date desc, slug asc as tiebreaker → idempotent.
@@ -336,10 +330,10 @@ def build_tag_page(tag: str, tagged: list[dict], nav_tmpl: str) -> str:
 # per-post HTML rendering
 
 
-def build_posts(posts: list[dict], root: Path, nav_tmpl: str) -> int:
-    """Render each post's index.md to index.html. Returns count rendered."""
+def build_posts(posts: list[dict], nav_tmpl: str) -> int:
+    """Render each post's index.md to index.html. Returns len(posts) on success;
+    raises on any I/O error (no partial-progress reporting)."""
     slug_set = {p["slug"] for p in posts}
-    n = 0
     total_warnings: list[str] = []
     for p in posts:
         md_path: Path = p["_md_path"]
@@ -351,24 +345,22 @@ def build_posts(posts: list[dict], root: Path, nav_tmpl: str) -> int:
             body_md, slug_set, current_post_dir=current_dir,
         )
         total_warnings.extend(warnings)
-        # Per-post nav: papers/<slug>/index.html is 2 levels below root.
-        # render_nav was originally written for tags/<tag>.html (depth=1) which produces "../".
-        # We need "../../" for per-post pages. Bump up by post-processing.
         nav_html = render_nav(nav_tmpl, active="papers" if p["type"] == "paper" else "tutorials",
-                              depth=1)
-        nav_html = nav_html.replace('href="../', 'href="../../')
+                              depth=2)
         html_out = assemble_post_page(
             meta=p, body_html=body_html, toc_html=toc_html,
             nav_html=nav_html, asset_prefix="../../",
         )
         out_path = md_path.parent / "index.html"
         out_path.write_text(html_out, encoding="utf-8")
-        n += 1
-    if total_warnings:
-        print(f"WARN: {len(total_warnings)} build warnings:", file=sys.stderr)
-        for w in total_warnings:
+
+    # Dedup warnings (multiple [[broken-slug]] in same file produce duplicates)
+    unique_warnings = list(dict.fromkeys(total_warnings))
+    if unique_warnings:
+        print(f"WARN: {len(unique_warnings)} unique build warning(s):", file=sys.stderr)
+        for w in unique_warnings:
             print(f"  - {w}", file=sys.stderr)
-    return n
+    return len(posts)
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +534,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{summary['papers']} papers + {summary['tutorials']} tutorials, "
         f"with {summary['tags']} unique tags"
     )
-    n_posts = build_posts(posts, root, nav_tmpl)
+    n_posts = build_posts(posts, nav_tmpl)
     print(f"Rendered {n_posts} per-post HTML pages from markdown.")
     return 0
 
