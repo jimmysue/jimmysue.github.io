@@ -1,32 +1,34 @@
 #!/usr/bin/env python3
 """Static site generator for the paper-reading blog.
 
-Reads `meta.json` from every `papers/<slug>/` and `tutorials/<slug>/` and
-emits 5 page types: index.html, papers.html, tutorials.html, tags.html,
-tags/<slug>.html.
+Reads frontmatter from every `papers/<slug>/index.md` and
+`tutorials/<slug>/index.md` and emits 5 page types: index.html, papers.html,
+tutorials.html, tags.html, tags/<slug>.html.  Also renders each post's
+index.md to index.html via build_lib.
 
 Usage:
     python3 build.py                 # build the real site (CWD = repo root)
     python3 build.py --smoke-test    # render 3 fake posts to /tmp/build-smoke/
-
-Zero third-party dependencies. Stdlib only.
 """
 
 from __future__ import annotations
 
 import argparse
 import html
-import json
 import os
 import re
 import shutil
 import sys
 from pathlib import Path
 
+from build_lib.frontmatter import parse as parse_frontmatter
+from build_lib.frontmatter import validate as validate_frontmatter
+from build_lib.markdown import render_post_body
+from build_lib.post_assembly import assemble_post_page
+
 # ---------------------------------------------------------------------------
 # constants
 
-REQUIRED_META_KEYS = {"type", "slug", "title", "date", "tldr", "tags"}
 VALID_TYPES = {"paper", "tutorial"}
 MAX_CARD_TAGS = 3
 
@@ -69,7 +71,7 @@ def slugify_tag(raw: str) -> str:
 
 
 def discover_posts(root: Path) -> list[dict]:
-    """Walk papers/<slug>/meta.json and tutorials/<slug>/meta.json."""
+    """Walk papers/<slug>/index.md and tutorials/<slug>/index.md."""
     posts: list[dict] = []
     for kind, dirname in (("paper", "papers"), ("tutorial", "tutorials")):
         base = root / dirname
@@ -78,41 +80,33 @@ def discover_posts(root: Path) -> list[dict]:
         for sub in sorted(base.iterdir()):
             if not sub.is_dir():
                 continue
-            meta_path = sub / "meta.json"
-            if not meta_path.is_file():
-                print(f"WARN: skipping {sub} (no meta.json)", file=sys.stderr)
+            md_path = sub / "index.md"
+            if not md_path.is_file():
+                print(f"WARN: skipping {sub} (no index.md)", file=sys.stderr)
                 continue
             try:
-                with meta_path.open("r", encoding="utf-8") as f:
-                    meta = json.load(f)
-            except (OSError, json.JSONDecodeError) as e:
-                print(f"WARN: skipping {meta_path} (invalid JSON: {e})", file=sys.stderr)
+                text = md_path.read_text(encoding="utf-8")
+                meta, body = parse_frontmatter(text)
+            except Exception as e:
+                print(f"WARN: skipping {md_path} (frontmatter parse error: {e})", file=sys.stderr)
                 continue
-            missing = REQUIRED_META_KEYS - set(meta.keys())
-            if missing:
-                print(
-                    f"WARN: skipping {meta_path} (missing keys: {sorted(missing)})",
-                    file=sys.stderr,
-                )
+            errs = validate_frontmatter(meta, expected_slug=sub.name, expected_dir=dirname)
+            if errs:
+                print(f"WARN: skipping {md_path}:", file=sys.stderr)
+                for e in errs:
+                    print(f"  - {e}", file=sys.stderr)
                 continue
-            if meta["type"] not in VALID_TYPES:
-                print(f"WARN: skipping {meta_path} (bad type: {meta['type']!r})", file=sys.stderr)
-                continue
-            if meta["type"] != kind:
-                # tolerated, but warn — meta says one thing, directory another
-                print(
-                    f"WARN: {meta_path} type={meta['type']!r} but lives under {dirname}/; using meta",
-                    file=sys.stderr,
-                )
-            index_html = sub / "index.html"
-            if not index_html.is_file():
-                print(f"WARN: skipping {meta_path} (no sibling index.html)", file=sys.stderr)
-                continue
-            # canonicalise tags
+            # canonicalise tags (lowercase, hyphenated)
             meta["tags"] = [slugify_tag(t) for t in meta.get("tags", [])]
-            # canonicalise url
+            # `date` may have been parsed as datetime.date — normalise to ISO string
+            if not isinstance(meta.get("date"), str):
+                meta["date"] = str(meta["date"])
+            # URL
             meta["_url"] = f"{dirname}/{sub.name}/index.html"
-            meta.setdefault("tutorial_meta", None)
+            meta["_md_path"] = md_path
+            meta["_body_md"] = body
+            # tutorial_meta — map from frontmatter `tutorial:` block (if any)
+            meta["tutorial_meta"] = meta.get("tutorial") or None
             posts.append(meta)
     return posts
 
@@ -339,6 +333,45 @@ def build_tag_page(tag: str, tagged: list[dict], nav_tmpl: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# per-post HTML rendering
+
+
+def build_posts(posts: list[dict], root: Path, nav_tmpl: str) -> int:
+    """Render each post's index.md to index.html. Returns count rendered."""
+    slug_set = {p["slug"] for p in posts}
+    n = 0
+    total_warnings: list[str] = []
+    for p in posts:
+        md_path: Path = p["_md_path"]
+        body_md: str = p["_body_md"]
+        slug: str = p["slug"]
+        # papers/<slug>/ → asset prefix "../../"
+        current_dir = f"{md_path.parent.parent.name}/{slug}"
+        body_html, toc_html, warnings = render_post_body(
+            body_md, slug_set, current_post_dir=current_dir,
+        )
+        total_warnings.extend(warnings)
+        # Per-post nav: papers/<slug>/index.html is 2 levels below root.
+        # render_nav was originally written for tags/<tag>.html (depth=1) which produces "../".
+        # We need "../../" for per-post pages. Bump up by post-processing.
+        nav_html = render_nav(nav_tmpl, active="papers" if p["type"] == "paper" else "tutorials",
+                              depth=1)
+        nav_html = nav_html.replace('href="../', 'href="../../')
+        html_out = assemble_post_page(
+            meta=p, body_html=body_html, toc_html=toc_html,
+            nav_html=nav_html, asset_prefix="../../",
+        )
+        out_path = md_path.parent / "index.html"
+        out_path.write_text(html_out, encoding="utf-8")
+        n += 1
+    if total_warnings:
+        print(f"WARN: {len(total_warnings)} build warnings:", file=sys.stderr)
+        for w in total_warnings:
+            print(f"  - {w}", file=sys.stderr)
+    return n
+
+
+# ---------------------------------------------------------------------------
 # top-level build
 
 def build_site(posts: list[dict], out_root: Path, nav_tmpl: str) -> dict:
@@ -509,6 +542,8 @@ def main(argv: list[str] | None = None) -> int:
         f"{summary['papers']} papers + {summary['tutorials']} tutorials, "
         f"with {summary['tags']} unique tags"
     )
+    n_posts = build_posts(posts, root, nav_tmpl)
+    print(f"Rendered {n_posts} per-post HTML pages from markdown.")
     return 0
 
 
