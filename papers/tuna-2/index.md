@@ -4,7 +4,7 @@ slug: tuna-2
 title: 'Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation'
 date: '2026-05-12'
 tldr: 'Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。'
-tags:
+concepts:
 - multimodal
 - image-gen
 - llm

@@ -4,7 +4,7 @@ slug: awm-2025
 title: 'Advantage Weighted Matching: 把扩散模型 RL 拽回到预训练目标'
 date: '2026-05-15'
 tldr: UCAS + Adobe + HKU + MIT。一个定理 + 一个简单替换:DDPO/Flow-GRPO 那套 per-step 高斯似然其实是 noisy-$x_s$ 上的 DSM,多出 $d\cdot\kappa(s,t)$ 的目标向量方差,这是它收敛慢的根。AWM 把 RL surrogate 直接换回预训练用的 flow matching loss × advantage,decouple sampler/training,SD3.5-M 上 OCR 23.6× / GenEval 8× / PickScore 10× 加速,同质量。但 release 代码里 $\beta$、$w(t)$、EMA 自蒸馏三处跟论文不一致。
-tags:
+concepts:
 - diffusion
 - rl
 - grpo

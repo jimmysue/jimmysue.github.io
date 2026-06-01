@@ -4,7 +4,7 @@ slug: rls-razor-2025
 title: 'RL''s Razor: Why Online Reinforcement Learning Forgets Less'
 date: '2026-05-12'
 tldr: MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。
-tags:
+concepts:
 - rl
 - llm
 - alignment

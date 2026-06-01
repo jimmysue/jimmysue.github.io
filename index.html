@@ -19,7 +19,7 @@
   <div class="site-nav__links">
     <a class="site-nav__link" href="papers.html">论文</a>
     <a class="site-nav__link" href="tutorials.html">教程</a>
-    <a class="site-nav__link" href="tags.html">标签</a>
+    <a class="site-nav__link" href="concepts.html">概念</a>
   </div>
 </nav>
 <!-- NAV-END -->
@@ -35,9 +35,9 @@
   <h3 class="post-card__title">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</h3>
   <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/pixel-space.html">pixel-space</a>
-      <a class="tag-chip" href="tags/transfer-learning.html">transfer-learning</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
+      <a class="tag-chip" href="concepts/transfer-learning.html">transfer-learning</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -49,9 +49,9 @@
   <h3 class="post-card__title">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</h3>
   <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="tags/pixel-space.html">pixel-space</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -63,9 +63,9 @@
   <h3 class="post-card__title">Self Forcing: 自展开训练让因果视频扩散摆脱 exposure bias</h3>
   <p class="post-card__tldr">Adobe + UT Austin (NeurIPS 2025)。把训练时序流程改成跟推理一样的 KV-cache 自回滚: 学生在自己生成的过去 frames 上 condition, 用 holistic DMD/SiD/GAN loss 直接匹配整段视频分布。靠一个随机选时间步 s + 只在第 s 步开梯度的 stochastic gradient truncation, 把『看似不能并行』的训练塞进 1.5 小时收敛 (64×H100)。配上 rolling KV cache + 训练时 mask 掉首 chunk 这两个工程细节, 1.3B 模型在单 H100 上跑 17 FPS、0.69s latency, VBench 反超 14B 教师模型 Wan2.1 (84.31 vs 84.26)。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/video.html">video</a>
-      <a class="tag-chip" href="tags/autoregressive.html">autoregressive</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/autoregressive.html">autoregressive</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </a>
@@ -77,9 +77,9 @@
   <h3 class="post-card__title">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</h3>
   <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="tags/pixel-space.html">pixel-space</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -91,9 +91,9 @@
   <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
   <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/vlm.html">vlm</a>
-      <a class="tag-chip" href="tags/anomaly-detection.html">anomaly-detection</a>
-      <a class="tag-chip" href="tags/industrial.html">industrial</a>
+      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="concepts/anomaly-detection.html">anomaly-detection</a>
+      <a class="tag-chip" href="concepts/industrial.html">industrial</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -105,9 +105,9 @@
   <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
   <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/video.html">video</a>
-      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="tags/world-model.html">world-model</a>
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -119,9 +119,9 @@
   <h3 class="post-card__title">扩散模型强化学习: 从 DDPO 到 AWM 的方法演进与代码实现</h3>
   <p class="post-card__tldr">8 节螺旋结构系统讲透扩散模型 RL fine-tuning 的完整发展脉络 (2023.05 - 2025.09)。覆盖 RWR/ReFL → DDPO → DPOK → GRPO → Flow-GRPO → Dance-GRPO → AWM,每个方法的&quot;修了什么/为什么修/代码怎么落&quot;全部讲清。代码 verbatim 引自 kvablack/ddpo-pytorch、yifan123/flow_grpo、XueZeyue/DanceGRPO、scxue/AWM 四个 repo。AWM 那章包含 Theorem 1+2 的完整推导和 paper-vs-code gap 警告。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/ddpo.html">ddpo</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/ddpo.html">ddpo</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -133,9 +133,9 @@
   <h3 class="post-card__title">Advantage Weighted Matching: 把扩散模型 RL 拽回到预训练目标</h3>
   <p class="post-card__tldr">UCAS + Adobe + HKU + MIT。一个定理 + 一个简单替换:DDPO/Flow-GRPO 那套 per-step 高斯似然其实是 noisy-$x_s$ 上的 DSM,多出 $d\cdot\kappa(s,t)$ 的目标向量方差,这是它收敛慢的根。AWM 把 RL surrogate 直接换回预训练用的 flow matching loss × advantage,decouple sampler/training,SD3.5-M 上 OCR 23.6× / GenEval 8× / PickScore 10× 加速,同质量。但 release 代码里 $\beta$、$w(t)$、EMA 自蒸馏三处跟论文不一致。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/grpo.html">grpo</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/grpo.html">grpo</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -147,9 +147,9 @@
   <h3 class="post-card__title">Tstars-Tryon 1.0: Robust and Realistic Virtual Try-On for Diverse Fashion Items</h3>
   <p class="post-card__tldr">阿里 Pailitao:把 try-on 从 inpainting 重新定义为通用多图编辑,5B MMDiT + 五阶段训练(预训→渐进分辨率→垂域 SFT→DiffusionNFT 多奖励 RL→CFG+Step 蒸馏)。Tstars-VTON Bench 上 Overall 9.372 力压 GPT-Image-2 / Nano Banana Pro,单衣 3.92s / 多件 6.74s 比开源快 25-50×。已上线淘宝 App。论文是产品报告 + benchmark 论文 — 模型无开源、无 method 章节、无 ablation。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/try-on.html">try-on</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/sd3.html">sd3</a>
+      <a class="tag-chip" href="concepts/try-on.html">try-on</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/sd3.html">sd3</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -161,9 +161,9 @@
   <h3 class="post-card__title">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</h3>
   <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/llm.html">llm</a>
-      <a class="tag-chip" href="tags/ppo.html">ppo</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/ppo.html">ppo</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -175,9 +175,9 @@
   <h3 class="post-card__title">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</h3>
   <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/video.html">video</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/wan2.html">wan2</a>
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </a>
@@ -189,9 +189,9 @@
   <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
   <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -203,9 +203,9 @@
   <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
   <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="tags/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="tags/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
   </div>
 </a>
 <a class="post-card post-card--paper" href="papers/tm-interaction-2026/index.html">
@@ -216,9 +216,9 @@
   <h3 class="post-card__title">Interaction Models: A Scalable Approach to Human-AI Collaboration</h3>
   <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="tags/system-paper.html">system-paper</a>
-      <a class="tag-chip" href="tags/benchmark.html">benchmark</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/system-paper.html">system-paper</a>
+      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
   </div>
 </a>
 <a class="post-card post-card--paper" href="papers/rls-razor-2025/index.html">
@@ -229,9 +229,9 @@
   <h3 class="post-card__title">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</h3>
   <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/llm.html">llm</a>
-      <a class="tag-chip" href="tags/alignment.html">alignment</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/alignment.html">alignment</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </a>
@@ -243,9 +243,9 @@
   <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
   <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/qwen.html">qwen</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/qwen.html">qwen</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -257,9 +257,9 @@
   <h3 class="post-card__title">LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories</h3>
   <p class="post-card__tldr">ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/alignment.html">alignment</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/alignment.html">alignment</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -271,9 +271,9 @@
   <h3 class="post-card__title">Flow-OPD: On-Policy Distillation for Flow Matching Models</h3>
   <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/distillation.html">distillation</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -285,9 +285,9 @@
   <h3 class="post-card__title">DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</h3>
   <p class="post-card__tldr">1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/llm.html">llm</a>
-      <a class="tag-chip" href="tags/attention.html">attention</a>
-      <a class="tag-chip" href="tags/mixture-of-experts.html">mixture-of-experts</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/attention.html">attention</a>
+      <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </a>
@@ -299,9 +299,9 @@
   <h3 class="post-card__title">DAPO: An Open-Source LLM Reinforcement Learning System at Scale</h3>
   <p class="post-card__tldr">字节 + 清华 AIR 的 R1 复现:Qwen2.5-32B base 上 4 个工程修复 (Clip-Higher / Dynamic Sampling / Token-Level Loss / Overlong Reward Shaping) 把 GRPO 从 30 推到 50 AIME24,只用 R1-Zero 50% step。代码+数据+权重全开源。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/rl.html">rl</a>
-      <a class="tag-chip" href="tags/llm.html">llm</a>
-      <a class="tag-chip" href="tags/grpo.html">grpo</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/grpo.html">grpo</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </a>
@@ -313,9 +313,9 @@
   <h3 class="post-card__title">D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models</h3>
   <p class="post-card__tldr">HKUST/阿里 Z-Image Team:让 Z-Image-Turbo (8 步) 和 FLUX.2-klein (4 步) 能&quot;边用边学&quot;新概念 — 同一模型分饰 student (text) 和 teacher (text+target_img),在 student 自采轨迹上 self-distill,无需 reward。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="tags/distillation.html">distillation</a>
-      <a class="tag-chip" href="tags/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
@@ -327,9 +327,9 @@
   <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
   <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="tags/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="tags/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="tags/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </a>

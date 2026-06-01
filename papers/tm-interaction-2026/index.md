@@ -4,7 +4,7 @@ slug: tm-interaction-2026
 title: 'Interaction Models: A Scalable Approach to Human-AI Collaboration'
 date: '2026-05-12'
 tldr: 不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。
-tags:
+concepts:
 - multimodal
 - system-paper
 - benchmark

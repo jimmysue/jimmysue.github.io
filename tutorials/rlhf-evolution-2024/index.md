@@ -4,16 +4,16 @@ slug: rlhf-evolution-2024
 title: RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL
 date: '2026-05-14'
 tldr: 从 "policy 到底是什么" 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。
-tags:
+tutorial:
+  word_count: 12k
+  reading_minutes: 90-120
+concepts:
 - rl
 - llm
 - ppo
 - dpo
 - grpo
 - rlhf
-tutorial:
-  word_count: 12k
-  reading_minutes: 90-120
 ---
 
 <header class="paper-header">

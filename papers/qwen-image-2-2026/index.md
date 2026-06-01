@@ -4,7 +4,7 @@ slug: qwen-image-2-2026
 title: Qwen-Image-2.0 Technical Report
 date: '2026-05-12'
 tldr: 'Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。'
-tags:
+concepts:
 - image-gen
 - diffusion
 - qwen

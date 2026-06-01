@@ -4,7 +4,7 @@ slug: leap-align-2026
 title: 'LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories'
 date: '2026-05-12'
 tldr: ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。
-tags:
+concepts:
 - flow-matching
 - rl
 - alignment

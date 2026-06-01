@@ -4,7 +4,7 @@ slug: tstars-tryon-2026
 title: 'Tstars-Tryon 1.0: Robust and Realistic Virtual Try-On for Diverse Fashion Items'
 date: '2026-05-14'
 tldr: 阿里 Pailitao:把 try-on 从 inpainting 重新定义为通用多图编辑,5B MMDiT + 五阶段训练(预训→渐进分辨率→垂域 SFT→DiffusionNFT 多奖励 RL→CFG+Step 蒸馏)。Tstars-VTON Bench 上 Overall 9.372 力压 GPT-Image-2 / Nano Banana Pro,单衣 3.92s / 多件 6.74s 比开源快 25-50×。已上线淘宝 App。论文是产品报告 + benchmark 论文 — 模型无开源、无 method 章节、无 ablation。
-tags:
+concepts:
 - try-on
 - diffusion
 - sd3

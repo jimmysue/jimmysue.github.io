@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>概念: lvlm — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<main class="page page--tag">
+<h1>概念: lvlm</h1>
+<p class="page__intro">共 1 篇 (0 论文 / 1 教程)</p>
+<p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
+<div class="post-grid">
+<a class="post-card post-card--tutorial" href="../tutorials/vlm-industrial-2024/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date">2026-05-20 · 10k+ 字</span>
+  </div>
+  <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
+  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="../concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="../concepts/anomaly-detection.html">anomaly-detection</a>
+      <a class="tag-chip" href="../concepts/industrial.html">industrial</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+</div>
+</main>
+</body>
+</html>

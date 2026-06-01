@@ -4,7 +4,7 @@ slug: sensenova-u1
 title: 'SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture'
 date: '2026-05-11'
 tldr: 不用 ViT 也不用 VAE 的"理解+生成"统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。
-tags:
+concepts:
 - multimodal
 - flow-matching
 - image-gen
