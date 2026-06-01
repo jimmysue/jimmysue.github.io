@@ -338,10 +338,17 @@ def build_tag_page(tag: str, tagged: list[dict], nav_tmpl: str) -> str:
 # per-post HTML rendering
 
 
-def build_posts(posts: list[dict], nav_tmpl: str) -> int:
+def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = None) -> int:
     """Render each post's index.md to index.html. Returns len(posts) on success;
-    raises on any I/O error (no partial-progress reporting)."""
-    slug_set = {p["slug"] for p in posts}
+    raises on any I/O error (no partial-progress reporting).
+
+    slug_set: full set of known slugs for wiki-link resolution.  When None,
+    defaults to the slugs found in *posts* (correct for full-site builds).
+    Pass the site-wide set explicitly when rendering a single-post subset so
+    that cross-references to other papers resolve correctly.
+    """
+    if slug_set is None:
+        slug_set = {p["slug"] for p in posts}
     total_warnings: list[str] = []
     for p in posts:
         md_path: Path = p["_md_path"]
@@ -548,13 +555,15 @@ def main(argv: list[str] | None = None) -> int:
         print("WARN: no posts discovered — generated pages will be empty", file=sys.stderr)
 
     if args.post:
+        all_slug_set = {p["slug"] for p in posts}
         posts = [p for p in posts if p["slug"] == args.post]
         if not posts:
             print(f"ERROR: no post with slug {args.post!r}", file=sys.stderr)
             return 2
-        # Build only this post, skip site-level pages
+        # Build only this post, skip site-level pages.
+        # Pass the site-wide slug_set so wiki-links to other posts resolve.
         nav_tmpl = load_nav_header(root)
-        n = build_posts(posts, nav_tmpl)
+        n = build_posts(posts, nav_tmpl, slug_set=all_slug_set)
         print(f"Rendered {n} post(s).")
         return 0
 
