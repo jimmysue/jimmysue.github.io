@@ -32,3 +32,8 @@ papers/*/blog-viewport*.png
 *.swo
 .idea/
 .vscode/
+
+# Python
+__pycache__/
+.pytest_cache/
+*.pyc
