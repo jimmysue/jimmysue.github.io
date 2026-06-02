@@ -48,6 +48,15 @@
       "url": "papers/deepseek-v4-2026/index.html"
     },
     {
+      "id": "papers/diffusion-opd-2026",
+      "type": "paper",
+      "slug": "diffusion-opd-2026",
+      "title": "DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声",
+      "date": "2026-05-14",
+      "tldr": "Fudan + 阿里 Wan Team (arXiv 2026/05/14)。多任务 diffusion RL 现有两条路都不好走: joint 多目标互相打架 + 难任务被压制, cascade 多阶段繁琐 + 灾难遗忘。DiffusionOPD 抄 LLM 的 On-Policy Distillation (OPD) 思路, 把它从 token 序列搬到 Euler-Maruyama 离散化的反向 SDE: 学生和老师在同一个噪声 schedule 上有同协方差的 one-step Gaussian transition, 反向 KL 解析地坍缩成 $\\|\\mu^S - \\mu^T\\|^2 / (2\\bar\\sigma^2)$, 在 ODE 极限 (a→0) 进一步退化成纯 L2 transition matching (Eq. 12)。配 round-robin 多 teacher (per-task LoRA adapter), 一个 backward 一个 round。SD3.5-M 上 GenEval 0.96 + OCR 0.94 + Aes 6.15, average 0.929 反超 cascade NFT 0.851 / multi-task NFT 0.715, 总 wall-clock 比 cascade 少 ~50 GPU h。论文最有教育意义的是 §3.3: PPO-style 跟 closed-form KL 期望梯度相同, 但 PPO 多一个 $\\epsilon_j / \\bar\\sigma_j$ 的 score-function 项, 是纯方差; 而 closed-form 通过 pathwise gradient 完全消掉这一项。\n",
+      "url": "papers/diffusion-opd-2026/index.html"
+    },
+    {
       "id": "papers/flow-opd-2026",
       "type": "paper",
       "slug": "flow-opd-2026",
@@ -345,6 +354,30 @@
       "url": "concepts/system-paper.html"
     },
     {
+      "id": "concepts/multi-task",
+      "type": "concept",
+      "slug": "multi-task",
+      "name": "multi-task",
+      "has_file": false,
+      "url": "concepts/multi-task.html"
+    },
+    {
+      "id": "concepts/alignment",
+      "type": "concept",
+      "slug": "alignment",
+      "name": "alignment",
+      "has_file": false,
+      "url": "concepts/alignment.html"
+    },
+    {
+      "id": "repos/ali-vilab/DiffusionOPD",
+      "type": "repo",
+      "url": "https://github.com/ali-vilab/DiffusionOPD",
+      "host": "github.com",
+      "owner": "ali-vilab",
+      "name": "DiffusionOPD"
+    },
+    {
       "id": "concepts/sd3",
       "type": "concept",
       "slug": "sd3",
@@ -359,14 +392,6 @@
       "name": "comparison",
       "has_file": false,
       "url": "concepts/comparison.html"
-    },
-    {
-      "id": "concepts/alignment",
-      "type": "concept",
-      "slug": "alignment",
-      "name": "alignment",
-      "has_file": false,
-      "url": "concepts/alignment.html"
     },
     {
       "id": "concepts/qwen",
@@ -635,6 +660,61 @@
       "from": "papers/deepseek-v4-2026",
       "to": "concepts/system-paper",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/rl",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/multi-task",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "concepts/alignment",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/dapo-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "repos/ali-vilab/DiffusionOPD",
+      "kind": "implements"
     },
     {
       "from": "papers/flow-opd-2026",

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 LLM 上的 OPD 长什么样 (Preliminary)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 把 OPD 抬到 diffusion: 离散时间 Markov chain 视角</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 关键洞察: SDE 离散化让 p_S, p_T 是同协方差 Gaussian</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 同协方差 Gaussian 的 KL 有 closed form</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 §3.3 关键论证: PPO-style 和 closed-form KL 期望梯度相同, 但 PPO 多一项纯噪声</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 Two-stage 训练 recipe</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 多任务主结果 (Table 1)</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 训练效率 (Fig 3)</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 vs 其他 distillation 方法 (Fig 4-5)</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 §3.3 实证: PPO-style vs closed-form KL (Fig 6)</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 定性对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</h1>
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="Fig 1: 收敛曲线 + 雷达图">
+  <figcaption>
+    Fig. 1 — <strong>(a)</strong> Convergence: DiffusionOPD (橙) 比 multi-task RL baselines (Multi-Task NFT / Multi-Task GRPO-Guard / Cascade NFT) 收敛更快、上限更高 (PickScore 0.914)。<strong>(b)</strong> Radar: 在 GenEval / OCR / PickScore / ClipScore / HPSv2.1 / Aesthetic / ImageReward / UnifiedReward 八个域上几乎全面占优。Cascade NFT 是当前最强 baseline (0.903) 但训练时间最长。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>文生图模型做完预训练之后, 标准的&quot;对齐&quot;路线是 RL — 用一个 reward model 把模型 push 到你想要的方向: 美学、文本一致、OCR、组合泛化。这条路单任务上 (e.g. <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> 美学, <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 数学/构图) 是成熟的。</p>
+<p>问题是用户想要的是<strong>多任务都好</strong>: 一张图既要美又要 OCR 对、还要 prompt faithful。多任务 RL 有两条传统路线, 都不好走:</p>
+<ol>
+<li><strong>Joint 优化</strong> (multi-task GRPO / NFT): 把多个 reward 同时塞进训练循环, 不同任务交替 batch。问题是 (a) reward 之间梯度方向冲突, (b) 简单任务 (OCR) 收敛快、压制困难任务 (Aesthetic) 的信号。</li>
+<li><strong>Cascade RL</strong>: 一个任务一阶段地训, 训完 OCR 再训美学。问题是 (a) 多阶段繁琐, (b) <strong>灾难遗忘</strong> — 第二阶段把第一阶段学的能力擦掉一部分。</li>
+</ol>
+<p>Paper 的主张: <strong>把&quot;单任务探索&quot; (RL on single reward) 和 &quot;多任务整合&quot; (combine M policies into 1) 解耦</strong>。具体做法是抄 LLM 的成熟思路 — <strong>On-Policy Distillation (OPD)</strong> [Agarwal 2024]:</p>
+<ul>
+<li>Stage 1: 每个任务独立训一个 teacher (随便用什么 RL 算法都行)</li>
+<li>Stage 2: 让一个<strong>unified student</strong> 自己 rollout 轨迹, 在每条轨迹上由对应 task 的 teacher 提供 dense supervision</li>
+</ul>
+<p>LLM 上 OPD 的关键技术是<strong>反向 KL 在离散 token 分布上有 closed form</strong> (vocabulary 上的求和), 所以可以直接 backprop, 不用 REINFORCE。要把它搬到 diffusion 上, 论文要解决一个根问题: <strong>diffusion 的每一步是连续状态空间 Gaussian transition, KL 怎么算?</strong> 答案就是 §3.2 的核心推导。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 LLM 上的 OPD 长什么样 (Preliminary)</h3>
+<p>LLM 是自回归 token 序列 <span class="math inline">x = (x_1, \dots, x_T)</span>, 学生 <span class="math inline">\pi_\theta</span> 和 teacher <span class="math inline">\pi^\star</span> 都按 chain rule 分解:</p>
+<div class="math block">
+\pi_\theta(x) = \prod_{t=1}^T \pi_\theta(x_t \mid x_{\lt t}), \quad \pi^\star(x) = \prod_{t=1}^T \pi^\star(x_t \mid x_{\lt t})
+</div>
+<p class="math-translation">—— 翻译: 整个序列的概率 = 每一步在给定前缀下的条件概率之积。</p>
+<p>OPD 目标是 <strong>学生自己 rollout</strong> 后, 在它走过的前缀上, 让每一步条件分布去匹配 teacher:</p>
+<div class="math block">
+\mathcal{L}_{\text{OPD}}^{\text{LLM}}(\theta) = \mathbb{E}_{x \sim \pi_\theta} \left[ \sum_{t=1}^T \mathrm{KL}\big(\pi_\theta(\cdot \mid x_{\lt t}) \,\Vert\, \pi^\star(\cdot \mid x_{\lt t})\big) \right]
+</div>
+<p class="math-translation">—— 翻译: 期望(在学生采样的轨迹上)的每一步条件 KL 之和。它跟 sequence-level 反向 KL 是数学上等价的 — 链式法则一摊就出来。</p>
+<p>对 LLM, 每个 step 的 KL 是<strong>离散词表 <span class="math inline">\mathcal{V}</span> 上的求和</strong>, 显式 closed form:</p>
+<div class="math block">
+\mathrm{KL}(\pi_\theta \Vert \pi^\star) = \sum_{v \in \mathcal{V}} \pi_\theta(v \mid x_{\lt t}) \log \frac{\pi_\theta(v \mid x_{\lt t})}{\pi^\star(v \mid x_{\lt t})}
+</div>
+<p>这就是为什么 LLM 上 OPD 这么便宜 — 没有 high-variance policy gradient, 直接 backprop。</p>
+<h3 id="sec-2-2">2.2 把 OPD 抬到 diffusion: 离散时间 Markov chain 视角</h3>
+<p>把 (3) 抽象一层: 它<strong>根本不依赖 token 性质</strong>, 只需要 (i) 同样的状态空间和 transition kernel 结构, (ii) per-step KL 是 closed-form。所以 paper 把&quot;前缀&quot;换成&quot;denoising 状态&quot;, 把&quot;<span class="math inline">\pi(\cdot \mid x_{\lt t})</span>&quot;换成&quot;<span class="math inline">p(\cdot \mid x_{t_j})</span>&quot;:</p>
+<div class="math block">
+\mathcal{L}_{\text{OPD}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_S} \left[ \sum_{j=0}^{N-1} \mathrm{KL}\big(p_S(\cdot \mid x_{t_j}) \,\Vert\, p_T(\cdot \mid x_{t_j})\big) \right]
+</div>
+<p class="math-translation">—— 翻译: 在学生 rollout 的 N 步去噪轨迹上, 每一步学生 transition kernel $p_S$ 和 teacher transition kernel $p_T$ 的 KL 求和。其中 $t_0 > t_1 > \dots > t_N = 0$ 是逆向时间。</p>
+<h3 id="sec-2-3">2.3 关键洞察: SDE 离散化让 <span class="math inline">p_S, p_T</span> 是同协方差 Gaussian</h3>
+<p>跟 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> / <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 一样, paper 沿用 Flow-GRPO 的 Euler-Maruyama 反向 SDE 离散化。给定 noise schedule <span class="math inline">\sigma_t = a \sqrt{t/(1-t)}</span> (其中 <span class="math inline">a</span> 是全局噪声水平), 学生 velocity <span class="math inline">v_j^S := v_\theta(x_{t_j}, t_j)</span>, 学生这一步 SDE update 是:</p>
+<div class="math block">
+x_{t_{j+1}} = x_{t_j} + \left[v_j^S + \frac{\sigma_{t_j}^2}{2 t_j}\big(x_{t_j} + (1-t_j) v_j^S\big)\right] \Delta t_j + \sigma_{t_j} \sqrt{-\Delta t_j}\, \varepsilon_j
+</div>
+<p class="math-translation">—— 翻译: 当前噪声态 $x_{t_j}$ 加上一个由 velocity + drift correction 决定的确定性位移, 再叠一个 $\mathcal{N}(0, I)$ 的随机扰动。$\Delta t_j < 0$ 因为时间是反向走。</p>
+<p>把式中确定性部分聚合, 抽象成 transition kernel:</p>
+<div class="math block">
+p_S(x_{t_{j+1}} \mid x_{t_j}) = \mathcal{N}\big(\mu^S(x_{t_j}), \bar\sigma_j^2 I_d\big), \quad \bar\sigma_j^2 := \sigma_{t_j}^2 (-\Delta t_j)
+</div>
+<div class="math block">
+\mu^S(x_{t_j}) = \left(1 + \tfrac{\sigma_{t_j}^2}{2 t_j} \Delta t_j\right) x_{t_j} + \left(1 + \tfrac{\sigma_{t_j}^2 (1-t_j)}{2 t_j}\right) v_j^S \Delta t_j
+</div>
+<p class="math-translation">—— 翻译: 学生这一步的 transition mean $\mu^S$ 是 $x_{t_j}$ 和学生 velocity $v_j^S$ 的线性组合; 协方差 $\bar\sigma_j^2$ 只跟 schedule + 全局噪声水平 $a$ 有关, 跟模型参数 $\theta$ 完全无关。</p>
+<p>Teacher 用<strong>完全一样的公式</strong>, velocity 换成 frozen teacher <span class="math inline">v_j^T := v_\phi(x_{t_j}, t_j)</span>, 得到 <span class="math inline">p_T = \mathcal{N}(\mu^T(x_{t_j}), \bar\sigma_j^2 I_d)</span>。<strong>关键: 学生和老师协方差一致</strong> (都依赖同一个 schedule), 而且都在<strong>学生 rollout 的同一个 <span class="math inline">x_{t_j}</span> 上 evaluate</strong>。</p>
+<p class="code-source">repo/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L48-L58 — 反向 SDE 的 prev_sample_mean 实现 (Eq. 7)</p>
+<pre><code class="language-python">sigma = self.sigmas[step_index].view(-1, *([1] * (len(sample.shape) - 1)))
+sigma_prev = self.sigmas[prev_step_index].view(-1, *([1] * (len(sample.shape) - 1)))
+sigma_max = self.sigmas[1].item()
+dt = sigma_prev - sigma
+
+if sde_type == 'sde':
+    std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma)))*noise_level
+
+    # our sde
+    prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt)+model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
+</code></pre>
+<p>对应 paper Eq. (7): <code>sigma</code> ↔ <span class="math inline">t_j</span> (SD3 scheduler 用 sigma 作时间), <code>std_dev_t</code> ↔ <span class="math inline">\sigma_{t_j}</span>, <code>model_output</code> ↔ <span class="math inline">v_j^S</span> (或 <span class="math inline">v_j^T</span> — 同函数复用), <code>dt</code> ↔ <span class="math inline">\Delta t_j &lt; 0</span>。<code>noise_level</code> 就是 paper 的 <span class="math inline">a</span>。</p>
+<h3 id="sec-2-4">2.4 同协方差 Gaussian 的 KL 有 closed form</h3>
+<p>两个 <span class="math inline">d</span> 维同协方差高斯之间的 KL:</p>
+<div class="math block">
+\mathrm{KL}\big(\mathcal{N}(\mu_1, \Sigma) \,\Vert\, \mathcal{N}(\mu_2, \Sigma)\big) = \tfrac{1}{2} (\mu_1 - \mu_2)^\top \Sigma^{-1} (\mu_1 - \mu_2)
+</div>
+<p>代 <span class="math inline">\Sigma = \bar\sigma_j^2 I_d</span>, 得:</p>
+<div class="math block">
+\boxed{\mathrm{KL}\big(p_S \Vert p_T\big) = \frac{\| \mu^S(x_{t_j}) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2}}
+</div>
+<p class="math-translation">—— 翻译 (核心): 学生和老师在同一个 noise 态上的 transition KL = "transition mean 的平方差" 除以 "transition 方差的 2 倍"。这是<strong>纯 deterministic 表达式</strong> — 采样噪声 $\varepsilon_j$ 在解析过程中完全消掉了。</p>
+<p>整体 DiffusionOPD 目标 (Eq. 11):</p>
+<div class="math block">
+\mathcal{L}_{\text{OPD}}^{\text{diffusion}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_{S,\theta}} \left[ \sum_{j=0}^{N-1} \frac{\| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2} \right]
+</div>
+<p><strong>ODE 极限</strong>: 当 <span class="math inline">a \to 0</span> (noise level → 0), <span class="math inline">\bar\sigma_j \to 0</span>, KL 形式 (除以 <span class="math inline">2\bar\sigma_j^2</span>) 会爆。Paper 直接论证: 在确定性 ODE Euler update 下, <span class="math inline">p_S, p_T</span> 不再是 stochastic kernel 而是 pointwise 映射, 所以&quot;分布匹配&quot;退化成&quot;transition mean 匹配&quot;, 损失就是 (Eq. 12):</p>
+<div class="math block">
+\mathcal{L}_{\text{OPD}}^{\text{ODE}}(\theta) = \mathbb{E} \left[ \sum_{j=0}^{N-1} \tfrac{1}{2} \| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2 \right]
+</div>
+<p class="math-translation">—— 翻译: ODE 极限下损失就是<strong>纯 L2 transition matching</strong>, 没有 $\bar\sigma_j^2$ 的归一化。SDE / ODE 在 DiffusionOPD 框架下用<em>同一套代码</em>实现, 只看 $a$ 的取值。</p>
+<p class="code-source">repo/scripts/train_sd3_opd.py:L1167-L1191 — DiffusionOPD loss 实现 (Eq. 11/12 一体化分支)</p>
+<pre><code class="language-python">teacher_prev_mean = sample[&quot;teacher_prev_sample_means&quot;][:, j].detach()
+
+delta = (
+    prev_sample_mean.float().unsqueeze(1)
+    - teacher_prev_mean.float()
+)
+
+if float(config.sample.noise_level) &lt;= 0.0:
+    per_step_kl = 0.5 * (delta ** 2)                          # Eq. (12): ODE / L2
+else:
+    sigma_sq = (
+        std_dev_t.float() ** 2
+    ).clamp(min=1e-8).unsqueeze(1)
+    per_step_kl = (delta ** 2) / (2.0 * sigma_sq)             # Eq. (11): SDE / closed-form KL
+
+per_step_kl_per_teacher_scalar = per_step_kl.mean(
+    dim=tuple(range(2, per_step_kl.ndim))
+)
+per_step_kl_scalar = per_step_kl_per_teacher_scalar.sum(dim=1)
+
+distill_loss = per_step_kl_scalar.mean()
+loss = distill_loss
+</code></pre>
+<p>10 行就是 Eq. 11/12 的完整实现。<code>delta</code> 是 transition mean 之差; <code>noise_level=0</code> 触发 ODE 分支 (Eq. 12), 否则用 σ² 归一化 (Eq. 11)。注意 <code>.detach()</code> — teacher mean 不参与梯度。<strong>默认 config 用 <code>noise_level=0.0</code> (即 ODE 分支)</strong>, 配 §4.3 ablation 的结论 (ODE 比 SDE 快最多 5x)。</p>
+<h3 id="sec-2-5">2.5 §3.3 关键论证: PPO-style 和 closed-form KL 期望梯度相同, 但 PPO 多一项纯噪声</h3>
+<p>这一节是 paper 最有教育意义的部分。换种角度想 OPD: 把 teacher 视为 process reward model, 每一步的 negative KL 当作 advantage <span class="math inline">A_j</span>, 用 PPO surrogate 优化:</p>
+<div class="math block">
+\mathcal{L}_{\text{PG}}(\theta) = -\mathbb{E}_{a_j \sim \pi_{\theta_{\text{old}}}} \left[ \min\big(\rho_j(\theta) A_j,\, \text{clip}(\rho_j, 1-\epsilon, 1+\epsilon) A_j\big) \right]
+</div>
+<p>忽略 clipping, gradient accumulation 期间 <span class="math inline">\pi_{\theta_{\text{old}}} = \pi_\theta</span> 所以 <span class="math inline">\rho_j = 1</span>, 梯度展开:</p>
+<div class="math block">
+\nabla_\theta \big(\rho_j \Delta_j\big) = \underbrace{\nabla_\theta \Delta_j}_{\text{pathwise term}} + \underbrace{\Delta_j \,\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j})}_{\text{score-function term}}
+</div>
+<p class="math-translation">—— 翻译: PPO 梯度 = 解析的 pathwise term + 一个跟 sampled action $a_j$ 相关的 score-function term。</p>
+<p>由于 <span class="math inline">\Delta_j</span> 不依赖采样动作 <span class="math inline">a_j</span> (它只是 closed-form KL), 而 <span class="math inline">\mathbb{E}_{a_j}[\nabla \log \pi_\theta] = 0</span>, 所以 <strong>score-function term 的期望为 0</strong>:</p>
+<div class="math block">
+\mathbb{E}[\nabla_\theta \mathcal{L}_{\text{PG}}] = \nabla_\theta \mathcal{L}_{\text{OPD}}^{\text{diffusion}}
+</div>
+<p>两个 estimator 期望相同。<strong>但 PPO 多出来的这一项是纯方差</strong>。具体: 对 Gaussian transition <span class="math inline">a_j = \mu^S(x_{t_j}; \theta) + \bar\sigma_j \varepsilon_j</span>, <span class="math inline">\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j}) = (\varepsilon_j / \bar\sigma_j) \cdot \nabla_\theta \mu^S</span> — 这一项跟采样噪声 <span class="math inline">\varepsilon_j</span> 直接耦合, <strong>每次 mini-batch 都注入新方差</strong>。</p>
+<p>Paper 还指出 PPO 形式的第二个缺陷: <strong>它依赖 stochastic policy density 和 <span class="math inline">\rho_j</span></strong>, 在 ODE (确定性) 极限下根本写不出来。Closed-form KL 反而能从 SDE 平滑过渡到 ODE — 这就是 paper 标题的&quot;unified perspective&quot;。</p>
+<h3 id="sec-2-6">2.6 Two-stage 训练 recipe</h3>
+<figure>
+  <img class="zoomable" src="figures/fig-algo.png" alt="Algorithm 1: DiffusionOPD">
+  <figcaption>
+    Algorithm 1 — Stage 1: 每个 task 用任意 RL 算法 (GRPO-Guard / DiffusionNFT 等) 独立训一个 teacher; Stage 2: 学生用<strong>round-robin</strong> 顺序在每个 task 上采轨迹 + 调对应 teacher 算 OPD loss, 一个 round 累加完 $M$ 个 task 的 loss 再做 <strong>1 次</strong> optimizer step。
+  </figcaption>
+</figure>
+<p>代码里 round-robin 是 <code>i % M</code>, teacher 通过 LoRA adapter 切换 (没有多份模型权重, 只是 swap LoRA):</p>
+<p class="code-source">repo/scripts/train_sd3_opd.py:L875-L881 — round-robin teacher 选择 + 对应数据集采样</p>
+<pre><code class="language-python">teacher_idx = i % len(teachers)
+slot_adapters = slot_adapter_names[teacher_idx]
+slot_guidance_scales = slot_adapter_guidance_scales[teacher_idx]
+train_samplers[teacher_idx].set_epoch(
+    epoch * config.sample.num_batches_per_epoch + i
+)
+prompts, prompt_metadata = next(train_iters[teacher_idx])
+</code></pre>
+<p>学生用 <code>default</code> LoRA adapter 自采轨迹, 然后对每个 task 的 teacher LoRA adapter 切过去算 <span class="math inline">\mu^T</span>:</p>
+<p class="code-source">repo/scripts/train_sd3_opd.py:L936-L965 — 切到 teacher LoRA 算 transition mean</p>
+<pre><code class="language-python">for k_idx, adapter_name in enumerate(slot_adapters):
+    unwrap_model(transformer, accelerator).set_adapter(adapter_name)
+    with contextlib.nullcontext():
+
+        teacher_gs = slot_guidance_scales[k_idx]
+        teacher_prev_sample_mean_list = []
+        for j in range(config.sample.num_steps):
+            teacher_prev_mean_j = compute_teacher_step_mean(
+                    transformer=transformer,
+                    pipeline=pipeline,
+                    latents_at_j=latents[:, j],
+                    next_latent_at_j=latents[:, j + 1],
+                    timestep_at_j=timesteps[:, j],
+                    cond_embeds=prompt_embeds,
+                    cond_pooled=pooled_prompt_embeds,
+                    neg_embeds=sample_neg_prompt_embeds_b,
+                    neg_pooled=sample_neg_pooled_prompt_embeds_b,
+                    guidance_scale=teacher_gs,
+                    noise_level=config.sample.noise_level,
+                    solver=sample_solver,
+                    deterministic=sample_deterministic,
+                )
+</code></pre>
+<p>Gradient accumulation factor <span class="math inline">G = M</span> — 即一个 round-robin cycle (覆盖所有 <span class="math inline">M</span> 个 task) 才做一次 backward + optimizer step。Config 里:</p>
+<p class="code-source">repo/config/opd.py:L40-L55 — gradient_accumulation_steps 跟 round-robin cycle 对齐</p>
+<pre><code class="language-python">config.sample.train_batch_size = 3
+config.sample.num_image_per_prompt = 1
+config.sample.num_batches_per_epoch = 3      # 3 teachers (pickscore / ocr / geneval)
+assert config.sample.num_batches_per_epoch % 3 == 0, (
+    &quot;Please set config.sample.num_batches_per_epoch to a multiple of &quot;
+    &quot;len(config.train.teachers) (=3 here).&quot;
+)
+
+config.train.batch_size = config.sample.train_batch_size
+config.train.gradient_accumulation_steps = config.sample.num_batches_per_epoch
+config.train.num_inner_epochs = 1
+config.train.timestep_fraction = 0.99
+</code></pre>
+<p>每个 round 一次更新 — 减少 task 偏差 (没有任何一个 task 单独主导一次 step)。</p>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<h3 id="sec-3-1">3.1 多任务主结果 (Table 1)</h3>
+<figure>
+  <img class="zoomable" src="figures/table1-results.png" alt="Table 1: 多任务对比">
+  <figcaption>
+    Table 1 — SD3.5-M base, LoRA (α=64, r=32), 40-step ODE 评测。<strong>DiffusionOPD average 0.929</strong> 全场最高: GenEval 0.96 (与 GenEval Teacher 持平), OCR 0.94 (OCR Teacher 0.93, 略反超), PickScore 23.99 (Aes Teacher 24.02), Aesthetic 6.15 (Aes Teacher 6.22)。Cascade NFT 0.851 是最强 baseline。Multi-Task GRPO-Guard / NFT 分别 0.763 / 0.715 — 远低于 cascade, 说明 joint 多目标真的会互相打架。
+  </figcaption>
+</figure>
+<p>数字层面最值得圈点的几个点:</p>
+<ul>
+<li><strong>几乎匹配每一个 single-task teacher 的天花板</strong> — 这是 OPD 框架的核心承诺: 学生不需要重新探索, 只需要在 teacher 已经会走的轨迹上学每一步映射。</li>
+<li><strong>OCR 上 0.94 反超 OCR Teacher 0.93</strong> — 教育上很反直觉但合理: 多 teacher 在 round-robin 中互相 regularize, student 比单一 teacher 更稳。</li>
+<li><strong>Wall-clock 85.75 + 11.26 GPU h ≈ 97 GPU h</strong> (即 max single-teacher 训练时间 + 11.26h 的 distillation), 比 cascade NFT 的 148.49 h 少 35%。如果 teachers 可以并行训 (paper 实验里它们是), 实际真实时间更短。</li>
+<li>DiffusionOPD 跟 GRPO-Guard Teacher (PickScore 0.91, Aes 6.22) 在 PickScore 上没完全追平 (23.99 vs 24.02) — 美学这种主观 reward 上仍有微小 gap。</li>
+</ul>
+<h3 id="sec-3-2">3.2 训练效率 (Fig 3)</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-convergence.png" alt="Fig 3: 多任务训练曲线">
+  <figcaption>
+    Fig. 3 — 三个域 (GenEval / OCR / PickScore) 的收敛曲线。橙色 DiffusionOPD 在所有三个域上都<strong>快几个数量级地</strong>达到接近 teacher 的水平 (~100 GPU h), 而 multi-task RL baselines (蓝色 NFT, 绿色 GRPO-Guard) 训到 ~1000 GPU h 才接近。Cascade NFT 这里没画 (它的总时间最长且分阶段, 没法画统一的训练曲线)。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 vs 其他 distillation 方法 (Fig 4-5)</h3>
+<figure>
+  <img class="zoomable" src="figures/fig5-distill-ablation.png" alt="Fig 5: 蒸馏方法 ablation">
+  <figcaption>
+    Fig. 5 — 同样从 single-task teachers 蒸馏, 不同 distillation 目标的对比: <strong>DiffusionOPD (红, 我们)</strong> vs DMD (Distribution Matching) vs TDM (Trajectory Distribution Matching) vs SFT (在 teacher 生成图上做有监督). 在 GenEval + OCR + PickScore 上 DiffusionOPD 都明显更快收敛 + 更高上限。
+  </figcaption>
+</figure>
+<p>值得注意的是 SFT (黄色) 在 OCR 和 PickScore 上<strong>反而下降</strong> — paper 没明说, 但很可能是 teacher 自生成图的分布偏窄, student 学完后泛化变差 (典型的 self-distillation 退化路径)。这是 DiffusionOPD 用 &quot;on-policy student rollout + teacher supervises on those states&quot; 比 SFT 优越的硬证据。</p>
+<h3 id="sec-3-4">3.4 §3.3 实证: PPO-style vs closed-form KL (Fig 6)</h3>
+<figure>
+  <img class="zoomable" src="figures/fig6-loss-noise.png" alt="Fig 6: loss formulation + noise level ablation">
+  <figcaption>
+    Fig. 6 — Loss formulation + sampler noise level 联合 ablation。<strong>紫线 (Policy Gradient, a=0.7)</strong> 是 PPO-style 优化; <strong>红线 (SDE, a=0.7)</strong> 是同噪声水平下的 closed-form KL; <strong>绿线 (ODE)</strong> 是 $a \to 0$ 极限 (Eq. 12 的 L2)。两个 take-away: (1) 同噪声水平下 closed-form KL > PPO-style — 直接验证 §3.3 的方差分析; (2) 噪声水平越低越好 — ODE 比 SDE(a=0.7) 收敛快约 5x。
+  </figcaption>
+</figure>
+<h3 id="sec-3-5">3.5 定性对比</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-qualitative.png" alt="Fig 2: 定性对比">
+  <figcaption>
+    Fig. 2 — 4 个 prompt 的定性对比 (每个 prompt 两行: 第一行是 multi-task 方法 — DiffusionOPD / Multi-Task GRPO-Guard / Multi-Task NFT / Cascade NFT; 第二行是单 task teachers — Aes / GenEval / OCR)。<strong>"a sign that says Diffusion"</strong> 这一行特别说明问题: 我们的方法清晰拼出 "Diffusion" 文字, Multi-Task GRPO-Guard 拼出来但艺术性差, Multi-Task NFT 字母乱掉, Cascade NFT 拼出但美学一般。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>代码细节, 论文不一定明说但读代码能挖到的:</p>
+<ul>
+<li>
+<p><strong>代码 fork 自 DiffusionNFT (NVlabs)</strong>, 而 DiffusionNFT 又是 fork 自 Flow-GRPO (<a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> 也是同源)。所以包名仍叫 <code>flow_grpo</code>, 但训练入口是 <code>scripts/train_sd3_opd.py</code> (1221 行)。读源码时, <code>flow_grpo.diffusers_patch.sd3_sde_with_logprob.sde_step_with_logprob</code> 是 SDE step 的 ground truth, 同一个函数被学生和老师复用 — 区别只是 <code>noise_pred</code> 传哪边的 model output 进去。</p>
+</li>
+<li>
+<p><strong>默认 noise_level = 0</strong> (<code>config/opd.py:L60</code>)。这意味着论文的默认配置实际上是 <strong>Eq. 12 (ODE/L2 transition matching) 不是 Eq. 11 (SDE/reverse KL)</strong>。Eq. 11 在 ablation 里测过 (Fig 6 红/橙/蓝线), 但生产配置选了 ODE — Fig 6 显示 ODE 收敛快 5x。这点 paper 主文没强调清楚。</p>
+</li>
+<li>
+<p><strong>Sample steps = 10 推理 / Eval = 40 步</strong> (<code>config/opd.py:L40-L42</code>)。训练时只跑 10 步采样 (省时间), 评测时 40 步 ODE (跟 DiffusionNFT setup 对齐)。这是 paper-vs-code 一致, 不是 gap。</p>
+</li>
+<li>
+<p><strong>3 个 teacher LoRA adapter</strong> (<code>config/opd.py:L72-L94</code>): pickscore (Aes) + ocr + geneval。每个 teacher 的 guidance scale 不一样: pickscore=4.5, ocr=4.5, <strong>geneval=1.0</strong> (这点 paper 没解释; 推测是 GenEval teacher 用 DiffusionNFT 训的, 它本身不依赖 CFG)。</p>
+</li>
+<li>
+<p><strong><code>config.train.beta = 0.0</code></strong> — 没有 KL 到 base model 的正则项。OPD 的所有&quot;约束力&quot;全靠 teacher 提供, 不像 DDPO/PPO 那样需要 anchor 到 reference model。这是 OPD 架构的一个隐性优势 — 但也意味着如果 teacher 自身 reward-hacked, student 一定会复现 (no safety net)。</p>
+</li>
+<li>
+<p><strong>EMA 默认开</strong> (<code>config.train.ema = True</code>): student 参数维护一个 exponential moving average 用来评测。 <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 也有这设计, 但那篇被 reviewer 指出过 paper-vs-code mismatch。</p>
+</li>
+<li>
+<p><strong><code>gradient_accumulation_steps</code> 跟 <code>num_batches_per_epoch</code> 锁死成同一值</strong> — 这意味着每个 epoch (round-robin 循环 M 个 task 一次) 只做 1 次 optimizer step。如果你改了 batch size 而不调 grad_accum, 训练完全跑不通 (assert 会先 crash)。</p>
+</li>
+<li>
+<p><strong>没有显式的 distill_loss 平衡</strong> — 多任务 loss 直接 <code>.sum()</code> 加起来 (<code>train_sd3_opd.py:L1188</code>)。Paper 没讨论, 但因为同一架构、同一 schedule, 三个 task 的 <span class="math inline">\|\mu^S - \mu^T\|^2</span> 尺度其实接近, 不像异质 reward 需要权重调。</p>
+</li>
+<li>
+<p><strong>首版代码 release 里 <code>lora_path</code> 全是占位符</strong> <code>&quot;YOUR_AES_TEACHER_PATH&quot;</code>, 真要复现得自己先训 3 个 teacher (或下载 Hugging Face 上 <code>quanhaol/Aes-Teacher</code>, <code>OCR-Teacher</code>, <code>GenEval-Teacher</code>)。</p>
+</li>
+<li>
+<p><strong>没有 SDE log prob 用于 PPO baseline</strong> — <code>sde_step_with_logprob</code> 返回 log_prob, 但 <code>train_sd3_opd.py</code> 不调用这个值; 它只用 <code>prev_sample_mean</code>。Fig 6 紫线 (Policy Gradient) 的代码路径<strong>没在 release 里</strong>。要复现 §3.3 的 ablation 比较, 得自己加 PPO loss 分支。</p>
+</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>§3.3 那段方差分析是真好</strong> — 把 closed-form KL 和 PPO 的关系讲清楚了, 而且 Fig 6 紫 vs 红线给了实证。这是这篇 paper 在 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> / <a class="wiki-link" data-slug="d-opsd-2026" href="../d-opsd-2026/index.html">d-opsd-2026</a> / <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 这一波 &quot;把 RL 拽回 supervised target&quot; 浪潮里最独到的 contribution: <strong>不是说 PPO 错, 而是说 PPO 在 closed-form 可得的场合是&quot;自找麻烦&quot;</strong>。</li>
+<li><strong>ODE / SDE 统一</strong>: Eq. 11/12 在代码里就是一个 <code>if noise_level &lt;= 0</code> 的分支, 框架性强。同一套训练代码可以平滑切换 sampler 类型, 这跟 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> 的 hybrid SDE-ODE 思路异曲同工。</li>
+<li><strong>Round-robin + LoRA adapter 切换</strong> — 工程上很优雅: 3 个 teacher 不占 3 份显存, 共享 transformer backbone, 只 swap LoRA。这让&quot;多 teacher 蒸馏&quot;成本接近&quot;单 teacher 蒸馏&quot;。</li>
+<li><strong>结果数字硬</strong>: average 0.929 vs cascade 0.851, 在 8 个 metric 上几乎全胜, 而且 wall-clock 更少。reward hacking 风险也比 cascade 低 (因为 student 看到的是 teacher transition mean, 不是 reward 直接信号 — teacher 的 reward hack 行为不会被放大)。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>理论上的&quot;unified&quot;略显勉强</strong>: Eq. 12 (ODE 极限) 是用&quot;分布退化成 pointwise 映射, 所以 KL 写不出来, 退化成 L2&quot;这种文字论证, <strong>没给严格的 <span class="math inline">a \to 0</span> 极限推导</strong>。读者得自己确信&quot;<span class="math inline">\bar\sigma_j^2 \to 0</span> 时, KL 这个量本身爆掉但梯度方向收敛到 L2 的方向&quot;。一个数学严谨的版本应该取 <span class="math inline">\bar\sigma_j^2</span> 的极限然后用 <span class="math inline">\Gamma</span>-convergence 或类似工具证明。</li>
+<li><strong>PPO-style baseline 的代码没 release</strong> (§4 提到), 想精确复现 Fig 6 紫色曲线得自己写。这是个透明性问题。</li>
+<li><strong>配置假设 3 teacher</strong>: assert <code>num_batches_per_epoch % 3 == 0</code> 是 hard-coded 数。如果要扩展到 5 个 reward, 改 batch 数 + assert 就行, 但 paper 没在更多 reward 数量上跑 — 是否 round-robin 还稳, 是开放问题。</li>
+<li><strong>Teacher 的 reward hack 会被 student 完整复现</strong>: §3.3 的论证只关心&quot;对 teacher 的匹配方差&quot;; 它不关心&quot;teacher 是不是个好东西&quot;。如果 OCR teacher 本身在某些 prompt 上崩溃了 (paper 提过 DiffusionNFT 在 OCR 上易 reward hack — 所以才换 GRPO-Guard), student 也会忠实学过来。<strong>OPD 的上限就是 teacher 集合的上限的某种凸组合, 不会超过去</strong>。</li>
+<li><strong>没跟 <a class="wiki-link" data-slug="d-opsd-2026" href="../d-opsd-2026/index.html">d-opsd-2026</a> / <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> 对比</strong>: 这三篇都是 2026/05 的同期工作, 名字都叫 *OPD, 但侧重不同 (D-OPSD 是 self-distillation 持续更新 step-distilled 模型; Flow-OPD 是 on-policy distillation for flow matching 美学单任务; DiffusionOPD 是多任务). 不同 niche, 但读者会困惑这些 OPD 的关系。Paper 没在 related work 把这条线串清楚 (可能因为同期发布, 来不及引用)。</li>
+<li><strong>Aes teacher 训练时间 85.75 GPU h</strong> 是 DiffusionOPD 总开销的主导项。如果某个 reward 训练 teacher 本身比 cascade 还慢, 那 OPD 的速度优势会蒸发。Paper 没在不同 reward 难度组合下做 sensitivity analysis。</li>
+<li><strong><code>weights_url</code> 给了 HF, 但论文核心实验在 SD3.5-M 上, 没在 FLUX 或 SD3.5-Large 验证 generalization</strong>。 multi-task RL 在更大模型上是否仍是 joint 优化失败 + DiffusionOPD 大幅胜出, 不知道。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 你有 1-N 个已经训好的 single-task teacher (或愿意训), 想把它们整合成一个 unified policy; reward 之间存在冲突 (joint RL 不收敛); 模型是 flow-matching 架构 (SD3 / FLUX)。<strong>整个 OPD 框架对 score-based diffusion 同样适用</strong>, 只是 transition kernel 推导要重做。</li>
+<li>✅ <strong>适用</strong>: 想理解&quot;为什么 closed-form supervision 比 stochastic policy gradient 优&quot;。这篇 paper 的 §3.3 适合做 reading group case。</li>
+<li>❌ <strong>不适用</strong>: 你只有<strong>一个 reward</strong> — DiffusionOPD 没有任何收益, 直接用 GRPO-Guard / DiffusionNFT 训单 task。</li>
+<li>❌ <strong>不适用</strong>: 你<strong>没有 teacher</strong> 也不想训 — OPD 本质是知识转移, 没有 teacher 就退化成普通 RL。</li>
+<li>❌ <strong>不适用</strong>: 你的 reward 是<strong>外部 API / 人工评估</strong> (不能 backprop) — OPD 要求 teacher 是可调用的模型; 如果 reward 只能给 scalar, 只能走 RL 路线。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li>*<em>同期 <em>OPD 三兄弟</em></em>: <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> (单任务 flow-matching 美学), <a class="wiki-link" data-slug="d-opsd-2026" href="../d-opsd-2026/index.html">d-opsd-2026</a> (step-distilled 模型上的 continuous self-distillation), DiffusionOPD (本篇, 多任务整合) — 三者都基于&quot;on-policy + teacher transition supervision&quot;思路, niche 不同。</li>
+<li><strong>OPD 原版</strong> (LLM 上): Agarwal et al. 2024 &quot;On-Policy Distillation of Language Models&quot;, paper 直接抬这套到 diffusion。</li>
+<li><strong>DiffusionNFT</strong> (NVlabs, 2026): 本 paper 的 codebase 来源, 也是它 multi-task baseline 之一 (Cascade NFT)。</li>
+<li><strong>Flow-GRPO</strong> (Liu et al. 2025): SDE 离散化和反向 sampling 的来源, 本 paper 的 Eq. 5-7 直接借用。</li>
+<li><strong>DMD / TDM</strong>: Fig 5 里的 baseline, 都是 step distillation 方向, 跟本 paper 的 &quot;knowledge integration distillation&quot; niche 不同, 但 distillation objective 设计上有借鉴价值。</li>
+<li><strong>GRPO-Guard / DiffusionNFT</strong> 作为 teacher 训练算法: 本 paper 在不同 reward 上挑了不同 RL 算法做 teacher — 这本身就是个有用的 &quot;什么 reward 该用什么 RL&quot; 经验法则。</li>
+</ul>
+</main>
+</body>
+</html>
