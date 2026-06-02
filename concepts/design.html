@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>multi-task — paper-reading</title>
+  <title>design — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
 <!-- NAV-END -->
 
 <main class="page page--concept">
-  <h1>multi-task</h1>
+  <h1>design</h1>
   
   <div class="concept__body">
 
@@ -39,15 +39,6 @@
   </div>
   <h3 class="post-card__title">MRT: 一个 20B masked region transformer 把分层图生成的三个任务塞进同一个模型</h3>
   <p class="post-card__tldr">Canva Research (arXiv 2026/05/26, CVPR&#x27;26 poster)。多层 RGBA 图生成长期落后于平面图生成,是因为 (1) 缺大规模数据,(2) 缺一个能复用 SOTA 平面图先验的架构。MRT 同时解决两件事:从 Canva 设计平台拿 10M 多语言分层设计样本 + 在 Qwen-Image 20B 上做 full-parameter fine-tune(不再是 LoRA),用一个 masked region transformer 把三个任务(text→layers / image→layers / layers→layers 编辑)塞进同一个模型——核心机制是 adaptive masking 决定每个 region token 是&quot;干净条件&quot;还是&quot;加噪去噪目标&quot;。沿用 ART [38] 的 regional latents(每层独立 VAE 编码,token 数 = O(层面积) 而非 O(全画布)),加一个 overflow-aware canvas layer 让超出边界的元素保持完整。DMD2 蒸馏到 8 步,推理在 20 层时比同期 Qwen-Image-Layered 快 100×、省 50-90% 显存。**注意:论文 5 月 26 日上传,官方代码尚未公开**(Canva GitHub org 无 repo)。
-</p>
-</a>
-<a class="post-card post-card--paper" href="../papers/diffusion-opd-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-02</span></span>
-  </div>
-  <h3 class="post-card__title">DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</h3>
-  <p class="post-card__tldr">Fudan + 阿里 Wan Team (arXiv 2026/05/14)。多任务 diffusion RL 现有两条路都不好走: joint 多目标互相打架 + 难任务被压制, cascade 多阶段繁琐 + 灾难遗忘。DiffusionOPD 抄 LLM 的 On-Policy Distillation (OPD) 思路, 把它从 token 序列搬到 Euler-Maruyama 离散化的反向 SDE: 学生和老师在同一个噪声 schedule 上有同协方差的 one-step Gaussian transition, 反向 KL 解析地坍缩成 $\|\mu^S - \mu^T\|^2 / (2\bar\sigma^2)$, 在 ODE 极限 (a→0) 进一步退化成纯 L2 transition matching (Eq. 12)。配 round-robin 多 teacher (per-task LoRA adapter), 一个 backward 一个 round。SD3.5-M 上 GenEval 0.96 + OCR 0.94 + Aes 6.15, average 0.929 反超 cascade NFT 0.851 / multi-task NFT 0.715, 总 wall-clock 比 cascade 少 ~50 GPU h。论文最有教育意义的是 §3.3: PPO-style 跟 closed-form KL 期望梯度相同, 但 PPO 多一个 $\epsilon_j / \bar\sigma_j$ 的 score-function 项, 是纯方差; 而 closed-form 通过 pathwise gradient 完全消掉这一项。
 </p>
 </a>
 </div>

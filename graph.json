@@ -93,6 +93,15 @@
       "url": "papers/leap-align-2026/index.html"
     },
     {
+      "id": "papers/mrt-2026",
+      "type": "paper",
+      "slug": "mrt-2026",
+      "title": "MRT: 一个 20B masked region transformer 把分层图生成的三个任务塞进同一个模型",
+      "date": "2026-05-26",
+      "tldr": "Canva Research (arXiv 2026/05/26, CVPR'26 poster)。多层 RGBA 图生成长期落后于平面图生成,是因为 (1) 缺大规模数据,(2) 缺一个能复用 SOTA 平面图先验的架构。MRT 同时解决两件事:从 Canva 设计平台拿 10M 多语言分层设计样本 + 在 Qwen-Image 20B 上做 full-parameter fine-tune(不再是 LoRA),用一个 masked region transformer 把三个任务(text→layers / image→layers / layers→layers 编辑)塞进同一个模型——核心机制是 adaptive masking 决定每个 region token 是\"干净条件\"还是\"加噪去噪目标\"。沿用 ART [38] 的 regional latents(每层独立 VAE 编码,token 数 = O(层面积) 而非 O(全画布)),加一个 overflow-aware canvas layer 让超出边界的元素保持完整。DMD2 蒸馏到 8 步,推理在 20 层时比同期 Qwen-Image-Layered 快 100×、省 50-90% 显存。**注意:论文 5 月 26 日上传,官方代码尚未公开**(Canva GitHub org 无 repo)。\n",
+      "url": "papers/mrt-2026/index.html"
+    },
+    {
       "id": "papers/qwen-image-2-2026",
       "type": "paper",
       "slug": "qwen-image-2-2026",
@@ -394,6 +403,30 @@
       "url": "concepts/comparison.html"
     },
     {
+      "id": "concepts/layered-image",
+      "type": "concept",
+      "slug": "layered-image",
+      "name": "layered-image",
+      "has_file": false,
+      "url": "concepts/layered-image.html"
+    },
+    {
+      "id": "concepts/image-editing",
+      "type": "concept",
+      "slug": "image-editing",
+      "name": "image-editing",
+      "has_file": false,
+      "url": "concepts/image-editing.html"
+    },
+    {
+      "id": "concepts/design",
+      "type": "concept",
+      "slug": "design",
+      "name": "design",
+      "has_file": false,
+      "url": "concepts/design.html"
+    },
+    {
       "id": "concepts/qwen",
       "type": "concept",
       "slug": "qwen",
@@ -693,22 +726,22 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
       "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -815,6 +848,61 @@
       "from": "papers/leap-align-2026",
       "to": "concepts/flux",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/image-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/layered-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/image-editing",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/multi-task",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "concepts/design",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
     },
     {
       "from": "papers/qwen-image-2-2026",
