@@ -891,17 +891,17 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {

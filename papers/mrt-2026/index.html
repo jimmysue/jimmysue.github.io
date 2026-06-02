@@ -60,10 +60,11 @@
   <ul>
     <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
     <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
-    <li class="h3"><a href="#sec-2-1">2.1 数据表示: regional latents + overflow canvas</a></li>
-    <li class="h3"><a href="#sec-2-2">2.2 Masked Region Transformer: 用 mask 切换任务</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 一些具体的实现选择</a></li>
-    <li class="h3"><a href="#sec-2-4">2.4 加速: DMD2 蒸馏到 8 步</a></li>
+    <li class="h3"><a href="#sec-2-1">2.0 具体输入输出 + Layout 如何进模型 (这节最重要)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.1 数据表示: regional latents + overflow canvas</a></li>
+    <li class="h3"><a href="#sec-2-3">2.2 Masked Region Transformer: 用 mask 切换任务</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 一些具体的实现选择</a></li>
+    <li class="h3"><a href="#sec-2-5">2.4 加速: DMD2 蒸馏到 8 步</a></li>
     <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
     <li class="h3"><a href="#sec-3-1">3.1 vs 同期 Qwen-Image-Layered (Table 1, Fig 19, Fig 20)</a></li>
     <li class="h3"><a href="#sec-3-2">3.2 Text-to-Layers + Layers-to-Layers (Fig 6, Fig 22)</a></li>
@@ -118,7 +119,103 @@
 </ul>
 <p>一句话主张:<strong>用大模型 + 大数据 + 单一架构 + adaptive masking,把分层生成做到 Photoshop 级别</strong>。</p>
 <h2 id="sec-2">2. 方法 (Method)</h2>
-<h3 id="sec-2-1">2.1 数据表示: regional latents + overflow canvas</h3>
+<h3 id="sec-2-1">2.0 具体输入输出 + Layout 如何进模型 (这节最重要)</h3>
+<p>抽象描述读完容易问&quot;具体什么张量进、什么张量出、layout 怎么喂&quot;。一次说清:</p>
+<p><strong>Layout 进模型的方式 = 2D RoPE 位置编码,没有别的</strong>。Paper §3.2 只在一句话里带过(&quot;we copy the RoPE positional encoding from the corresponding original layer token...&quot;),但这是核心机制:</p>
+<ul>
+<li><strong>没有单独的 &quot;bbox 条件向量&quot;</strong>(MultiDiffusion / GLIGEN 那种学一个 region embedding 的做法不存在)</li>
+<li><strong>没有 layout token</strong>(LayoutGPT 那种把 bbox 序列化成离散 token 的做法也没有)</li>
+<li><strong>就是 RoPE</strong>:每个 layer 的 latent token 拿到的 (x, y) 位置编码 = 该 layer 在<strong>全画布上</strong>的位置</li>
+</ul>
+<p>举例:画布 1024×1024,Layer i 的 bbox = (200, 300, 600, 700)。该 layer 经 WAN-VAE 编码后得到一个 50×50 的 latent grid(下采样 8 倍)。这 50×50 个 token 的 RoPE 2D 位置就分别是 (25, 37.5), (26, 37.5), ..., (74, 87.5) —— <strong>对应全画布坐标系</strong>, 不是 layer 内部的 (0,0)..(50,50)。Transformer 在 full-attention 中自然就能看到 &quot;这个 layer token 跟 composed image 哪个像素位置对齐&quot;。</p>
+<h4>以 Image-to-Layers 为例走一遍张量</h4>
+<p><strong>输入</strong> (用户给):</p>
+<ul>
+<li>输入图 <span class="math inline">\(I \in \mathbb{R}^{3 \times 1024 \times 1024}\)</span></li>
+<li>Layout: <span class="math inline">\(K\)</span> 个 bbox + Z-order (detector 抠出来或手标)</li>
+<li>(可选) 文本 prompt</li>
+</ul>
+<p><strong>编码阶段</strong>:</p>
+<pre><code class="language-text">z_composed = WAN-VAE(I)                 # shape [16, 128, 128] (latent dim 16, 下采样 8×)
+                                        # 16384 token, RoPE 位置 = 全画布 (i, j)
+
+z_bg = noise                            # shape [16, 128, 128], 全画布 latent (待去噪)
+z_i^fg = noise (i=1..K)                 # shape [16, H_i/8, W_i/8], bbox 大小 latent (待去噪)
+                                        # 这些 token 的 RoPE 位置 = bbox 在全画布上的坐标
+</code></pre>
+<p><strong>拼成一长串 token 序列 (一维序列, 不是空间张量)</strong>:</p>
+<pre><code class="language-text">[ z_composed (mask=CLEAN_CONDITION),    # 16384 token; 不加噪、不算 loss
+  z_bg       (mask=NOISY_TARGET),       # 16384 token; 加噪 → 预测 velocity → 算 loss
+  z_1^fg     (mask=NOISY_TARGET),       # ~3-5k token (按 bbox 大小)
+  ...
+  z_K^fg     (mask=NOISY_TARGET) ]
+</code></pre>
+<p>总 token 数 ≈ 16384 (composed) + 16384 (bg) + <span class="math inline">\(\sum_i\)</span> (bbox<span class="math inline">\(_i\)</span> 面积/64)。<strong>关键</strong>: K 层加起来的 fg token 数大致等于一张全画布(K 个 bbox 拼起来约覆盖画布一次),所以总 token ≈ 3× 全画布。Qwen-Image-Layered 用全画布表示每层,总 token = (K+2)× 全画布——20 层时差 ~10× token,这是 Fig. 19 100× 推理加速的根因。</p>
+<p><strong>Transformer</strong>:20B Qwen-Image,60 层,全 token full attention(都互相看)。<code>mask</code> 只控制&quot;这个 token 要不要加噪 / 要不要算 loss&quot;,<strong>不限制 attention 谁能看谁</strong>。</p>
+<p><strong>采样</strong>:Flow matching Euler 50 步(或蒸馏 8 步)。每步:</p>
+<pre><code class="language-text">v_pred = transformer(z_t, t, c_text, mask, RoPE_positions)
+z_{t-Δt} = z_t - v_pred * Δt    # 仅更新 noisy 部分,clean condition token 不动
+</code></pre>
+<p><strong>解码</strong>:</p>
+<pre><code class="language-text">output_bg     = WAN-VAE-decode(z_bg_final)     # 全画布 RGBA
+output_fg_i   = WAN-VAE-decode(z_i^fg_final)   # 每层 bbox 大小 RGBA,带 alpha 通道
+</code></pre>
+<p><strong>输出</strong> (给用户):</p>
+<ul>
+<li>1 张 background RGBA (全画布尺寸)</li>
+<li><span class="math inline">\(K\)</span> 张 foreground RGBA,每张是自己 bbox 大小 (含 alpha,可独立移动)</li>
+<li>canvas layer = 输入图 (作为参考)</li>
+</ul>
+<h4>四个任务对照表</h4>
+<p>输入张量结构、输出张量结构、transformer 架构、loss 完全一致。<strong>只有 mask 模式不同</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Task</th>
+<th>composed</th>
+<th>bg</th>
+<th>fg layers</th>
+<th>文本 <span class="math inline">\(c\)</span></th>
+<th>用户额外输入</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Text→Layers</strong></td>
+<td>NOISY (生成)</td>
+<td>NOISY</td>
+<td>全部 NOISY</td>
+<td>全局 prompt</td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>Image→Layers</strong></td>
+<td>CLEAN (条件)</td>
+<td>NOISY</td>
+<td>全部 NOISY</td>
+<td>(可选)</td>
+<td>输入图 + layout</td>
+</tr>
+<tr>
+<td><strong>Layer Addition</strong></td>
+<td>CLEAN</td>
+<td>CLEAN</td>
+<td><span class="math inline">\(i \notin A\)</span> CLEAN,<span class="math inline">\(i \in A\)</span> NOISY</td>
+<td><code>&lt;layer&gt;$c_A$&lt;/layer&gt;</code></td>
+<td>现有 design + bbox</td>
+</tr>
+<tr>
+<td><strong>Layer Restylization</strong></td>
+<td>CLEAN</td>
+<td>CLEAN</td>
+<td>non-target CLEAN; target NOISY; <strong>+ append <span class="math inline">\(z_i^{\text{cond}}\)</span> as CLEAN</strong></td>
+<td>&quot;Harmonize these layers&quot;</td>
+<td>现有 design + 用户图</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Restylization 的小 trick</strong>: 用户上传的图也被 WAN 编码成额外 token,append 到 sequence 末尾,<strong>RoPE 位置复制 target layer 的 RoPE</strong> —— 让模型知道&quot;这张用户图要替换 target layer 在那个位置的样子&quot;。这就是 paper §3.2 末段说的 &quot;copy RoPE positional encoding&quot; 的实际作用。</p>
+<h3 id="sec-2-2">2.1 数据表示: regional latents + overflow canvas</h3>
 <p>把一个多层设计表示为四类内容:</p>
 <div class="math block">
 \[\{I_{\text{canvas}}, I_{\text{bg}}, \{I^{\text{fg}}_i\}_{i=1}^K\}\]
@@ -126,7 +223,7 @@
 <p class="math-translation">—— 翻译: 一个完整设计 = 1 张<strong>画布合成图</strong>(用于 layer coherence 监督) + 1 张<strong>半透明背景</strong> + K 张<strong>前景 RGBA 层</strong>(可以超出画布)。每张都用 WAN-2.1-VAE 独立编码成 latent。</p>
 <p><strong>关键: token 数是按 region 算的</strong>。如果第 i 层的边界框是 100×200(占画布的 10% 面积),则该层的 token 数 ≈ 全画布 token 数 × 10%。这跟 Qwen-Image-Layered &quot;每层用全画布 token&quot;对比,K 层时 token 总数差 K 倍。这是论文 Fig. 19 显示 100× 推理速度的根本原因。</p>
 <p><strong>Overflow canvas layer</strong>:训练数据里 60% 的层会有超出画布的部分(比如 banner 拉到画框外)。MRT 引入一个<strong>全尺寸 canvas layer</strong> 专门承载这些&quot;完整层 + 超出部分&quot;,其余 layer 仍按各自 region 编码。这样每个 fg layer 都能完整保留,后续编辑时拖动不丢内容。</p>
-<h3 id="sec-2-2">2.2 Masked Region Transformer: 用 mask 切换任务</h3>
+<h3 id="sec-2-3">2.2 Masked Region Transformer: 用 mask 切换任务</h3>
 <p>这是 paper 最核心的设计。三个任务(text→layers / image→layers / layers→layers)<strong>共用同一个 20B transformer</strong>,通过控制 &quot;哪些 token 被 mask 当作干净条件、哪些 token 加噪做 diffusion 目标&quot; 来切换任务。</p>
 <figure>
   <img class="zoomable" src="figures/fig4-architecture.png" alt="Masked Region Transformer 框架图">
@@ -181,11 +278,11 @@
 </div>
 <p class="math-translation">—— 翻译: 模型 $f_\theta$ 给定时刻 $t$ 的带噪 latent $z_t$、时刻 $t$ 本身、和文本条件 $c$,预测速度 $v_t = z_0 - \epsilon$(从干净指向噪声的方向)。loss 只在 $z_0$ 对应的 non-masked token 上计算。</p>
 <p><strong>为什么这设计很巧妙</strong>(我的理解):attention 是 set 操作,加什么 token 不加什么 token,<strong>结构是一样的</strong>。所以三个任务只需要改&quot;input token 的组装方式&quot;和&quot;哪些 token 不参与 loss&quot;,权重一份就够。这本质上就是 LLM 里 prefix-LM / FIM (fill-in-the-middle) 那一套思路搬到 diffusion。</p>
-<h3 id="sec-2-3">2.3 一些具体的实现选择</h3>
+<h3 id="sec-2-4">2.3 一些具体的实现选择</h3>
 <p><strong>Layer Restylization 里的小 trick</strong> (paper §3.2 倒数第二段): 用户上传一张图想让它&quot;长得跟现有设计风格一致&quot;,MRT 在 transformer 输入里把这张图编码后作为额外 condition token 加入,<strong>RoPE 位置编码从对应 target layer 复制过来</strong>——这样 condition token 和 target token 共享同一个空间位置先验,让模型知道&quot;目标位置应该跟这个 condition 的风格对齐&quot;。比单纯把 condition 放在 sequence 任意位置要稳。</p>
 <p><strong>Layer grouping augmentation</strong> (§3.2 末尾): 训练时随机把相邻或重叠的 layer 合并成一个,扩充 layout 多样性。原因:测试时用户用 layout detector 抠出来的边界框跟训练时的&quot;ground-truth 干净边界框&quot;差别可能很大,需要让模型学会处理&quot;模糊/粗的边界框&quot;。Table 5 ablation 显示这招在 I2L 任务上有持续提升。</p>
 <p><strong>Text condition 是 nice-to-have 不是 must</strong> (Table 4): I2L 任务给文本提示能涨 0.4 PSNR,但去掉也能跑——这跟&quot;用 ART 那种纯文本驱动&quot;的思路不一样。MRT 更像是&quot;我看着这张图,加上画框告诉我每层在哪,我就能解出来&quot;。</p>
-<h3 id="sec-2-4">2.4 加速: DMD2 蒸馏到 8 步</h3>
+<h3 id="sec-2-5">2.4 加速: DMD2 蒸馏到 8 步</h3>
 <p>50 步基线模型经过 Improved DMD (DMD2 [60, 61]) 蒸馏到 <strong>8 步</strong>,FID 仅从 16.02 升到 18.58(Table 6),换来 ~6× 推理加速。DMD 优化的是 KL 散度:</p>
 <div class="math block">
 \[\mathcal{L}_{\text{DMD}} = \mathbb{E}_{z_0, t}\left[\mathrm{KL}\big(f_{\theta_T}(z_{t-1}|z_t) \,\Vert\, f_{\theta_S}(z_{t-1}|z_t)\big)\right]\]

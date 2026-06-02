@@ -59,6 +59,82 @@ MRT 想一次性解决:
 
 ## 2. 方法 (Method)
 
+### 2.0 具体输入输出 + Layout 如何进模型 (这节最重要)
+
+抽象描述读完容易问"具体什么张量进、什么张量出、layout 怎么喂"。一次说清:
+
+**Layout 进模型的方式 = 2D RoPE 位置编码,没有别的**。Paper §3.2 只在一句话里带过("we copy the RoPE positional encoding from the corresponding original layer token..."),但这是核心机制:
+
+- **没有单独的 "bbox 条件向量"**(MultiDiffusion / GLIGEN 那种学一个 region embedding 的做法不存在)
+- **没有 layout token**(LayoutGPT 那种把 bbox 序列化成离散 token 的做法也没有)
+- **就是 RoPE**:每个 layer 的 latent token 拿到的 (x, y) 位置编码 = 该 layer 在**全画布上**的位置
+
+举例:画布 1024×1024,Layer i 的 bbox = (200, 300, 600, 700)。该 layer 经 WAN-VAE 编码后得到一个 50×50 的 latent grid(下采样 8 倍)。这 50×50 个 token 的 RoPE 2D 位置就分别是 (25, 37.5), (26, 37.5), ..., (74, 87.5) —— **对应全画布坐标系**, 不是 layer 内部的 (0,0)..(50,50)。Transformer 在 full-attention 中自然就能看到 "这个 layer token 跟 composed image 哪个像素位置对齐"。
+
+#### 以 Image-to-Layers 为例走一遍张量
+
+**输入** (用户给):
+- 输入图 $I \in \mathbb{R}^{3 \times 1024 \times 1024}$
+- Layout: $K$ 个 bbox + Z-order (detector 抠出来或手标)
+- (可选) 文本 prompt
+
+**编码阶段**:
+
+```text
+z_composed = WAN-VAE(I)                 # shape [16, 128, 128] (latent dim 16, 下采样 8×)
+                                        # 16384 token, RoPE 位置 = 全画布 (i, j)
+
+z_bg = noise                            # shape [16, 128, 128], 全画布 latent (待去噪)
+z_i^fg = noise (i=1..K)                 # shape [16, H_i/8, W_i/8], bbox 大小 latent (待去噪)
+                                        # 这些 token 的 RoPE 位置 = bbox 在全画布上的坐标
+```
+
+**拼成一长串 token 序列 (一维序列, 不是空间张量)**:
+
+```text
+[ z_composed (mask=CLEAN_CONDITION),    # 16384 token; 不加噪、不算 loss
+  z_bg       (mask=NOISY_TARGET),       # 16384 token; 加噪 → 预测 velocity → 算 loss
+  z_1^fg     (mask=NOISY_TARGET),       # ~3-5k token (按 bbox 大小)
+  ...
+  z_K^fg     (mask=NOISY_TARGET) ]
+```
+
+总 token 数 ≈ 16384 (composed) + 16384 (bg) + $\sum_i$ (bbox$_i$ 面积/64)。**关键**: K 层加起来的 fg token 数大致等于一张全画布(K 个 bbox 拼起来约覆盖画布一次),所以总 token ≈ 3× 全画布。Qwen-Image-Layered 用全画布表示每层,总 token = (K+2)× 全画布——20 层时差 ~10× token,这是 Fig. 19 100× 推理加速的根因。
+
+**Transformer**:20B Qwen-Image,60 层,全 token full attention(都互相看)。`mask` 只控制"这个 token 要不要加噪 / 要不要算 loss",**不限制 attention 谁能看谁**。
+
+**采样**:Flow matching Euler 50 步(或蒸馏 8 步)。每步:
+
+```text
+v_pred = transformer(z_t, t, c_text, mask, RoPE_positions)
+z_{t-Δt} = z_t - v_pred * Δt    # 仅更新 noisy 部分,clean condition token 不动
+```
+
+**解码**:
+
+```text
+output_bg     = WAN-VAE-decode(z_bg_final)     # 全画布 RGBA
+output_fg_i   = WAN-VAE-decode(z_i^fg_final)   # 每层 bbox 大小 RGBA,带 alpha 通道
+```
+
+**输出** (给用户):
+- 1 张 background RGBA (全画布尺寸)
+- $K$ 张 foreground RGBA,每张是自己 bbox 大小 (含 alpha,可独立移动)
+- canvas layer = 输入图 (作为参考)
+
+#### 四个任务对照表
+
+输入张量结构、输出张量结构、transformer 架构、loss 完全一致。**只有 mask 模式不同**:
+
+| Task | composed | bg | fg layers | 文本 $c$ | 用户额外输入 |
+|---|---|---|---|---|---|
+| **Text→Layers** | NOISY (生成) | NOISY | 全部 NOISY | 全局 prompt | 无 |
+| **Image→Layers** | CLEAN (条件) | NOISY | 全部 NOISY | (可选) | 输入图 + layout |
+| **Layer Addition** | CLEAN | CLEAN | $i \notin A$ CLEAN,$i \in A$ NOISY | `<layer>$c_A$</layer>` | 现有 design + bbox |
+| **Layer Restylization** | CLEAN | CLEAN | non-target CLEAN; target NOISY; **+ append $z_i^{\text{cond}}$ as CLEAN** | "Harmonize these layers" | 现有 design + 用户图 |
+
+**Restylization 的小 trick**: 用户上传的图也被 WAN 编码成额外 token,append 到 sequence 末尾,**RoPE 位置复制 target layer 的 RoPE** —— 让模型知道"这张用户图要替换 target layer 在那个位置的样子"。这就是 paper §3.2 末段说的 "copy RoPE positional encoding" 的实际作用。
+
 ### 2.1 数据表示: regional latents + overflow canvas
 
 把一个多层设计表示为四类内容:
