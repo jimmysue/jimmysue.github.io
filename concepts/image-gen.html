@@ -35,7 +35,7 @@
 <a class="post-card post-card--paper" href="../papers/mrt-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-05-26</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-02</span></span>
   </div>
   <h3 class="post-card__title">MRT: 一个 20B masked region transformer 把分层图生成的三个任务塞进同一个模型</h3>
   <p class="post-card__tldr">Canva Research (arXiv 2026/05/26, CVPR&#x27;26 poster)。多层 RGBA 图生成长期落后于平面图生成,是因为 (1) 缺大规模数据,(2) 缺一个能复用 SOTA 平面图先验的架构。MRT 同时解决两件事:从 Canva 设计平台拿 10M 多语言分层设计样本 + 在 Qwen-Image 20B 上做 full-parameter fine-tune(不再是 LoRA),用一个 masked region transformer 把三个任务(text→layers / image→layers / layers→layers 编辑)塞进同一个模型——核心机制是 adaptive masking 决定每个 region token 是&quot;干净条件&quot;还是&quot;加噪去噪目标&quot;。沿用 ART [38] 的 regional latents(每层独立 VAE 编码,token 数 = O(层面积) 而非 O(全画布)),加一个 overflow-aware canvas layer 让超出边界的元素保持完整。DMD2 蒸馏到 8 步,推理在 20 层时比同期 Qwen-Image-Layered 快 100×、省 50-90% 显存。**注意:论文 5 月 26 日上传,官方代码尚未公开**(Canva GitHub org 无 repo)。
