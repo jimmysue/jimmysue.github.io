@@ -19,6 +19,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +33,26 @@ from build_lib.graph import (
 )
 from build_lib.markdown import render_post_body
 from build_lib.post_assembly import assemble_post_page
+
+def _added_date(md_path: Path, fallback: str) -> str:
+    """First-commit ISO date (YYYY-MM-DD) of the given file via git log.
+
+    Returns `fallback` (the post's paper_date) on any error: file not in git,
+    git not installed, command failure, repo with no commits.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "log", "--diff-filter=A", "--follow",
+             "--format=%aI", "-1", "--", str(md_path)],
+            capture_output=True, text=True, timeout=5, check=False,
+        )
+        out = result.stdout.strip()
+        if out:
+            return out[:10]
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return fallback
+
 
 # ---------------------------------------------------------------------------
 # constants
@@ -120,6 +141,7 @@ def discover_posts(root: Path) -> tuple[list[dict], int]:
             meta["_url"] = f"{dirname}/{sub.name}/index.html"
             meta["_md_path"] = md_path
             meta["_body_md"] = body
+            meta["_added_date"] = _added_date(md_path, fallback=meta["date"])
             # tutorial_meta — map from frontmatter `tutorial:` block (if any)
             meta["tutorial_meta"] = meta.get("tutorial") or None
             posts.append(meta)
@@ -187,7 +209,12 @@ def render_card(post: dict, depth: int) -> str:
     badge_text = "📘 教程" if is_tut else "📄 论文"
 
     # date + tutorial-meta extras
-    date_html = esc(post["date"])
+    added = post.get("_added_date") or post["date"]
+    paper_date = post["date"]
+    date_html = (
+        f'<span class="post-card__added">📅 {esc(added)}</span>'
+        f'<span class="post-card__paper-date"> · 论文 {esc(paper_date)}</span>'
+    )
     if is_tut and post.get("tutorial_meta"):
         tm = post["tutorial_meta"]
         wc = tm.get("word_count")
@@ -200,7 +227,7 @@ def render_card(post: dict, depth: int) -> str:
             rm_str = str(rm).replace("-", "–")
             extras.append(f"{esc(rm_str)} 分钟")
         if extras:
-            date_html = f"{esc(post['date'])} · " + " · ".join(extras)
+            date_html += ' · ' + ' · '.join(f'<span class="post-card__extra">{e}</span>' for e in extras)
 
     # tag chips (cap at MAX_CARD_TAGS)
     tags = post.get("tags", [])
@@ -239,8 +266,8 @@ def render_grid(posts: list[dict], depth: int) -> str:
 # page assemblers
 
 def _stable_desc(posts: list[dict]) -> list[dict]:
-    # date desc, slug asc as tiebreaker → idempotent.
-    return sorted(posts, key=lambda p: (p["date"], p["slug"]))[::-1]
+    # added_date desc (fallback to date), slug asc as tiebreaker → idempotent.
+    return sorted(posts, key=lambda p: (p.get("_added_date") or p["date"], p["slug"]))[::-1]
 
 
 def build_index(posts: list[dict], nav_tmpl: str) -> str:
@@ -409,6 +436,7 @@ SMOKE_POSTS = [
         "slug": "awm-2025",
         "title": "AWM: Active Weight Manipulation for diffusion alignment",
         "date": "2026-05-15",
+        "_added_date": "2026-05-15",
         "tldr": "A clean reparameterisation that turns DPO-style preference data into per-step weight edits.",
         "tags": ["diffusion", "rl", "alignment"],
         "tutorial_meta": None,
@@ -419,6 +447,7 @@ SMOKE_POSTS = [
         "slug": "flow-opd-2026",
         "title": "Flow-OPD: optimal pre-conditioning for flow matching",
         "date": "2026-03-02",
+        "_added_date": "2026-03-02",
         "tldr": "Pre-conditioning the velocity field via OT couplings cuts NFE by ~3× at iso-FID.",
         "tags": ["flow-matching", "diffusion", "optimal-transport", "sampling"],
         "tutorial_meta": None,
@@ -429,6 +458,7 @@ SMOKE_POSTS = [
         "slug": "rlhf-evolution-2024",
         "title": "RLHF 演化史: PPO → DPO → GRPO → 扩散 RL",
         "date": "2026-04-21",
+        "_added_date": "2026-04-21",
         "tldr": "一条主线串起 RLHF 五年史:从在线 PPO 到离线 DPO,再到 GRPO 与扩散模型 RL 的统一框架。",
         "tags": ["rl", "rlhf", "ppo", "dpo", "diffusion"],
         "tutorial_meta": {"word_count": "12.4k", "reading_minutes": "80-110"},
@@ -465,6 +495,12 @@ def run_smoke_test() -> int:
         return 1
     if "12.4k 字" not in idx or "80–110 分钟" not in idx:
         print("FAIL: tutorial meta not rendered with en-dash", file=sys.stderr)
+        return 1
+    if "post-card__added" not in idx:
+        print("FAIL: index.html missing post-card__added class", file=sys.stderr)
+        return 1
+    if "post-card__paper-date" not in idx:
+        print("FAIL: index.html missing post-card__paper-date class", file=sys.stderr)
         return 1
 
     cloud = (out / "concepts.html").read_text(encoding="utf-8")

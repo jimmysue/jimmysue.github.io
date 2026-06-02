@@ -35,26 +35,26 @@
 <a class="post-card post-card--paper" href="../papers/awm-2025/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-15</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-15</span></span>
   </div>
   <h3 class="post-card__title">Advantage Weighted Matching: 把扩散模型 RL 拽回到预训练目标</h3>
   <p class="post-card__tldr">UCAS + Adobe + HKU + MIT。一个定理 + 一个简单替换:DDPO/Flow-GRPO 那套 per-step 高斯似然其实是 noisy-$x_s$ 上的 DSM,多出 $d\cdot\kappa(s,t)$ 的目标向量方差,这是它收敛慢的根。AWM 把 RL surrogate 直接换回预训练用的 flow matching loss × advantage,decouple sampler/training,SD3.5-M 上 OCR 23.6× / GenEval 8× / PickScore 10× 加速,同质量。但 release 代码里 $\beta$、$w(t)$、EMA 自蒸馏三处跟论文不一致。</p>
 </a>
-<a class="post-card post-card--paper" href="../papers/rls-razor-2025/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
-  </div>
-  <h3 class="post-card__title">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</h3>
-  <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
-</a>
 <a class="post-card post-card--paper" href="../papers/self-flow-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-13</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-13</span></span>
   </div>
   <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
   <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/rls-razor-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-12</span></span>
+  </div>
+  <h3 class="post-card__title">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</h3>
+  <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
 </a>
 </div>
 

@@ -897,3 +897,8 @@ body > main {
 .page--concept .concept__aliases { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
 .page--concept .concept__aliases code { background: #f4f4f4; padding: 1px 4px; border-radius: 3px; }
 .page--concept .empty { color: #888; font-style: italic; }
+
+/* Phase 2.5 — dual-date display on post cards */
+.post-card__added { font-weight: 500; }
+.post-card__paper-date { color: #888; font-size: 0.9em; }
+.post-card__extra { color: #666; font-size: 0.9em; }

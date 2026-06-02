@@ -212,12 +212,17 @@ def _render_post_card(post: dict, depth: int = 1) -> str:
     href = f"{prefix}{post['_url']}"
     title = _html.escape(post["title"], quote=True)
     tldr = _html.escape(post.get("tldr") or "", quote=True)
-    date = _html.escape(post["date"], quote=True)
+    added = _html.escape(post.get("_added_date") or post["date"], quote=True)
+    paper_date = _html.escape(post["date"], quote=True)
+    date_html = (
+        f'<span class="post-card__added">📅 {added}</span>'
+        f'<span class="post-card__paper-date"> · 论文 {paper_date}</span>'
+    )
     return (
         f'<a class="post-card {cls}" href="{_html.escape(href, quote=True)}">\n'
         f'  <div class="post-card__head">\n'
         f'    <span class="post-card__badge {badge_cls}">{badge_text}</span>\n'
-        f'    <span class="post-card__date">{date}</span>\n'
+        f'    <span class="post-card__date">{date_html}</span>\n'
         f'  </div>\n'
         f'  <h3 class="post-card__title">{title}</h3>\n'
         f'  <p class="post-card__tldr">{tldr}</p>\n'
@@ -228,6 +233,12 @@ def _render_post_card(post: dict, depth: int = 1) -> str:
 def render_concept_page(slug: str, concept_meta: dict, posts_mentioning: list[dict],
                         nav_html: str) -> str:
     """Render a concept aggregation HTML page (concepts/<slug>.html, depth=1)."""
+    # Sort by paper.date desc (NOT added_date) — concept pages are "papers about X",
+    # paper-submission-date is the natural ordering.
+    posts_mentioning = sorted(
+        posts_mentioning,
+        key=lambda p: (p.get("date", ""), p.get("slug", "")),
+    )[::-1]
     name = _html.escape(concept_meta.get("name") or slug, quote=True)
     body_html = _render_concept_body(concept_meta.get("body_md") or "")
     aliases = concept_meta.get("aliases") or []

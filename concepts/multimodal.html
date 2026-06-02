@@ -32,53 +32,53 @@
   </div>
   <h2>提到此概念的论文 / 教程</h2>
   <div class="post-grid">
-<a class="post-card post-card--paper" href="../papers/self-flow-2026/index.html">
+<a class="post-card post-card--tutorial" href="../tutorials/vlm-industrial-2024/index.html">
   <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-13</span>
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-20</span></span>
   </div>
-  <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
-  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
-</a>
-<a class="post-card post-card--paper" href="../papers/sensenova-u1/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-11</span>
-  </div>
-  <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
-  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+  <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
+  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
 </a>
 <a class="post-card post-card--paper" href="../papers/starchild-1-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-19</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-19</span></span>
   </div>
   <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
   <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
 </a>
-<a class="post-card post-card--paper" href="../papers/tm-interaction-2026/index.html">
+<a class="post-card post-card--paper" href="../papers/self-flow-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-13</span></span>
   </div>
-  <h3 class="post-card__title">Interaction Models: A Scalable Approach to Human-AI Collaboration</h3>
-  <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
+  <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
+  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
 </a>
 <a class="post-card post-card--paper" href="../papers/tuna-2/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date">2026-05-12</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-12</span></span>
   </div>
   <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
   <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
 </a>
-<a class="post-card post-card--tutorial" href="../tutorials/vlm-industrial-2024/index.html">
+<a class="post-card post-card--paper" href="../papers/tm-interaction-2026/index.html">
   <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date">2026-05-20</span>
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-12</span></span>
   </div>
-  <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
-  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
+  <h3 class="post-card__title">Interaction Models: A Scalable Approach to Human-AI Collaboration</h3>
+  <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
+</a>
+<a class="post-card post-card--paper" href="../papers/sensenova-u1/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-11</span></span>
+  </div>
+  <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
+  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
 </a>
 </div>
 
