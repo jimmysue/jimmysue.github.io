@@ -113,12 +113,12 @@
       <figcaption>Fig. 4 — 整个系统的训练和推理两条流水线。推理:Prompt Rewriter(增强语义)→ Text-Encoder → Unified Multi-Image Editing DiT → 出图。训练:Pre-training(general editing)→ Progressive Resolution → 高质量垂域 SFT → Multi-Reward RL → Few-step + CFG 蒸馏。</figcaption>
     </figure>
 <h3 id="sec-2-2">2.1 任务范式: 从 inpaint 到 edit</h3>
-<p>记主体图为 <span class="math inline">x_p</span>,<span class="math inline">k</span> 张 reference 服装/配饰图为 <span class="math inline">\{x_r^{(1)},\dots,x_r^{(k)}\}</span>(<span class="math inline">k \in [1,6]</span>),文本指令为 <span class="math inline">c</span>。<strong>传统 inpainting 范式</strong>需要一个额外 mask <span class="math inline">m</span>:</p>
+<p>记主体图为 <span class="math inline">\(x_p\)</span>,<span class="math inline">\(k\)</span> 张 reference 服装/配饰图为 <span class="math inline">\(\{x_r^{(1)},\dots,x_r^{(k)}\}\)</span>(<span class="math inline">\(k \in [1,6]\)</span>),文本指令为 <span class="math inline">\(c\)</span>。<strong>传统 inpainting 范式</strong>需要一个额外 mask <span class="math inline">\(m\)</span>:</p>
 <p class="math-translation">—— 翻译: 把人身上的衣服抠掉后,丢进生成器,让它根据(单张)cloth 参考和文本把衣服画回去。</p>
-<p>这里 mask 必须提前算(用 SCHP 或 DensePose 做人体解析),而且只支持 <span class="math inline">k=1</span>。CatVTON 就是这条路 — 见后面的代码引用。</p>
+<p>这里 mask 必须提前算(用 SCHP 或 DensePose 做人体解析),而且只支持 <span class="math inline">\(k=1\)</span>。CatVTON 就是这条路 — 见后面的代码引用。</p>
 <p>论文采用的<strong>多图编辑范式</strong>把 mask 完全去掉,直接把所有图当成 in-context tokens:</p>
 <p class="math-translation">—— 翻译: 主体图 + 1~6 张 reference + 文本一起丢进 DiT,网络自己 attention 决定"哪儿是衣服该贴上去、哪儿是脸要保留"。</p>
-<p>注意: 论文<strong>没有</strong>给出 <span class="math inline">G_\theta</span> 的具体公式 / 结构图 — 只在介绍里说&quot;unified MMDiT architecture (Esser et al., 2024)&quot;一句带过。这是 §5 要批判的一个点。</p>
+<p>注意: 论文<strong>没有</strong>给出 <span class="math inline">\(G_\theta\)</span> 的具体公式 / 结构图 — 只在介绍里说&quot;unified MMDiT architecture (Esser et al., 2024)&quot;一句带过。这是 §5 要批判的一个点。</p>
 <h3 id="sec-2-3">2.2 MMDiT 统一架构(论文未细说)</h3>
 <p>论文唯一对架构的描述是: &quot;Tstars-Tryon 1.0 utilizes a unified MMDiT (Esser et al., 2024) architecture capable of simultaneously processing and coordinating multiple reference images, ensuring the natural fusion of full-body outfits.&quot; 加上 &quot;primary DiT model is streamlined to 5B parameters&quot;。</p>
 <p>MMDiT(Stable Diffusion 3, Esser et al., 2024)的核心是<strong>多模态联合注意力</strong>: text token 和 image token 在同一个 transformer block 里互相 attend(各有 separate QKV 投影,但 attention 在 concat 后的序列上计算)。对 try-on 任务的扩展应该是<strong>把多张参考图的 token 拼到序列里</strong>,让 self-attention 自动跨图融合 — 这是 in-context image editing 标准做法,但论文细节(token 怎么排、有没有 RoPE-2D、position encoding 怎么标记&quot;这张是主图、那张是衣服&quot;)<em>全部省略</em>。</p>
@@ -157,12 +157,12 @@ for i, t in enumerate(timesteps):
         [non_inpainting_latent_model_input, mask_latent_concat, masked_latent_concat], dim=1)
     noise_pred = self.unet(inpainting_latent_model_input, t, encoder_hidden_states=None)[0]
 </code></pre>
-<p>对比可以看出 CatVTON 走的是&quot;<em>把所有信息硬拼成一张大图</em>&quot;路线,这天然只能处理 <strong>1 张</strong>参考图(更多就会导致拼接图无限拉长,无法支持 6 张)。Tstars-Tryon 改成 MMDiT 后,reference 是<em>独立 token 序列</em>,理论上 <span class="math inline">k</span> 任意 — 但具体怎么 tokenize,论文没说。</p>
+<p>对比可以看出 CatVTON 走的是&quot;<em>把所有信息硬拼成一张大图</em>&quot;路线,这天然只能处理 <strong>1 张</strong>参考图(更多就会导致拼接图无限拉长,无法支持 6 张)。Tstars-Tryon 改成 MMDiT 后,reference 是<em>独立 token 序列</em>,理论上 <span class="math inline">\(k\)</span> 任意 — 但具体怎么 tokenize,论文没说。</p>
 <h3 id="sec-2-4">2.3 五阶段训练流水线</h3>
 <p>论文 §1(Introduction)把训练拆成 5 个 stage,但每个 stage 的<em>损失函数都没写</em>。下面是我根据上下文推断的对应学术 / 工程范式:</p>
 <ol>
 <li><strong>Pre-training for general editing.</strong> 在 task-balanced 和 content-balanced 通用编辑数据集上预训,渐进难度上升。目标:让 DiT 拿到 broad world knowledge + 通用编辑能力(类似 InstructPix2Pix / Emu Edit 那种)。损失推断为标准 flow matching:
-$<span class="math inline">\mathcal{L}_{\text{FM}} = \mathbb{E}_{x_0, x_1, t}\left[\| v_\theta(x_t, t, c) - (x_1 - x_0) \|^2\right]</span><span class="math inline">其中</span>x_t = (1-t)x_0 + t x_1$,<span class="math inline">x_0</span> = ground truth target,<span class="math inline">x_1</span> = noise。</li>
+$<span class="math inline">\(\mathcal{L}_{\text{FM}} = \mathbb{E}_{x_0, x_1, t}\left[\| v_\theta(x_t, t, c) - (x_1 - x_0) \|^2\right]\)</span><span class="math inline">\(其中\)</span>x_t = (1-t)x_0 + t x_1$,<span class="math inline">\(x_0\)</span> = ground truth target,<span class="math inline">\(x_1\)</span> = noise。</li>
 <li><strong>Progressive Resolution Continuous Training.</strong> 把分辨率逐步提升 — 这是 SD3 系列、Flux 系列的标准做法,小分辨率练 layout,大分辨率练细节。论文说他们的 infra 支持&quot;variable resolutions + arbitrary number of reference images&quot; via Data Packing(Dehghani et al., 2023)。</li>
 <li><strong>High-Quality Vertical Domain SFT.</strong> 在精挑细选的 try-on 垂直域数据上 SFT。这一步对应论文 Fig 6 的&quot;Data Curation Pipeline&quot; — 三阶段(Collection → Filter &amp; Anonymize → Try-on Pairing)。</li>
 <li><strong>Reinforcement Learning with Multi-Reward.</strong> SFT checkpoint 上跑 DiffusionNFT(Zheng et al., 2025),用 group-level 采样 + 多维度 reward + 组内 relative advantage 估计。下文 §2.4 展开。</li>
@@ -244,7 +244,7 @@ ori_policy_loss = r * positive_loss / config.beta \
 <h3 id="sec-2-6">2.5 CFG 蒸馏 + Step 蒸馏</h3>
 <p>5B 的 MMDiT 在 H200 上跑 50 步 + CFG(每步 2× forward)单图就是 ~10 秒级,6 张参考的多件场景更慢。论文用两个标准技巧把它压到接近 1 步水平:</p>
 <ol>
-<li><strong>CFG distillation:</strong> 训一个学生网络,直接输出 <span class="math inline">\epsilon_\theta(x_t,c) + s\cdot(\epsilon_\theta(x_t,c) - \epsilon_\theta(x_t,\emptyset))</span> 的结果 — 单次 forward 等价于教师的双 forward。论文说 RL stage 的 DiffusionNFT 让 CFG-free inference 同等效果(&quot;yields strong CFG-free inference performance&quot;)。</li>
+<li><strong>CFG distillation:</strong> 训一个学生网络,直接输出 <span class="math inline">\(\epsilon_\theta(x_t,c) + s\cdot(\epsilon_\theta(x_t,c) - \epsilon_\theta(x_t,\emptyset))\)</span> 的结果 — 单次 forward 等价于教师的双 forward。论文说 RL stage 的 DiffusionNFT 让 CFG-free inference 同等效果(&quot;yields strong CFG-free inference performance&quot;)。</li>
 <li><strong>Step distillation (Yin et al., 2024 = DMD2):</strong> 教师 50 步,学生 4-8 步逼近教师的 score 分布。论文最终单衣 <strong>3.92s</strong>,多衣 6 件 <strong>6.74s</strong>(H200)。</li>
 </ol>
 <p>对比基线: QwenEdit-2511 / Flux.2-dev 单图 ~100s,Flux.2-klein-9B ~50s。Tstars 比开源 SOTA 快 ~25×,这是工程层面最重要的差异化 — 也是为什么能上淘宝 C 端。</p>

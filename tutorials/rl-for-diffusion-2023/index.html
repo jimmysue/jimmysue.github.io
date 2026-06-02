@@ -259,31 +259,31 @@ print(&quot;grad on W =\n&quot;, W.grad)      # W 收到的梯度就是 DDPO_SF 
 <h3 id="sec-2-3">2.3 正式化 (MDP 五元组 + 策略梯度)</h3>
 <p>把扩散反向过程包装成 MDP, 状态-动作-策略-奖励对应如下:</p>
 <div class="math block">
-s_t = (c, t, x_t),\quad a_t = x_{t-1},\quad \pi(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)
+\[s_t = (c, t, x_t),\quad a_t = x_{t-1},\quad \pi(a_t \mid s_t) = p_\theta(x_{t-1} \mid x_t, c)\]
 </div>
 <p class="math-translation">—— 翻译: 状态包含 prompt <span class="math">\(c\)</span>、当前时间步 <span class="math">\(t\)</span>、当前噪声图 <span class="math">\(x_t\)</span>; 动作是"下一个时间步的图 <span class="math">\(x_{t-1}\)</span>"; 策略就是扩散模型的反向条件分布。</p>
 <div class="math block">
-R(s_t, a_t) = \begin{cases} r(x_0, c) &amp; t = 0 \\ 0 &amp; \text{otherwise} \end{cases}
+\[R(s_t, a_t) = \begin{cases} r(x_0, c) &amp; t = 0 \\ 0 &amp; \text{otherwise} \end{cases}\]
 </div>
 <p class="math-translation">—— 翻译: 奖励是稀疏的, 只在去噪到底 (<span class="math">\(t=0\)</span>) 时给一个标量 <span class="math">\(r(x_0, c)\)</span> (美学分、CLIP 相似度等); 中间所有 step 的即时奖励都是 0。</p>
 <p>策略本身是已知形式的高斯:</p>
 <div class="math block">
-p_\theta(x_{t-1}\mid x_t, c) = \mathcal{N}\!\big(\mu_\theta(x_t, c, t),\ \sigma_t^2 I\big)
+\[p_\theta(x_{t-1}\mid x_t, c) = \mathcal{N}\!\big(\mu_\theta(x_t, c, t),\ \sigma_t^2 I\big)\]
 </div>
 <p class="math-translation">—— 翻译: 反向一步是个均值由网络预测、方差由 schedule 决定的高斯, 这正是 DDIM 推导的结论, 不是 DDPO 新增的假设。</p>
 <p>因此每一步的 log-prob 有解析式:</p>
 <div class="math block">
-\log p_\theta(x_{t-1}\mid x_t, c) = -\frac{\|x_{t-1} - \mu_\theta\|^2}{2\sigma_t^2} - \log\sigma_t + \text{const}
+\[\log p_\theta(x_{t-1}\mid x_t, c) = -\frac{\|x_{t-1} - \mu_\theta\|^2}{2\sigma_t^2} - \log\sigma_t + \text{const}\]
 </div>
 <p class="math-translation">—— 翻译: 高斯的对数密度就是"平方误差除以 2σ²"加上一个常数项, σ 已知, 所以 log-prob 只依赖于 <span class="math">\(\mu_\theta\)</span>——这是后面所有梯度都能流回去的关键。</p>
 <p>DDPO 给了两个梯度估计器。第一个是 score function / REINFORCE 形式, 论文里写作 DDPO_SF:</p>
 <div class="math block">
-\nabla_\theta J = \mathbb{E}\Big[\sum_{t=0}^{T} \nabla_\theta \log p_\theta(x_{t-1}\mid x_t, c)\cdot r(x_0, c)\Big]
+\[\nabla_\theta J = \mathbb{E}\Big[\sum_{t=0}^{T} \nabla_\theta \log p_\theta(x_{t-1}\mid x_t, c)\cdot r(x_0, c)\Big]\]
 </div>
 <p class="math-translation">—— 翻译: 用一整条轨迹算 log-prob 之和, 整条轨迹共享同一个 reward (因为只有 <span class="math">\(t=0\)</span> 给分), 然后做 reward × ∇log-prob, 这就是经典的策略梯度形式。</p>
 <p>实际工程中 REINFORCE 方差太大、不能复用 rollout。DDPO 借 PPO 的思路给出第二个版本 DDPO_IS (importance sampling):</p>
 <div class="math block">
-\nabla_\theta J = \mathbb{E}_{\theta_{\text{old}}}\Big[\sum_t \frac{p_\theta(x_{t-1}\mid x_t,c)}{p_{\theta_{\text{old}}}(x_{t-1}\mid x_t,c)}\nabla_\theta \log p_\theta \cdot r(x_0, c)\Big]
+\[\nabla_\theta J = \mathbb{E}_{\theta_{\text{old}}}\Big[\sum_t \frac{p_\theta(x_{t-1}\mid x_t,c)}{p_{\theta_{\text{old}}}(x_{t-1}\mid x_t,c)}\nabla_\theta \log p_\theta \cdot r(x_0, c)\Big]\]
 </div>
 <p class="math-translation">—— 翻译: 把 rollout 用旧策略 <span class="math">\(\theta_{\text{old}}\)</span> 跑出来, 在新策略下重算 log-prob, 用 ratio (新 / 旧) 做修正——同一批 rollout 因此可以反复更新若干个 epoch, 这是 §3 PPO clip 的入口。</p>
 <h3 id="sec-2-4">2.4 代码引用 (双段)</h3>
@@ -382,8 +382,8 @@ p_\theta(x_{t-1}\mid x_t, c) = \mathcal{N}\!\big(\mu_\theta(x_t, c, t),\ \sigma_
 </ul>
 <h2 id="sec-3">3. PPO 风格的 ratio + clip + KL: DDPO 的两个补丁</h2>
 <h3 id="sec-3-1">3.1 直觉</h3>
-<p>§2 的 DDPO<sub>IS</sub> 用 importance sampling 重用了一批旧 rollout, 公式里那个 <span class="math inline">r_t(\theta) = \pi_\theta / \pi_{\theta_{\text{old}}}</span> 是关键。但 IS 有个隐患: 一旦新 policy 跟旧 policy 漂得太远, ratio 估计就极不稳定 — 想象你看着上个月的旧地图走路, 走一两步还行, 走出几公里就完全不对了。<strong>PPO 的 clip</strong> 就是给这件事兜底: 强制每次更新只在 ratio ≈ 1 的小邻域内迈步, 走得远的部分直接砍掉梯度。</p>
-<p>第二个隐患更隐蔽: 即使每一步更新都温柔, 上万步累积下来 policy 也会慢慢偏离最初的预训练分布, 跑去专攻 reward model 的盲点 — 这就是 reward hacking, 表现为图像越来越&quot;花&quot;、越来越脱离自然图像流形。<strong>DPOK 的 KL-to-ref 项</strong> 就是这个长期约束: 给当前 policy 拴一根橡皮筋到预训练模型 <span class="math inline">\pi_{\text{ref}}</span> 上, 走得越远拉力越大。</p>
+<p>§2 的 DDPO<sub>IS</sub> 用 importance sampling 重用了一批旧 rollout, 公式里那个 <span class="math inline">\(r_t(\theta) = \pi_\theta / \pi_{\theta_{\text{old}}}\)</span> 是关键。但 IS 有个隐患: 一旦新 policy 跟旧 policy 漂得太远, ratio 估计就极不稳定 — 想象你看着上个月的旧地图走路, 走一两步还行, 走出几公里就完全不对了。<strong>PPO 的 clip</strong> 就是给这件事兜底: 强制每次更新只在 ratio ≈ 1 的小邻域内迈步, 走得远的部分直接砍掉梯度。</p>
+<p>第二个隐患更隐蔽: 即使每一步更新都温柔, 上万步累积下来 policy 也会慢慢偏离最初的预训练分布, 跑去专攻 reward model 的盲点 — 这就是 reward hacking, 表现为图像越来越&quot;花&quot;、越来越脱离自然图像流形。<strong>DPOK 的 KL-to-ref 项</strong> 就是这个长期约束: 给当前 policy 拴一根橡皮筋到预训练模型 <span class="math inline">\(\pi_{\text{ref}}\)</span> 上, 走得越远拉力越大。</p>
 <p>这两个补丁一短期一长期, 各管一病, 后来成了所有 RL-for-diffusion 工作的标配。</p>
 <figure>
     <img class="zoomable" alt="PPO clipped surrogate 在 advantage 正负两种情形下的行为" src="figures/sec3-ppo-clip.png">
@@ -407,19 +407,19 @@ for A in (+1.0, -1.0):
 #   A=+1  ratio=1.4 → unclip=-1.40  clip=-1.20  loss=-1.20  (上限被封死)
 #   A=-1  ratio=1.4 → unclip=+1.40  clip=+1.20  loss=+1.40  (惩罚加倍, 不封)
 </code></pre>
-<p>看 <code>A=+1</code> 那一行: ratio=1.4 已经超出 <span class="math inline">1+\epsilon=1.2</span>, 直觉上&quot;这个动作好, 应该拼命放大它的概率&quot; — 但 clip 把 loss 卡在 <span class="math inline">-1.2</span>, 阻止 policy 一次性把 ratio 推得更高。反过来 <code>A=-1</code> 那行: ratio=1.4 时 unclipped loss=<span class="math inline">+1.4</span> 比 clipped loss=<span class="math inline">+1.2</span> 还大, 所以 max 选 unclipped — clip <em>不限制</em> 对坏样本的惩罚。这就是&quot;悲观 min&quot;的非对称: 限制乐观, 不限制悲观。</p>
+<p>看 <code>A=+1</code> 那一行: ratio=1.4 已经超出 <span class="math inline">\(1+\epsilon=1.2\)</span>, 直觉上&quot;这个动作好, 应该拼命放大它的概率&quot; — 但 clip 把 loss 卡在 <span class="math inline">\(-1.2\)</span>, 阻止 policy 一次性把 ratio 推得更高。反过来 <code>A=-1</code> 那行: ratio=1.4 时 unclipped loss=<span class="math inline">\(+1.4\)</span> 比 clipped loss=<span class="math inline">\(+1.2\)</span> 还大, 所以 max 选 unclipped — clip <em>不限制</em> 对坏样本的惩罚。这就是&quot;悲观 min&quot;的非对称: 限制乐观, 不限制悲观。</p>
 <h3 id="sec-3-3">3.3 正式化</h3>
 <p>PPO 论文 (Schulman et al., 2017) Eq.7 给出 clipped surrogate:</p>
 <p class="math-translation">—— 翻译: 对每个时间步, 算两个候选目标值 — 原始的 $r_t A_t$ 和把 $r_t$ 截断到 $[1-\epsilon, 1+\epsilon]$ 后的版本 — 取较小那个。$r_t(\theta) = \pi_\theta(a_t|s_t)/\pi_{\theta_{\text{old}}}(a_t|s_t)$ 就是 §2 已定义的那个 Gaussian likelihood ratio, 扩散里 $a_t=x_{t-1}$, $s_t=(c,t,x_t)$。</p>
 <p>为什么这个 min 是&quot;悲观&quot;的? 分两种情形:</p>
 <ul>
-<li><strong><span class="math inline">A_t \gt 0</span> (好动作)</strong>: 想增大 <span class="math inline">r_t</span> 把它的概率推高。但若 <span class="math inline">r_t \gt 1+\epsilon</span>, clipped 项 = <span class="math inline">(1+\epsilon)A_t</span> 比 <span class="math inline">r_t A_t</span> 小, min 选 clipped — 此时 <span class="math inline">r_t</span> 关于 <span class="math inline">\theta</span> 的梯度被砍掉, policy 不再为这个已经&quot;走太远&quot;的好动作继续加码。</li>
-<li><strong><span class="math inline">A_t \lt 0</span> (坏动作)</strong>: 想减小 <span class="math inline">r_t</span> 压制它。若 <span class="math inline">r_t \lt 1-\epsilon</span>, clipped 项 = <span class="math inline">(1-\epsilon)A_t</span> 比 <span class="math inline">r_t A_t</span> <em>大</em> (注意 <span class="math inline">A_t \lt 0</span>), min 选原始的 <span class="math inline">r_t A_t</span> — clip 在坏样本&quot;已经被压下去很多&quot;时不再额外加力, 但也不阻止你继续压。</li>
+<li><strong><span class="math inline">\(A_t \gt 0\)</span> (好动作)</strong>: 想增大 <span class="math inline">\(r_t\)</span> 把它的概率推高。但若 <span class="math inline">\(r_t \gt 1+\epsilon\)</span>, clipped 项 = <span class="math inline">\((1+\epsilon)A_t\)</span> 比 <span class="math inline">\(r_t A_t\)</span> 小, min 选 clipped — 此时 <span class="math inline">\(r_t\)</span> 关于 <span class="math inline">\(\theta\)</span> 的梯度被砍掉, policy 不再为这个已经&quot;走太远&quot;的好动作继续加码。</li>
+<li><strong><span class="math inline">\(A_t \lt 0\)</span> (坏动作)</strong>: 想减小 <span class="math inline">\(r_t\)</span> 压制它。若 <span class="math inline">\(r_t \lt 1-\epsilon\)</span>, clipped 项 = <span class="math inline">\((1-\epsilon)A_t\)</span> 比 <span class="math inline">\(r_t A_t\)</span> <em>大</em> (注意 <span class="math inline">\(A_t \lt 0\)</span>), min 选原始的 <span class="math inline">\(r_t A_t\)</span> — clip 在坏样本&quot;已经被压下去很多&quot;时不再额外加力, 但也不阻止你继续压。</li>
 </ul>
-<p>核心 trick: 在 loss 形式 (<span class="math inline">-\mathcal{L}^{\text{CLIP}}</span>) 下, <span class="math inline">\min(-x, -y) = -\max(x, y)</span>, 所以代码里写的是 <code>torch.maximum(unclipped_loss, clipped_loss)</code> — 跟 demo 第 9 行一一对应。</p>
+<p>核心 trick: 在 loss 形式 (<span class="math inline">\(-\mathcal{L}^{\text{CLIP}}\)</span>) 下, <span class="math inline">\(\min(-x, -y) = -\max(x, y)\)</span>, 所以代码里写的是 <code>torch.maximum(unclipped_loss, clipped_loss)</code> — 跟 demo 第 9 行一一对应。</p>
 <p>DPOK (Fan et al., 2023) 在此基础上加了一项 KL 到参考 policy:</p>
 <p class="math-translation">—— 翻译: 在 PPO 的 clipped 损失之外, 再罚一项当前 policy 与冻结的预训练 policy $\pi_{\text{ref}}$ 之间的 KL 散度; $\beta$ 是这条橡皮筋的劲度系数, 通常 $10^{-4} \sim 10^{-2}$。$\beta$ 越大约束越紧, 越不容易 reward hacking, 但也越难提升 reward。</p>
-<p>扩散里 <span class="math inline">\pi_\theta(x_{t-1}|x_t,c) = \mathcal{N}(\mu_\theta(x_t,t), \sigma_t^2 I)</span> 和 <span class="math inline">\pi_{\text{ref}}</span> 都是同协方差的各向同性高斯 — 两个同方差高斯的 KL 有闭式:</p>
+<p>扩散里 <span class="math inline">\(\pi_\theta(x_{t-1}|x_t,c) = \mathcal{N}(\mu_\theta(x_t,t), \sigma_t^2 I)\)</span> 和 <span class="math inline">\(\pi_{\text{ref}}\)</span> 都是同协方差的各向同性高斯 — 两个同方差高斯的 KL 有闭式:</p>
 <p class="math-translation">—— 翻译: 高斯方差既定, KL 只剩"均值差的 L2"除以"$2\sigma_t^2$"。也就是说, KL 退化成两个 denoiser 在同一 $(x_t, t)$ 上的预测均值的加权欧氏距离 — 实现上跟普通 MSE loss 没区别, 只是用 $\sigma_t^2$ 加了个 noise-schedule 权重。</p>
 <h3 id="sec-3-4">3.4 代码引用</h3>
 <p>Flow-GRPO 的训练 loop 把上面三件事 (ratio, clip, KL) 合在一个 loss 里, 写得极其紧凑:</p>
@@ -447,23 +447,23 @@ else:
 </code></pre>
 <p>逐行对照公式:</p>
 <ul>
-<li><code>ratio = torch.exp(log_prob - sample[&quot;log_probs&quot;][:, j])</code> — 公式里的 <span class="math inline">r_t(\theta)</span>。注意是在 <em>log 空间</em> 作差再 exp, 而不是 <span class="math inline">p_\theta/p_{\theta_{\text{old}}}</span> 直接除 — 高维高斯 likelihood 是极小数, 数值上必须走 log。<code>log_prob</code> 是 §2 的 logprob-tracked sampler 当下重算的, <code>sample[&quot;log_probs&quot;]</code> 是 rollout 时存的 <span class="math inline">\log \pi_{\theta_{\text{old}}}</span>。</li>
-<li><code>unclipped_loss = -advantages * ratio</code> — 公式里的 <span class="math inline">r_t A_t</span>, 加负号是因为代码做的是 loss minimization。</li>
-<li><code>clipped_loss = -advantages * torch.clamp(ratio, 1-cr, 1+cr)</code> — 公式里的 <span class="math inline">\text{clip}(r_t, 1-\epsilon, 1+\epsilon) A_t</span>, <span class="math inline">\epsilon</span> 在 config 里叫 <code>clip_range</code>。</li>
-<li><code>torch.maximum(unclipped_loss, clipped_loss)</code> — 这就是 demo 里强调的那个反直觉的 max: 因为 loss 已经加了负号, <span class="math inline">\min(r A, \text{clip}\cdot A)</span> 在 loss 形式下变成 <span class="math inline">\max(-rA, -\text{clip}\cdot A)</span>。</li>
-<li><code>((prev_sample_mean - prev_sample_mean_ref) ** 2) / (2 * std_dev_t ** 2)</code> — 公式里的高斯 KL closed form, 分子是 <span class="math inline">\|\mu_\theta - \mu_{\text{ref}}\|^2</span>, 分母是 <span class="math inline">2\sigma_t^2</span>。这里没显式调 <code>F.kl_div</code> 也没采样估计, 因为高斯同方差时 KL 就是个加权 MSE — 极快。</li>
-<li><code>loss = policy_loss + config.train.beta * kl_loss</code> — <code>config.train.beta</code> 跟公式里的 <span class="math inline">\beta</span> 一一对应; 当 <code>beta == 0</code> 时整个 KL 分支被 short-circuit, 这就是 DanceGRPO 的默认配置 (见 §6)。</li>
+<li><code>ratio = torch.exp(log_prob - sample[&quot;log_probs&quot;][:, j])</code> — 公式里的 <span class="math inline">\(r_t(\theta)\)</span>。注意是在 <em>log 空间</em> 作差再 exp, 而不是 <span class="math inline">\(p_\theta/p_{\theta_{\text{old}}}\)</span> 直接除 — 高维高斯 likelihood 是极小数, 数值上必须走 log。<code>log_prob</code> 是 §2 的 logprob-tracked sampler 当下重算的, <code>sample[&quot;log_probs&quot;]</code> 是 rollout 时存的 <span class="math inline">\(\log \pi_{\theta_{\text{old}}}\)</span>。</li>
+<li><code>unclipped_loss = -advantages * ratio</code> — 公式里的 <span class="math inline">\(r_t A_t\)</span>, 加负号是因为代码做的是 loss minimization。</li>
+<li><code>clipped_loss = -advantages * torch.clamp(ratio, 1-cr, 1+cr)</code> — 公式里的 <span class="math inline">\(\text{clip}(r_t, 1-\epsilon, 1+\epsilon) A_t\)</span>, <span class="math inline">\(\epsilon\)</span> 在 config 里叫 <code>clip_range</code>。</li>
+<li><code>torch.maximum(unclipped_loss, clipped_loss)</code> — 这就是 demo 里强调的那个反直觉的 max: 因为 loss 已经加了负号, <span class="math inline">\(\min(r A, \text{clip}\cdot A)\)</span> 在 loss 形式下变成 <span class="math inline">\(\max(-rA, -\text{clip}\cdot A)\)</span>。</li>
+<li><code>((prev_sample_mean - prev_sample_mean_ref) ** 2) / (2 * std_dev_t ** 2)</code> — 公式里的高斯 KL closed form, 分子是 <span class="math inline">\(\|\mu_\theta - \mu_{\text{ref}}\|^2\)</span>, 分母是 <span class="math inline">\(2\sigma_t^2\)</span>。这里没显式调 <code>F.kl_div</code> 也没采样估计, 因为高斯同方差时 KL 就是个加权 MSE — 极快。</li>
+<li><code>loss = policy_loss + config.train.beta * kl_loss</code> — <code>config.train.beta</code> 跟公式里的 <span class="math inline">\(\beta\)</span> 一一对应; 当 <code>beta == 0</code> 时整个 KL 分支被 short-circuit, 这就是 DanceGRPO 的默认配置 (见 §6)。</li>
 </ul>
 <p>另外注意 advantage 自己也被 <code>adv_clip_max</code> 截断了一次 — 这是个独立旋钮, 防止极端 reward outlier 让 gradient 爆。它跟 ratio clip 不是一回事。</p>
 <h3 id="sec-3-5">3.5 洞察</h3>
 <ul>
-<li><strong>clip_range 的量纲完全不同</strong>: PPO 在 Atari/MuJoCo 上标准是 <span class="math inline">0.1 \sim 0.2</span>, DDPO/Flow-GRPO 默认 <span class="math inline">10^{-4} \sim 10^{-2}</span>, 整整两个数量级差。原因是扩散一条轨迹有 几十步 Gaussian transition, 每步 <span class="math inline">\sigma_t</span> 不小, ratio = <span class="math inline">\exp(\sum_t \Delta \log p_t)</span> 是几十个高斯 log-prob 之差的累乘, 抖动天然就大 — 若 <span class="math inline">\epsilon</span> 设到 0.2, 几乎每个样本都落在 clip 区间外, 等价于&quot;全部样本都被砍梯度&quot;, 训练直接停滞。</li>
-<li><strong>clip 和 KL 是两个独立旋钮, 防的是不同病</strong>: <code>clip_range</code> 防单次 update 的 ratio 爆炸 (短期), <span class="math inline">\beta</span> 防 policy 长期偏离预训练流形 (reward hacking, 长期)。两者没有替代关系 — Flow-GRPO 默认两个都开, 经验上 <span class="math inline">\epsilon \approx 10^{-4}</span> + <span class="math inline">\beta \approx 10^{-3}</span> 是个比较稳的组合。</li>
-<li><strong>DanceGRPO 默认关 KL 也能 work</strong>: 同时期工作 DanceGRPO 默认 <span class="math inline">\beta=0</span> — 只靠 clip 就能稳。§6 会展开讨论这件事; 简短答案是他们用了&quot;group 内 shared init noise&quot;这个技巧, advantage 信号更干净, 不需要 KL 也不会漂太远。这是 Flow-GRPO 跟 DanceGRPO 的一个核心实现差异。</li>
+<li><strong>clip_range 的量纲完全不同</strong>: PPO 在 Atari/MuJoCo 上标准是 <span class="math inline">\(0.1 \sim 0.2\)</span>, DDPO/Flow-GRPO 默认 <span class="math inline">\(10^{-4} \sim 10^{-2}\)</span>, 整整两个数量级差。原因是扩散一条轨迹有 几十步 Gaussian transition, 每步 <span class="math inline">\(\sigma_t\)</span> 不小, ratio = <span class="math inline">\(\exp(\sum_t \Delta \log p_t)\)</span> 是几十个高斯 log-prob 之差的累乘, 抖动天然就大 — 若 <span class="math inline">\(\epsilon\)</span> 设到 0.2, 几乎每个样本都落在 clip 区间外, 等价于&quot;全部样本都被砍梯度&quot;, 训练直接停滞。</li>
+<li><strong>clip 和 KL 是两个独立旋钮, 防的是不同病</strong>: <code>clip_range</code> 防单次 update 的 ratio 爆炸 (短期), <span class="math inline">\(\beta\)</span> 防 policy 长期偏离预训练流形 (reward hacking, 长期)。两者没有替代关系 — Flow-GRPO 默认两个都开, 经验上 <span class="math inline">\(\epsilon \approx 10^{-4}\)</span> + <span class="math inline">\(\beta \approx 10^{-3}\)</span> 是个比较稳的组合。</li>
+<li><strong>DanceGRPO 默认关 KL 也能 work</strong>: 同时期工作 DanceGRPO 默认 <span class="math inline">\(\beta=0\)</span> — 只靠 clip 就能稳。§6 会展开讨论这件事; 简短答案是他们用了&quot;group 内 shared init noise&quot;这个技巧, advantage 信号更干净, 不需要 KL 也不会漂太远。这是 Flow-GRPO 跟 DanceGRPO 的一个核心实现差异。</li>
 </ul>
 <h2 id="sec-4">4. GRPO: 没有 critic 的 advantage 估计</h2>
 <h3 id="sec-4-1">4.1 直觉</h3>
-<p>§3 的 PPO clipped surrogate 里有个看似不起眼的符号 <span class="math inline">A_t</span> — advantage。课本 PPO 是这么算它的: 另训一个 value network <span class="math inline">V_\phi(s_t)</span> 当 baseline, 用 <span class="math inline">A_t = R_t - V_\phi(s_t)</span>。这个 <span class="math inline">V_\phi</span> 跟 policy backbone 一样大, 在 LLM 场景就已经&quot;显存翻倍&quot;, 到了视频扩散 — DiT backbone 动辄 5B/13B — 直接崩。</p>
+<p>§3 的 PPO clipped surrogate 里有个看似不起眼的符号 <span class="math inline">\(A_t\)</span> — advantage。课本 PPO 是这么算它的: 另训一个 value network <span class="math inline">\(V_\phi(s_t)\)</span> 当 baseline, 用 <span class="math inline">\(A_t = R_t - V_\phi(s_t)\)</span>。这个 <span class="math inline">\(V_\phi\)</span> 跟 policy backbone 一样大, 在 LLM 场景就已经&quot;显存翻倍&quot;, 到了视频扩散 — DiT backbone 动辄 5B/13B — 直接崩。</p>
 <p>DeepSeekMath 2024 给了一个朴素到几乎反直觉的修法: 干脆不训 critic, 就用 &quot;<strong>同一道题让 24 个学生做, 谁高于本场平均分谁就奖励, 低就惩罚</strong>&quot;。本场的 mean 自然就是这道题的 baseline, 本场的 std 自然就是这道题的难度归一化器 — 这就是 <em>group-relative</em>。原本要训一个 value 模型的工作, 现在被一个统计量替代了。Flow-GRPO / Dance-GRPO / AWM 后面几节看到的 advantage, 全是这套。</p>
 <figure>
     <img class="zoomable" alt="DeepSeekMath PPO vs GRPO 对比示意图" src="figures/sec4-grpo-vs-ppo.png">
@@ -493,11 +493,11 @@ print(&quot;mean(adv) =&quot;, round(advantages.mean(), 4), &quot;  (理论上 �
 <p class="math-translation">—— 翻译: 在 state $s_t$ 处的 advantage = 实际回报 $R_t$ 减去 critic 预测的"在这个 state 平均能拿多少 reward"。$V_\phi$ 是另一个跟 policy 一样大的神经网络, 需要额外训练。</p>
 <p>GRPO (DeepSeekMath 2024, Eq.4) 把 critic 替换成一组同 prompt rollout 的样本统计量:</p>
 <p class="math-translation">—— 翻译: 对同一个 prompt $c$ 采 $G$ 个 trajectory (扩散里常用 $G = 24$), 拿到一组 reward $\{r_1, ..., r_G\}$; 第 $i$ 条轨迹的 advantage = "它的 reward 减去本组均值" 再除以本组标准差。整条 trajectory 共享这一个 scalar 值, 喂给 §3 的 PPO clip surrogate。</p>
-<p><strong>为什么 unbiased?</strong> 任何只依赖 <em>其他</em> rollout 的 baseline <span class="math inline">b(\{r_{j \ne i}\})</span> 都不改变 policy gradient 的期望 (Greensmith et al., 2004) — 因为 <span class="math inline">\mathbb{E}[\nabla_\theta \log \pi_\theta \cdot b] = b \cdot \mathbb{E}[\nabla_\theta \log \pi_\theta] = 0</span>。GRPO 用的 mean 严格说还混入了 <span class="math inline">r_i</span> 自己 (用本组全员算均值, 不留一法), 但当 <span class="math inline">G</span> 较大时这点 self-leakage 可以忽略, 期望意义下与 critic baseline 等价 — 只是实现上完全去掉了 <span class="math inline">V_\phi</span> 的训练。</p>
-<p>分母那个 std 是个小细节但很关键: 它把不同 prompt 的 reward 量纲拉到同一尺度上, 等价于 PPO 早就有的 &quot;reward normalization&quot; 技巧的 group 版本 — 简单的 reward 题和困难的 reward 题, advantage 的数值范围被强行对齐到 <span class="math inline">\mathcal{O}(1)</span>, 学习率才不用 per-prompt 调。</p>
+<p><strong>为什么 unbiased?</strong> 任何只依赖 <em>其他</em> rollout 的 baseline <span class="math inline">\(b(\{r_{j \ne i}\})\)</span> 都不改变 policy gradient 的期望 (Greensmith et al., 2004) — 因为 <span class="math inline">\(\mathbb{E}[\nabla_\theta \log \pi_\theta \cdot b] = b \cdot \mathbb{E}[\nabla_\theta \log \pi_\theta] = 0\)</span>。GRPO 用的 mean 严格说还混入了 <span class="math inline">\(r_i\)</span> 自己 (用本组全员算均值, 不留一法), 但当 <span class="math inline">\(G\)</span> 较大时这点 self-leakage 可以忽略, 期望意义下与 critic baseline 等价 — 只是实现上完全去掉了 <span class="math inline">\(V_\phi\)</span> 的训练。</p>
+<p>分母那个 std 是个小细节但很关键: 它把不同 prompt 的 reward 量纲拉到同一尺度上, 等价于 PPO 早就有的 &quot;reward normalization&quot; 技巧的 group 版本 — 简单的 reward 题和困难的 reward 题, advantage 的数值范围被强行对齐到 <span class="math inline">\(\mathcal{O}(1)\)</span>, 学习率才不用 per-prompt 调。</p>
 <p>但 group-relative 也不是免费午餐, 它有两个失败模式比 critic baseline 更严重:</p>
 <ul>
-<li><strong><span class="math inline">G</span> 太小</strong>: <span class="math inline">G &lt; 8</span> 时本组 std 的估计本身就是高方差的随机量, advantage 的 normalize 反而引入噪声 — 这也是为什么扩散里大家普遍取 <span class="math inline">G = 24</span> (LLM 里 <span class="math inline">G = 8</span> 够用)。</li>
+<li><strong><span class="math inline">\(G\)</span> 太小</strong>: <span class="math inline">\(G &lt; 8\)</span> 时本组 std 的估计本身就是高方差的随机量, advantage 的 normalize 反而引入噪声 — 这也是为什么扩散里大家普遍取 <span class="math inline">\(G = 24\)</span> (LLM 里 <span class="math inline">\(G = 8\)</span> 够用)。</li>
 <li><strong>reward 极端长尾</strong>: 24 个 rollout 里有 23 个失败 (reward = 0) + 1 个完美 (reward = 1), std 由那一个 outlier 主导, 23 条好不容易学到东西的&quot;次优&quot;轨迹被 normalize 成接近零的 advantage, 信号几乎完全丢失。</li>
 </ul>
 <h3 id="sec-4-4">4.4 代码引用</h3>
@@ -541,27 +541,27 @@ samples[&quot;advantages&quot;] = (
 </code></pre>
 <p>对照公式与几个关键细节:</p>
 <ul>
-<li><code>stat_tracker.update(prompts, gathered_rewards['avg'])</code> — 这个 tracker 内部为每个 <em>unique prompt</em> 维护一个 reward 的 running mean/std, update 时把当前 batch 喂进去, 返回归一化后的 advantage。它把 <span class="math inline">\hat{A}_i = (r_i - \mathrm{mean})/\mathrm{std}</span> 的&quot;<span class="math inline">\mathrm{mean}/\mathrm{std}</span> 该取在哪些样本上&quot;具体化成&quot;按 prompt 分桶&quot;。</li>
+<li><code>stat_tracker.update(prompts, gathered_rewards['avg'])</code> — 这个 tracker 内部为每个 <em>unique prompt</em> 维护一个 reward 的 running mean/std, update 时把当前 batch 喂进去, 返回归一化后的 advantage。它把 <span class="math inline">\(\hat{A}_i = (r_i - \mathrm{mean})/\mathrm{std}\)</span> 的&quot;<span class="math inline">\(\mathrm{mean}/\mathrm{std}\)</span> 该取在哪些样本上&quot;具体化成&quot;按 prompt 分桶&quot;。</li>
 <li>备选分支 <code>advantages = (rewards - rewards.mean()) / (rewards.std() + 1e-4)</code> — 不分 prompt 的全局归一化, 等价于把所有 prompt 混在一起算 baseline。当 batch 里只有少数几个 prompt 时这条退化分支问题不大, 但 prompt 多样化后会污染 advantage 信号: 简单 prompt 的 reward 系统性偏高, 难 prompt 的 advantage 全负, 优化目标就被勾偏了。</li>
 <li><code>calculate_zero_std_ratio</code> — 监控有多少比例的 prompt 组其 reward 完全一样 (std = 0)。这些组的 advantage 算不出, 必须 mask 掉; 这个比例被记入 wandb, 训练时实时可观。</li>
 <li>当 <code>zero_std_ratio</code> 持续走高, 意味着 reward 信号 saturated — 要么 reward model 在当前 policy 输出上分辨力不够, 要么 reward 触顶, 这是 group-relative 的典型失败模式。此时该退后一步换 reward, 而不是死磕训练。</li>
 </ul>
 <h3 id="sec-4-5">4.5 洞察</h3>
 <ul>
-<li><strong><span class="math inline">G</span> 的差距来自 reward 噪声</strong>: LLM RLHF 里 <span class="math inline">G = 8</span> 一般够用; 扩散里普遍 <span class="math inline">G = 24</span> — 不是迷信, 而是视觉 reward (CLIP score / aesthetic / OCR 准确率) 比文本 reward 噪声大得多, 一组的 std 估计需要更多样本才稳。<span class="math inline">G</span> 翻三倍意味着 sample-time 也翻三倍, 这是 §5 Denoising Reduction 要去抠回来的 compute 预算。</li>
-<li><strong>zero-std 是 group-relative 的&quot;哨兵&quot;</strong>: 一组 reward 全 0 (全失败) 或全 max (全成功) 时, <span class="math inline">\hat{A}_i = 0/0</span> 直接爆。flow_grpo 用 <code>zero_std_ratio</code> 把它显化成一个可监控指标 — 没监控的话, 实际表现是某些 prompt 永远学不动, 而你不知道为什么。</li>
+<li><strong><span class="math inline">\(G\)</span> 的差距来自 reward 噪声</strong>: LLM RLHF 里 <span class="math inline">\(G = 8\)</span> 一般够用; 扩散里普遍 <span class="math inline">\(G = 24\)</span> — 不是迷信, 而是视觉 reward (CLIP score / aesthetic / OCR 准确率) 比文本 reward 噪声大得多, 一组的 std 估计需要更多样本才稳。<span class="math inline">\(G\)</span> 翻三倍意味着 sample-time 也翻三倍, 这是 §5 Denoising Reduction 要去抠回来的 compute 预算。</li>
+<li><strong>zero-std 是 group-relative 的&quot;哨兵&quot;</strong>: 一组 reward 全 0 (全失败) 或全 max (全成功) 时, <span class="math inline">\(\hat{A}_i = 0/0\)</span> 直接爆。flow_grpo 用 <code>zero_std_ratio</code> 把它显化成一个可监控指标 — 没监控的话, 实际表现是某些 prompt 永远学不动, 而你不知道为什么。</li>
 <li><strong>为什么 §5–§7 都默认 GRPO</strong>: GRPO 跟 PPO+critic 在期望意义下都对 (unbiased), 但 GRPO 实现简单 + 省一个 critic backbone — 在视频扩散场景, 这不是&quot;优化&quot;, 是&quot;能不能跑起来&quot;。后续 Flow-GRPO 解决&quot;flow ODE 没随机性&quot;、Dance-GRPO 解决&quot;跨 backbone 统一&quot;, 都不再碰 advantage 这一头, 直接复用 §4 的式子。</li>
 </ul>
 <h2 id="sec-5">5. Flow-GRPO: 把 GRPO 接到 flow matching</h2>
 <h3 id="sec-5-1">5.1 直觉</h3>
-<p>到 §4 为止, 我们已经凑齐了 RL 工具箱: PPO 提供 clipped ratio + KL, GRPO 把 critic 换成了一行 group mean/std。可一旦想把这套接到 <strong>现代</strong> T2I 主干 — SD3.5、FLUX 等 flow matching / rectified flow 模型 — 就会撞上一面墙: <strong>flow ODE 是确定性的</strong>。同样的 prompt + 同样的初始噪声 <span class="math inline">\epsilon</span>, 跑出的图永远一模一样, 24 个 rollout 退化成 1 个; group-relative advantage 直接除以 0, RL 根本无法 explore。</p>
-<p>Flow-GRPO (Liu et al. 2025.05) 给出两个看似简单、效果却很硬的修补: <strong>(1) ODE→SDE</strong> — 在 reverse ODE 上人工补一个 <span class="math inline">\sigma_t \mathrm{d}w</span> 项, 让每一步都变成随机的 Gaussian transition, 同时调整 drift 保持 marginal 不变; <strong>(2) Denoising Reduction</strong> — RL 训练时只用 10 步采样, 推理时再切回 40 步出图, 大幅省 compute。打个比方: 1 个学生反复做同一道题不会进步; 24 个学生同一道题、同一份初始草稿, 但解法允许各自抖动, 才能拉开高低、产生可学的对比信号。值得强调的是, 这两个修法都是 <em>RL 训练阶段独有的修改</em> — 它们不动 backbone 权重的语义、不改变模型最终学到的边际分布, 只在采样回路里加随机性, 这是 Flow-GRPO 能跟现成预训练模型无缝对接的前提。</p>
+<p>到 §4 为止, 我们已经凑齐了 RL 工具箱: PPO 提供 clipped ratio + KL, GRPO 把 critic 换成了一行 group mean/std。可一旦想把这套接到 <strong>现代</strong> T2I 主干 — SD3.5、FLUX 等 flow matching / rectified flow 模型 — 就会撞上一面墙: <strong>flow ODE 是确定性的</strong>。同样的 prompt + 同样的初始噪声 <span class="math inline">\(\epsilon\)</span>, 跑出的图永远一模一样, 24 个 rollout 退化成 1 个; group-relative advantage 直接除以 0, RL 根本无法 explore。</p>
+<p>Flow-GRPO (Liu et al. 2025.05) 给出两个看似简单、效果却很硬的修补: <strong>(1) ODE→SDE</strong> — 在 reverse ODE 上人工补一个 <span class="math inline">\(\sigma_t \mathrm{d}w\)</span> 项, 让每一步都变成随机的 Gaussian transition, 同时调整 drift 保持 marginal 不变; <strong>(2) Denoising Reduction</strong> — RL 训练时只用 10 步采样, 推理时再切回 40 步出图, 大幅省 compute。打个比方: 1 个学生反复做同一道题不会进步; 24 个学生同一道题、同一份初始草稿, 但解法允许各自抖动, 才能拉开高低、产生可学的对比信号。值得强调的是, 这两个修法都是 <em>RL 训练阶段独有的修改</em> — 它们不动 backbone 权重的语义、不改变模型最终学到的边际分布, 只在采样回路里加随机性, 这是 Flow-GRPO 能跟现成预训练模型无缝对接的前提。</p>
 <figure>
     <img class="zoomable" alt="Flow-GRPO 论文 Figure 2: ODE→SDE + GRPO 总管道" src="figures/sec5-flowgrpo-pipeline.png">
     <figcaption>Flow-GRPO 论文 Figure 2: 左侧 SDE 采样过程 (T=10 加速训练), 右侧 GRPO 用 group rewards 估 advantage, 通过 clipped ratio + KL 更新 policy. 这是把 §4 GRPO 接到 flow matching 的总管道。</figcaption>
   </figure>
 <h3 id="sec-5-2">5.2 最小 demo</h3>
-<p>&quot;加 <span class="math inline">\sigma\,\mathrm{d}w</span> 后 marginal 不变, 但每条 trajectory 都变得不一样&quot;听上去有点玄, 用 15 行 numpy 在 1D 上直接看到:</p>
+<p>&quot;加 <span class="math inline">\(\sigma\,\mathrm{d}w\)</span> 后 marginal 不变, 但每条 trajectory 都变得不一样&quot;听上去有点玄, 用 15 行 numpy 在 1D 上直接看到:</p>
 <pre><code class="language-python">import numpy as np
 
 # 假设一个简单 velocity 场 v(x,t) = -x  (终点收敛到 0)
@@ -587,15 +587,15 @@ print(&quot;ODE 终点 mean:&quot;, round(x_ode.mean(), 4),
 </code></pre>
 <p>ODE 那 100 条线 std = 0 — 完全重合, RL 看不到差异; SDE 那 100 条线 mean 几乎不变但 std ≈ 0.25 — 这就是&quot;marginal 守恒、但 trajectory 拉开&quot;的关键观察。Flow-GRPO 把这个简单的 trick 抬到了 high-dim image diffusion 上, 并且解析地写出 drift 修正项让 marginal 真正守恒 (不是像上面这样近似)。</p>
 <h3 id="sec-5-3">5.3 正式化 (ODE→SDE 转换 + KL)</h3>
-<p>先一行复习 rectified flow: forward 路径是 <span class="math inline">x_0</span> 和噪声 <span class="math inline">\epsilon</span> 的线性插值 <span class="math inline">x_t = (1-t)x_0 + t\epsilon</span>, 训练目标是回归速度 <span class="math inline">v_\theta(x_t, t) \approx \epsilon - x_0</span>。reverse 阶段, 确定性 ODE 写成:</p>
+<p>先一行复习 rectified flow: forward 路径是 <span class="math inline">\(x_0\)</span> 和噪声 <span class="math inline">\(\epsilon\)</span> 的线性插值 <span class="math inline">\(x_t = (1-t)x_0 + t\epsilon\)</span>, 训练目标是回归速度 <span class="math inline">\(v_\theta(x_t, t) \approx \epsilon - x_0\)</span>。reverse 阶段, 确定性 ODE 写成:</p>
 <p class="math-translation">—— 翻译: 这是一个确定性常微分方程 — 一旦给定起点 $x_1 = \epsilon$, 整条 trajectory 完全由 $v_\theta$ 决定, 没有任何随机性可探索。这正是 RL 训练的死穴。</p>
-<p>Flow-GRPO Eq. 7 给出对应的 SDE 改造, 同时调整 drift 保持 marginal <span class="math inline">p_t(x_t)</span> 不变:</p>
+<p>Flow-GRPO Eq. 7 给出对应的 SDE 改造, 同时调整 drift 保持 marginal <span class="math inline">\(p_t(x_t)\)</span> 不变:</p>
 <p class="math-translation">—— 翻译: 右边第一括号是 drift, 多出来的 $\sigma_t^2/(2t)$ 那一项专门用来抵消 Wiener 扰动 $\sigma_t\,\mathrm{d}w$ 对 marginal 的影响; 这样不管 $\sigma_t$ 怎么选, $p_t(x_t)$ 都跟原 ODE 一致, 但每一步引入了可控随机性 — RL exploration 有了。</p>
-<p>Euler-Maruyama 离散化, 步长 <span class="math inline">\Delta t</span>, 噪声 <span class="math inline">\epsilon \sim \mathcal{N}(0,I)</span>:</p>
+<p>Euler-Maruyama 离散化, 步长 <span class="math inline">\(\Delta t\)</span>, 噪声 <span class="math inline">\(\epsilon \sim \mathcal{N}(0,I)\)</span>:</p>
 <p class="math-translation">—— 翻译: 每一步是 per-step Gaussian transition, mean = 上面 drift 项乘以 $\Delta t$, std = $\sigma_t\sqrt{|\Delta t|}$ — 两者都解析写得出。立刻回到 §2 DDPO 的"每步 Gaussian → 算 log-prob → 接 PPO" 框架, 这是 Flow-GRPO 能复用 §3、§4 全套机器的关键。</p>
-<p>论文进一步给 <span class="math inline">\sigma_t</span> 选了一个非常工程友好的形式 <span class="math inline">\sigma_t = a \sqrt{t/(1-t)}</span>, 代入 KL 公式后, <span class="math inline">\pi_\theta</span> 和 <span class="math inline">\pi_{\text{ref}}</span> 的每步 KL 化简为:</p>
+<p>论文进一步给 <span class="math inline">\(\sigma_t\)</span> 选了一个非常工程友好的形式 <span class="math inline">\(\sigma_t = a \sqrt{t/(1-t)}\)</span>, 代入 KL 公式后, <span class="math inline">\(\pi_\theta\)</span> 和 <span class="math inline">\(\pi_{\text{ref}}\)</span> 的每步 KL 化简为:</p>
 <p class="math-translation">—— 翻译: 这是我对 paper KL 表达式的简化写法, 关键观察是 KL 退化成 velocity 空间的加权 L2 距离 $\|v_\theta - v_{\text{ref}}\|^2$, 权重是 $(1-t)/(2a^2)$。它跟预训练 flow matching loss 是 <strong>同一种二次型</strong>, 后面 §7 AWM 会沿着这条线索把整个 RL surrogate 翻新。</p>
-<p>最后是 <strong>Denoising Reduction</strong>: RL 训练阶段 sampler 步数 <span class="math inline">T_{\text{train}} = 10</span>, 而推理保留 <span class="math inline">T_{\text{infer}} = 40</span>。这跟 §2 DDPO 有本质区别 — DDPO 训练和推理共用同一 sampler, 步数一致; Flow-GRPO 把两者解耦。直觉上: <em>RL 阶段不需要每步都生成精细图像, 只需要 trajectory 携带 reward 信号即可</em>; 推理时再切回 40 步保证视觉质量。这一刀下来训练单 rollout 提速接近 4 倍, 而最终图像质量几乎不掉, 因为 reward model 看到的是若干 candidate 之间的相对差距, 而不是绝对清晰度。这种&quot;训练 / 推理用不同 sampler&quot;的工程拆分, 之后在 §6 DanceGRPO 也被沿用, 几乎成了 GRPO-for-diffusion 类方法的标配。</p>
+<p>最后是 <strong>Denoising Reduction</strong>: RL 训练阶段 sampler 步数 <span class="math inline">\(T_{\text{train}} = 10\)</span>, 而推理保留 <span class="math inline">\(T_{\text{infer}} = 40\)</span>。这跟 §2 DDPO 有本质区别 — DDPO 训练和推理共用同一 sampler, 步数一致; Flow-GRPO 把两者解耦。直觉上: <em>RL 阶段不需要每步都生成精细图像, 只需要 trajectory 携带 reward 信号即可</em>; 推理时再切回 40 步保证视觉质量。这一刀下来训练单 rollout 提速接近 4 倍, 而最终图像质量几乎不掉, 因为 reward model 看到的是若干 candidate 之间的相对差距, 而不是绝对清晰度。这种&quot;训练 / 推理用不同 sampler&quot;的工程拆分, 之后在 §6 DanceGRPO 也被沿用, 几乎成了 GRPO-for-diffusion 类方法的标配。</p>
 <h3 id="sec-5-4">5.4 代码引用</h3>
 <p class="code-source">sources/repos/yifan123-flow_grpo/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L42-L68 — ODE→SDE 一步采样: 把确定性 flow ODE 加一个 σ·sqrt(dt)·ε 项变成 Gaussian transition, 顺便算 log-prob</p>
 <pre><code class="language-python">step_index = [self.index_for_timestep(t) for t in timestep]
@@ -628,22 +628,22 @@ if sde_type == 'sde':
 </code></pre>
 <p>这段代码就是 §5.3 公式的直接落地, 逐行对照:</p>
 <ul>
-<li><code>sigma = sigmas[step_index]</code>, <code>sigma_prev = sigmas[prev_step_index]</code>, <code>dt = sigma_prev - sigma</code> — Euler 步长。注意反向采样 <span class="math inline">\sigma</span> 从大到小, 所以 <code>dt</code> 是 <strong>负数</strong>, 后面所有用到根号的地方都得套 <code>-1*dt</code>。</li>
-<li><code>std_dev_t = sqrt(sigma / (1 - sigma)) * noise_level</code> — 这就是论文里的 <span class="math inline">\sigma_t = a\sqrt{t/(1-t)}</span>, 其中 <code>noise_level</code> 对应 <span class="math inline">a</span>, 是一个外部可调旋钮 (paper 5.3 详细 sweep)。</li>
-<li><code>prev_sample_mean = sample*(1+std²/(2σ)*dt) + model_output*(1+std²(1-σ)/(2σ))*dt</code> — 对应 Eq.9 离散 mean 项。由于 <code>dt&lt;0</code>, drift 实际是把 sample 往 <span class="math inline">\sigma</span> 更小的方向推, 跟反向去噪一致。</li>
-<li><code>prev_sample = prev_sample_mean + std_dev_t * sqrt(-dt) * variance_noise</code> — 这正是 <span class="math inline">\sigma_t\sqrt{|\Delta t|}\,\epsilon</span>, Wiener 扰动的离散落地。</li>
+<li><code>sigma = sigmas[step_index]</code>, <code>sigma_prev = sigmas[prev_step_index]</code>, <code>dt = sigma_prev - sigma</code> — Euler 步长。注意反向采样 <span class="math inline">\(\sigma\)</span> 从大到小, 所以 <code>dt</code> 是 <strong>负数</strong>, 后面所有用到根号的地方都得套 <code>-1*dt</code>。</li>
+<li><code>std_dev_t = sqrt(sigma / (1 - sigma)) * noise_level</code> — 这就是论文里的 <span class="math inline">\(\sigma_t = a\sqrt{t/(1-t)}\)</span>, 其中 <code>noise_level</code> 对应 <span class="math inline">\(a\)</span>, 是一个外部可调旋钮 (paper 5.3 详细 sweep)。</li>
+<li><code>prev_sample_mean = sample*(1+std²/(2σ)*dt) + model_output*(1+std²(1-σ)/(2σ))*dt</code> — 对应 Eq.9 离散 mean 项。由于 <code>dt&lt;0</code>, drift 实际是把 sample 往 <span class="math inline">\(\sigma\)</span> 更小的方向推, 跟反向去噪一致。</li>
+<li><code>prev_sample = prev_sample_mean + std_dev_t * sqrt(-dt) * variance_noise</code> — 这正是 <span class="math inline">\(\sigma_t\sqrt{|\Delta t|}\,\epsilon\)</span>, Wiener 扰动的离散落地。</li>
 <li><code>log_prob = -((prev - mean)² / (2σ²·|dt|)) - log(σ·sqrt(|dt|)) - log(sqrt(2π))</code> — 标准 1D Gaussian log density, 和 §2 DDPO 那个 <code>ddim_step_with_logprob</code> 完全同构, 只是参数解析式不同。</li>
 </ul>
 <p>这里有一个工程上重要的事实: 函数签名跟 DDPO 一致 (返回 <code>(prev_sample, log_prob)</code>), 这意味着 <strong>DDPO 训练框架可以原封不动套到 flow matching 上 — 只换 sampler, PPO/GRPO loss 一行不动</strong>。这是 Flow-GRPO 工程上能快速跑通 SD3.5/FLUX 的根本原因, 也是为什么短短半年内基于 GRPO + flow 的工作能批量涌现 — 接口对齐之后, 真正需要重写的代码只有这 30 行采样器。</p>
 <h3 id="sec-5-5">5.5 洞察</h3>
 <ul>
-<li><strong><span class="math inline">\sigma_t = a\sqrt{t/(1-t)}</span> 不是数学美学, 是把 KL 化简成 velocity-L2 的关键选择。</strong> <span class="math inline">a</span> 是个调优旋钮 (paper §5.3 详细 sweep): 过大 reward 噪声爆、训练不收敛, 过小 exploration 不够、group advantage 退化。这种&quot;为了让 KL 闭式可写而反推 <span class="math inline">\sigma_t</span>&quot;的设计哲学, 在 §6 DanceGRPO 的&quot;统一 SDE&quot;里会被进一步推广。</li>
+<li><strong><span class="math inline">\(\sigma_t = a\sqrt{t/(1-t)}\)</span> 不是数学美学, 是把 KL 化简成 velocity-L2 的关键选择。</strong> <span class="math inline">\(a\)</span> 是个调优旋钮 (paper §5.3 详细 sweep): 过大 reward 噪声爆、训练不收敛, 过小 exploration 不够、group advantage 退化。这种&quot;为了让 KL 闭式可写而反推 <span class="math inline">\(\sigma_t\)</span>&quot;的设计哲学, 在 §6 DanceGRPO 的&quot;统一 SDE&quot;里会被进一步推广。</li>
 <li><strong>Denoising Reduction 揭示了 RL 阶段 sample &quot;质量&quot;和&quot;信息量&quot;是两件事。</strong> 推理需要 40 步生成清晰图像, 但 RL 只需要 trajectory 携带 reward 信号 — 10 步就够。这是一个被多数人忽略的 takeaway: 训练时的 sampler 是 <em>RL 工具</em>, 不是 <em>生成工具</em>, 两者可以并且应该解耦。</li>
 <li><strong>给 §7 AWM 埋伏笔。</strong> 既然 sample 步数都能减半再减半, 一个更激进的问题就摆在面前: 为什么 RL 一定要靠 per-step Gaussian log-prob 来算 likelihood? 能不能干脆绕开 sample-time MDP, 直接在 flow matching loss 上乘 advantage? AWM 的 Theorem 1 会证明: 沿用 per-step Gaussian 的 DDPO/Flow-GRPO 实际隐含了额外方差, 而那个&quot;绕开&quot;的版本在数学上反而更干净。换句话说, Flow-GRPO 在 §5.3 里好不容易凑出来的 velocity-L2 KL 形式, 其实已经在暗示&quot;RL surrogate 跟预训练 loss 本来就长得像&quot;, 只是大家还没敢一脚踢开 sample-time 这个中间层 — 这正是 §7 要做的事情。</li>
 </ul>
 <h2 id="sec-6">6. Dance-GRPO: 统一扩散 + 整流流, 跨 backbone 跨视频</h2>
 <h3 id="sec-6-1">6.1 直觉</h3>
-<p>到 §5 结尾, RL-for-diffusion 的拼图已经基本齐全, 但还剩两件事让框架显得&quot;零散&quot;: 第一, 每家 SDE 写法都不一样 — DDPM 是 <span class="math inline">\epsilon</span>-pred + ancestral sampler, FLUX 是 rectified flow + Euler, HunyuanVideo 又是另一套形式; 第二, 之前所有 RL 工作只在 SD 这一个家族上验证过, 视频生成是不是同一套路, 没人知道。Dance-GRPO (Xue et al. 2025.05) 同时解掉这两件事: <strong>(1) 一个统一公式</strong> <span class="math inline">\tilde{z}_s = \tilde{z}_t + \text{NetOut}\cdot(\eta_s - \eta_t)</span> 把 diffusion 和 rectified flow 都套进去, 只是 <span class="math inline">(\tilde z,\eta)</span> 选取不同; <strong>(2) &quot;组内共享初始噪声&quot;</strong> 是论文挖出来的核心 anti-reward-hacking trick — 同一 prompt 的 <span class="math inline">G=24</span> 个 rollout 用 <em>同一份</em> 初始 <span class="math inline">\epsilon_T</span>, 只让 SDE 内部的 <span class="math inline">\mathrm{d}w_t</span> 不同。打个比方: 24 个学生同一道题, 同一份初稿, 然后各自往下发挥 — 比较起来 noise 不会污染 advantage, 学到的差异纯粹来自 policy。</p>
+<p>到 §5 结尾, RL-for-diffusion 的拼图已经基本齐全, 但还剩两件事让框架显得&quot;零散&quot;: 第一, 每家 SDE 写法都不一样 — DDPM 是 <span class="math inline">\(\epsilon\)</span>-pred + ancestral sampler, FLUX 是 rectified flow + Euler, HunyuanVideo 又是另一套形式; 第二, 之前所有 RL 工作只在 SD 这一个家族上验证过, 视频生成是不是同一套路, 没人知道。Dance-GRPO (Xue et al. 2025.05) 同时解掉这两件事: <strong>(1) 一个统一公式</strong> <span class="math inline">\(\tilde{z}_s = \tilde{z}_t + \text{NetOut}\cdot(\eta_s - \eta_t)\)</span> 把 diffusion 和 rectified flow 都套进去, 只是 <span class="math inline">\((\tilde z,\eta)\)</span> 选取不同; <strong>(2) &quot;组内共享初始噪声&quot;</strong> 是论文挖出来的核心 anti-reward-hacking trick — 同一 prompt 的 <span class="math inline">\(G=24\)</span> 个 rollout 用 <em>同一份</em> 初始 <span class="math inline">\(\epsilon_T\)</span>, 只让 SDE 内部的 <span class="math inline">\(\mathrm{d}w_t\)</span> 不同。打个比方: 24 个学生同一道题, 同一份初稿, 然后各自往下发挥 — 比较起来 noise 不会污染 advantage, 学到的差异纯粹来自 policy。</p>
 <figure>
     <img class="zoomable" alt="Dance-GRPO Algorithm 1 + Table 1 对比表" src="figures/sec6-dancegrpo-algo.png">
     <figcaption>Dance-GRPO Algorithm 1 + Table 1: 算法跟 §4 GRPO 几乎一样, 关键改动在 Line 5 ("same noise initialization"); Table 1 显示在 5 个对比维度 (扩散支持 / 整流流支持 / 视频支持 / critic-free / 跨 reward) 上, Dance-GRPO 是首个全部"yes"的方法。</figcaption>
@@ -653,7 +653,7 @@ if sde_type == 'sde':
     <figcaption>Dance-GRPO Figure 1: 在 Stable Diffusion / FLUX.1-dev / HunyuanVideo-T2I 三个 backbone 上 reward (HPS Score) 随训练单调上升 — 首次证明 RL framework 在视频生成上也能 work, 不止 SD 一家。</figcaption>
   </figure>
 <h3 id="sec-6-2">6.2 最小 demo</h3>
-<p>&quot;一个 sampler 公式同时跑 diffusion 和 rectified flow&quot;听起来很玄, 其实写成代码只是把 <span class="math inline">(\tilde z, \eta)</span> 的选取换一下:</p>
+<p>&quot;一个 sampler 公式同时跑 diffusion 和 rectified flow&quot;听起来很玄, 其实写成代码只是把 <span class="math inline">\((\tilde z, \eta)\)</span> 的选取换一下:</p>
 <pre><code class="language-python">import numpy as np
 
 def unified_step(z_t, t, s, net_out, mode):
@@ -675,15 +675,15 @@ z_diff = unified_step(np.ones(4), t=0.6, s=0.5, net_out=np.full(4, -0.1), mode=&
 z_rf   = unified_step(np.ones(4), t=0.6, s=0.5, net_out=np.full(4, -0.1), mode=&quot;rectified_flow&quot;)
 print(z_diff, z_rf)
 </code></pre>
-<p>关键看清: 上面的 <code>unified_step</code> 函数体只有一行真正的更新 — <code>z_tilde_t + net_out * (eta_s - eta_t)</code>。剩下的全是 <em>变量替换</em>, 把不同 backbone 的&quot;原生坐标系&quot;映射到统一坐标系。这就是 paper Eq.5 在工程上的样子: 真正的&quot;统一&quot;不是写一个超大的 if/else, 而是先做坐标变换, 让两族模型在 <span class="math inline">(\tilde z,\eta)</span> 空间里看起来 <em>是同一个动力学</em>; RL 训练时算 log-prob、ratio、KL 都在这个统一空间里完成, 然后映射回原生空间出图。读者可以把它跟 §5 的 <code>sde_step</code> 对比: §5 只覆盖 rectified flow 一族, Dance-GRPO 这个函数能涵盖 §2 的 DDPM、§5 的 FLUX、还有视频 backbone。</p>
+<p>关键看清: 上面的 <code>unified_step</code> 函数体只有一行真正的更新 — <code>z_tilde_t + net_out * (eta_s - eta_t)</code>。剩下的全是 <em>变量替换</em>, 把不同 backbone 的&quot;原生坐标系&quot;映射到统一坐标系。这就是 paper Eq.5 在工程上的样子: 真正的&quot;统一&quot;不是写一个超大的 if/else, 而是先做坐标变换, 让两族模型在 <span class="math inline">\((\tilde z,\eta)\)</span> 空间里看起来 <em>是同一个动力学</em>; RL 训练时算 log-prob、ratio、KL 都在这个统一空间里完成, 然后映射回原生空间出图。读者可以把它跟 §5 的 <code>sde_step</code> 对比: §5 只覆盖 rectified flow 一族, Dance-GRPO 这个函数能涵盖 §2 的 DDPM、§5 的 FLUX、还有视频 backbone。</p>
 <h3 id="sec-6-3">6.3 正式化</h3>
 <p>Dance-GRPO 用一个统一 ODE/SDE 离散更新覆盖两族模型 (paper Eq.5):</p>
-<p>其中 <span class="math inline">(\tilde z,\eta)</span> 选取方式如下:</p>
+<p>其中 <span class="math inline">\((\tilde z,\eta)\)</span> 选取方式如下:</p>
 <p class="math-translation">—— 翻译: 上式是 Dance-GRPO 的"万能 sampler", $\text{Output}$ 就是网络预测 ($\epsilon$ 或 velocity)。两个 backbone 在原生坐标里看长得完全不同, 但换到 $(\tilde z,\eta)$ 坐标系后是同一个线性更新 — 这意味着 RL 的 loss 计算可以彻底跟 sampler 解耦。</p>
 <p>对应的反向 SDE 形式 (论文给出 simplified 版本):</p>
 <p class="math-translation">—— 翻译: rectified flow 的 reverse SDE 比 diffusion 形式更紧凑 — drift 只有 velocity $u_t$ 减一个 score correction, 没有 $f_t z_t$ 项。$\epsilon_t$ 同样是 stochasticity 旋钮, 跟 §5 的 $\sigma_t$ 直接对应。</p>
 <p class="math-translation">—— 翻译: $\epsilon_t$ 是 stochasticity 旋钮 (跟 §5 的 $\sigma_t$ 是同一类), 调到 0 就退回原始 ODE, 调大就增加 exploration。两个 SDE 形式上不同, 但都满足同一个不变量: marginal $p_t$ 跟原 ODE 保持一致。</p>
-<p>看上去两式很不一样, 但带入 Gaussian 近似 <span class="math inline">p_t(z_t)=\mathcal{N}(\alpha_t x, \sigma_t^2 I)</span> 后, score function <span class="math inline">\nabla\log p_t</span> 都等于一个 affine 函数, per-step Gaussian transition 形式一致, log-prob 解析可写 — 因此 §3 的 PPO clip + §4 的 group-relative advantage 一套代码直接复用, <strong>backbone 只需替换 sampler, RL loss 不用动</strong>。这件事的工程意义远比公式漂亮重要: 它意味着实验室不需要为每个新 backbone 重写一遍 RL pipeline, 把 SD 跑通的训练脚本, 改 20 行 sampler 就能切到 FLUX 或视频模型, 这是 Dance-GRPO 能在三个 backbone 上同时给出 reward 曲线的工程基础。</p>
+<p>看上去两式很不一样, 但带入 Gaussian 近似 <span class="math inline">\(p_t(z_t)=\mathcal{N}(\alpha_t x, \sigma_t^2 I)\)</span> 后, score function <span class="math inline">\(\nabla\log p_t\)</span> 都等于一个 affine 函数, per-step Gaussian transition 形式一致, log-prob 解析可写 — 因此 §3 的 PPO clip + §4 的 group-relative advantage 一套代码直接复用, <strong>backbone 只需替换 sampler, RL loss 不用动</strong>。这件事的工程意义远比公式漂亮重要: 它意味着实验室不需要为每个新 backbone 重写一遍 RL pipeline, 把 SD 跑通的训练脚本, 改 20 行 sampler 就能切到 FLUX 或视频模型, 这是 Dance-GRPO 能在三个 backbone 上同时给出 reward 曲线的工程基础。</p>
 <p>&quot;组内共享 init noise&quot; 的正式陈述:</p>
 <p class="math-translation">—— 翻译: 同一个 prompt 的 $G=24$ 个 rollout 共享 <em>同一份</em> $\epsilon_T$, 只有 SDE 中间噪声 $\mathrm{d}w_t$ 不同。这保证 group 内 reward 差异 <em>只来自 policy 行为</em>, 不来自初始噪声的运气。advantage 信号更纯净, 是 Dance-GRPO 防 reward hacking 的关键。</p>
 <h3 id="sec-6-4">6.4 代码引用</h3>
@@ -722,10 +722,10 @@ print(z_diff, z_rf)
 </code></pre>
 <p>逐行对照:</p>
 <ul>
-<li><code>torch.repeat_interleave(tensor, args.num_generations, dim=0)</code> — 把每个 prompt 复制 <span class="math inline">G</span> 份。这一步是&quot;共享初始 noise&quot; 的实现关键: 后面 sampler 会对这些重复 prompt 用同一份 init noise 处理, 同 prompt 内的 <span class="math inline">G</span> 个 rollout 因此 <em>从同一个 <span class="math inline">\epsilon_T</span> 出发</em>。</li>
+<li><code>torch.repeat_interleave(tensor, args.num_generations, dim=0)</code> — 把每个 prompt 复制 <span class="math inline">\(G\)</span> 份。这一步是&quot;共享初始 noise&quot; 的实现关键: 后面 sampler 会对这些重复 prompt 用同一份 init noise 处理, 同 prompt 内的 <span class="math inline">\(G\)</span> 个 rollout 因此 <em>从同一个 <span class="math inline">\(\epsilon_T\)</span> 出发</em>。</li>
 <li>对比 §5 flow_grpo 的做法: flow_grpo 用 <code>stat_tracker</code> 跨 batch 维护一个 <em>滚动</em> mean/std (近似 group 但不严格); Dance-GRPO 这里是 <strong>strict per-prompt group</strong>, 每组现场算 mean/std — 实现上更接近 paper 公式。</li>
 <li><code>n = len(samples[&quot;rewards&quot;]) // (args.num_generations)</code> — 整除得到 prompt 数量, 后面循环按 prompt 切片。</li>
-<li><code>for i in range(n)</code> 内显式按 group 切片 → <code>(group_rewards - group_mean) / group_std</code>, 这正是 §4 GRPO 公式 <span class="math inline">\hat A_i = (r_i - \mathrm{mean})/\mathrm{std}</span> 的逐字搬运。</li>
+<li><code>for i in range(n)</code> 内显式按 group 切片 → <code>(group_rewards - group_mean) / group_std</code>, 这正是 §4 GRPO 公式 <span class="math inline">\(\hat A_i = (r_i - \mathrm{mean})/\mathrm{std}\)</span> 的逐字搬运。</li>
 <li><code>1e-8</code> 防 div-by-zero — 跟 flow_grpo 的 <code>1e-4</code> 差几个量级, 因为这里是严格 per-prompt group, 当全 group reward 完全相同时 std 真的可能小到 1e-8 量级。</li>
 <li>整段没有 critic、没有 KL — Dance-GRPO 默认配置不加 KL, 仅靠 shared-noise + clip 稳定训练。</li>
 </ul>
@@ -738,15 +738,15 @@ print(z_diff, z_rf)
 <h2 id="sec-7">7. AWM: 重新审视目标函数本身</h2>
 <h3 id="sec-7-1">7.1 直觉</h3>
 <p>从 §2 到 §6, 我们一直在打磨同一条 surrogate: <em>把扩散模型当 sequence-level policy, 用 per-step Gaussian log-prob 给每一步打分</em>. DDPO 在反向 SDE 上算, Flow-GRPO 把确定性 ODE 改成 SDE 再算, DanceGRPO 在 rectified flow 上找出 Gaussian transition 继续算. 不同方法的差别只是&quot;怎么造出 Gaussian transition 让 logprob 有定义&quot;, 共同的隐含假设是: <em>per-step Gaussian log-prob 是合适的优化目标</em>. 但这个 surrogate 真的对吗?</p>
-<p>AWM (Xue et al., 2025.09) 一脚踢翻这个共同基础: 它证明了 DDPO 实际上是在做 <em>用 noisy 状态 <span class="math inline">x_s</span> 当条件的 denoising score matching</em>, 而预训练用的是 <em>用 clean <span class="math inline">x_0</span> 当条件的 DSM</em>. 两者同 minimizer (期望都是真 score), 但 noisy-DSM 严格多出一项与 conditioning 噪声水平相关的方差. 也就是说: 整条 lineage 一直在用一个&quot;无偏但高方差&quot;的 surrogate 优化 reward, 学得慢不是因为 RL 难, 是因为目标函数本身糟糕.</p>
+<p>AWM (Xue et al., 2025.09) 一脚踢翻这个共同基础: 它证明了 DDPO 实际上是在做 <em>用 noisy 状态 <span class="math inline">\(x_s\)</span> 当条件的 denoising score matching</em>, 而预训练用的是 <em>用 clean <span class="math inline">\(x_0\)</span> 当条件的 DSM</em>. 两者同 minimizer (期望都是真 score), 但 noisy-DSM 严格多出一项与 conditioning 噪声水平相关的方差. 也就是说: 整条 lineage 一直在用一个&quot;无偏但高方差&quot;的 surrogate 优化 reward, 学得慢不是因为 RL 难, 是因为目标函数本身糟糕.</p>
 <p>用一个生活化的类比: 教学生画画, 不要每一笔都跟&quot;上一笔 noisy 参照&quot;比, 而是画完整张跟&quot;干净目标&quot;比. 参照越稳定干净, 学生学得越快; 参照本身带噪, 学生大半精力被用来对抗参照的随机性. 这正是 noisy-DSM vs clean-DSM 的差别.</p>
-<p>改法极简到几乎不像一篇 RL 论文: 把 surrogate 直接换回预训练用的 flow matching loss <span class="math inline">\|v_\theta - (\epsilon - x_0)\|^2</span>, 乘以 advantage, 套 PPO clip. 没有新 sampler, 没有 logprob-tracked 采样, 没有 ODE→SDE 改造. 报告 GenEval 6–24× 加速 — 相同质量下少接近一个数量级的 GPU 小时. 这是整条 lineage 第一次有人质疑&quot;目标函数本身&quot;而不是&quot;如何更准地算这个目标&quot;.</p>
+<p>改法极简到几乎不像一篇 RL 论文: 把 surrogate 直接换回预训练用的 flow matching loss <span class="math inline">\(\|v_\theta - (\epsilon - x_0)\|^2\)</span>, 乘以 advantage, 套 PPO clip. 没有新 sampler, 没有 logprob-tracked 采样, 没有 ODE→SDE 改造. 报告 GenEval 6–24× 加速 — 相同质量下少接近一个数量级的 GPU 小时. 这是整条 lineage 第一次有人质疑&quot;目标函数本身&quot;而不是&quot;如何更准地算这个目标&quot;.</p>
 <figure>
     <img class="zoomable" alt="AWM 三联图: (a) DDPO vs AWM 的 formulation 对比. (b) Target Variance 曲线: noisy-DSM 严格高于 clean-DSM. (c) Convergence 对比: AWM 8× 少 GPU hours 达到同 GenEval." src="figures/sec7-awm-overview.png">
     <figcaption>AWM 论文 Figure 1 三联图. (a) Formulations — DDPO 在 noisy $x_{t-\Delta t}$ 上算 likelihood, AWM 在 clean $x_0$ 上算 reward-weighted FM loss. (b) Target Variance — noisy-DSM 严格 $\ge$ clean-DSM, 多出来的 $\kappa(s,t)$ 项随 $s$ 单调上升. (c) Convergence — 同质量下 AWM GenEval 8× 少 GPU hours.</figcaption>
   </figure>
 <h3 id="sec-7-2">7.2 最小 demo</h3>
-<p>用一个 1D 玩具问题直观体会&quot;noisy 条件&quot; vs &quot;clean 条件&quot;的方差差异. 已知 <span class="math inline">x_0 \sim \mathcal{N}(0, 1)</span>, rectified-flow 加噪过程 <span class="math inline">x_t = (1-t)x_0 + t\epsilon</span>. 取定 <span class="math inline">t=0.5,\ s=0.4</span>, 我们用两种 conditioning 估同一个 <span class="math inline">x_t</span> 处的 score: clean-DSM 把 <span class="math inline">x_0</span> 喂给模型, noisy-DSM 把中间噪态 <span class="math inline">x_s</span> 喂给模型. 真 score 期望相同, 但 SGD 收敛速度差很多.</p>
+<p>用一个 1D 玩具问题直观体会&quot;noisy 条件&quot; vs &quot;clean 条件&quot;的方差差异. 已知 <span class="math inline">\(x_0 \sim \mathcal{N}(0, 1)\)</span>, rectified-flow 加噪过程 <span class="math inline">\(x_t = (1-t)x_0 + t\epsilon\)</span>. 取定 <span class="math inline">\(t=0.5,\ s=0.4\)</span>, 我们用两种 conditioning 估同一个 <span class="math inline">\(x_t\)</span> 处的 score: clean-DSM 把 <span class="math inline">\(x_0\)</span> 喂给模型, noisy-DSM 把中间噪态 <span class="math inline">\(x_s\)</span> 喂给模型. 真 score 期望相同, 但 SGD 收敛速度差很多.</p>
 <pre><code class="language-python">import numpy as np
 np.random.seed(0)
 t, s = 0.5, 0.4                                      # s &lt; t
@@ -769,12 +769,12 @@ for _ in range(steps):
 print(&quot;clean-DSM final MSE:&quot;, hist_c[-1], &quot;  noisy-DSM final MSE:&quot;, hist_n[-1])
 # clean-DSM final MSE: 0.024   noisy-DSM final MSE: 0.51   →  ~20× 差距
 </code></pre>
-<p>同样的 SGD 设置, 同样的真 score (两者期望相同), 只因为 conditioning 变量从 <span class="math inline">x_0</span> 换成 <span class="math inline">x_s</span>, 终态 MSE 差了大约 20×. 这个 gap 不是 bias 引起的 — 跑得足够久两边都收敛到同一个最优 <span class="math inline">\theta</span> — 而是 <em>梯度估计的方差</em> 差了一个数量级, 直接体现在每一步的 effective step size 上. §7.3 会给出这个 gap 的精确表达式 <span class="math inline">\kappa(s, t)</span>, 它解释了为什么 DDPO 那种 per-step Gaussian surrogate 哪怕在理论最优点上, 收敛也比 clean target 慢得多.</p>
+<p>同样的 SGD 设置, 同样的真 score (两者期望相同), 只因为 conditioning 变量从 <span class="math inline">\(x_0\)</span> 换成 <span class="math inline">\(x_s\)</span>, 终态 MSE 差了大约 20×. 这个 gap 不是 bias 引起的 — 跑得足够久两边都收敛到同一个最优 <span class="math inline">\(\theta\)</span> — 而是 <em>梯度估计的方差</em> 差了一个数量级, 直接体现在每一步的 effective step size 上. §7.3 会给出这个 gap 的精确表达式 <span class="math inline">\(\kappa(s, t)\)</span>, 它解释了为什么 DDPO 那种 per-step Gaussian surrogate 哪怕在理论最优点上, 收敛也比 clean target 慢得多.</p>
 <h3 id="sec-7-3">7.3 正式化: Theorem 1 + 2 + AWM 目标</h3>
-<p><strong>Theorem 1 (DDPO <span class="math inline">\equiv</span> noisy DSM).</strong> 把 DDPO 的 per-step Gaussian log-prob 展开, 忽略 Euler-Maruyama 离散化的 <span class="math inline">O(\Delta t)</span> 误差, 它等价于一个 score matching 目标:</p>
+<p><strong>Theorem 1 (DDPO <span class="math inline">\(\equiv\)</span> noisy DSM).</strong> 把 DDPO 的 per-step Gaussian log-prob 展开, 忽略 Euler-Maruyama 离散化的 <span class="math inline">\(O(\Delta t)\)</span> 误差, 它等价于一个 score matching 目标:</p>
 <p class="math-translation">—— 翻译: DDPO 表面在算"反向轨迹的对数概率", 实际上在做"用上一步 noisy 状态 $x_{t-\Delta t}$ 当条件"的 DSM. 证明用 Haussmann–Pardoux 的反时间 SDE 公式把 $\log p(x_{t-\Delta t}\mid x_t)$ 翻成 $\log p(x_t\mid x_{t-\Delta t})$ + score 项, 平方展开.</p>
-<p><strong>Lemma 1.</strong> noisy-DSM 与 clean-DSM 同 minimizer — 两者条件期望都等于真 score <span class="math inline">\nabla_{x_t}\log p(x_t)</span>. 也就是说&quot;换 conditioning&quot;换的不是 bias, 是 variance.</p>
-<p><strong>Theorem 2 (noisy 条件方差更大).</strong> 在给定 <span class="math inline">x_t</span> 的条件下, 两种 target 的协方差差一项:</p>
+<p><strong>Lemma 1.</strong> noisy-DSM 与 clean-DSM 同 minimizer — 两者条件期望都等于真 score <span class="math inline">\(\nabla_{x_t}\log p(x_t)\)</span>. 也就是说&quot;换 conditioning&quot;换的不是 bias, 是 variance.</p>
+<p><strong>Theorem 2 (noisy 条件方差更大).</strong> 在给定 <span class="math inline">\(x_t\)</span> 的条件下, 两种 target 的协方差差一项:</p>
 <p class="math-translation">—— 翻译: 用 noisy $x_s$ 当条件比用 clean $x_0$ 多出 $\kappa(s,t)$ 倍单位矩阵的方差. clean 是这个家族里方差最低的一个 ($\kappa(0, t) = 0$).</p>
 <p class="math-translation">—— 翻译: $\kappa$ 在 $s\in[0,t)$ 上严格递增, 在 $s=0$ 取到 $0$. 数值代入 $t=0.5,\ s=0.4$: $\kappa = \frac{0.25 \cdot 0.16}{0.25(0.36-0.04)} = 0.5$. 对 latent 维 $d\approx 10^4$, trace 方差多出 $5\times 10^3$ — 解释了 §7.2 demo 里 20× 的 MSE gap.</p>
 <p><strong>AWM 目标.</strong> 既然 clean-DSM 是低方差版本, 那就把 ELBO surrogate 直接换成 flow matching loss:</p>
@@ -804,7 +804,7 @@ print(&quot;clean-DSM final MSE:&quot;, hist_c[-1], &quot;  noisy-DSM final MSE:
         raise ValueError(f&quot;Unknown weighting method: {weighting}&quot;)
     return log_prob, model_output, std_dev_t
 </code></pre>
-<p>逐行对照: 第 6 行 <code>log_prob = -(model_output - (random_noise - clean_latents))**2</code> 就是负的 flow matching loss — <code>model_output</code> 是 <span class="math inline">v_\theta</span>, target 是 <span class="math inline">\epsilon - x_0</span>, 完全是 §7.3 那个 AWM 目标式. 第 7 行 <code>mean(dim=1:)</code> 把每像素 loss 平均到 sample-level, 等价于在式子里把空间维当 &quot;样本 index&quot; 平均. 第 8–17 行枚举几种 <span class="math inline">w(t)</span>: 论文 §5 报告 <code>'Uniform'</code> (<span class="math inline">w(t)=1</span>) 最好, 但 release config 默认 <code>'ghuber'</code> (一种 generalized Huber 重加权) — 这是 paper-vs-code 第一个 gap. 第 4 行 <code>std_dev_t = sqrt(t/(1-t))*0.7</code> 里那个 0.7 在论文正文里找不到, 是工程经验值, 用来控制 ratio 估计的 scale.</p>
+<p>逐行对照: 第 6 行 <code>log_prob = -(model_output - (random_noise - clean_latents))**2</code> 就是负的 flow matching loss — <code>model_output</code> 是 <span class="math inline">\(v_\theta\)</span>, target 是 <span class="math inline">\(\epsilon - x_0\)</span>, 完全是 §7.3 那个 AWM 目标式. 第 7 行 <code>mean(dim=1:)</code> 把每像素 loss 平均到 sample-level, 等价于在式子里把空间维当 &quot;样本 index&quot; 平均. 第 8–17 行枚举几种 <span class="math inline">\(w(t)\)</span>: 论文 §5 报告 <code>'Uniform'</code> (<span class="math inline">\(w(t)=1\)</span>) 最好, 但 release config 默认 <code>'ghuber'</code> (一种 generalized Huber 重加权) — 这是 paper-vs-code 第一个 gap. 第 4 行 <code>std_dev_t = sqrt(t/(1-t))*0.7</code> 里那个 0.7 在论文正文里找不到, 是工程经验值, 用来控制 ratio 估计的 scale.</p>
 <p>再看主 loop 怎么把上面这个 <code>log_prob</code> 插进标准 GRPO ratio + clip + KL 框架.</p>
 <p class="code-source">sources/repos/scxue-advantage_weighted_matching/advantage_weighted_matching/scripts/train_sd3_awm.py:L1292-L1354 — AWM 主 loop: 把"flow matching loss 当 log_prob"插进标准 GRPO ratio + clip + KL 框架</p>
 <pre><code class="language-python">                # grpo logic
@@ -847,13 +847,13 @@ print(&quot;clean-DSM final MSE:&quot;, hist_c[-1], &quot;  noisy-DSM final MSE:
                     else:
                         loss = policy_loss + config.train.beta * kl_loss
 </code></pre>
-<p>对照: <code>ratio = exp(log_probs - old_log_probs.detach())</code> 用的是 FM-loss 差分, log-space 比直接除稳定. <code>loss_type == 'exp_first'</code> 表示在每个 (sample, timestep) 上独立算 ratio, 然后 advantage 复制到 timestep 维 (<code>repeat(train_timesteps)</code>) — 这跟 §4 GRPO &quot;sequence-level 一个 ratio&quot; 的严格写法有微妙差异, 实质是更细粒度的 importance weighting. PPO clip 完全照搬: <code>max(unclipped, clipped)</code>. KL 项是 velocity-space L2 <code>((v_θ - v_ref)²).mean()</code> — 这跟把 <span class="math inline">\log\pi</span> 换成 FM loss 是一致的, KL 也得换成 velocity 空间. <strong>最后这一段是 paper-vs-code 第二个大 gap</strong>: 代码里多了第三项 <code>ema_kl_loss = ((v_θ - v_ema)²).mean() * ema_β</code>, 在论文 Algorithm 1 里完全没有 — 也就是说 release 报告的 &quot;24× speedup&quot; 包含一层 EMA 自蒸馏正则, 不只是 AWM 框架本身. 另外 <code>config.train.beta</code> 默认 0.001, 论文 §5 表里写的是 0.4 — 想严格复现就要每条都对齐.</p>
+<p>对照: <code>ratio = exp(log_probs - old_log_probs.detach())</code> 用的是 FM-loss 差分, log-space 比直接除稳定. <code>loss_type == 'exp_first'</code> 表示在每个 (sample, timestep) 上独立算 ratio, 然后 advantage 复制到 timestep 维 (<code>repeat(train_timesteps)</code>) — 这跟 §4 GRPO &quot;sequence-level 一个 ratio&quot; 的严格写法有微妙差异, 实质是更细粒度的 importance weighting. PPO clip 完全照搬: <code>max(unclipped, clipped)</code>. KL 项是 velocity-space L2 <code>((v_θ - v_ref)²).mean()</code> — 这跟把 <span class="math inline">\(\log\pi\)</span> 换成 FM loss 是一致的, KL 也得换成 velocity 空间. <strong>最后这一段是 paper-vs-code 第二个大 gap</strong>: 代码里多了第三项 <code>ema_kl_loss = ((v_θ - v_ema)²).mean() * ema_β</code>, 在论文 Algorithm 1 里完全没有 — 也就是说 release 报告的 &quot;24× speedup&quot; 包含一层 EMA 自蒸馏正则, 不只是 AWM 框架本身. 另外 <code>config.train.beta</code> 默认 0.001, 论文 §5 表里写的是 0.4 — 想严格复现就要每条都对齐.</p>
 <h3 id="sec-7-5">7.5 洞察</h3>
 <ul>
 <li><strong>统一 surrogate 是工程大胜利.</strong> AWM 把 RL 的 likelihood 直接 hardcode 成预训练的 FM loss, 意味着 §5 那堆&quot;ODE 没 likelihood / 改 SDE / 跟踪 logprob&quot;的麻烦事彻底消失 — 用任何 ODE/SDE solver 都行, 甚至不需要在 sampler 里记 log-prob. 训练侧的&quot;采样路径&quot;与&quot;评估 likelihood&quot;被彻底解耦, 这是过去三年 diffusion-RL 最干净的一次抽象瘦身, 也让 AWM 可以无缝套到任何 flow / rectified-flow / EDM 风格的预训练 checkpoint 上.</li>
 <li><strong>&quot;log_prob = -FM_loss&quot;看似 trivial, 但有隐含约束.</strong> ratio 估计要稳, current 和 old policy 必须在 <em>同一组 timesteps + 同一组 noise</em> 上算 — 否则两边的 Monte Carlo 噪声各自漂走, ratio 的方差不收敛. 这一点跟 §6 DanceGRPO 的&quot;shared initial noise across group members&quot;是同源思想: <em>variance reduction by shared randomness</em> 在 diffusion-RL 里反复出现, 是这个领域比 LLM RL 多出来的一类专属技巧.</li>
 <li><strong>整条 lineage 的元规律: &quot;把 sampler 从 RL 算法里解耦&quot;.</strong> DDPO 必须 patch sampler (反向 SDE 每步记 mean+std) → Flow-GRPO 改 ODE 为 SDE 再减步 (4 步 SDE 不影响质量) → AWM 完全不动 sampler. 这条曲线 §8 会画出来, 它解释了为什么 AWM 能在不动模型架构、不改 sampler 的情况下拿到一个数量级的加速 — 真正的杠杆从来不在算法的小改动里, 而是在&quot;surrogate 与预训练 loss 对齐&quot;这件事上.</li>
-<li><strong>Paper-vs-code 至少三处不一致, 复现时务必逐条对齐.</strong> (i) <span class="math inline">\beta</span> 数量级: paper 报 0.4, code 默认 0.001 — 相差 400×; (ii) <span class="math inline">w(t)</span>: paper §5 表格里 &quot;Uniform&quot; 最好, code 默认 &quot;ghuber&quot;; (iii) EMA 自蒸馏正则: paper Algorithm 1 完全没出现, code 里 <code>ema_beta &gt; 0</code> 默认开启, 相当于额外加了一层 self-distillation. 想拿到 release 那个 GenEval 数字, 这三条都得对齐 — 否则结果会偏向更&quot;裸&quot;的 AWM, 加速比可能从 24× 退到 6–8×. 这也是为什么在跟原作者代码核对之前, 不要轻易相信论文里的&quot;X 倍加速&quot;数字.</li>
+<li><strong>Paper-vs-code 至少三处不一致, 复现时务必逐条对齐.</strong> (i) <span class="math inline">\(\beta\)</span> 数量级: paper 报 0.4, code 默认 0.001 — 相差 400×; (ii) <span class="math inline">\(w(t)\)</span>: paper §5 表格里 &quot;Uniform&quot; 最好, code 默认 &quot;ghuber&quot;; (iii) EMA 自蒸馏正则: paper Algorithm 1 完全没出现, code 里 <code>ema_beta &gt; 0</code> 默认开启, 相当于额外加了一层 self-distillation. 想拿到 release 那个 GenEval 数字, 这三条都得对齐 — 否则结果会偏向更&quot;裸&quot;的 AWM, 加速比可能从 24× 退到 6–8×. 这也是为什么在跟原作者代码核对之前, 不要轻易相信论文里的&quot;X 倍加速&quot;数字.</li>
 </ul>
 <h2 id="sec-8">8. 全景对比与选型决策</h2>
 <h3 id="sec-8-1">8.1 直觉</h3>
@@ -919,7 +919,7 @@ AWM (Xue 2025.09)          ← 釜底抽薪: 换回预训练 FM loss × advantag
 <p>把训练阶段的内存开销写成一个粗略公式:</p>
 <p class="math-translation">—— 翻译: $T$ 是 sampler 步数, $G$ 是 group_size, $|\theta|$ 是参数量. DDPO 系训练时要把整条 T 步轨迹的激活留着算 logprob 梯度; AWM 在 training step 上把 $T$ 这个因子彻底拿掉, 这是 24× speedup 的工程根源 — 不只是统计上的方差缩小, 更是 wall-clock 上少了一个数量级的 forward.</p>
 <h3 id="sec-8-4">8.4 代码引用: 三方对比</h3>
-<p>把三种 surrogate 的核心计算并列, 同一行业、同一抽象层级 (都是 &quot;给定 <span class="math inline">x_t, x_{t-1}, \text{model output}</span> 返回一个标量 log-prob&quot;), 对比代码量本身就是结论.</p>
+<p>把三种 surrogate 的核心计算并列, 同一行业、同一抽象层级 (都是 &quot;给定 <span class="math inline">\(x_t, x_{t-1}, \text{model output}\)</span> 返回一个标量 log-prob&quot;), 对比代码量本身就是结论.</p>
 <p class="code-source">sources/repos/kvablack-ddpo-pytorch/ddpo_pytorch/diffusers_patch/ddim_with_logprob.py:L183-L190 — DDPO 风格 log-prob 计算: 严格的 per-step Gaussian likelihood</p>
 <pre><code class="language-python">    # log prob of prev_sample given prev_sample_mean and std_dev_t
     log_prob = (
@@ -959,7 +959,7 @@ AWM (Xue 2025.09)          ← 釜底抽薪: 换回预训练 FM loss × advantag
     log_prob = -(model_output - (random_noise.double() - clean_latents.double()))**2
     log_prob = log_prob.mean(dim=tuple(range(1, log_prob.ndim)))
 </code></pre>
-<p>三段并排, 演进观察一目了然: DDPO 风格里能数到完整 Gaussian log-prob 的三个组件 — mean 项、std 项、<span class="math inline">2\pi</span> 项, 这是标准 policy gradient 模板; Flow-GRPO 跟 DDPO 几乎同构, 只多了一个 <span class="math inline">\sigma \cdot \sqrt{-\mathrm{d}t}</span> 来处理 ODE→SDE 的 step size 缩放, 其它一模一样; AWM 整段只剩三行 — 一个 <span class="math inline">(v - \text{target})^2</span> 的 L2 项就完事, 没有 Gaussian, 没有显式 <span class="math inline">\sigma</span>, 没有 <span class="math inline">\sqrt{\mathrm{d}t}</span>, 只剩 sigma 用于残差权重. 这种 &quot;代码逐渐变短&quot; 的趋势本身就是一个深刻信号: 整条 lineage 在收敛到 <em>用尽可能少的 RL machinery 把 reward 信号注入 backbone</em>. 一个仍然开放的问题是: 当 reward 是 differentiable (例如 reward model + VAE decoder 全程可 backprop) 时, ReFL 路线 vs AWM 路线孰优? 目前 literature 里还没有 head-to-head 对比, 这是下一步社区会补的实验.</p>
+<p>三段并排, 演进观察一目了然: DDPO 风格里能数到完整 Gaussian log-prob 的三个组件 — mean 项、std 项、<span class="math inline">\(2\pi\)</span> 项, 这是标准 policy gradient 模板; Flow-GRPO 跟 DDPO 几乎同构, 只多了一个 <span class="math inline">\(\sigma \cdot \sqrt{-\mathrm{d}t}\)</span> 来处理 ODE→SDE 的 step size 缩放, 其它一模一样; AWM 整段只剩三行 — 一个 <span class="math inline">\((v - \text{target})^2\)</span> 的 L2 项就完事, 没有 Gaussian, 没有显式 <span class="math inline">\(\sigma\)</span>, 没有 <span class="math inline">\(\sqrt{\mathrm{d}t}\)</span>, 只剩 sigma 用于残差权重. 这种 &quot;代码逐渐变短&quot; 的趋势本身就是一个深刻信号: 整条 lineage 在收敛到 <em>用尽可能少的 RL machinery 把 reward 信号注入 backbone</em>. 一个仍然开放的问题是: 当 reward 是 differentiable (例如 reward model + VAE decoder 全程可 backprop) 时, ReFL 路线 vs AWM 路线孰优? 目前 literature 里还没有 head-to-head 对比, 这是下一步社区会补的实验.</p>
 <h3 id="sec-8-5">8.5 洞察 + 选型建议</h3>
 <ul>
 <li><strong>元规律</strong>: 整条 lineage 的方向是&quot;把 RL machinery 从 sampler 内部剥出来&quot; — DDPO 紧绑 sampler patch, Flow-GRPO 把训练 / 推理步数解耦, AWM 彻底脱钩 sampler. 加速比与解耦程度几乎单调对应.</li>

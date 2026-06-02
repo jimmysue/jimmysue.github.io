@@ -141,7 +141,7 @@
       <figcaption><span class="side-label asym">AsymFlow</span> Fig. 2 — (a) 标准 full-rank velocity vs 非对称参数化。下排把噪声 $\boldsymbol\epsilon$ 限制到 $P\boldsymbol\epsilon$, 整个目标更可预测。(b) 还原 full-rank velocity: 子空间内用 $P\hat u_A$, 正交补内用 $x_0$-to-$u$ 关系。</figcaption>
     </figure>
 <p><span class="side-label l2p">L2P</span> 的整个论文可以浓缩成一张架构图 + 一个训练数据选择:</p>
-<p><strong>架构</strong>: <span class="math inline">\text{pixel image} \xrightarrow{\text{16×16 patch}} \text{token seq} \to \underbrace{\text{DiT (frozen)}}_{\text{源 LDM 中间 28 层}} \to \text{Detailer Head (U-Net)} \to \text{velocity}</span></p>
+<p><strong>架构</strong>: <span class="math inline">\(\text{pixel image} \xrightarrow{\text{16×16 patch}} \text{token seq} \to \underbrace{\text{DiT (frozen)}}_{\text{源 LDM 中间 28 层}} \to \text{Detailer Head (U-Net)} \to \text{velocity}\)</span></p>
 <p><strong>训练数据</strong>: 源 LDM 自己生成的 20k 张合成图 (而不是真实图)。理由是源 LDM 已经把数据流形&quot;平滑过&quot;, 学生学的是它自己能产出的分布。</p>
 <figure>
       <img class="zoomable" alt="L2P 架构图" src="figures/l2p-architecture.png">
@@ -179,7 +179,7 @@
 <p>这是个非常 telling 的对称: <strong>AsymFlow 改 loss 而不改架构, L2P 改架构而不改 loss</strong>。两条路殊途同归 — 都是&quot;复用 latent base + 补一小段差距&quot;, 但补差距的地方不一样。</p>
 <h2 id="sec-3">3. 维度对比</h2>
 <h3 id="sec-3-1">3.1 改造在哪一层 — loss vs architecture</h3>
-<p>AsymFlow 的改造发生在 <strong>loss/target 这一层</strong>。具体地, training loop 不变 (前向加噪 → 跑网络 → loss 反传); 唯一的区别是 target 从 <span class="math inline">u</span> 变成 <span class="math inline">u_A</span>, 同时增加一个解析的&quot;恢复操作&quot; (orthogonal_decomposition + velocity 重组), 这一步是<em>可微的纯线性代数</em>, 跑在 GPU 上几乎零开销:</p>
+<p>AsymFlow 的改造发生在 <strong>loss/target 这一层</strong>。具体地, training loop 不变 (前向加噪 → 跑网络 → loss 反传); 唯一的区别是 target 从 <span class="math inline">\(u\)</span> 变成 <span class="math inline">\(u_A\)</span>, 同时增加一个解析的&quot;恢复操作&quot; (orthogonal_decomposition + velocity 重组), 这一步是<em>可微的纯线性代数</em>, 跑在 GPU 上几乎零开销:</p>
 <p class="code-source"><a href="../asymflow-2026/index.html#sec-2-3">repo/lakonlab/models/architectures/asymflow/common.py:L48-L72</a> — full-rank velocity 还原</p>
 <pre><code class="language-python">def asymflow_velocity(self, u_a_packed, x_t_packed, calibration):
     u_a_subspace, u_a_complement = self.orthogonal_decomposition(u_a_packed, proj_buffer)
@@ -204,7 +204,7 @@
         )
         # 4 级上采样 + skip, 512→256→128→64→3
 </code></pre>
-<p><strong>暗示</strong>: AsymFlow 路线如果换 base, 只需要重新做 PCA 或 Procrustes 重新算 <span class="math inline">A</span>, 模型代码不动。L2P 路线如果换 base, Detailer Head 的通道数要根据新 base 的 hidden size 调整, 训练 hyperparam 要重新 sweep。<em>AsymFlow 更&quot;通用&quot;, L2P 更&quot;绑定&quot;。</em></p>
+<p><strong>暗示</strong>: AsymFlow 路线如果换 base, 只需要重新做 PCA 或 Procrustes 重新算 <span class="math inline">\(A\)</span>, 模型代码不动。L2P 路线如果换 base, Detailer Head 的通道数要根据新 base 的 hidden size 调整, 训练 hyperparam 要重新 sweep。<em>AsymFlow 更&quot;通用&quot;, L2P 更&quot;绑定&quot;。</em></p>
 <h3 id="sec-3-2">3.2 VAE 怎么处理</h3>
 <table class="compare">
       <thead>
@@ -228,7 +228,7 @@
         </tr>
       </tbody>
     </table>
-<p>这里的差异其实是&quot;VAE 是否被<em>显式</em>使用&quot;和&quot;VAE 的功能在哪一步被取代&quot;。AsymFlow 把 VAE 的 encode/decode 都<em>抽象成 <span class="math inline">A</span> 的线性映射</em>, 数学上是同一回事但实际推理代价小很多。L2P 则<em>从训练开始就没用过 VAE</em>, 自然也省了 inference 时的 VAE 开销。<strong>但是</strong> AsymFlow 仍然需要 VAE 来构造训练时的 latent-pixel 配对, L2P 不需要。</p>
+<p>这里的差异其实是&quot;VAE 是否被<em>显式</em>使用&quot;和&quot;VAE 的功能在哪一步被取代&quot;。AsymFlow 把 VAE 的 encode/decode 都<em>抽象成 <span class="math inline">\(A\)</span> 的线性映射</em>, 数学上是同一回事但实际推理代价小很多。L2P 则<em>从训练开始就没用过 VAE</em>, 自然也省了 inference 时的 VAE 开销。<strong>但是</strong> AsymFlow 仍然需要 VAE 来构造训练时的 latent-pixel 配对, L2P 不需要。</p>
 <h3 id="sec-3-3">3.3 训练数据</h3>
 <p>这是两篇论文最反差的部分。</p>
 <p><span class="side-label asym">AsymFlow</span>: T2I 微调用 <strong>3M LAION-Aesthetics 真实图</strong>, captions 用 Qwen2.5-VL 重新打过。ImageNet 实验用真实 ImageNet。&quot;Real data is the gold standard&quot;。</p>
@@ -353,11 +353,11 @@
 <h2 id="sec-5">5. 哲学差异 + 决策树</h2>
 <h3 id="sec-5-1">5.1 &quot;动得最少&quot;是谁?</h3>
 <p>表面上看, AsymFlow 似乎&quot;动得更少&quot; — 整个 paper 的核心是一个 head 替换, training/sampling 不动。L2P 则<em>显式</em>加了一个 Detailer Head 模块。但仔细看, AsymFlow 的&quot;不动&quot;是 <strong>training-loop 层面</strong>的不动: forward/backward 还是 latent flow 那一套。 L2P 的&quot;不动&quot;是 <strong>梯度更新层面</strong>的不动: 28 层 DiT block 一个参数都不更新。两个意思的&quot;不动&quot;。</p>
-<p>从可解释性角度看, AsymFlow 的&quot;<span class="math inline">u_A := P\boldsymbol\epsilon - \mathbf x_0</span>&quot;是<em>形式化的</em>设计, 有清晰的几何解释; L2P 的&quot;freeze + Detailer Head&quot;是<em>架构层面的</em>启发式工程, 解释更多依赖消融表 (Fig 9b 证明 freeze 是对的, Fig 9c 证明 20k 步够了, Fig 9a 证明合成数据是对的) — 你能<em>测量</em>它 work, 但不容易从第一性原理推出来。</p>
+<p>从可解释性角度看, AsymFlow 的&quot;<span class="math inline">\(u_A := P\boldsymbol\epsilon - \mathbf x_0\)</span>&quot;是<em>形式化的</em>设计, 有清晰的几何解释; L2P 的&quot;freeze + Detailer Head&quot;是<em>架构层面的</em>启发式工程, 解释更多依赖消融表 (Fig 9b 证明 freeze 是对的, Fig 9c 证明 20k 步够了, Fig 9a 证明合成数据是对的) — 你能<em>测量</em>它 work, 但不容易从第一性原理推出来。</p>
 <h3 id="sec-5-2">5.2 互补 vs 互斥</h3>
 <p>两个方案<strong>互不冲突</strong>。原则上你可以:</p>
 <ul>
-<li><strong>AsymFlow + L2P 的 Detailer Head</strong>: 用 AsymFlow 的非对称参数化做 base, 再加一个 L2P 风格的轻量 U-Net 处理像素细节 — 子空间内 <span class="math inline">u</span>-style 控制语义, Detailer Head 补 sub-patch 细节。论文没做这个组合, 但理论上可行。</li>
+<li><strong>AsymFlow + L2P 的 Detailer Head</strong>: 用 AsymFlow 的非对称参数化做 base, 再加一个 L2P 风格的轻量 U-Net 处理像素细节 — 子空间内 <span class="math inline">\(u\)</span>-style 控制语义, Detailer Head 补 sub-patch 细节。论文没做这个组合, 但理论上可行。</li>
 <li><strong>AsymFlow 的 Procrustes + L2P 的合成数据策略</strong>: 用 Procrustes 初始化, 然后用合成数据微调 — 减少真实数据收集成本。论文没做。</li>
 <li><strong>AsymFlow 的 σ_min 稳定性优势 + L2P 的 native 4K 架构</strong>: 数值稳定性是个独立的 win, 完全可以套到 L2P 上去。</li>
 </ul>
@@ -389,9 +389,9 @@
 <h3 id="sec-5-4">5.4 共同的盲点</h3>
 <p>两篇都没回答的问题:</p>
 <ol>
-<li><strong>VAE 真的没必要吗?</strong> AsymFlow 间接证明 VAE 可以被 <span class="math inline">A</span> 这种正交线性映射代替; L2P 直接抛掉。但这两条路都<em>预设</em>了 latent 是有意义的中间表示 — RAE 这类&quot;latent = DINOv2 feature&quot;的方向, 两条路都不适用。<strong>下一代 latent 是不是该跟 pixel 完全解耦?</strong> 没人回答。</li>
+<li><strong>VAE 真的没必要吗?</strong> AsymFlow 间接证明 VAE 可以被 <span class="math inline">\(A\)</span> 这种正交线性映射代替; L2P 直接抛掉。但这两条路都<em>预设</em>了 latent 是有意义的中间表示 — RAE 这类&quot;latent = DINOv2 feature&quot;的方向, 两条路都不适用。<strong>下一代 latent 是不是该跟 pixel 完全解耦?</strong> 没人回答。</li>
 <li><strong>&quot;超过 latent base&quot;是因为像素表达上限更高, 还是因为微调时遇到的真实数据更好?</strong> AsymFlow Table 3 的 controlled baseline 说 AsymFLUX 比 latent finetune HPSv3 涨 +1.16 (10.70 → 10.66, 实际略输 0.04 但 visual realism 明显更好) — 这个差距是&quot;像素本身的优势&quot;还是&quot;特定 prompt set 上的细节质感&quot;? 缺更系统的实验。</li>
-<li><strong><span class="math inline">r</span> 怎么 scale?</strong> AsymFlow ImageNet 用 <span class="math inline">r{=}8</span> (<span class="math inline">D{=}768</span>, ratio 1/96), FLUX 用 <span class="math inline">r{=}128</span> (<span class="math inline">D \approx d \times \text{compression}</span>)。这个比例的选择没有理论指导, 完全是 sweep 出来的。L2P 这边类似问题: 首尾解冻多少层 (<span class="math inline">n</span>), Detailer Head 用 4 stage 还是 5 stage, 都是 sweep。</li>
+<li><strong><span class="math inline">\(r\)</span> 怎么 scale?</strong> AsymFlow ImageNet 用 <span class="math inline">\(r{=}8\)</span> (<span class="math inline">\(D{=}768\)</span>, ratio 1/96), FLUX 用 <span class="math inline">\(r{=}128\)</span> (<span class="math inline">\(D \approx d \times \text{compression}\)</span>)。这个比例的选择没有理论指导, 完全是 sweep 出来的。L2P 这边类似问题: 首尾解冻多少层 (<span class="math inline">\(n\)</span>), Detailer Head 用 4 stage 还是 5 stage, 都是 sweep。</li>
 <li><strong>合成数据 vs 真实数据的真正分水岭在哪?</strong> L2P 的 Fig 9a 在 Z-Image-Turbo + 6B 上的结论, 是不是能推广到 9B+ 的 AsymFlow setting? AsymFlow 没尝试合成数据, L2P 没尝试真实数据 — 没有 controlled cross-experiment。</li>
 </ol>
 <p><strong>未来一年</strong>会看到的:</p>

@@ -162,11 +162,11 @@ for name in [&quot;screw_good.png&quot;, &quot;screw_scratch.png&quot;]:
 </code></pre>
 <p>差不到 0.5%。换句话说,vanilla CLIP 在&quot;螺帽好坏&quot;这个任务上几乎是抛硬币——这就是后面 WinCLIP / AnomalyCLIP / AnomalyGPT 一连串工作的出发点。</p>
 <h3 id="sec-1-3">1.3 正式化</h3>
-<p>把上面的失败写成数学形式。记 <span class="math inline">f_v: \mathcal{X} \to \mathbb{R}^d</span> 为 CLIP 的视觉编码器(对图像做全局 pooling 得到一个 <span class="math inline">d</span> 维向量),<span class="math inline">f_t: \mathcal{T} \to \mathbb{R}^d</span> 为文本编码器。给定图像 <span class="math inline">x</span> 和两个 prompt <span class="math inline">t_{\text{norm}}, t_{\text{anom}}</span>,zero-shot 分类等价于</p>
+<p>把上面的失败写成数学形式。记 <span class="math inline">\(f_v: \mathcal{X} \to \mathbb{R}^d\)</span> 为 CLIP 的视觉编码器(对图像做全局 pooling 得到一个 <span class="math inline">\(d\)</span> 维向量),<span class="math inline">\(f_t: \mathcal{T} \to \mathbb{R}^d\)</span> 为文本编码器。给定图像 <span class="math inline">\(x\)</span> 和两个 prompt <span class="math inline">\(t_{\text{norm}}, t_{\text{anom}}\)</span>,zero-shot 分类等价于</p>
 <p class="math-translation">—— 翻译:把图像和两条 prompt 都映射到同一个向量空间,取夹角余弦,经温度 $\tau$ 缩放后做 softmax,得到"这张图属于缺陷类"的概率。</p>
 <p>异常分数自然定义为</p>
 <p class="math-translation">—— 翻译:异常分数 = 图像与"异常 prompt"的相似度减去与"正常 prompt"的相似度;数值越大越像缺陷。</p>
-<p>失败在哪里?<span class="math inline">f_v(x)</span> 来自 ViT 的 <code>[CLS]</code> token,是对所有 patch token 的全局聚合。一颗螺帽缺陷往往只占图像 <span class="math inline">1\%</span> 不到的面积,这点局部信号在全局 pooling 时被 <span class="math inline">\gt 99\%</span> 的&quot;正常表面纹理&quot;稀释——余弦相似度本来就是低频统计量,被稀释后两个 prompt 的得分几乎贴在一起。形式化地讲,若 <span class="math inline">f_v(x) = \frac{1}{|P|}\sum_{p \in P} z_p</span>(<span class="math inline">P</span> 为 patch 集合,<span class="math inline">z_p</span> 为 patch token),则真正应该&quot;激活&quot;异常 prompt 的那个 <span class="math inline">z_{p^\ast}</span>(<span class="math inline">p^\ast</span> 是缺陷所在 patch)在平均之后影响小到可以忽略。</p>
+<p>失败在哪里?<span class="math inline">\(f_v(x)\)</span> 来自 ViT 的 <code>[CLS]</code> token,是对所有 patch token 的全局聚合。一颗螺帽缺陷往往只占图像 <span class="math inline">\(1\%\)</span> 不到的面积,这点局部信号在全局 pooling 时被 <span class="math inline">\(\gt 99\%\)</span> 的&quot;正常表面纹理&quot;稀释——余弦相似度本来就是低频统计量,被稀释后两个 prompt 的得分几乎贴在一起。形式化地讲,若 <span class="math inline">\(f_v(x) = \frac{1}{|P|}\sum_{p \in P} z_p\)</span>(<span class="math inline">\(P\)</span> 为 patch 集合,<span class="math inline">\(z_p\)</span> 为 patch token),则真正应该&quot;激活&quot;异常 prompt 的那个 <span class="math inline">\(z_{p^\ast}\)</span>(<span class="math inline">\(p^\ast\)</span> 是缺陷所在 patch)在平均之后影响小到可以忽略。</p>
 <p>缺失的环节因此被清楚地点出来:<strong>patch-level alignment</strong>——必须把文本对齐到 patch token 而不是 <code>[CLS]</code>,异常分数应当在 patch 维度上计算,再聚合成图像级或像素级输出。这是 WinCLIP 用多尺度滑窗、AnomalyCLIP 用 DPAM 改写 V-V attention、AnomalyGPT 用外挂 decoder 共同要解决的核心问题。三者从不同角度回答同一个问题:<em>&quot;全局 pooling 把缺陷信号洗掉了,怎么把它捞回来?&quot;</em></p>
 <p>顺带一提,prompt 本身也是个变量。手写的 <code>&quot;a photo of a defective screw&quot;</code> 在 prompt engineering 里被证明方差极大——多写一个修饰词、换一个模板,余弦相似度就会漂移几个百分点。WinCLIP 因此引入 prompt ensemble(状态词 × 模板的笛卡尔积取平均),AnomalyCLIP 索性把 prompt 设成 learnable token——这条线也在 §2、§3 展开。</p>
 <h3 id="sec-1-4">1.4 代码引用</h3>
@@ -189,7 +189,7 @@ for name in [&quot;screw_good.png&quot;, &quot;screw_scratch.png&quot;]:
                 cur_token_anomaly_score = cur_token_anomaly_score.half()
             cur_token_anomaly_score[:, mask] = (1. / normality_score).unsqueeze(1)
 </code></pre>
-<p><strong>对照</strong>:第 9 行 <code>(100.0 * features @ self.text_features.T).softmax(dim=-1)</code> 正是 §1.3 中的 softmax 公式——<code>features</code> 对应 <span class="math inline">f_v(x)</span>,<code>self.text_features</code> 的两行分别是 <span class="math inline">f_t(t_{\text{norm}})</span> 与 <span class="math inline">f_t(t_{\text{anom}})</span>,常数 <span class="math inline">100.0</span> 是 CLIP 默认温度 <span class="math inline">\tau</span> 的倒数(即 <span class="math inline">\tau = 0.01</span>)。注意 WinCLIP 已经在做&quot;分尺度窗口&quot;循环(<code>for ... in zip(visual_features, self.masks)</code>),把这个 vanilla 打分操作搬到了每一组 patch token 上,这就是 §2 要展开的&quot;多尺度窗口 patch-level alignment&quot;的最小骨架。</p>
+<p><strong>对照</strong>:第 9 行 <code>(100.0 * features @ self.text_features.T).softmax(dim=-1)</code> 正是 §1.3 中的 softmax 公式——<code>features</code> 对应 <span class="math inline">\(f_v(x)\)</span>,<code>self.text_features</code> 的两行分别是 <span class="math inline">\(f_t(t_{\text{norm}})\)</span> 与 <span class="math inline">\(f_t(t_{\text{anom}})\)</span>,常数 <span class="math inline">\(100.0\)</span> 是 CLIP 默认温度 <span class="math inline">\(\tau\)</span> 的倒数(即 <span class="math inline">\(\tau = 0.01\)</span>)。注意 WinCLIP 已经在做&quot;分尺度窗口&quot;循环(<code>for ... in zip(visual_features, self.masks)</code>),把这个 vanilla 打分操作搬到了每一组 patch token 上,这就是 §2 要展开的&quot;多尺度窗口 patch-level alignment&quot;的最小骨架。</p>
 <h3 id="sec-1-5">1.5 洞察</h3>
 <ul>
 <li><strong>AD 不是分类问题,而是&quot;是否偏离分布&quot;的问题。</strong> CLIP 善于做&quot;猫 vs 狗&quot;这种类间对比,而异常检测的本质是估计 normal manifold 的边界、检测 OOD——这两个任务的归纳偏置并不一致,直接拿对比损失训出来的特征去当 AD 判据,缺陷类的&quot;语义锚点&quot;其实是缺失的。</li>
@@ -236,11 +236,11 @@ def winclip_min_demo(image, clip_visual, clip_text,
 </code></pre>
 <p>跑起来你会看到: 一张 normal 螺帽的 heatmap 几乎是均匀低值; 一张划痕螺帽在划痕区域亮起一条带状高分。三个尺度合并是关键 — 小窗口对小划痕敏感, 大窗口能 catch 形变这种空间扩展的缺陷。</p>
 <h3 id="sec-2-3">2.3 正式化</h3>
-<p><strong>(1) Compositional prompt ensemble.</strong> 设状态词集合 <span class="math inline">S</span> (如 normal: <span class="math inline">\{\text{a normal}, \text{a flawless}, \dots\}</span>; abnormal: <span class="math inline">\{\text{a defective}, \text{a damaged}, \dots\}</span>), 模板集合 <span class="math inline">T</span> (如 <span class="math inline">\{\text{a photo of \{\}}, \text{a close-up of \{\}}, \dots\}</span>), 对每个类别 <span class="math inline">c \in \{n, a\}</span> 的文本嵌入平均得到:</p>
+<p><strong>(1) Compositional prompt ensemble.</strong> 设状态词集合 <span class="math inline">\(S\)</span> (如 normal: <span class="math inline">\(\{\text{a normal}, \text{a flawless}, \dots\}\)</span>; abnormal: <span class="math inline">\(\{\text{a defective}, \text{a damaged}, \dots\}\)</span>), 模板集合 <span class="math inline">\(T\)</span> (如 <span class="math inline">\(\{\text{a photo of \{\}}, \text{a close-up of \{\}}, \dots\}\)</span>), 对每个类别 <span class="math inline">\(c \in \{n, a\}\)</span> 的文本嵌入平均得到:</p>
 <p class="math-translation">—— 翻译: 把状态词 $s$ 套进模板 $t$ 拼成完整句子, 送进 CLIP 文本编码器 $f_t$ 拿到特征, 然后对所有句子取均值, 得到稳定的 "类别原型" $\bar{t}_c$ (normal 一个, abnormal 一个)。</p>
-<p><strong>(2) 窗口特征.</strong> 对图像 <span class="math inline">x</span>, 在尺度 <span class="math inline">k \in \{\text{small, mid, large}\}</span> 上滑动窗口 <span class="math inline">w</span>, 用 CLIP 视觉编码器 <span class="math inline">f_v</span> 提特征:</p>
+<p><strong>(2) 窗口特征.</strong> 对图像 <span class="math inline">\(x\)</span>, 在尺度 <span class="math inline">\(k \in \{\text{small, mid, large}\}\)</span> 上滑动窗口 <span class="math inline">\(w\)</span>, 用 CLIP 视觉编码器 <span class="math inline">\(f_v\)</span> 提特征:</p>
 <p class="math-translation">—— 翻译: $\text{crop}_w(x)$ 从原图裁出窗口 $w$ 对应的子图 (尺寸由该尺度 $k$ 决定), 再 resize 后送进 CLIP 视觉端, 拿到该窗口的局部特征 $F_w$。每个尺度有一组窗口 $W_k$, 三个尺度合起来记作 $W_{\text{multi}} = W_1 \cup W_2 \cup W_3$。</p>
-<p><strong>(3) 多尺度异常分数聚合.</strong> 像素 <span class="math inline">p</span> 的最终异常分数取 &quot;覆盖 <span class="math inline">p</span> 的所有窗口&quot; 的相似度均值, 再跨尺度求平均:</p>
+<p><strong>(3) 多尺度异常分数聚合.</strong> 像素 <span class="math inline">\(p\)</span> 的最终异常分数取 &quot;覆盖 <span class="math inline">\(p\)</span> 的所有窗口&quot; 的相似度均值, 再跨尺度求平均:</p>
 <p class="math-translation">—— 翻译: $W_k(p)$ 是尺度 $k$ 下覆盖到像素 $p$ 的所有窗口集合 (滑窗有 overlap, 一个像素一般落在多个窗口里)。先在每个尺度内对所有覆盖窗口的 cosine 相似度求均值, 再把三个尺度的结果再求一次均值, 就得到 $p$ 的异常分数。窗口的相似度全部跟 abnormal 原型 $\bar{t}_a$ 算 — 分数越高越像缺陷。</p>
 <figure>
     <img class="zoomable" alt="WinCLIP 整体架构" src="figures/sec2-winclip-arch.png">
@@ -267,7 +267,7 @@ def winclip_min_demo(image, clip_visual, clip_text,
     normal_phrases = self.tokenizer(normal_phrases).to(self.device)
     abnormal_phrases = self.tokenizer(abnormal_phrases).to(self.device)
 </code></pre>
-<p><em>对照公式 (1):</em> 两层 for-loop 就是 <span class="math inline">S \times T</span> 的笛卡尔积; <code>normal_prompt.format(category)</code> 把 &quot;a normal {}&quot; 填上 &quot;screw&quot; 得到 &quot;a normal screw&quot;, 再外套 <code>template_prompt.format(...)</code> 包成 &quot;a photo of a normal screw&quot;。两个 list 收齐后批量 tokenize, 后续 forward 进 <span class="math inline">f_t</span> 再 mean, 就得到 <span class="math inline">\bar{t}_n, \bar{t}_a</span>。</p>
+<p><em>对照公式 (1):</em> 两层 for-loop 就是 <span class="math inline">\(S \times T\)</span> 的笛卡尔积; <code>normal_prompt.format(category)</code> 把 &quot;a normal {}&quot; 填上 &quot;screw&quot; 得到 &quot;a normal screw&quot;, 再外套 <code>template_prompt.format(...)</code> 包成 &quot;a photo of a normal screw&quot;。两个 list 收齐后批量 tokenize, 后续 forward 进 <span class="math inline">\(f_t\)</span> 再 mean, 就得到 <span class="math inline">\(\bar{t}_n, \bar{t}_a\)</span>。</p>
 <p class="code-source">sources/repos/caoyunkang-WinClip/WinCLIP/model.py:L77-L88 + L143-L155 — Window-based feature extraction with multi-scale crops</p>
 <pre><code class="language-python">@torch.no_grad()
 def encode_image(self, image: torch.Tensor):
@@ -288,7 +288,7 @@ def build_image_feature_gallery(self, normal_images):
 
         self.visual_gallery += [torch.cat(scale_features, dim=0)]
 </code></pre>
-<p><em>对照公式 (2):</em> <code>encode_image</code> 内部已经把多尺度窗口拼成一个大 batch 一次性 forward (高效复用 CLIP 的 transformer), 返回 list of features, 每条对应一个窗口 <span class="math inline">F_w</span>。<code>scale_begin_indx</code> 记录每个尺度起点的索引, 用它把 list 切回 &quot;尺度 1 窗口们 / 尺度 2 窗口们 / 尺度 3 窗口们&quot; 三组, 存进 <code>visual_gallery</code> — 对应 <span class="math inline">W_1, W_2, W_3</span> 三个集合。</p>
+<p><em>对照公式 (2):</em> <code>encode_image</code> 内部已经把多尺度窗口拼成一个大 batch 一次性 forward (高效复用 CLIP 的 transformer), 返回 list of features, 每条对应一个窗口 <span class="math inline">\(F_w\)</span>。<code>scale_begin_indx</code> 记录每个尺度起点的索引, 用它把 list 切回 &quot;尺度 1 窗口们 / 尺度 2 窗口们 / 尺度 3 窗口们&quot; 三组, 存进 <code>visual_gallery</code> — 对应 <span class="math inline">\(W_1, W_2, W_3\)</span> 三个集合。</p>
 <p class="code-source">sources/repos/caoyunkang-WinClip/WinCLIP/model.py:L157-L198 — Multi-scale anomaly score aggregation (mean pooling across scales)</p>
 <pre><code class="language-python">scale_anomaly_scores = []
 token_anomaly_scores = torch.zeros((N,self.grid_size[0] * self.grid_size[1]))
@@ -310,10 +310,10 @@ scale_anomaly_scores = torch.stack(scale_anomaly_scores, dim=0)
 scale_anomaly_scores = torch.mean(scale_anomaly_scores, dim=0)
 anomaly_map = scale_anomaly_scores.reshape((N, self.grid_size[0], self.grid_size[1])).unsqueeze(1)
 </code></pre>
-<p><em>对照公式 (3):</em> <code>token_anomaly_scores</code> 累加每个像素 (token) 在当前尺度下所有覆盖它的窗口的 cosine 分数, <code>token_weights</code> 是覆盖次数; 触发新尺度时除一次得到该尺度的归一化均值 — 这是公式里内层的 <span class="math inline">\frac{1}{|W_k(p)|}\sum_{w \in W_k(p)}</span>。三个尺度的 map 堆叠后 <code>torch.mean(..., dim=0)</code> 就是外层 <span class="math inline">\frac{1}{|K|}\sum_k</span>, 最终 reshape 成 2D anomaly map。</p>
+<p><em>对照公式 (3):</em> <code>token_anomaly_scores</code> 累加每个像素 (token) 在当前尺度下所有覆盖它的窗口的 cosine 分数, <code>token_weights</code> 是覆盖次数; 触发新尺度时除一次得到该尺度的归一化均值 — 这是公式里内层的 <span class="math inline">\(\frac{1}{|W_k(p)|}\sum_{w \in W_k(p)}\)</span>。三个尺度的 map 堆叠后 <code>torch.mean(..., dim=0)</code> 就是外层 <span class="math inline">\(\frac{1}{|K|}\sum_k\)</span>, 最终 reshape 成 2D anomaly map。</p>
 <h3 id="sec-2-5">2.5 洞察</h3>
 <ul>
-<li><strong>为什么 ensemble &gt; single prompt:</strong> 单条 prompt 的 <span class="math inline">f_t(\cdot)</span> 嵌入对措辞极敏感 (CLIP 训练数据里 &quot;broken&quot; 和 &quot;defective&quot; 落在不同语义簇), 取多条 prompt 的均值是经典的 <em>variance reduction</em>, 等价于做了一次 implicit Bayesian averaging。</li>
+<li><strong>为什么 ensemble &gt; single prompt:</strong> 单条 prompt 的 <span class="math inline">\(f_t(\cdot)\)</span> 嵌入对措辞极敏感 (CLIP 训练数据里 &quot;broken&quot; 和 &quot;defective&quot; 落在不同语义簇), 取多条 prompt 的均值是经典的 <em>variance reduction</em>, 等价于做了一次 implicit Bayesian averaging。</li>
 <li><strong>为什么 window &gt; full image:</strong> CLIP 原生 forward 末端做 global pooling, 一个 2% 面积的缺陷被 50× 稀释; 滑窗让每个局部 patch 独立通过 CLIP, dense alignment 直接保住了缺陷信号 — 这就是 &quot;patch-level alignment&quot; 的起点。</li>
 <li><strong>残留瓶颈 → 通向 §3:</strong> WinCLIP 的 prompt 里仍然必须填一个 object name (&quot;screw&quot; / &quot;tile&quot; / &quot;carpet&quot;), 切到 medical CT 这种 prompt 无法描述 (&quot;lung tumor&quot; 不是 &quot;a normal lung 的反面&quot;) 的场景就崩。AnomalyCLIP 把 prompt 改成 object-agnostic 学习, 正是为了解锁 cross-domain。</li>
 </ul>
@@ -354,10 +354,10 @@ print(&quot;abnormal ctx 朝 img_feat 方向移动:&quot;, (ctx_abnormal.grad.no
 </code></pre>
 <p>跑完一步,<code>ctx_abnormal</code> 的梯度非零、方向朝着让 image feature 更接近“异常 prompt”的方向走。注意 <code>cls_token</code> 是 placeholder 而不是“screw”“bottle”的具体词向量 —— 这正是 object-agnostic 的字面体现。</p>
 <h3 id="sec-3-3">3.3 正式化</h3>
-<p><strong>(1) Object-agnostic learnable prompt.</strong> 设可学习上下文 token 为 <span class="math inline">V_1, ..., V_E \in \mathbb{R}^d</span>,正常/异常状态各有一个状态词 <span class="math inline">[\text{state}_c]</span>,以及一个 object placeholder <span class="math inline">[\text{cls}]</span>。对类别 <span class="math inline">c \in \{n, a\}</span>(normal/abnormal),prompt 嵌入序列为:</p>
+<p><strong>(1) Object-agnostic learnable prompt.</strong> 设可学习上下文 token 为 <span class="math inline">\(V_1, ..., V_E \in \mathbb{R}^d\)</span>,正常/异常状态各有一个状态词 <span class="math inline">\([\text{state}_c]\)</span>,以及一个 object placeholder <span class="math inline">\([\text{cls}]\)</span>。对类别 <span class="math inline">\(c \in \{n, a\}\)</span>(normal/abnormal),prompt 嵌入序列为:</p>
 <p class="math-translation">—— 翻译: 每条 prompt 是一串“E 个可学习向量 + 一个状态词 + 一个物体占位”。$V_i$ 由训练学出,不写死英文单词;两条 prompt 只有 $[\text{state}_c]$ 不同(normal vs damaged),其它共享。这样模型学到的是“abnormality”这个 <em>抽象方向</em>,而不是绑定到具体物体。</p>
-<p><strong>(2) DPAM 修改后的 self-attention.</strong> 标准 ViT self-attention 用 <span class="math inline">Q</span> 检索 <span class="math inline">K</span>、对 <span class="math inline">V</span> 加权:</p>
-<p>DPAM 把 <span class="math inline">Q</span> 和 <span class="math inline">K</span> 都替换成 <span class="math inline">V</span>,得到 V-V self-attention:</p>
+<p><strong>(2) DPAM 修改后的 self-attention.</strong> 标准 ViT self-attention 用 <span class="math inline">\(Q\)</span> 检索 <span class="math inline">\(K\)</span>、对 <span class="math inline">\(V\)</span> 加权:</p>
+<p>DPAM 把 <span class="math inline">\(Q\)</span> 和 <span class="math inline">\(K\)</span> 都替换成 <span class="math inline">\(V\)</span>,得到 V-V self-attention:</p>
 <p class="math-translation">—— 翻译: $V$ 本身就是“内容向量”,$V V^\top$ 度量的是 patch 之间的内容相似度,而非“谁查询谁”的路由权重。这样得到的 attention map 在对角线附近显著加强(同一 patch 跟自己内容最相似),局部细节(缺陷往往就是局部 outlier)更容易被保留,不会被全局 routing 稀释。</p>
 <p><strong>(3) Pixel-level 联合损失.</strong> AnomalyCLIP 在 patch 维度做 dense 监督,用 focal loss 处理 hard-example、用 dice loss 处理类别不平衡:</p>
 <p class="math-translation">—— 翻译: focal 项的 $(1-p_t)^\gamma$ 让“容易分对的像素”权重指数衰减,梯度集中到难分像素;dice 项直接优化预测掩码 $P$ 与真值 $G$ 的重叠率,对“异常像素只占 1%”这种极度不平衡尤其有效。两项相加,既覆盖样本难度又覆盖区域形状。</p>
@@ -406,7 +406,7 @@ print(&quot;abnormal ctx 朝 img_feat 方向移动:&quot;, (ctx_abnormal.grad.no
         self.ctx_pos = nn.Parameter(ctx_vectors_pos)  # to be optimized
         self.ctx_neg = nn.Parameter(ctx_vectors_neg)  # to be optimized
 </code></pre>
-<p><strong>对照 §3.3 (1):</strong> <code>classnames = [&quot;object&quot;]</code> 这一行就是“object-agnostic”的字面证据 —— 类别名直接写死成抽象的 &quot;object&quot;,而非 &quot;screw&quot; / &quot;bottle&quot;。<code>state_normal_list = [&quot;{}&quot;]</code> 与 <code>state_anomaly_list = [&quot;damaged {}&quot;]</code> 对应 <span class="math inline">[\text{state}_n]</span> / <span class="math inline">[\text{state}_a]</span>。<code>ctx_pos</code> 与 <code>ctx_neg</code> 两个 <code>nn.Parameter</code> 就是 <span class="math inline">V_1,...,V_E</span> 的可学习向量本体,各占正负两路。</p>
+<p><strong>对照 §3.3 (1):</strong> <code>classnames = [&quot;object&quot;]</code> 这一行就是“object-agnostic”的字面证据 —— 类别名直接写死成抽象的 &quot;object&quot;,而非 &quot;screw&quot; / &quot;bottle&quot;。<code>state_normal_list = [&quot;{}&quot;]</code> 与 <code>state_anomaly_list = [&quot;damaged {}&quot;]</code> 对应 <span class="math inline">\([\text{state}_n]\)</span> / <span class="math inline">\([\text{state}_a]\)</span>。<code>ctx_pos</code> 与 <code>ctx_neg</code> 两个 <code>nn.Parameter</code> 就是 <span class="math inline">\(V_1,...,V_E\)</span> 的可学习向量本体,各占正负两路。</p>
 <p class="code-source">sources/repos/zqhang-AnomalyCLIP/AnomalyCLIP_lib/AnomalyCLIP.py:L57-L94 — DPAM: V-V attention replacing Q-K with V-V self-attention</p>
 <pre><code class="language-python">class Attention(nn.Module):
     &quot;&quot;&quot;Implement DPAM (Diagonally Prominent Attention Map) module for V-V self-attention&quot;&quot;&quot;
@@ -492,11 +492,11 @@ class BinaryDiceLoss(nn.Module):
         loss = 1 - N_dice_eff.sum() / N
         return loss
 </code></pre>
-<p><strong>对照 §3.3 (3):</strong> <code>FocalLoss.forward</code> 中 <code>-1 * alpha * torch.pow((1 - pt), self.gamma) * pt.log()</code> 一行对应 <span class="math inline">\mathcal{L}_{\text{focal}} = -\alpha(1-p_t)^\gamma \log p_t</span>,其中 <code>self.gamma=2</code> 是论文默认值;<code>smooth=1e-5</code> 的 clamp 防止 <span class="math inline">\log 0</span>。<code>BinaryDiceLoss</code> 里 <code>(2 * intersection.sum(1) + smooth) / (input_flat.sum(1) + targets_flat.sum(1) + smooth)</code> 就是 <span class="math inline">\frac{2|P \cap G|}{|P|+|G|}</span>。两者在训练脚本里相加得到最终 pixel-level 监督。</p>
+<p><strong>对照 §3.3 (3):</strong> <code>FocalLoss.forward</code> 中 <code>-1 * alpha * torch.pow((1 - pt), self.gamma) * pt.log()</code> 一行对应 <span class="math inline">\(\mathcal{L}_{\text{focal}} = -\alpha(1-p_t)^\gamma \log p_t\)</span>,其中 <code>self.gamma=2</code> 是论文默认值;<code>smooth=1e-5</code> 的 clamp 防止 <span class="math inline">\(\log 0\)</span>。<code>BinaryDiceLoss</code> 里 <code>(2 * intersection.sum(1) + smooth) / (input_flat.sum(1) + targets_flat.sum(1) + smooth)</code> 就是 <span class="math inline">\(\frac{2|P \cap G|}{|P|+|G|}\)</span>。两者在训练脚本里相加得到最终 pixel-level 监督。</p>
 <h3 id="sec-3-5">3.5 洞察</h3>
 <ul>
-<li>**Object-agnostic 为何是 cross-domain 的关键。**WinCLIP 的 prompt 把 “defective” 与具体 object 名字耦合,模型实际学到的是“defective screw 这个组合长什么样”。AnomalyCLIP 把 object 名字抽掉,只让 <span class="math inline">V_i</span> 学“偏离 normal 分布的方向”—— 这是一个 <em>universal concept</em>,在 medical CT 上同样适用。代码里 <code>classnames = [&quot;object&quot;]</code> 这一行就是这条认识的全部物理实现。</li>
-<li><strong>DPAM 为何选 V-V 而非 Q-K。</strong><span class="math inline">V</span> 是 patch 的内容向量,梯度直接来自下游 loss;<span class="math inline">Q, K</span> 是 routing 向量,本质上是“怎么挑”而不是“挑了什么”。把 attention 改成 <span class="math inline">V V^\top</span>,等于让 attention 的 gradient flow 直接走在 representation 主路上,训练更稳;同时 <span class="math inline">V V^\top</span> 天然让“同一个 patch 跟自己最像”,对角线被加强,局部缺陷(往往是 single outlier patch)的信号不会被全局 softmax 拉平。</li>
+<li>**Object-agnostic 为何是 cross-domain 的关键。**WinCLIP 的 prompt 把 “defective” 与具体 object 名字耦合,模型实际学到的是“defective screw 这个组合长什么样”。AnomalyCLIP 把 object 名字抽掉,只让 <span class="math inline">\(V_i\)</span> 学“偏离 normal 分布的方向”—— 这是一个 <em>universal concept</em>,在 medical CT 上同样适用。代码里 <code>classnames = [&quot;object&quot;]</code> 这一行就是这条认识的全部物理实现。</li>
+<li><strong>DPAM 为何选 V-V 而非 Q-K。</strong><span class="math inline">\(V\)</span> 是 patch 的内容向量,梯度直接来自下游 loss;<span class="math inline">\(Q, K\)</span> 是 routing 向量,本质上是“怎么挑”而不是“挑了什么”。把 attention 改成 <span class="math inline">\(V V^\top\)</span>,等于让 attention 的 gradient flow 直接走在 representation 主路上,训练更稳;同时 <span class="math inline">\(V V^\top\)</span> 天然让“同一个 patch 跟自己最像”,对角线被加强,局部缺陷(往往是 single outlier patch)的信号不会被全局 softmax 拉平。</li>
 <li>**局限 → 引出 §4。**AnomalyCLIP 仍然是 contrastive 框架:它能告诉你“这块异常”、给出 heatmap,但 <em>不能描述“是什么类型的缺陷、位置在哪、严重程度多少”</em>。要从“判断”升级到“描述 + 对话”,就需要把 CLIP 换成 LVLM —— 这正是下一节 AnomalyGPT 要解的问题。</li>
 </ul>
 <h2 id="sec-4">4. AnomalyGPT — LVLM 进场 + 合成数据</h2>
@@ -540,7 +540,7 @@ print(&quot;mask coverage:&quot;, m.mean())  # fraction of pixels marked as anom
 <h3 id="sec-4-3">4.3 正式化</h3>
 <p>把直觉里说的三件事写成数学。先是合成数据生成:</p>
 <p class="math-translation">—— 翻译:取一张正常图 $x_n$,从同源或异源的另一张 $x_n'$ 上裁出一小块,贴到 $x_n$ 的某个位置;$M$ 是二值 mask,标出"哪些像素被换掉了",未被覆盖的像素保持原样。这一对 $(x_a, M)$ 就是后面 decoder 的训练对。</p>
-<p>接着是 feature-matching decoder:它把 ViT 的多层特征 <span class="math inline">\{F_v^{(l)}\}_{l=1}^L</span> 融合成一张 pixel-level anomaly heatmap <span class="math inline">\hat{m}</span>:</p>
+<p>接着是 feature-matching decoder:它把 ViT 的多层特征 <span class="math inline">\(\{F_v^{(l)}\}_{l=1}^L\)</span> 融合成一张 pixel-level anomaly heatmap <span class="math inline">\(\hat{m}\)</span>:</p>
 <p class="math-translation">—— 翻译:每一层 ViT token (空间维度小,通常 $14\!\times\!14$ 或 $16\!\times\!16$) 都经过一个 per-layer 线性映射 $W_l$ 投到文本嵌入空间,沿层求和后上采样到原图尺寸,得到 $\hat{m}\in[0,1]^{H\times W}$。这条支路完全独立于 LLM 输出,补上了 LLM 给不出来的空间定位。</p>
 <p>最后是总 loss——两条监督路径并行:</p>
 <p class="math-translation">—— 翻译:左边两项 BCE + dice 监督 decoder 的 mask 输出与合成 ground-truth $m$ 一致,这是 dense prediction 的标配组合(BCE 看像素,dice 看区域重叠率)。右边 $\mathcal{L}_{\text{LM}}$ 是语言模型的 cross-entropy:给定视觉特征 $F_v$ 与 prompt embedding $E_p$,让 LLM 生成的回复贴近目标文本 $y$(例如 "Yes, there is a scratch in the upper-left area")。两条路径的梯度都经过 $F_v$,因此视觉特征会被同时拉向"空间定位"和"语言描述"两个目标。</p>
@@ -589,7 +589,7 @@ print(&quot;mask coverage:&quot;, m.mean())  # fraction of pixels marked as anom
         skip_background = None
         num_patches = 1
 </code></pre>
-<p>对照式 (1):<code>ima_dest</code> 对应 <span class="math inline">x_n</span>,<code>ima_src</code> 对应 <span class="math inline">x_n'</span>,<code>width_bounds_pct</code> 控制 patch 大小、<code>shift</code> 控制 paste 位置随机化、<code>cv2.NORMAL_CLONE / MIXED_CLONE</code> 实现 Poisson blending 让边界不突兀。<code>label_mode</code> 决定输出的 <span class="math inline">M</span> 是 binary 还是 continuous(soft mask 在 dice loss 下更稳)。最后那段 <code>cutpaste_patch_generation</code> 分支让这一个函数可以同时回退到原始 CutPaste 配置——code path 的&quot;开关&quot;就是论文里&quot;消融实验&quot;的对应物。</p>
+<p>对照式 (1):<code>ima_dest</code> 对应 <span class="math inline">\(x_n\)</span>,<code>ima_src</code> 对应 <span class="math inline">\(x_n'\)</span>,<code>width_bounds_pct</code> 控制 patch 大小、<code>shift</code> 控制 paste 位置随机化、<code>cv2.NORMAL_CLONE / MIXED_CLONE</code> 实现 Poisson blending 让边界不突兀。<code>label_mode</code> 决定输出的 <span class="math inline">\(M\)</span> 是 binary 还是 continuous(soft mask 在 dice loss 下更稳)。最后那段 <code>cutpaste_patch_generation</code> 分支让这一个函数可以同时回退到原始 CutPaste 配置——code path 的&quot;开关&quot;就是论文里&quot;消融实验&quot;的对应物。</p>
 <p>第二段对应式 (2) 与 prompt path——<code>LinearLayer</code> 是 decoder 的全部(&quot;多层特征 → 文本嵌入空间&quot;),<code>PromptLearner</code> 把图像本身编码为可学习的 prompt token,与 base prompt 拼接后送给 LLM。</p>
 <p class="code-source">sources/repos/CASIA-IVA-Lab-AnomalyGPT/code/model/AnomalyGPT_models.py:L17-L73 — Lightweight visual-textual feature decoder + prompt learner</p>
 <pre><code class="language-python">class LinearLayer(nn.Module):
@@ -641,7 +641,7 @@ class PromptLearner(nn.Module):
         output = torch.cat([self.base_prompts.expand(B, -1, -1), img_prompts], dim=1)  # [B, 18, 4096]
         return output
 </code></pre>
-<p>对照式 (2):<code>LinearLayer</code> 的 <code>nn.ModuleList</code> 就是 <span class="math inline">\{W_l\}_{l=1}^L</span>——一个 ViT 层一个线性映射,把不同语义粒度(浅层纹理 / 深层物体)统一对齐到文本空间,然后送给 cosine 相似度去算 <span class="math inline">\hat{m}</span> 的雏形。注意 <code>tokens[i][:, 1:, :]</code> 主动跳掉了 CLS token——因为 CLS 是全局,正好是 §1 说的&quot;全局 pooling 稀释 defect&quot;的元凶。<code>PromptLearner</code> 则把整张图压成 9 个 image-adaptive token,与 <code>base_prompts</code> (9 个全局 token, 类似 CoOp 的 [V1][V2]…) 拼成 18 个 token 喂给 LLM——这就是式 (3) 里的 <span class="math inline">E_p</span>。两者只增加几百万参数,LLM 的 7B 主体一字不动。</p>
+<p>对照式 (2):<code>LinearLayer</code> 的 <code>nn.ModuleList</code> 就是 <span class="math inline">\(\{W_l\}_{l=1}^L\)</span>——一个 ViT 层一个线性映射,把不同语义粒度(浅层纹理 / 深层物体)统一对齐到文本空间,然后送给 cosine 相似度去算 <span class="math inline">\(\hat{m}\)</span> 的雏形。注意 <code>tokens[i][:, 1:, :]</code> 主动跳掉了 CLS token——因为 CLS 是全局,正好是 §1 说的&quot;全局 pooling 稀释 defect&quot;的元凶。<code>PromptLearner</code> 则把整张图压成 9 个 image-adaptive token,与 <code>base_prompts</code> (9 个全局 token, 类似 CoOp 的 [V1][V2]…) 拼成 18 个 token 喂给 LLM——这就是式 (3) 里的 <span class="math inline">\(E_p\)</span>。两者只增加几百万参数,LLM 的 7B 主体一字不动。</p>
 <p>第三段是 PEFT 配置,把&quot;训练策略&quot;明确写在 YAML 里——LoRA rank 32、只训练 PromptLearner + decoder + LoRA adapter、LLM 主权重 frozen。配置文件这一块尤为关键,因为它把&quot;为什么不会 catastrophic forget&quot;具体化成了几行可读的参数。</p>
 <p class="code-source">sources/repos/CASIA-IVA-Lab-AnomalyGPT/code/config/openllama_peft.yaml:L1-L22 — PEFT config: LoRA + freeze LLM main weights, train only prompt embeddings + decoder</p>
 <pre><code class="language-yaml"># generation hyper-parameters
@@ -670,9 +670,9 @@ train:
 <h3 id="sec-4-5">4.5 洞察</h3>
 <ul>
 <li>**(a) Prompt embedding + LoRA &gt; 全参数 fine-tune。**工业 AD 数据量只有几百到几千张,直接 fine-tune 7B LLM 会让通用语言能力(describe / reason / dialogue)迅速劣化——这就是 catastrophic forgetting。PromptLearner 把&quot;任务知识&quot;塞进 18 个 token,LoRA 把&quot;细微调整&quot;塞进 rank-32 矩阵,主权重完全冻结,通用知识因此被保留。</li>
-<li>**(b) Decoder 不是冗余,而是务实补丁。**LLM 的输出是 token 概率,即便答出&quot;左上有划痕&quot;也无法给出像素级 mask;反之,decoder 出 mask 但不会说话。两条支路并行训练,既让视觉特征 <span class="math inline">F_v</span> 同时服务两个目标,也让最终系统能在 inference 阶段同时给出 heatmap + dialogue——这是 threshold-free 的关键。</li>
+<li>**(b) Decoder 不是冗余,而是务实补丁。**LLM 的输出是 token 概率,即便答出&quot;左上有划痕&quot;也无法给出像素级 mask;反之,decoder 出 mask 但不会说话。两条支路并行训练,既让视觉特征 <span class="math inline">\(F_v\)</span> 同时服务两个目标,也让最终系统能在 inference 阶段同时给出 heatmap + dialogue——这是 threshold-free 的关键。</li>
 <li>**(c) 合成数据足以撑起这条路线。**ImageBind/CLIP 视觉编码器在十亿级自然图像上预训练,工业图像虽然 domain 不同,但只是&quot;narrow domain shift&quot;——形状、纹理、光照都没跳出自然图像分布。在此基础上,几千张 cut-paste + Poisson blending 合成异常已经足以教会 decoder &quot;哪里像缺陷&quot;。这也解释了为什么 IAD 不需要像 medical imaging 那样收集真实异常样本。</li>
-<li>**(d) 两个目标必须平衡。**式 (3) 把 mask reconstruction 和 LM cross-entropy 放在同一个 loss 里——若 <span class="math inline">\mathcal{L}_{\text{LM}}</span> 权重过大,decoder 会被&quot;挤&quot;得不会预测 mask;若 mask loss 过大,LLM 学到的是&quot;贴瓷砖&quot;而不是&quot;描述异常&quot;。AnomalyGPT 通过 PEFT 的天然不对称(只有 prompt + decoder + LoRA 可训)隐式做了这件事:语言能力的主权重保护住了,梯度主要打在 decoder 上,平衡是从架构层面而非超参层面解决的。</li>
+<li>**(d) 两个目标必须平衡。**式 (3) 把 mask reconstruction 和 LM cross-entropy 放在同一个 loss 里——若 <span class="math inline">\(\mathcal{L}_{\text{LM}}\)</span> 权重过大,decoder 会被&quot;挤&quot;得不会预测 mask;若 mask loss 过大,LLM 学到的是&quot;贴瓷砖&quot;而不是&quot;描述异常&quot;。AnomalyGPT 通过 PEFT 的天然不对称(只有 prompt + decoder + LoRA 可训)隐式做了这件事:语言能力的主权重保护住了,梯度主要打在 decoder 上,平衡是从架构层面而非超参层面解决的。</li>
 </ul>
 <h2 id="sec-5">5. 数据制作的演进 — 从 CutPaste 到 IMDD-1M</h2>
 <h3 id="sec-5-1">5.1 直觉</h3>
@@ -720,20 +720,20 @@ samples = [cutpaste(x_n), draem(x_n, x_s), anomalygpt(x_n, x_s, fg.astype(np.flo
 </code></pre>
 <p>三个函数共享同一个 <code>x_n</code>,差异在 mask 的形态 (矩形 → 软噪声 → 椭圆+前景约束) 和源像素 (自图复制 → 外部自然图像 → 前景内自然图像) 上递进。第三种已经接近 AnomalyGPT 的真实管线,只差把线性叠加换成下文要讲的 Poisson 融合。</p>
 <h3 id="sec-5-3">5.3 正式化</h3>
-<p>三代合成方法可以用统一的 mask-blending 框架写出,差异全在 mask <span class="math inline">M</span> 的来源和 blending 算子上。</p>
+<p>三代合成方法可以用统一的 mask-blending 框架写出,差异全在 mask <span class="math inline">\(M\)</span> 的来源和 blending 算子上。</p>
 <p><strong>(1) CutPaste (2021)</strong> — 随机矩形 mask,源是图像自身的另一块:</p>
 <div class="math block">
-x_a = M_{\text{rect}} \odot x_s + (1 - M_{\text{rect}}) \odot x_n, \quad M_{\text{rect}} \in \{0, 1\}^{H \times W}
+\[x_a = M_{\text{rect}} \odot x_s + (1 - M_{\text{rect}}) \odot x_n, \quad M_{\text{rect}} \in \{0, 1\}^{H \times W}\]
 </div>
 <p class="math-translation">—— 翻译: $x_a$ 是合成的异常图,$M_{\text{rect}}$ 是一个随机矩形二值 mask,$x_s$ 是原图随机切下的一块作为 "源",$x_n$ 是 normal 底图。本质就是"硬粘贴",边界一定是直角突变。</p>
 <p><strong>(2) DRAEM (2021)</strong> — Perlin noise 阈值化得到的不规则 mask + 外部自然图像 (ImageNet 等):</p>
 <div class="math block">
-M = \text{thresh}\big(\text{Perlin}(h, w)\big), \quad x_a = M \odot x_s + (1 - M) \odot x_n, \; x_s \sim \mathcal{D}_{\text{natural}}
+\[M = \text{thresh}\big(\text{Perlin}(h, w)\big), \quad x_a = M \odot x_s + (1 - M) \odot x_n, \; x_s \sim \mathcal{D}_{\text{natural}}\]
 </div>
 <p class="math-translation">—— 翻译: mask 来自 Perlin 噪声阈值化,边界自然弯曲;$x_s$ 不再是自身,而是从外部自然图像分布采样,引入丰富纹理。形状自然了,但 blending 仍是线性,边界处仍有色差。</p>
 <p><strong>(3) AnomalyGPT (2024)</strong> — 椭圆/前景约束 mask + Poisson seamless cloning:</p>
 <div class="math block">
-\nabla x_a = M \odot \nabla x_s + (1 - M) \odot \nabla x_n, \quad \text{s.t.} \; x_a\big|_{\partial \Omega} = x_n\big|_{\partial \Omega}
+\[\nabla x_a = M \odot \nabla x_s + (1 - M) \odot \nabla x_n, \quad \text{s.t.} \; x_a\big|_{\partial \Omega} = x_n\big|_{\partial \Omega}\]
 </div>
 <p class="math-translation">—— 翻译: 不直接合成像素,而是合成<em>梯度场</em>,然后在 mask 边界 $\partial \Omega$ 处强制等于 normal 图,通过求解 Poisson 方程反推像素值。这样融合边界处颜色平滑过渡,人眼几乎看不出粘贴痕迹 —— 这是 OpenCV <code>seamlessClone</code> 的核心。</p>
 <p>从 (1) 到 (3),mask 越来越&quot;知道前景在哪&quot;,blending 算子从硬覆盖 → 线性混合 → 偏微分方程求解。再往后 (IMDD-1M, 2025) 已经不再是单张图合成,而是<strong>从真实工业图库中收集 + VLM 自动生成图文对</strong>,规模直接跳到 1M 量级。</p>
@@ -767,7 +767,7 @@ elif mode in [cv2.NORMAL_CLONE, cv2.MIXED_CLONE]:
     center = (coor_max_dim2 - (coor_max_dim2 - coor_min_dim2) // 2, coor_min_dim1 + (coor_max_dim1 - coor_min_dim1) // 2)
     patchex = cv2.seamlessClone(src, ima_dest, patch_mask_scaled, center, mode)
 </code></pre>
-<p><strong>对照:</strong> 椭圆 mask 通过旋转角 <span class="math inline">\theta</span> 和半轴 <span class="math inline">(a,b)</span> 参数化,for 循环叠加多个椭圆生成不规则区域 —— 对应 §5.3 公式 (3) 中的 <span class="math inline">M</span>。<code>cv2.seamlessClone</code> 内部就是求解 Poisson 方程 <span class="math inline">\nabla x_a = M \cdot \nabla x_s + (1-M) \cdot \nabla x_n</span>,边界强制为 normal 图 —— mask 四条边手动置零 (<code>patch_mask_scaled[0], patch_mask_scaled[-1], ...</code>) 正是为了保证 <span class="math inline">x_a|_{\partial\Omega}=x_n|_{\partial\Omega}</span> 的 Dirichlet 边界条件。</p>
+<p><strong>对照:</strong> 椭圆 mask 通过旋转角 <span class="math inline">\(\theta\)</span> 和半轴 <span class="math inline">\((a,b)\)</span> 参数化,for 循环叠加多个椭圆生成不规则区域 —— 对应 §5.3 公式 (3) 中的 <span class="math inline">\(M\)</span>。<code>cv2.seamlessClone</code> 内部就是求解 Poisson 方程 <span class="math inline">\(\nabla x_a = M \cdot \nabla x_s + (1-M) \cdot \nabla x_n\)</span>,边界强制为 normal 图 —— mask 四条边手动置零 (<code>patch_mask_scaled[0], patch_mask_scaled[-1], ...</code>) 正是为了保证 <span class="math inline">\(x_a|_{\partial\Omega}=x_n|_{\partial\Omega}\)</span> 的 Dirichlet 边界条件。</p>
 <p>但 AnomalyGPT 真正的创新不止于像素层面 —— 它把合成同时变成了<strong>带语言标签的对话样本</strong>:</p>
 <p class="code-source">sources/repos/CASIA-IVA-Lab-AnomalyGPT/code/datasets/mvtec.py:L126-L184 — Textual description / instruction generation for synthetic anomaly samples (position mapping + multi-anomaly handling)</p>
 <pre><code class="language-python">if len(centers) &gt; 0:
@@ -860,7 +860,7 @@ print(detail_signal_A, &quot;vs&quot;, detail_signal_B)      # B 远大于 A: ti
 <p><strong>(3) decoder 层 — 多层特征线性 decoder</strong> (来自 §4 AnomalyGPT 的 LinearLayer):</p>
 <p class="math-translation">—— 翻译: 取 ViT 中间若干层 $L$ 的 patch token 特征 $F_v^{(l)}$, 各层经独立 linear $W_l$ 投到统一维度后求和, 最后 upsample 到原图分辨率得到 dense anomaly map $\hat{m}$。<strong>外挂这个 decoder 是因为 LLM 输出文本概率而不输出 spatial mask</strong>, 必须用一个轻量旁路把像素级监督接回来。</p>
 <h3 id="sec-6-4">6.4 代码引用</h3>
-<p>第一段, AnomalyCLIP 的 DPAM 实现 — 在不修改 ViT 主干权重的前提下, 把 attention map 的 <span class="math inline">Q,K</span> 直接覆写成 <span class="math inline">V</span>:</p>
+<p>第一段, AnomalyCLIP 的 DPAM 实现 — 在不修改 ViT 主干权重的前提下, 把 attention map 的 <span class="math inline">\(Q,K\)</span> 直接覆写成 <span class="math inline">\(V\)</span>:</p>
 <p class="code-source">sources/repos/zqhang-AnomalyCLIP/AnomalyCLIP_lib/AnomalyCLIP.py:L71-L94 — DPAM: V-V attention substitution for local-detail amplification</p>
 <pre><code class="language-python">    def forward(self, x):
         B, N, C = x.shape
@@ -887,7 +887,7 @@ print(detail_signal_A, &quot;vs&quot;, detail_signal_B)      # B 远大于 A: ti
         x_ori = self.proj_drop(self.proj(x_ori))
         return [x, x_ori]
 </code></pre>
-<p>对照公式 (2): <code>k = v; q = k</code> 这两行就是 V-V 替换的全部, 把标准 attention 的 <span class="math inline">QK^\top</span> 强行降为 <span class="math inline">VV^\top</span>。注意作者还保留了一份 <code>x_ori</code> 走原始 <span class="math inline">Q,K</span> 路径, 双路并行返回 — 上层的 fine-tune loss 只对 DPAM 那条路反传, 主干语义不被破坏。<strong>整个 &quot;细节注意力定位&quot; 的代码改动只有两行</strong>, 但需要前面对 ViT 内部矩阵流的精确理解才挑得出来。</p>
+<p>对照公式 (2): <code>k = v; q = k</code> 这两行就是 V-V 替换的全部, 把标准 attention 的 <span class="math inline">\(QK^\top\)</span> 强行降为 <span class="math inline">\(VV^\top\)</span>。注意作者还保留了一份 <code>x_ori</code> 走原始 <span class="math inline">\(Q,K\)</span> 路径, 双路并行返回 — 上层的 fine-tune loss 只对 DPAM 那条路反传, 主干语义不被破坏。<strong>整个 &quot;细节注意力定位&quot; 的代码改动只有两行</strong>, 但需要前面对 ViT 内部矩阵流的精确理解才挑得出来。</p>
 <p>第二段, AnomalyGPT 的多层 decoder — 把 ViT 多层特征各自 linear 投影后让上层 fuse:</p>
 <p class="code-source">sources/repos/CASIA-IVA-Lab-AnomalyGPT/code/model/AnomalyGPT_models.py:L17-L30 — Multi-layer feature decoder for pixel-level anomaly localization</p>
 <pre><code class="language-python">class LinearLayer(nn.Module):
@@ -905,7 +905,7 @@ print(detail_signal_A, &quot;vs&quot;, detail_signal_B)      # B 远大于 A: ti
                 tokens[i] = self.fc[i](tokens[i].view(B, C, -1).permute(0, 2, 1).contiguous())
         return tokens
 </code></pre>
-<p>对照公式 (3): <code>self.fc</code> 是 <span class="math inline">k</span> 个独立线性层, 每个对应公式里的 <span class="math inline">W_l</span>; <code>tokens[i][:, 1:, :]</code> 这一刀剔掉 [CLS] token, 只保留 patch token — 因为 dense prediction 只关心空间位置。<strong>注意这里没有任何卷积、没有任何 nonlinear, 只是 per-layer linear</strong>: 作者赌的是 ViT 各层特征本来就富含 spatial 信息, 想做 dense prediction 不需要重型 decoder, 一层 linear + upsample 就够把 <span class="math inline">\hat{m}</span> 解码出来。这是 AnomalyGPT 整套系统能轻量 (单卡 train, ~12B LLM 不动) 的关键决定之一。</p>
+<p>对照公式 (3): <code>self.fc</code> 是 <span class="math inline">\(k\)</span> 个独立线性层, 每个对应公式里的 <span class="math inline">\(W_l\)</span>; <code>tokens[i][:, 1:, :]</code> 这一刀剔掉 [CLS] token, 只保留 patch token — 因为 dense prediction 只关心空间位置。<strong>注意这里没有任何卷积、没有任何 nonlinear, 只是 per-layer linear</strong>: 作者赌的是 ViT 各层特征本来就富含 spatial 信息, 想做 dense prediction 不需要重型 decoder, 一层 linear + upsample 就够把 <span class="math inline">\(\hat{m}\)</span> 解码出来。这是 AnomalyGPT 整套系统能轻量 (单卡 train, ~12B LLM 不动) 的关键决定之一。</p>
 <h3 id="sec-6-5">6.5 洞察</h3>
 <ul>
 <li><strong>分辨率 ↑ → token 数 ↑ → 算力 quadratic ↑</strong>, 全栈高分辨率不可行, 必须 <em>sparse</em> 设计 — 要么 windowing (WinCLIP 多尺度滑窗), 要么 AnyRes (LLaVA-1.6 风格按图像 aspect ratio 切 tile, 每 tile 独立 ViT encode 后 concat), 要么先 SAM zoom-in 再喂 VLM。把算力花在 &quot;可能有缺陷的区域&quot; 上, 而不是均匀挥霍。</li>
@@ -957,11 +957,11 @@ print(f&quot;nearest normal idx: {nearest.item()}, &quot;
 </code></pre>
 <p>把 <code>fake_encoder</code> 换成 CLIP-ViT 的 <code>encode_image</code>,bank 换成实际拍到的 4 张良品,就是 WinCLIP+ 论文里 <em>K=4 normal-shot</em> 的核心计算 —— 整个推理过程<strong>不需要任何 anomaly 标注</strong>,这正是 few-shot 在产线落地的吸引力。</p>
 <h3 id="sec-7-3">7.3 正式化</h3>
-<p><strong>(1) Zero-shot 评分。</strong> WinCLIP / AnomalyCLIP 的核心是用一个 (anomaly prompt, normal prompt) 对在文本空间里建立两个锚点,然后在视觉特征 <span class="math inline">f_v(x)</span> 上做 cosine 对比:</p>
+<p><strong>(1) Zero-shot 评分。</strong> WinCLIP / AnomalyCLIP 的核心是用一个 (anomaly prompt, normal prompt) 对在文本空间里建立两个锚点,然后在视觉特征 <span class="math inline">\(f_v(x)\)</span> 上做 cosine 对比:</p>
 <p class="math-translation">—— 翻译: 异常分数 = 图像特征跟 “异常 prompt” 的相似度,减去跟 “正常 prompt” 的相似度。$p_a, p_n$ 在 WinCLIP 中是手写模板(“a photo of a damaged {obj}”),在 AnomalyCLIP 中是 object-agnostic 的可学习 token。</p>
-<p><strong>(2) Few-normal-shot 参考库评分。</strong> 给定 <span class="math inline">K</span> 张正常样本 <span class="math inline">\{x_1^n, \dots, x_K^n\}</span>,构造 feature bank <span class="math inline">B</span>,query 的 anomaly score 是到 bank 的最近距离:</p>
+<p><strong>(2) Few-normal-shot 参考库评分。</strong> 给定 <span class="math inline">\(K\)</span> 张正常样本 <span class="math inline">\(\{x_1^n, \dots, x_K^n\}\)</span>,构造 feature bank <span class="math inline">\(B\)</span>,query 的 anomaly score 是到 bank 的最近距离:</p>
 <p class="math-translation">—— 翻译: 异常 = “跟所有见过的正常样本都不像”。这个公式不区分 $K$ 是 1 还是 100,只要 $K \gt 0$ 就成立,在 $K=0$ 时退化成纯 zero-shot。</p>
-<p><strong>(3) Cross-domain prompt transfer。</strong> AnomalyCLIP 的训练范式是:在 auxiliary domain <span class="math inline">D_{aux}</span>(比如 MVTec)上优化 prompt,然后在 target domain <span class="math inline">D_{tgt}</span>(医学 / PCB / 纺织)上 <em>不再训练</em> 直接部署:</p>
+<p><strong>(3) Cross-domain prompt transfer。</strong> AnomalyCLIP 的训练范式是:在 auxiliary domain <span class="math inline">\(D_{aux}\)</span>(比如 MVTec)上优化 prompt,然后在 target domain <span class="math inline">\(D_{tgt}\)</span>(医学 / PCB / 纺织)上 <em>不再训练</em> 直接部署:</p>
 <p class="math-translation">—— 翻译: 只在源域学 prompt,目标域 zero-shot 用。前提是 $p$ 编码的是 <em>abnormality 概念</em> 而非 <em>object identity</em>,否则换域立刻崩 —— 这正是 object-agnostic prompt 的设计目的。</p>
 <h3 id="sec-7-4">7.4 代码引用</h3>
 <p><strong>(a) AnomalyCLIP 的 cross-dataset 评测主循环。</strong> 这段代码的关键是:模型加载之后只跑 <em>一次</em> <code>prompt_learner</code> 算出 text features,然后整个 target dataset 的所有图像都共享这套 prompt —— 这正是 cross-domain transfer 在工程上能 work 的地方,模型从 train 到 test 完全不再 fine-tune。</p>
@@ -997,8 +997,8 @@ for idx, items in enumerate(tqdm(test_dataloader)):
                 anomaly_map = (similarity_map[...,1] + 1 - similarity_map[...,0])/2.0
                 anomaly_map_list.append(anomaly_map)
 </code></pre>
-<p>对照 §7.3 公式 (1):<code>text_probs = image_features @ text_features.permute(0, 2, 1)</code> 就是 <span class="math inline">\cos(f_v, f_t(p))</span>,对 normal/abnormal 两个 prompt 做 softmax 就是 <span class="math inline">s_{ZS}</span> 的概率化版本。整段循环不存在 “if domain == medical: do something_different” 的分支 —— 这就是 cross-domain 的代码层面证据。</p>
-<p><strong>(b) WinCLIP 的 few-shot 参考库构建与匹配。</strong> 这段是 §7.2 demo 的工业版:把 normal 图按多尺度切窗口,在每个 scale 上各维护一个 visual gallery,query 进来时取 patch-level 最大 cosine 相似度,再 <span class="math inline">1-\text{sim}</span> 作 anomaly score。</p>
+<p>对照 §7.3 公式 (1):<code>text_probs = image_features @ text_features.permute(0, 2, 1)</code> 就是 <span class="math inline">\(\cos(f_v, f_t(p))\)</span>,对 normal/abnormal 两个 prompt 做 softmax 就是 <span class="math inline">\(s_{ZS}\)</span> 的概率化版本。整段循环不存在 “if domain == medical: do something_different” 的分支 —— 这就是 cross-domain 的代码层面证据。</p>
+<p><strong>(b) WinCLIP 的 few-shot 参考库构建与匹配。</strong> 这段是 §7.2 demo 的工业版:把 normal 图按多尺度切窗口,在每个 scale 上各维护一个 visual gallery,query 进来时取 patch-level 最大 cosine 相似度,再 <span class="math inline">\(1-\text{sim}\)</span> 作 anomaly score。</p>
 <p class="code-source">sources/repos/caoyunkang-WinClip/WinCLIP/model.py:L143-L244 — Few-normal-shot reference bank: 构建与查询</p>
 <pre><code class="language-python">def build_image_feature_gallery(self, normal_images):
 
@@ -1026,13 +1026,13 @@ def calculate_visual_anomaly_score(self, visual_features):
         normality_score = 0.5 * (1 - (features @ cur_visual_gallery.T).max(dim=1)[0])
         normality_score = normality_score.cpu()
 </code></pre>
-<p>对照 §7.3 公式 (2):<code>(features @ cur_visual_gallery.T).max(dim=1)[0]</code> 就是 <span class="math inline">\max_{b \in B}\cos(f_v(x), b)</span>,然后 <span class="math inline">0.5 \cdot (1 - \text{max sim})</span> 把它从 cosine 距离改造成 [0, 1] 范围的 anomaly score。多尺度的 <code>scale_anomaly_scores</code> 列表正是 §2 WinCLIP 多窗口聚合在 few-shot 场景下的复用 —— <em>WinCLIP+</em> 等于 <em>WinCLIP × few-shot</em>。</p>
+<p>对照 §7.3 公式 (2):<code>(features @ cur_visual_gallery.T).max(dim=1)[0]</code> 就是 <span class="math inline">\(\max_{b \in B}\cos(f_v(x), b)\)</span>,然后 <span class="math inline">\(0.5 \cdot (1 - \text{max sim})\)</span> 把它从 cosine 距离改造成 [0, 1] 范围的 anomaly score。多尺度的 <code>scale_anomaly_scores</code> 列表正是 §2 WinCLIP 多窗口聚合在 few-shot 场景下的复用 —— <em>WinCLIP+</em> 等于 <em>WinCLIP × few-shot</em>。</p>
 <h3 id="sec-7-5">7.5 洞察</h3>
 <ul>
 <li><strong>Prompt learning 为什么比 fine-tune 泛化更好?</strong> 看参数量:CoOp / AnomalyCLIP 学的是 ~10K 个 prompt token,而全参 fine-tune ViT-L/14 是 ~300M。低三个数量级意味着 prompt 几乎不可能 overfit auxiliary domain 的具体物体 —— 它最多只能编码“abnormality 概念”,这恰好就是我们想要的 domain-invariant 信号。</li>
 <li><strong>Industrial → medical 真的能 work,是个 surprise。</strong> 这件事先验上不该 work:工业图像和医学 CT 的纹理统计、光照、背景完全不同。但 AnomalyCLIP 在 17 个跨域数据集上 zero-shot 全面胜出,说明 <em>“偏离正常”</em> 这件事在视觉空间里有 object-agnostic 的几何特征 —— prompt 学到的是“分布外”这个概念的 prior,而不是任何具体物体。这点跟 §3 的 object-agnostic 设计是同一枚硬币的两面。</li>
 <li><strong>Test-time adaptation 雏形:in-context comparison。</strong> 2025-2026 的代表作 AD-Copilot 的 Chat-AD 模块给出了下一代范式 —— 模型在 forward 时同时接收一对 <code>(normal_ref, query)</code>,让 cross-attention 在网络内部完成 “参照物比对”,而不是像 WinCLIP+ 那样在外部维护 feature bank。IADGPT 进一步把这种 in-context 比对扩展到多轮对话,query 可以反复提问 “跟参考图相比哪里不一样”。这相当于把 §7.2 demo 的两行匹配代码塞进了 LVLM 的注意力机制本身。</li>
-<li><strong>Few-shot reference bank 的工程成本。</strong> 公式 (2) 是 <span class="math inline">O(K \cdot D)</span> 存储 + <span class="math inline">O(K)</span> 推理时间。当 <span class="math inline">K \to</span> 数千张良品(典型大产线)时,GPU memory 直接吃满 —— 这正是 PatchCore 当年提出 <em>coreset subsampling</em> 的原始 motivation,在 VLM 时代依然成立。未来一定会看到 “learnable coreset for VLM reference bank” 这类工作出现,把 §5 的数据制作思路和 §7 的 few-shot 思路在同一个 loss 下端到端打通。</li>
+<li><strong>Few-shot reference bank 的工程成本。</strong> 公式 (2) 是 <span class="math inline">\(O(K \cdot D)\)</span> 存储 + <span class="math inline">\(O(K)\)</span> 推理时间。当 <span class="math inline">\(K \to\)</span> 数千张良品(典型大产线)时,GPU memory 直接吃满 —— 这正是 PatchCore 当年提出 <em>coreset subsampling</em> 的原始 motivation,在 VLM 时代依然成立。未来一定会看到 “learnable coreset for VLM reference bank” 这类工作出现,把 §5 的数据制作思路和 §7 的 few-shot 思路在同一个 loss 下端到端打通。</li>
 </ul>
 <h2 id="sec-8">8. 演进时间线 + 现代前沿 + 落地建议</h2>
 <h3 id="sec-8-1">8.1 直觉</h3>

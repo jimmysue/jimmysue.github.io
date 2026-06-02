@@ -98,7 +98,7 @@
 <p>把扩散模型的 50 步采样想成&quot;画家从一片噪点反推一段视频&quot;:</p>
 <ul>
 <li>原本画家可以画任何视角 — 我们想强行规定&quot;必须从这个角度看&quot;。</li>
-<li>**IRR (递归精炼) ≈ 在每一次画到一半时,把&quot;参考照片里看得见的部分&quot;硬贴回去 → 再加点噪声让画家继续画。**是一个 per-step 的预测-校正循环,但只发生在<em>干净 <span class="math inline">\hat{x}_0</span> 空间</em>,不在带噪的 <span class="math inline">x_t</span> 空间 — 这一点 critical,因为是 FLF 能选 channel 的前提。</li>
+<li>**IRR (递归精炼) ≈ 在每一次画到一半时,把&quot;参考照片里看得见的部分&quot;硬贴回去 → 再加点噪声让画家继续画。**是一个 per-step 的预测-校正循环,但只发生在<em>干净 <span class="math inline">\(\hat{x}_0\)</span> 空间</em>,不在带噪的 <span class="math inline">\(x_t\)</span> 空间 — 这一点 critical,因为是 FLF 能选 channel 的前提。</li>
 <li>**FLF (光流门控融合) ≈ VAE 的 16 个潜变量 channel 不是平等的 — 有的管&quot;形状&quot;,有的管&quot;运动方向&quot;。**我们光流测每个 channel,只覆盖&quot;运动方向跟目标轨迹一致&quot;的 channel,留下其它 channel 让模型自由发挥纹理。</li>
 <li>**DSG (双路自校正) ≈ 跑两次预测:一次&quot;自由发挥&quot; (画质好但不走我们要的轨迹),一次&quot;被 IRR/FLF 强制约束&quot; (走对轨迹但有 warp 伪影)。**然后把两者做<em>APG/CFG-Zero 风格的正交投影</em>,只保留&quot;约束方向上的修正&quot;,滤掉&quot;约束本身带进来的噪点&quot;。</li>
 </ul>
@@ -109,39 +109,39 @@
       <figcaption>Fig. 2 — WorldForge framework。左侧:单张图或视频帧 → VGGT 重建点云 + 估计 camera/depth → 沿用户给的目标轨迹 warp 成"trajectory-warped frames" $I'_{tar}$ + 可见性 mask $M$。右侧:Wan2.1 I2V 的 50 步 UniPC 采样,前 ~20 步每步插入 <strong>IRR → FLF → DSG</strong> 三个模块,后 ~30 步退回 vanilla 去噪。整个过程<em>不训练任何参数</em>。</figcaption>
     </figure>
 <p>底座是任意一个 latent video diffusion model (paper 用 Wan2.1 I2V-14B / SVD / LongCat-Video)。Wan2.1 的一步去噪:</p>
-<p><span class="math inline">\hat{\mathbf{x}}_0</span> 是当前步对&quot;最终干净 latent&quot;的预测。**WorldForge 三个模块全部作用在 <span class="math inline">\hat{\mathbf{x}}_0</span> 上,而非 <span class="math inline">\mathbf{x}_t</span>。**这是和 RePaint / NVS-Solver 最本质的差异 — 后者在<em>带噪 latent 空间</em>融合,VAE 解码会把 warp 的硬边变成 ringing artifact;前者在<em>干净 latent 空间</em>融合,光流和 mask 行为可预测。</p>
+<p><span class="math inline">\(\hat{\mathbf{x}}_0\)</span> 是当前步对&quot;最终干净 latent&quot;的预测。**WorldForge 三个模块全部作用在 <span class="math inline">\(\hat{\mathbf{x}}_0\)</span> 上,而非 <span class="math inline">\(\mathbf{x}_t\)</span>。**这是和 RePaint / NVS-Solver 最本质的差异 — 后者在<em>带噪 latent 空间</em>融合,VAE 解码会把 warp 的硬边变成 ringing artifact;前者在<em>干净 latent 空间</em>融合,光流和 mask 行为可预测。</p>
 <p>Warp 是一个标准的可微 splatting:</p>
 <ul>
-<li><span class="math inline">\mathbf{I}_{src}, \mathbf{D}_{src}</span> — 源 RGB + 深度 (来自 VGGT / UniDepth / Mega-SaM / DepthCrafter)。</li>
-<li><span class="math inline">\mathbf{P}_{src}, \mathbf{P}_{tar}</span> — 源 / 目标相机姿态 (用户给)。</li>
-<li><span class="math inline">\mathbf{I}'_{tar}</span> — 沿目标轨迹 warp 出来的目标帧,带遮挡空洞。</li>
-<li><span class="math inline">\mathbf{M}_{tar}</span> — 可见性 mask (空洞处 = 0)。</li>
+<li><span class="math inline">\(\mathbf{I}_{src}, \mathbf{D}_{src}\)</span> — 源 RGB + 深度 (来自 VGGT / UniDepth / Mega-SaM / DepthCrafter)。</li>
+<li><span class="math inline">\(\mathbf{P}_{src}, \mathbf{P}_{tar}\)</span> — 源 / 目标相机姿态 (用户给)。</li>
+<li><span class="math inline">\(\mathbf{I}'_{tar}\)</span> — 沿目标轨迹 warp 出来的目标帧,带遮挡空洞。</li>
+<li><span class="math inline">\(\mathbf{M}_{tar}\)</span> — 可见性 mask (空洞处 = 0)。</li>
 </ul>
-<p>Warp 完的帧用 VAE encode 进 latent 空间,叫 <span class="math inline">\mathbf{x}_{\text{traj}}</span>。从这里开始三个模块上场。</p>
+<p>Warp 完的帧用 VAE encode 进 latent 空间,叫 <span class="math inline">\(\mathbf{x}_{\text{traj}}\)</span>。从这里开始三个模块上场。</p>
 <h3 id="sec-2-3">2.2 IRR — Intra-Step Recursive Refinement (步内递归精炼)</h3>
-<p><strong>Plain English:</strong> 每一步去噪后,把 <span class="math inline">\hat{\mathbf{x}}_0</span> 中&quot;mask 可见区域&quot;换成 trajectory latent,再用 scheduler 的 add_noise 把结果<em>退回</em>到当前 sigma 噪声水平,让 transformer 再去噪一次 (paper 称为&quot;resample&quot;)。每个 outer step 跑 2~3 次这种&quot;贴回-去噪&quot;循环。本质是 per-step 预测器-校正器。</p>
+<p><strong>Plain English:</strong> 每一步去噪后,把 <span class="math inline">\(\hat{\mathbf{x}}_0\)</span> 中&quot;mask 可见区域&quot;换成 trajectory latent,再用 scheduler 的 add_noise 把结果<em>退回</em>到当前 sigma 噪声水平,让 transformer 再去噪一次 (paper 称为&quot;resample&quot;)。每个 outer step 跑 2~3 次这种&quot;贴回-去噪&quot;循环。本质是 per-step 预测器-校正器。</p>
 <ul>
-<li><span class="math inline">\hat{\mathbf{x}}_0^{(t)}</span> — 当前步预测的&quot;干净 latent&quot;。</li>
-<li><span class="math inline">\mathbf{x}_{\text{traj}}</span> — VAE-encoded warp 帧 (固定不变)。</li>
-<li><span class="math inline">\mathbf{M}</span> — 二值可见性 mask (硬贴边会有 ringing,代码里用<em>距离变换 + sine decay</em> 软化,见 §4)。</li>
-<li><span class="math inline">\mathbf{F}</span> — mask blend。</li>
-<li><span class="math inline">w(\sigma)</span> — re-noise 强度,跟随当前 sigma 调度。</li>
-<li><span class="math inline">\boldsymbol{\epsilon}\sim\mathcal{N}(\mathbf{0}, \mathbf{I})</span> — Gaussian 噪声。</li>
+<li><span class="math inline">\(\hat{\mathbf{x}}_0^{(t)}\)</span> — 当前步预测的&quot;干净 latent&quot;。</li>
+<li><span class="math inline">\(\mathbf{x}_{\text{traj}}\)</span> — VAE-encoded warp 帧 (固定不变)。</li>
+<li><span class="math inline">\(\mathbf{M}\)</span> — 二值可见性 mask (硬贴边会有 ringing,代码里用<em>距离变换 + sine decay</em> 软化,见 §4)。</li>
+<li><span class="math inline">\(\mathbf{F}\)</span> — mask blend。</li>
+<li><span class="math inline">\(w(\sigma)\)</span> — re-noise 强度,跟随当前 sigma 调度。</li>
+<li><span class="math inline">\(\boldsymbol{\epsilon}\sim\mathcal{N}(\mathbf{0}, \mathbf{I})\)</span> — Gaussian 噪声。</li>
 </ul>
-<p>**与 RePaint 的差异:**RePaint 在 <span class="math inline">\mathbf{x}_{t-1}</span> (带噪) 空间融合,WorldForge 在 <span class="math inline">\hat{\mathbf{x}}_0</span> (干净) 空间。<em>这一选择决定了 FLF 能否工作</em> — 因为只有在 clean latent 空间,VAE channel 的&quot;运动语义&quot;才是稳定的。</p>
+<p>**与 RePaint 的差异:**RePaint 在 <span class="math inline">\(\mathbf{x}_{t-1}\)</span> (带噪) 空间融合,WorldForge 在 <span class="math inline">\(\hat{\mathbf{x}}_0\)</span> (干净) 空间。<em>这一选择决定了 FLF 能否工作</em> — 因为只有在 clean latent 空间,VAE channel 的&quot;运动语义&quot;才是稳定的。</p>
 <h3 id="sec-2-4">2.3 FLF — Flow-Gated Latent Fusion (光流门控潜变量融合)</h3>
 <p><strong>Plain English:</strong> Wan2.1 的 VAE latent 有 16 个 channel,作者发现它们的&quot;运动语义角色&quot;<em>稳定</em>:某些 channel 主要编码运动方向,另一些主要编码外观纹理。如果 IRR 在<em>所有 16 个 channel</em> 上都贴 warp 帧,会把&quot;外观 channel&quot;也覆写掉,纹理就坏了。FLF 的做法:</p>
 <ol>
-<li>对 <span class="math inline">\hat{\mathbf{x}}_0</span> 和 <span class="math inline">\mathbf{x}_{\text{traj}}</span> 的<strong>每个 channel</strong>分别跑 RAFT/Farnebäck 光流。</li>
-<li>用三种 metric 算 channel 的&quot;运动一致性分数&quot; <span class="math inline">S^{(t,c)}</span>:Masked End-Point Error (M-EPE)、Masked Angular Error (M-AE)、Outlier % (Fl-all)。</li>
-<li>分数低于自适应阈值 <span class="math inline">\delta^{(t)} = \mu_S - \lambda\sigma_S</span> 的 channel<strong>不被覆写</strong> (让模型自由发挥纹理);其它 channel 才接受 IRR 的 warp 注入。</li>
+<li>对 <span class="math inline">\(\hat{\mathbf{x}}_0\)</span> 和 <span class="math inline">\(\mathbf{x}_{\text{traj}}\)</span> 的<strong>每个 channel</strong>分别跑 RAFT/Farnebäck 光流。</li>
+<li>用三种 metric 算 channel 的&quot;运动一致性分数&quot; <span class="math inline">\(S^{(t,c)}\)</span>:Masked End-Point Error (M-EPE)、Masked Angular Error (M-AE)、Outlier % (Fl-all)。</li>
+<li>分数低于自适应阈值 <span class="math inline">\(\delta^{(t)} = \mu_S - \lambda\sigma_S\)</span> 的 channel<strong>不被覆写</strong> (让模型自由发挥纹理);其它 channel 才接受 IRR 的 warp 注入。</li>
 </ol>
 <ul>
-<li><span class="math inline">c</span> — channel 下标 (<span class="math inline">c=0\ldots 15</span>)。</li>
-<li><span class="math inline">\gamma_k = [0.4, 0.4, 0.2]</span> — EPE / AE / Fl-all 的权重 (paper 值;代码里 §4 写的是 <span class="math inline">[0.45, 0.10, 0.45]</span>,小差异)。</li>
-<li><span class="math inline">\lambda^{(t)} = 0.65</span> — 阈值标准差倍数,paper 说&quot;loose-to-tight&quot; schedule。</li>
+<li><span class="math inline">\(c\)</span> — channel 下标 (<span class="math inline">\(c=0\ldots 15\)</span>)。</li>
+<li><span class="math inline">\(\gamma_k = [0.4, 0.4, 0.2]\)</span> — EPE / AE / Fl-all 的权重 (paper 值;代码里 §4 写的是 <span class="math inline">\([0.45, 0.10, 0.45]\)</span>,小差异)。</li>
+<li><span class="math inline">\(\lambda^{(t)} = 0.65\)</span> — 阈值标准差倍数,paper 说&quot;loose-to-tight&quot; schedule。</li>
 </ul>
-<p>Eq. 7 替换掉 Eq. 5 里的 <span class="math inline">\mathbf{F}</span>,所以 FLF 是 IRR 的<em>插件</em>。</p>
+<p>Eq. 7 替换掉 Eq. 5 里的 <span class="math inline">\(\mathbf{F}\)</span>,所以 FLF 是 IRR 的<em>插件</em>。</p>
 <figure>
       <img class="zoomable" alt="FLF 各 channel 被过滤的频率" src="figures/fig4-channel-stats.png">
       <figcaption>Fig. 4 — 16 个 VAE channel 在 40+ 静态场景和 30+ 动态场景上"被 FLF 过滤掉" (= 不接受 warp 注入) 的频率。<strong>Channel 13 几乎 100% 被过滤</strong> (编码运动无关的细节,如纹理),<strong>channel 8 几乎从不被过滤</strong> (主管运动方向,该被 warp 控制)。这种角色分配在静态/动态场景上分布一致 → 证明 VAE latent 的 channel 语义稳定。</figcaption>
@@ -149,15 +149,15 @@
 <h3 id="sec-2-5">2.4 DSG — Dual-Path Self-Corrective Guidance (双路自校正引导)</h3>
 <p><strong>Plain English:</strong> 即使 IRR + FLF 加上,warp 帧本身带 depth error / occlusion hole,模型很难完全&quot;信任&quot;它们。DSG 在每个 step 跑两次前向:</p>
 <ul>
-<li><strong>Unguided path:</strong> 用原始 <span class="math inline">\mathbf{x}_t</span> 跑 → 得到速度场 <span class="math inline">\mathbf{v}_t^{\text{ori}}</span> (画质好,轨迹自由)。</li>
-<li><strong>Guided path:</strong> 用 IRR/FLF 修过的 <span class="math inline">\mathbf{x}_t'</span> 跑 → 得到 <span class="math inline">\mathbf{v}_t^{\text{traj}}</span> (轨迹对,有 warp 噪点)。</li>
+<li><strong>Unguided path:</strong> 用原始 <span class="math inline">\(\mathbf{x}_t\)</span> 跑 → 得到速度场 <span class="math inline">\(\mathbf{v}_t^{\text{ori}}\)</span> (画质好,轨迹自由)。</li>
+<li><strong>Guided path:</strong> 用 IRR/FLF 修过的 <span class="math inline">\(\mathbf{x}_t'\)</span> 跑 → 得到 <span class="math inline">\(\mathbf{v}_t^{\text{traj}}\)</span> (轨迹对,有 warp 噪点)。</li>
 </ul>
-<p>关键观察:作者实测两条速度场之间的余弦相似度 <span class="math inline">\alpha_t</span> 通常落在<strong>0.3–0.6</strong> (角度 50°–70°),远大于普通 CFG 的&quot;prompt 改一改&quot;的角度差。直接套 CFG (加权差分) 会因为<em>方向差太大</em>而崩 — 需要把&quot;差异中跟 guided 方向平行的部分&quot;投影掉,只用正交分量。</p>
+<p>关键观察:作者实测两条速度场之间的余弦相似度 <span class="math inline">\(\alpha_t\)</span> 通常落在<strong>0.3–0.6</strong> (角度 50°–70°),远大于普通 CFG 的&quot;prompt 改一改&quot;的角度差。直接套 CFG (加权差分) 会因为<em>方向差太大</em>而崩 — 需要把&quot;差异中跟 guided 方向平行的部分&quot;投影掉,只用正交分量。</p>
 <ul>
-<li><span class="math inline">\alpha_t = \cos\theta = \mathbf{v}_t^{\text{traj}}\cdot \mathbf{v}_t^{\text{ori}}/(\|\mathbf{v}_t^{\text{traj}}\|\|\mathbf{v}_t^{\text{ori}}\|)</span> — 余弦相似度。</li>
-<li><span class="math inline">\beta_t = \sqrt{1-\alpha_t^2} = \sin\theta</span> — <em>自适应权重:两条路越正交,修正越大</em>。这是 APG/CFG-Zero 公式,被 WorldForge 借用到&quot;自身两条 path&quot;的场景。</li>
-<li><span class="math inline">\rho = 4.0</span> — guidance scale (paper 推荐;代码里 omega 默认 1.8,run_test_case.sh 设 4)。</li>
-<li><span class="math inline">(\mathbf{v}_t^{\text{traj}} - \alpha_t \mathbf{v}_t^{\text{ori}})</span> — guided 速度场扣掉与 unguided 平行的分量 → 剩下的就是&quot;轨迹修正方向&quot;。</li>
+<li><span class="math inline">\(\alpha_t = \cos\theta = \mathbf{v}_t^{\text{traj}}\cdot \mathbf{v}_t^{\text{ori}}/(\|\mathbf{v}_t^{\text{traj}}\|\|\mathbf{v}_t^{\text{ori}}\|)\)</span> — 余弦相似度。</li>
+<li><span class="math inline">\(\beta_t = \sqrt{1-\alpha_t^2} = \sin\theta\)</span> — <em>自适应权重:两条路越正交,修正越大</em>。这是 APG/CFG-Zero 公式,被 WorldForge 借用到&quot;自身两条 path&quot;的场景。</li>
+<li><span class="math inline">\(\rho = 4.0\)</span> — guidance scale (paper 推荐;代码里 omega 默认 1.8,run_test_case.sh 设 4)。</li>
+<li><span class="math inline">\((\mathbf{v}_t^{\text{traj}} - \alpha_t \mathbf{v}_t^{\text{ori}})\)</span> — guided 速度场扣掉与 unguided 平行的分量 → 剩下的就是&quot;轨迹修正方向&quot;。</li>
 </ul>
 <p>这是<strong>关键 design choice</strong>:消融里用普通 CFG 形式替换 DSG,FID 从 96 涨到 121 (比完全去掉 DSG 还烂),说明&quot;方向差大时必须做正交投影&quot;。</p>
 <h3 id="sec-2-6">2.5 完整算法</h3>
@@ -356,14 +356,14 @@ return encoded_video
 <li>**三模块都有明确的 ablation 数字证据。**Fig. 5 + Table 3 一一打消&quot;全 framework 联动才 work&quot;的怀疑 — 每个模块单独剥离都有 FID 上升,而且 &quot;DSG 换成 vanilla CFG 比无 DSG 还差&quot; 是最有说服力的设计 justification 之一。</li>
 <li>**&quot;VAE channel 有运动语义&quot;这一观察很 actionable。**Fig. 4 是一个 contribution 级别的 finding — 不只对 WorldForge,对任何想在 latent 空间做精细控制的方法都有启发。</li>
 <li><strong>跨主干普适性 (Fig. 6):</strong> SVD / Wan2.1 / LongCat 都直接 work。说明三模块的设计假设非常 weak (只要是 VAE-latent VDM 就行),迁移到 CogVideoX / HunyuanVideo / Sora 后继都基本没成本。</li>
-<li>**&quot;在 <span class="math inline">\hat{x}_0</span> 空间融合而非 <span class="math inline">x_t</span> 空间&quot;是有理论后果的选择,**且作者花笔墨解释 (是 FLF 能 work 的前提)。比起 RePaint / NVS-Solver 不只是改了细节。</li>
+<li>**&quot;在 <span class="math inline">\(\hat{x}_0\)</span> 空间融合而非 <span class="math inline">\(x_t\)</span> 空间&quot;是有理论后果的选择,**且作者花笔墨解释 (是 FLF 能 work 的前提)。比起 RePaint / NVS-Solver 不只是改了细节。</li>
 </ul>
 <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
 <ul>
 <li>**Eval 集偏小且非公开标准:**3D 70 views from 40 scenes,4D 50 videos。没有 LPIPS,没有 user study,baseline 测试集合是论文自己选的。FID/CLIP/ATE/RPE 都是有偏好的 metric — cherry-picking 风险不能排除。</li>
 <li><strong>ReCamMaster 等最强训练式 baseline 只做定性对比</strong> (因为 ReCamMaster 是 T2V 不吃 warped 输入)。Table 1/2 缺这一组数据。</li>
 <li><strong>&quot;IRR is recursive&quot;是个用词上的夸张</strong> — 没有 inner loop 跑到收敛,就是 per-step 跑 2-3 次 fuse+denoise。叫&quot;per-step refinement&quot;更准确。</li>
-<li><strong><span class="math inline">\alpha_t \in [0.3, 0.6]</span> 这一关键数值断言只有一句&quot;in extensive tests we observed&quot;</strong>,没附直方图。如果在某些 scene 上 <span class="math inline">\alpha_t</span> 接近 1,DSG 会退化成 <span class="math inline">\rho\cdot 0\cdot \text{anything}</span> — 静默失效。</li>
+<li><strong><span class="math inline">\(\alpha_t \in [0.3, 0.6]\)</span> 这一关键数值断言只有一句&quot;in extensive tests we observed&quot;</strong>,没附直方图。如果在某些 scene 上 <span class="math inline">\(\alpha_t\)</span> 接近 1,DSG 会退化成 <span class="math inline">\(\rho\cdot 0\cdot \text{anything}\)</span> — 静默失效。</li>
 <li>**计算开销.**49 帧 720p 在 A100 上要几分钟 (Table S3),其中 IRR (每步 2-3 次 transformer + VAE encode/decode) 占主要成本。比&quot;用一个 controlnet 跑一次&quot;贵 ~3x。Paper §结论也承认 &quot;cannot meet real-time requirements&quot;。</li>
 <li><strong>Channel statistics 的 robustness:</strong> Fig. 4 显示 Wan2.1 的 channel 8/13 有稳定语义,但其它 VDM (如 CogVideoX 用 8 channel,或 Sora 用更宽 latent) 是否仍有这种角色稳定性 — 没测。FLF 可能要重新 calibrate threshold。</li>
 <li><strong>&quot;超过 a dozen downstream applications&quot;是 abstract 里的话</strong> (video stabilization / virtual try-on / object addition),但正文只把它们丢到 supplementary anecdote (Fig. S3),没量化对比。</li>
@@ -380,7 +380,7 @@ return encoded_video
 </ul>
 <h3 id="sec-5-4">5.4 进一步阅读</h3>
 <ul>
-<li><a href="https://arxiv.org/abs/2406.08801">RePaint (Lugmayr et al., 2022)</a> — IRR 概念的直接祖先 (在 <span class="math inline">x_t</span> 空间融合,WorldForge 移到 <span class="math inline">\hat{x}_0</span> 空间)。</li>
+<li><a href="https://arxiv.org/abs/2406.08801">RePaint (Lugmayr et al., 2022)</a> — IRR 概念的直接祖先 (在 <span class="math inline">\(x_t\)</span> 空间融合,WorldForge 移到 <span class="math inline">\(\hat{x}_0\)</span> 空间)。</li>
 <li><a href="https://github.com/WeichenFan/CFG-Zero-star">CFG-Zero / APG</a> — DSG 公式的来源 (正交投影 + sin θ adaptive scaling)。</li>
 <li><a href="https://arxiv.org/abs/2411.17440">NVS-Solver</a>、TrajectoryAttention、ViewExtrapolator — 同期 training-free baseline,Tables 1/2 的对照组。</li>
 <li><a href="https://arxiv.org/abs/2503.11651">VGGT</a> — 默认的 camera+depth backbone,WorldForge 直接拿来当 perception module。</li>

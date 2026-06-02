@@ -90,41 +90,41 @@
 <p>2025-2026 的 pixel-space diffusion 复兴 (JiT、PixelGen、PixNerd、DeCo、PixelDiT、DiP、L2P) 都在攻击同一个观察: <strong>VAE 是有损的, latent 扩散的细节天花板被 decoder 卡死</strong>。所以社区开始问: 既然 plain DiT 已经 scale 到 9B+ 参数, 能不能直接在像素上用?</p>
 <p>但<em>直接</em>把 DiT 塞像素有一个具体的技术障碍, 论文 §1 讲得很清楚:</p>
 <blockquote>
-<p>&quot;Velocity target <span class="math inline">u = \boldsymbol\epsilon - \mathbf x_0</span> requires predicting a high-dimensional noise component in addition to structured data. ... per-patch noise dimension can pollute the network's internal states, creating a bottleneck.&quot;</p>
+<p>&quot;Velocity target <span class="math inline">\(u = \boldsymbol\epsilon - \mathbf x_0\)</span> requires predicting a high-dimensional noise component in addition to structured data. ... per-patch noise dimension can pollute the network's internal states, creating a bottleneck.&quot;</p>
 </blockquote>
 <p>翻成大白话: 在像素空间, 一个 16×16×3 = 768 维的 patch token 里, 一半是要被 transformer 内部表示和传递的高斯白噪声。但 transformer 的 hidden state 是有限带宽 (e.g., 1280 维), 你逼它&quot;既要学语义结构, 又要在 hidden 里携带 768 维白噪声&quot;, 就会爆。U-Net 用 skip connection 让噪声&quot;从 input 短路到 output&quot;绕过这个瓶颈; plain transformer 没有 skip, 撞墙。</p>
 <p>历史上社区有两条退路, AsymFlow 都不满意:</p>
 <ol>
-<li><strong><span class="math inline">x_0</span>-prediction (JiT、PixelGen、PixelREPA)</strong>: 直接让网络预测干净图 <span class="math inline">\hat{\mathbf x}_0</span>, 然后用 <span class="math inline">\hat u = (\mathbf x_t - \hat{\mathbf x}_0) / \sigma_t</span> 换算 velocity。<span class="math inline">\sigma_t \to 0</span> 时分母趋零, 数值不稳, low-noise 阶段质量崩 (JiT 论文里也承认)。</li>
+<li><strong><span class="math inline">\(x_0\)</span>-prediction (JiT、PixelGen、PixelREPA)</strong>: 直接让网络预测干净图 <span class="math inline">\(\hat{\mathbf x}_0\)</span>, 然后用 <span class="math inline">\(\hat u = (\mathbf x_t - \hat{\mathbf x}_0) / \sigma_t\)</span> 换算 velocity。<span class="math inline">\(\sigma_t \to 0\)</span> 时分母趋零, 数值不稳, low-noise 阶段质量崩 (JiT 论文里也承认)。</li>
 <li><strong>架构改造 (U-ViT、PixNerd、PixelDiT、DDT 的 decoder head)</strong>: 在 plain transformer 上加 skip/decoder head 让噪声有路径短路。能 work, 但破坏了 plain DiT 的简洁性, 也不太方便复用 latent DiT 的预训练权重。</li>
 </ol>
 <p>AsymFlow 的赌注: <strong>不改架构, 不改 training/sampling 协议, 只改 velocity 的参数化目标</strong> — 把 noise 部分限制到 patch 内的低秩子空间。两个好处一次拿到:</p>
 <ul>
 <li>(a) 减少 transformer 内部要传递的&quot;噪声维度&quot;, 缓解 bottleneck;</li>
-<li>(b) 提供一条 <em>新</em> 路径: 把 pretrained latent flow 通过子空间对齐, 一键 lift 成一个 rank-<span class="math inline">d</span> 的像素 flow, 然后微调闭合精度 gap。这条路径之前不存在 — 别人想从 latent 模型出发做像素生成, 要么从头再训 (PixelDiT-T2I 就是这条路), 要么在 latent 上加 detailer (L2P 是这条路)。AsymFlow 给出了第三条。</li>
+<li>(b) 提供一条 <em>新</em> 路径: 把 pretrained latent flow 通过子空间对齐, 一键 lift 成一个 rank-<span class="math inline">\(d\)</span> 的像素 flow, 然后微调闭合精度 gap。这条路径之前不存在 — 别人想从 latent 模型出发做像素生成, 要么从头再训 (PixelDiT-T2I 就是这条路), 要么在 latent 上加 detailer (L2P 是这条路)。AsymFlow 给出了第三条。</li>
 </ul>
 <h2 id="sec-2">2. 方法 (Method) — 高中生友好 + 数学严谨</h2>
 <h3 id="sec-2-1">核心思想 (类比)</h3>
 <p>想象你是个画家, 任务是从一张被白噪声覆盖的画布逐步&quot;擦掉噪声&quot;还原一幅清晰画作。<strong>标准 flow matching</strong> 要你预测一个&quot;擦除方向&quot;向量, 这个向量同时编码 <em>(a) 画作内容</em> 和 <em>(b) 噪声形状</em>。在低维 latent 空间这不难, 因为画作和噪声的总维度都不算大。但跳到全像素 (768 维 per patch), 你的大脑 (transformer hidden state) 同时要在 working memory 里塞下 <em>整张画的几何</em> 和 <em>每个像素的噪声值</em>, 装不下, 内部表示开始打架。</p>
-<p>AsymFlow 的招: <strong>把&quot;噪声形状&quot;那部分降维, 只让你预测噪声在某 8 个&quot;重要方向&quot;上的投影</strong>。剩余 760 个方向的噪声怎么办? — 不让你预测, 直接从 <span class="math inline">\mathbf x_t</span> 里减出来 (因为 <span class="math inline">\mathbf x_t = \alpha_t \mathbf x_0 + \sigma_t \boldsymbol\epsilon</span>, 知道 <span class="math inline">\mathbf x_0</span> 和 <span class="math inline">\mathbf x_t</span> 就能反推 <span class="math inline">\boldsymbol\epsilon</span>)。</p>
-<p>&quot;8 个重要方向&quot;是哪 8 个? — PCA 选出来的、自然图像 patch 上方差最大的 8 个方向 (从头训用); 或者把预训练 latent 空间通过 Procrustes 对齐&quot;提升&quot;到像素空间的 8/128/d 个方向 (微调用)。这两种构造让网络只需要在&quot;语义相关的低秩子空间&quot;里学 <span class="math inline">u</span>-prediction, 在&quot;高频纯噪声方向&quot;上自动退化为 <span class="math inline">x_0</span>-prediction (后者不要求网络精确预测噪声, 只要求预测干净数据)。</p>
+<p>AsymFlow 的招: <strong>把&quot;噪声形状&quot;那部分降维, 只让你预测噪声在某 8 个&quot;重要方向&quot;上的投影</strong>。剩余 760 个方向的噪声怎么办? — 不让你预测, 直接从 <span class="math inline">\(\mathbf x_t\)</span> 里减出来 (因为 <span class="math inline">\(\mathbf x_t = \alpha_t \mathbf x_0 + \sigma_t \boldsymbol\epsilon\)</span>, 知道 <span class="math inline">\(\mathbf x_0\)</span> 和 <span class="math inline">\(\mathbf x_t\)</span> 就能反推 <span class="math inline">\(\boldsymbol\epsilon\)</span>)。</p>
+<p>&quot;8 个重要方向&quot;是哪 8 个? — PCA 选出来的、自然图像 patch 上方差最大的 8 个方向 (从头训用); 或者把预训练 latent 空间通过 Procrustes 对齐&quot;提升&quot;到像素空间的 8/128/d 个方向 (微调用)。这两种构造让网络只需要在&quot;语义相关的低秩子空间&quot;里学 <span class="math inline">\(u\)</span>-prediction, 在&quot;高频纯噪声方向&quot;上自动退化为 <span class="math inline">\(x_0\)</span>-prediction (后者不要求网络精确预测噪声, 只要求预测干净数据)。</p>
 <h3 id="sec-2-2">2.1 Flow Matching 基础 (Eq. 1–2)</h3>
-<p>记 <span class="math inline">\mathbf x_0 \in \mathbb R^D</span> 是干净数据, <span class="math inline">\boldsymbol\epsilon \sim \mathcal N(0, \mathbf I)</span>。线性 flow 调度: <span class="math inline">\alpha_t = 1-t,\ \sigma_t = t,\ t \in (0,1]</span>:</p>
+<p>记 <span class="math inline">\(\mathbf x_0 \in \mathbb R^D\)</span> 是干净数据, <span class="math inline">\(\boldsymbol\epsilon \sim \mathcal N(0, \mathbf I)\)</span>。线性 flow 调度: <span class="math inline">\(\alpha_t = 1-t,\ \sigma_t = t,\ t \in (0,1]\)</span>:</p>
 <p>ODE 速度目标 (条件后验均值 → 用样本速度做 unbiased estimator):</p>
 <p class="math-translation">—— 翻译: <em>velocity</em> 就是从干净指向噪声的向量。学一个网络 $\hat u = G_\theta(\mathbf x_t, t)$ 来逼近它。</p>
 <p>Flow matching loss:</p>
-<p><strong>关键问题</strong>: <span class="math inline">u</span> 里包含 <span class="math inline">\boldsymbol\epsilon</span> — 一个 <span class="math inline">D</span> 维白噪声。在像素空间 <span class="math inline">D</span> 很大 (768/patch), 这部分占用了网络内部 features 大量带宽, 而它<em>本应</em>能从输入 <span class="math inline">\mathbf x_t</span> 里&quot;读出&quot;。</p>
+<p><strong>关键问题</strong>: <span class="math inline">\(u\)</span> 里包含 <span class="math inline">\(\boldsymbol\epsilon\)</span> — 一个 <span class="math inline">\(D\)</span> 维白噪声。在像素空间 <span class="math inline">\(D\)</span> 很大 (768/patch), 这部分占用了网络内部 features 大量带宽, 而它<em>本应</em>能从输入 <span class="math inline">\(\mathbf x_t\)</span> 里&quot;读出&quot;。</p>
 <h3 id="sec-2-3">2.2 非对称速度 (Eq. 3)</h3>
-<p>设 <span class="math inline">A \in \mathbb R^{D \times r}</span> 是 rank-<span class="math inline">r</span> 子空间的<strong>正交基</strong> (<span class="math inline">A^\top A = I_r</span>), <span class="math inline">P := AA^\top</span> 是对应的正交投影矩阵。<span class="math inline">\text{Im}(P)</span> 是 rank-<span class="math inline">r</span> 子空间, <span class="math inline">\text{Im}(I-P)</span> 是其正交补。</p>
+<p>设 <span class="math inline">\(A \in \mathbb R^{D \times r}\)</span> 是 rank-<span class="math inline">\(r\)</span> 子空间的<strong>正交基</strong> (<span class="math inline">\(A^\top A = I_r\)</span>), <span class="math inline">\(P := AA^\top\)</span> 是对应的正交投影矩阵。<span class="math inline">\(\text{Im}(P)\)</span> 是 rank-<span class="math inline">\(r\)</span> 子空间, <span class="math inline">\(\text{Im}(I-P)\)</span> 是其正交补。</p>
 <p>AsymFlow 把要预测的目标改成<strong>非对称速度</strong>:</p>
 <p class="math-translation">—— 翻译: 噪声项 $\boldsymbol\epsilon$ 被替换成它在 $r$ 维子空间上的投影 $P\boldsymbol\epsilon$ (维度从 $D$ 降到 $r$ 的有效自由度), 数据项 $-\mathbf x_0$ 保持 full-rank。<strong>训练时网络输出 $\hat u_A = G_\theta(\mathbf x_t, t)$ 来拟合这个 $u_A$。</strong></p>
-<p>核心好处: 网络 hidden state 不再需要把 <span class="math inline">D</span> 维噪声&quot;端到端&quot;传递, 只需要保留 <span class="math inline">r</span> 维的有意义信息。</p>
+<p>核心好处: 网络 hidden state 不再需要把 <span class="math inline">\(D\)</span> 维噪声&quot;端到端&quot;传递, 只需要保留 <span class="math inline">\(r\)</span> 维的有意义信息。</p>
 <figure>
       <img class="zoomable" alt="AsymFlow 参数化与还原图" src="figures/fig2-parameterization.png">
       <figcaption>Fig. 2 — <strong>(a)</strong> 标准 $u$-prediction vs AsymFlow 参数化的对比: 上排 $u$ 里的噪声是 full-rank, 杂乱; 下排 $u_A$ 里的噪声是 $P\boldsymbol\epsilon$, 限制在 $r$ 维子空间, 整个目标更"结构化"、更可预测。<strong>(b)</strong> 把网络预测的 $\hat u_A$ 还原成 full-rank $\hat u$ 的几何: $P$ 分量直接用 $P\hat u_A$, 正交分量用 $x_0$-to-$u$ 关系 $(\mathbf x_t - \hat{\mathbf x}_0)/\sigma_t$ 换算。</figcaption>
     </figure>
 <h3 id="sec-2-4">2.3 正交分解 + Full-rank 还原 (Eq. 5)</h3>
-<p>把 <span class="math inline">u_A</span> 分解到 <span class="math inline">\text{Im}(P)</span> 和 <span class="math inline">\text{Im}(I-P)</span>:</p>
+<p>把 <span class="math inline">\(u_A\)</span> 分解到 <span class="math inline">\(\text{Im}(P)\)</span> 和 <span class="math inline">\(\text{Im}(I-P)\)</span>:</p>
 <p class="math-translation">—— 翻译: 在子空间 $\text{Im}(P)$ 内, AsymFlow 就是标准 $u$-prediction; 在正交补 $\text{Im}(I-P)$ 内, AsymFlow 退化成 $x_0$-prediction (符号相反)。这是 Fig. 3 那张"族谱图"的数学根据 — 调 $r$ 就是在两端连续滑动。</p>
 <figure>
       <img class="zoomable" alt="AsymFlow 参数化族" src="figures/fig3-orthogonal.png">
@@ -166,12 +166,12 @@ def asymflow_velocity(
         # full velocity
         return u_subspace + u_complement
 </code></pre>
-<p><strong>对照公式</strong>: <code>u_subspace</code> 就是 Eq. 5 的左半 <span class="math inline">Pu_A</span> (加上 scale calibration 的 <span class="math inline">s, k</span> 校正项, 见 §2.5 / Appendix A.2), <code>u_complement</code> 就是右半 <span class="math inline">(I-P)(\mathbf x_t + u_A)/\sigma_t</span>。注意 <code>sigma_clamped = max(sigma, sigma_min)</code> 防止低噪声时分母崩 — <strong>但</strong> 因为这只发生在正交补里, AsymFlow 比纯 <span class="math inline">x_0</span>-prediction 对 <span class="math inline">\sigma_{\min}</span> 的依赖小得多 (Table 1: JiT 关掉 clamp FID 从 1.90 掉到 3.27, AsymFlow 只从 1.76 掉到 2.28)。</p>
+<p><strong>对照公式</strong>: <code>u_subspace</code> 就是 Eq. 5 的左半 <span class="math inline">\(Pu_A\)</span> (加上 scale calibration 的 <span class="math inline">\(s, k\)</span> 校正项, 见 §2.5 / Appendix A.2), <code>u_complement</code> 就是右半 <span class="math inline">\((I-P)(\mathbf x_t + u_A)/\sigma_t\)</span>。注意 <code>sigma_clamped = max(sigma, sigma_min)</code> 防止低噪声时分母崩 — <strong>但</strong> 因为这只发生在正交补里, AsymFlow 比纯 <span class="math inline">\(x_0\)</span>-prediction 对 <span class="math inline">\(\sigma_{\min}\)</span> 的依赖小得多 (Table 1: JiT 关掉 clamp FID 从 1.90 掉到 3.27, AsymFlow 只从 1.76 掉到 2.28)。</p>
 <h3 id="sec-2-5">2.4 子空间怎么选: PCA (from-scratch) vs Procrustes (latent→pixel)</h3>
-<p>整个机制的&quot;形状&quot;由投影矩阵 <span class="math inline">A</span> 决定。论文给两种构造:</p>
+<p>整个机制的&quot;形状&quot;由投影矩阵 <span class="math inline">\(A\)</span> 决定。论文给两种构造:</p>
 <h4>(a) PCA 子空间 (训练 from scratch)</h4>
-<p>对训练集 patches 做 Gram 矩阵特征分解, 取 top-<span class="math inline">r</span> 主方向:</p>
-<p>直观: PCA 保留了自然图像 patch 上&quot;方差最大&quot;的 <span class="math inline">r</span> 个方向 — 这些是低频结构 (光照、色块、整体颜色), 也是 velocity prediction 最需要&quot;精细&quot;控制的部分。剩下 <span class="math inline">D-r</span> 个方向 (高频纹理、噪声样态) 推到 <span class="math inline">x_0</span>-prediction 通道里, 不要求精确预测。<strong>Fig. 5 消融</strong>: 同一 rank <span class="math inline">r{=}8</span>, PCA 比 random subspace 好将近 0.4 FID — 子空间的<em>方向</em>比<em>维度</em>更重要。</p>
+<p>对训练集 patches 做 Gram 矩阵特征分解, 取 top-<span class="math inline">\(r\)</span> 主方向:</p>
+<p>直观: PCA 保留了自然图像 patch 上&quot;方差最大&quot;的 <span class="math inline">\(r\)</span> 个方向 — 这些是低频结构 (光照、色块、整体颜色), 也是 velocity prediction 最需要&quot;精细&quot;控制的部分。剩下 <span class="math inline">\(D-r\)</span> 个方向 (高频纹理、噪声样态) 推到 <span class="math inline">\(x_0\)</span>-prediction 通道里, 不要求精确预测。<strong>Fig. 5 消融</strong>: 同一 rank <span class="math inline">\(r{=}8\)</span>, PCA 比 random subspace 好将近 0.4 FID — 子空间的<em>方向</em>比<em>维度</em>更重要。</p>
 <p class="code-source">repo/tools/asymflow_subspace_pca_dit.py:L94-L123 — PCA 子空间构造主函数</p>
 <pre><code class="language-python">def main():
     args = parse_args()
@@ -193,7 +193,7 @@ def asymflow_velocity(
     write_checkpoint_to_file({f'proj_mat_p{patch_size}': proj_mat}, out)
 </code></pre>
 <h4>(b) Procrustes 子空间 (latent→pixel 微调)</h4>
-<p>用于把预训练 latent flow 模型 lift 成像素模型。设 <span class="math inline">Z \in \mathbb R^{d \times N}</span> 是 latent token, <span class="math inline">X \in \mathbb R^{D \times N}</span> 是配对的 pixel patch (来自同一张图, 经 VAE encoder 得 <span class="math inline">Z</span>, 直接 patchify 得 <span class="math inline">X</span>)。求正交 lift:</p>
+<p>用于把预训练 latent flow 模型 lift 成像素模型。设 <span class="math inline">\(Z \in \mathbb R^{d \times N}\)</span> 是 latent token, <span class="math inline">\(X \in \mathbb R^{D \times N}\)</span> 是配对的 pixel patch (来自同一张图, 经 VAE encoder 得 <span class="math inline">\(Z\)</span>, 直接 patchify 得 <span class="math inline">\(X\)</span>)。求正交 lift:</p>
 <p class="math-translation">—— 翻译: 找一个 <strong>正交</strong> 线性映射 $A$, 让 lift 后的 latent $Az$ 尽量像配对的 pixel patch $x$。这是经典 Procrustes 问题, 闭式解就是 cross-Gram 矩阵 $XZ^\top$ 的 SVD。</p>
 <p class="code-source">repo/tools/asymflow_subspace_procrustes.py:L141-L171 — Procrustes 主循环 + SVD 闭式解</p>
 <pre><code class="language-python">    for data in dataloader:
@@ -223,14 +223,14 @@ def asymflow_velocity(
         f'scale_p{patch_size}': scale.float().cpu(),
     }, out)
 </code></pre>
-<p>SVD 给闭式解 <span class="math inline">A = V U^\top</span> (经典 Schönemann 1966), 配上一个 scale factor <span class="math inline">s</span> (Procrustes 只校方向不校尺度)。结果是一个 <strong>把 <span class="math inline">d</span> 维 latent token 1-to-1 映射到 <span class="math inline">D</span> 维 pixel patch 的正交矩阵</strong>。</p>
+<p>SVD 给闭式解 <span class="math inline">\(A = V U^\top\)</span> (经典 Schönemann 1966), 配上一个 scale factor <span class="math inline">\(s\)</span> (Procrustes 只校方向不校尺度)。结果是一个 <strong>把 <span class="math inline">\(d\)</span> 维 latent token 1-to-1 映射到 <span class="math inline">\(D\)</span> 维 pixel patch 的正交矩阵</strong>。</p>
 <h3 id="sec-2-6">2.5 Latent→Pixel 初始化 (§5 — 论文最有意思的部分)</h3>
-<p>有了 <span class="math inline">A</span> 之后, 论文证明: <strong>预训练的 latent <span class="math inline">u</span>-prediction 模型可以被精确地&quot;提升&quot;为一个 rank-<span class="math inline">d</span> 的像素 AsymFlow 模型, 零额外训练就能生成有意义的 lift 像素</strong>。</p>
-<p>具体地, 给一个预训练 latent flow <span class="math inline">\hat u_z = G_\phi(\mathbf z_t, t)</span>, 定义&quot;lift 后的低秩像素&quot; <span class="math inline">\mathbf x_0^L := A\mathbf z_0</span> 和它的扩散 <span class="math inline">\mathbf x_t^L := \alpha_t \mathbf x_0^L + \sigma_t \boldsymbol\epsilon</span>。论文 Thm. 1 给出 latent ODE 和 lifted pixel ODE 的 <em>轨迹耦合</em>:</p>
+<p>有了 <span class="math inline">\(A\)</span> 之后, 论文证明: <strong>预训练的 latent <span class="math inline">\(u\)</span>-prediction 模型可以被精确地&quot;提升&quot;为一个 rank-<span class="math inline">\(d\)</span> 的像素 AsymFlow 模型, 零额外训练就能生成有意义的 lift 像素</strong>。</p>
+<p>具体地, 给一个预训练 latent flow <span class="math inline">\(\hat u_z = G_\phi(\mathbf z_t, t)\)</span>, 定义&quot;lift 后的低秩像素&quot; <span class="math inline">\(\mathbf x_0^L := A\mathbf z_0\)</span> 和它的扩散 <span class="math inline">\(\mathbf x_t^L := \alpha_t \mathbf x_0^L + \sigma_t \boldsymbol\epsilon\)</span>。论文 Thm. 1 给出 latent ODE 和 lifted pixel ODE 的 <em>轨迹耦合</em>:</p>
 <p class="math-translation">—— 翻译: 一个 $d$-维 latent $u$-prediction 网络 $G_\phi$ 等价于一个 <em>rank-$d$ 的像素 AsymFlow 网络</em> $AG_\phi(A^\top \cdot, t)$。在实现里, $A^\top$ 和 $A$ 直接<strong>融进 latent DiT 的 input/output 线性层权重</strong>, 模型 forward 就变成像素流。</p>
-<p>这一招在论文里的视觉证据是 Fig. 4 — 初始化好的像素 AsymFlow 跑 sampling 出来的图, 跟原 latent 模型 decode 出来的图<strong>构图、语义、风格几乎一致</strong>, 只是低频细节有 lift 误差。微调因此变成&quot;补一个 <span class="math inline">\mathbf x_0 - \mathbf x_0^L</span> 的低频 gap&quot;, 而不是&quot;从 random init 重新学像素生成&quot;。这是 AsymFlow 文中最 elegant 的一步。</p>
+<p>这一招在论文里的视觉证据是 Fig. 4 — 初始化好的像素 AsymFlow 跑 sampling 出来的图, 跟原 latent 模型 decode 出来的图<strong>构图、语义、风格几乎一致</strong>, 只是低频细节有 lift 误差。微调因此变成&quot;补一个 <span class="math inline">\(\mathbf x_0 - \mathbf x_0^L\)</span> 的低频 gap&quot;, 而不是&quot;从 random init 重新学像素生成&quot;。这是 AsymFlow 文中最 elegant 的一步。</p>
 <h3 id="sec-2-7">2.6 方差缩减微调 loss (Eq. 7)</h3>
-<p>初始化后, 微调目标本可以就用标准 FM loss 回归 <span class="math inline">\mathbf x_0</span>。但因为 lift 出来的 <span class="math inline">\mathbf x_0^L</span> 跟真实 <span class="math inline">\mathbf x_0</span> 已经很接近, 论文用 <em>control variates</em> 思想引入方差缩减项:</p>
+<p>初始化后, 微调目标本可以就用标准 FM loss 回归 <span class="math inline">\(\mathbf x_0\)</span>。但因为 lift 出来的 <span class="math inline">\(\mathbf x_0^L\)</span> 跟真实 <span class="math inline">\(\mathbf x_0\)</span> 已经很接近, 论文用 <em>control variates</em> 思想引入方差缩减项:</p>
 <p class="math-translation">—— 翻译: 引入"<strong>冻结的初始化模型</strong>" $\hat{\mathbf x}_0^L$ 作为对照变量, 减去 $\lambda(\mathbf x_0^L - \hat{\mathbf x}_0^L)$ 这一项不影响期望但能降方差。$\lambda$ 是 patch-wise 自适应权重 (选成"使 loss 梯度范数最小"的解析最优, 见下面代码的 <code>vr_coef</code>)。</p>
 <p>具体实现:</p>
 <p class="code-source">repo/lakonlab/models/diffusions/asymflow.py:L83-L113 — AsymFlowVR 的 forward_train 核心</p>
@@ -265,14 +265,14 @@ def asymflow_velocity(
     mse_loss = F.mse_loss(pred_x_0, tgt_x_0, reduction='none')
     mse_loss = 0.5 * self.mse_loss_weight * (mse_loss / sigma_clamped.square()).mean()
 </code></pre>
-<p>注意 <code>vr_coef = (num/den).clamp(0,1)</code> 是 patch-wise 解析最优 <span class="math inline">\lambda</span> (论文 Appendix A.3 的正交投影解释), 把 control variate 的贡献按 patch 自适应缩放。当 student 的 <span class="math inline">\hat{\mathbf x}_0</span> 和 teacher 的 <span class="math inline">\hat{\mathbf x}_0^L</span> 高度相关时 <span class="math inline">\lambda \to 1</span>, 方差缩减最强; 不相关时 <span class="math inline">\lambda \to 0</span>, 退化为标准 FM loss。</p>
-<p><strong>感知校正 (LPIPS gating)</strong>: 方差缩减带来一个副作用 — 在 low-noise 阶段 <span class="math inline">\mathbf x_t - \mathbf x_t^L</span> 不严格落在 <span class="math inline">\text{Im}(I-P)</span> 里, 引入有界近似误差, 表现为&quot;图过分锐利, 出现噪点&quot;。论文加了一个 LPIPS perceptual loss 来抑制 (gated by same <span class="math inline">\lambda</span>, schedule 见 Appendix A.4)。Table 3 的消融显示 +perceptual 把 pFID 从 27.8 拉到 22.5, HPSv3 从 12.99 拉到 13.06。</p>
+<p>注意 <code>vr_coef = (num/den).clamp(0,1)</code> 是 patch-wise 解析最优 <span class="math inline">\(\lambda\)</span> (论文 Appendix A.3 的正交投影解释), 把 control variate 的贡献按 patch 自适应缩放。当 student 的 <span class="math inline">\(\hat{\mathbf x}_0\)</span> 和 teacher 的 <span class="math inline">\(\hat{\mathbf x}_0^L\)</span> 高度相关时 <span class="math inline">\(\lambda \to 1\)</span>, 方差缩减最强; 不相关时 <span class="math inline">\(\lambda \to 0\)</span>, 退化为标准 FM loss。</p>
+<p><strong>感知校正 (LPIPS gating)</strong>: 方差缩减带来一个副作用 — 在 low-noise 阶段 <span class="math inline">\(\mathbf x_t - \mathbf x_t^L\)</span> 不严格落在 <span class="math inline">\(\text{Im}(I-P)\)</span> 里, 引入有界近似误差, 表现为&quot;图过分锐利, 出现噪点&quot;。论文加了一个 LPIPS perceptual loss 来抑制 (gated by same <span class="math inline">\(\lambda\)</span>, schedule 见 Appendix A.4)。Table 3 的消融显示 +perceptual 把 pFID 从 27.8 拉到 22.5, HPSv3 从 12.99 拉到 13.06。</p>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <h3 id="sec-3-1">3.1 ImageNet 256×256 主结果 (训练 from scratch)</h3>
-<p>JiT-H/16 主干 + AsymFlow (<span class="math inline">r{=}8</span>, PCA 子空间), 同 setup 600 epochs:</p>
+<p>JiT-H/16 主干 + AsymFlow (<span class="math inline">\(r{=}8\)</span>, PCA 子空间), 同 setup 600 epochs:</p>
 <ul>
 <li><strong>不加 REPA</strong>: AsymFlow <strong>1.76 FID</strong> vs JiT 1.90 FID (paper Table 1, σ_min=0.04)。</li>
-<li><strong>关掉 σ_min clamp</strong>: AsymFlow 退化到 2.28, JiT 退化到 3.27。<strong>AsymFlow 对 numerical clamp 的依赖小一个量级</strong> — 因为只有正交补里有 <span class="math inline">1/\sigma_t</span>, 子空间内是干净的 <span class="math inline">u</span>-style 预测。</li>
+<li><strong>关掉 σ_min clamp</strong>: AsymFlow 退化到 2.28, JiT 退化到 3.27。<strong>AsymFlow 对 numerical clamp 的依赖小一个量级</strong> — 因为只有正交补里有 <span class="math inline">\(1/\sigma_t\)</span>, 子空间内是干净的 <span class="math inline">\(u\)</span>-style 预测。</li>
 <li><strong>+REPA</strong>: AsymFlow 拿到 <strong>1.57 FID</strong>, 是所有 DiT/JiT-like plain transformer 像素扩散模型的最佳。比 JiT-G/16 (2B 参数, 1.82*) 和 PixelREPA-H/16 (1.81*) 都强。</li>
 <li><strong>收敛速度</strong>: 同样 epochs, AsymFlow 比 JiT 快 ~40% 达到同样 FID (Fig. 6)。</li>
 </ul>
@@ -281,7 +281,7 @@ def asymflow_velocity(
       <figcaption>Tab. 2 — ImageNet 256×256 pixel diffusion 全谱对比。<strong>AsymFlow-H/16 (最后一行)</strong> 用 $P\boldsymbol\epsilon - \mathbf x_0$ 参数化, 953M 参数, 363 GFLOPs, 拿到 1.57 FID。注意 plain transformer 这一栏里 (DiT-like, 无 skip/decoder head), AsymFlow 是唯一进 1.6 以下的。还比 hierarchical / DDT-decoder 系列的最强 PixelDiT-XL/16 (1.61) 和 DeCo-XL/16 (1.62) 都低 — <em>不改架构</em>地超过了"加架构改造"的同侪。</figcaption>
     </figure>
 <h3 id="sec-3-2">3.2 T2I: AsymFLUX.2 klein (从 FLUX.2 klein 9B 微调)</h3>
-<p>这是论文的&quot;重磅展示&quot;。从 FLUX.2 klein Base 9B (latent flow, <span class="math inline">d{=}128</span>, 16-ch latent + 2×2 patch) 用 Procrustes lift 初始化, 然后在 3M LAION-Aesthetics 上微调 (input/output 投影 + rank-256 LoRA, 中间冻结)。结果 (Table 4):</p>
+<p>这是论文的&quot;重磅展示&quot;。从 FLUX.2 klein Base 9B (latent flow, <span class="math inline">\(d{=}128\)</span>, 16-ch latent + 2×2 patch) 用 Procrustes lift 初始化, 然后在 3M LAION-Aesthetics 上微调 (input/output 投影 + rank-256 LoRA, 中间冻结)。结果 (Table 4):</p>
 <ul>
 <li>HPSv3: AsymFLUX.2 <strong>10.66</strong> &gt; FLUX.2 klein Base 9.50 &gt; PixelDiT-T2I 8.95</li>
 <li>DPG-Bench: 86.8 vs 85.2 vs 83.5</li>
@@ -294,21 +294,21 @@ def asymflow_velocity(
     </figure>
 <h3 id="sec-3-3">3.3 关键消融</h3>
 <ul>
-<li><strong>Patch rank <span class="math inline">r</span> (Fig. 5)</strong>: 从 <span class="math inline">r{=}0</span> (JiT, <span class="math inline">x_0</span>-pred, FID 2.68) 到 <span class="math inline">r{=}8</span> (FID 2.34) 急剧下降, 再增大 <span class="math inline">r</span> 缓慢退化 (<span class="math inline">r{=}32</span> 时 FID 2.36)。<strong>sweet spot 在 <span class="math inline">r{=}8</span>, 即 <span class="math inline">r/D \approx 1/96</span></strong> — 噪声预测的有效维度只有 patch dim 的 1%。</li>
-<li><strong>PCA vs Random subspace (Fig. 5)</strong>: 同 <span class="math inline">r{=}8</span>, random 是 2.63, PCA 是 2.34 — <em>方向</em>的选择比<em>维度</em>更关键。</li>
+<li><strong>Patch rank <span class="math inline">\(r\)</span> (Fig. 5)</strong>: 从 <span class="math inline">\(r{=}0\)</span> (JiT, <span class="math inline">\(x_0\)</span>-pred, FID 2.68) 到 <span class="math inline">\(r{=}8\)</span> (FID 2.34) 急剧下降, 再增大 <span class="math inline">\(r\)</span> 缓慢退化 (<span class="math inline">\(r{=}32\)</span> 时 FID 2.36)。<strong>sweet spot 在 <span class="math inline">\(r{=}8\)</span>, 即 <span class="math inline">\(r/D \approx 1/96\)</span></strong> — 噪声预测的有效维度只有 patch dim 的 1%。</li>
+<li><strong>PCA vs Random subspace (Fig. 5)</strong>: 同 <span class="math inline">\(r{=}8\)</span>, random 是 2.63, PCA 是 2.34 — <em>方向</em>的选择比<em>维度</em>更关键。</li>
 <li><strong>σ_min 鲁棒性 (Tab. 1)</strong>: σ_min 从 0.04 → 0 时, JiT FID 退化 1.37 (1.90→3.27), AsymFlow 只退化 0.52 (1.76→2.28)。</li>
 <li><strong>VR + perceptual ablation (Tab. 3, Fig. 8)</strong>: DDT-finetune baseline HPSv3 10.33; AsymFlow standard FM 12.03; +VR 12.99 (但 pFID 反升, 噪点伪影); +LPIPS 13.06 (pFID 改善)。</li>
 </ul>
 <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
 <p>代码里关键、论文未完全展开的细节:</p>
 <ul>
-<li><strong>正交基从 PCA 取的是&quot;top eigenvalues&quot;</strong> — <code>repo/tools/asymflow_subspace_pca_dit.py:L120</code> 用 <code>evecs[:, -rank:]</code> (升序排序后取末尾 <span class="math inline">r</span> 个 = 最大特征值)。<strong>不是</strong> SVD 的左奇异向量, 而是 <span class="math inline">X^\top X</span> 的特征向量, 数值上一回事但代码风格不一样。</li>
-<li><strong>Procrustes 的&quot;scale&quot;分量</strong>: 论文文字里说&quot;Procrustes 只校方向不校尺度, 引入一个 scale <span class="math inline">s</span>&quot;, 代码里这个 <span class="math inline">s</span> 通过 <code>fit_scale</code> 计算: <span class="math inline">s = \sqrt{\text{tr}(A^\top X^\top X A) / \|Z\|_F^2}</span> — 让 lift 后的像素方差等于原像素方差。<code>scale_buffer</code> 存进模型, sampling 时通过 <code>asymflow_calibration</code> 把 <span class="math inline">s</span> 渗透进 timestep 和 velocity 重组里 (<code>common.py:L26-L40</code>)。这部分论文一笔带过, 但是数值稳定关键。</li>
-<li><strong>子空间是 patch-wise shared 的</strong>: 同一个 <span class="math inline">A</span> 跨所有 spatial token 共享 (<code>common.py:L20-L24</code> 的 <code>init_asymflow_buffers</code>: <code>register_buffer('proj_buffer', ...)</code> 是一个 <code>(patch_dim, base_rank)</code> 张量, 跟空间位置无关)。所以 PCA 也是在所有 patch (不分位置) 上做的。</li>
-<li><strong>训练 timestep sampler 偏高噪</strong> (config L50-L56): <code>logit_normal_mean=0.8, logit_normal_std=0.8</code>, 即 <span class="math inline">\sigma_t</span> 偏向 0.7-0.9 区段。这是 JiT 的标准做法, AsymFlow 保留 — 因为低噪声阶段 AsymFlow 的优势已经体现在 <span class="math inline">\sigma_{\min}</span> 鲁棒性上, 训练采样可以偏高噪去强化主要分布学习。</li>
+<li><strong>正交基从 PCA 取的是&quot;top eigenvalues&quot;</strong> — <code>repo/tools/asymflow_subspace_pca_dit.py:L120</code> 用 <code>evecs[:, -rank:]</code> (升序排序后取末尾 <span class="math inline">\(r\)</span> 个 = 最大特征值)。<strong>不是</strong> SVD 的左奇异向量, 而是 <span class="math inline">\(X^\top X\)</span> 的特征向量, 数值上一回事但代码风格不一样。</li>
+<li><strong>Procrustes 的&quot;scale&quot;分量</strong>: 论文文字里说&quot;Procrustes 只校方向不校尺度, 引入一个 scale <span class="math inline">\(s\)</span>&quot;, 代码里这个 <span class="math inline">\(s\)</span> 通过 <code>fit_scale</code> 计算: <span class="math inline">\(s = \sqrt{\text{tr}(A^\top X^\top X A) / \|Z\|_F^2}\)</span> — 让 lift 后的像素方差等于原像素方差。<code>scale_buffer</code> 存进模型, sampling 时通过 <code>asymflow_calibration</code> 把 <span class="math inline">\(s\)</span> 渗透进 timestep 和 velocity 重组里 (<code>common.py:L26-L40</code>)。这部分论文一笔带过, 但是数值稳定关键。</li>
+<li><strong>子空间是 patch-wise shared 的</strong>: 同一个 <span class="math inline">\(A\)</span> 跨所有 spatial token 共享 (<code>common.py:L20-L24</code> 的 <code>init_asymflow_buffers</code>: <code>register_buffer('proj_buffer', ...)</code> 是一个 <code>(patch_dim, base_rank)</code> 张量, 跟空间位置无关)。所以 PCA 也是在所有 patch (不分位置) 上做的。</li>
+<li><strong>训练 timestep sampler 偏高噪</strong> (config L50-L56): <code>logit_normal_mean=0.8, logit_normal_std=0.8</code>, 即 <span class="math inline">\(\sigma_t\)</span> 偏向 0.7-0.9 区段。这是 JiT 的标准做法, AsymFlow 保留 — 因为低噪声阶段 AsymFlow 的优势已经体现在 <span class="math inline">\(\sigma_{\min}\)</span> 鲁棒性上, 训练采样可以偏高噪去强化主要分布学习。</li>
 <li><strong>EMA momentum 0.9999</strong> (config L168): 跟 JiT 一致, 评估走 EMA checkpoint。</li>
-<li><strong>训练时 sigma_min 比推理时小</strong>: code 里 <code>train_sigma_min = 1e-6</code>, 推理时 <code>sigma_min = 4e-2</code> (config <code>sigma_min=4e-2</code>)。即<em>训练对低噪不 clamp, 推理才 clamp</em>。这跟 JiT 推理 protocol 一致 (训练让 loss 在所有 <span class="math inline">\sigma</span> 都有定义, 推理避免数值崩)。</li>
-<li><strong>T2I finetune 冻结策略</strong>: 论文文字写&quot;freeze the base model and finetune only the input/output projection layers together with rank-256 LoRA&quot;. 即整个 DiT 主干被 LoRA-only 微调, input projection (<code>x_embedder</code> 投影从 RGB patch 到 hidden, 现在等于 <span class="math inline">A</span> 的转置) 和 output projection 是全量训练。AsymFLUX.2 klein 论文公开的 adapter 文件就是这堆 trainable 权重的 LoRA dump (~rank 256, 9B base 上几百 M 增量)。</li>
+<li><strong>训练时 sigma_min 比推理时小</strong>: code 里 <code>train_sigma_min = 1e-6</code>, 推理时 <code>sigma_min = 4e-2</code> (config <code>sigma_min=4e-2</code>)。即<em>训练对低噪不 clamp, 推理才 clamp</em>。这跟 JiT 推理 protocol 一致 (训练让 loss 在所有 <span class="math inline">\(\sigma\)</span> 都有定义, 推理避免数值崩)。</li>
+<li><strong>T2I finetune 冻结策略</strong>: 论文文字写&quot;freeze the base model and finetune only the input/output projection layers together with rank-256 LoRA&quot;. 即整个 DiT 主干被 LoRA-only 微调, input projection (<code>x_embedder</code> 投影从 RGB patch 到 hidden, 现在等于 <span class="math inline">\(A\)</span> 的转置) 和 output projection 是全量训练。AsymFLUX.2 klein 论文公开的 adapter 文件就是这堆 trainable 权重的 LoRA dump (~rank 256, 9B base 上几百 M 增量)。</li>
 <li><strong>采样器是 UniPC + APG</strong>: 不是简单 Euler/Heun。UniPC (Zhao et al. NeurIPS 2023) 是 latent flow 标准, APG (Sadat et al. ICLR 2025) 是&quot;正交投影 guidance&quot;, 减少 oversaturation。Fig. 1 的高质感得益于这个组合。</li>
 <li><strong>&quot;两个 base scheduler 共用&quot;的细节</strong>: <code>FlowAdapterScheduler</code> 内部用 <code>base_scheduler='UniPCMultistep'</code>, 但 base_seq_len, max_seq_len, dynamic_shifting_type='sqrt' 这些参数说明它跟 latent FLUX.2 共享 schedule 但允许动态 shift — 处理高分辨率时 noise schedule 自动放缓 (类似 L2P 的 shift 调整)。</li>
 <li><strong>paper 与代码差异 / 留白</strong>: (a) Appendix A.4 提到的&quot;LPIPS gating schedule&quot;代码里是 <code>shifted_signal_ratio = α²/(α²+(s·σ)²)</code> (<code>asymflow.py:L12-L15</code>) — 一个 sigmoid 形式的时间权重, 论文没有显式公式。(b) Fig. 4 那个&quot;latent vs lift pixel&quot;对比图是用 <em>未微调</em> 的 Procrustes-initialized 模型直接采样得到的, 但代码里没给一键复现的 demo, 需要自己加载 base FLUX + proj_mat 然后跑 forward。</li>
@@ -316,26 +316,26 @@ def asymflow_velocity(
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">优点</h3>
 <ul>
-<li><strong>数学非常 clean</strong>: rank-asymmetric 这个 framing 不仅在 <span class="math inline">r{=}0</span> 退化到 <span class="math inline">x_0</span>-pred, <span class="math inline">r{=}D</span> 退化到 <span class="math inline">u</span>-pred, 中间还可微连续调。这种&quot;两端是已知方法、中间是新空间&quot;的参数化族, 通常意味着 framing 抓到了真问题。</li>
+<li><strong>数学非常 clean</strong>: rank-asymmetric 这个 framing 不仅在 <span class="math inline">\(r{=}0\)</span> 退化到 <span class="math inline">\(x_0\)</span>-pred, <span class="math inline">\(r{=}D\)</span> 退化到 <span class="math inline">\(u\)</span>-pred, 中间还可微连续调。这种&quot;两端是已知方法、中间是新空间&quot;的参数化族, 通常意味着 framing 抓到了真问题。</li>
 <li><strong>&quot;不动架构&quot;是真硬</strong>: 整个 1.57 FID 的提升, plain DiT 上一个 forward 都没改。这个 plug-and-play 性是对 PixNerd / DeCo / PixelDiT 这些&quot;加 decoder head&quot; 路线最强的反例 — 你可能根本不需要架构改造, 只需要重新审视 loss target。</li>
-<li><strong>Latent→pixel 的 Procrustes 桥</strong>: 论文唯一能跟 L2P 等&quot;重新设计架构&quot;路线区分开的 differentiator。把 9B latent base &quot;免训练 lift 成等价 rank-<span class="math inline">d</span> 像素模型&quot;是一个干净的数学陈述, 不是工程 hack。<strong>这一招让 AsymFLUX.2 klein 比 L2P 高一个量级 (9B vs Z-Image-Turbo's 6B)</strong>, 因为它直接吃了 latent 大模型的所有 inductive bias。</li>
-<li><strong>对 σ_min 敏感性的实验</strong>: Table 1 关掉 clamp 看退化幅度, 这是个非常 honest 的比较 — JiT 的 <span class="math inline">x_0</span>-pred 关 clamp 必崩, AsymFlow 退化温和, 直接证明了&quot;低噪稳定性来自 subspace 内的 <span class="math inline">u</span>-style 通道&quot;这个理论 claim。</li>
+<li><strong>Latent→pixel 的 Procrustes 桥</strong>: 论文唯一能跟 L2P 等&quot;重新设计架构&quot;路线区分开的 differentiator。把 9B latent base &quot;免训练 lift 成等价 rank-<span class="math inline">\(d\)</span> 像素模型&quot;是一个干净的数学陈述, 不是工程 hack。<strong>这一招让 AsymFLUX.2 klein 比 L2P 高一个量级 (9B vs Z-Image-Turbo's 6B)</strong>, 因为它直接吃了 latent 大模型的所有 inductive bias。</li>
+<li><strong>对 σ_min 敏感性的实验</strong>: Table 1 关掉 clamp 看退化幅度, 这是个非常 honest 的比较 — JiT 的 <span class="math inline">\(x_0\)</span>-pred 关 clamp 必崩, AsymFlow 退化温和, 直接证明了&quot;低噪稳定性来自 subspace 内的 <span class="math inline">\(u\)</span>-style 通道&quot;这个理论 claim。</li>
 <li><strong>VR + LPIPS 的&quot;control variate → 副作用 → 副作用专门治&quot;链路</strong>: 论文不回避方差缩减的 trade-off (noisy artifacts), 引入 LPIPS gating 来按 patch 局部抑制, 给出 Fig. 8 直接看效果。这种&quot;诊断 → 对症&quot;的写作很可信。</li>
 </ul>
 <h3 id="sec-5-2">不足 / 疑点</h3>
 <ul>
 <li><strong>Latent→pixel lift 假设很强</strong>: §7 自己承认 — &quot;Latent-to-pixel finetuning assumes a good patch-level linear lift. It may not work well when the pretrained latent space does not preserve pixel structure, such as in RAE models.&quot; 这意味着 <em>SD3 / FLUX / Z-Image 这类 standard VAE 系</em> latent 适用, 但 <em>RAE (Representation Autoencoder, 把 latent space 跟 DINOv2 这种 self-supervised feature 对齐)</em> 不适用。RAE 是 2026 年的热门方向, 这是个非平凡的限制。</li>
 <li><strong>FLUX.2 klein 9B 是封闭权重的</strong>: AsymFLUX.2 klein 整个 demo 依赖能拿到 FLUX.2 klein Base 9B 权重 (Black Forest Labs 私有)。从 reproducibility 角度看, 9B SOTA 结果不是社区能轻易复现的 — 你拿不到那个 latent base。AsymFlow 在 ImageNet 上的 1.57 FID 倒是可以从头训。</li>
-<li><strong>Patch rank <span class="math inline">r{=}8</span> 是 ImageNet patch dim 768 的 1/96</strong>。这意味着噪声预测的&quot;有效自由度&quot;非常小。论文没讨论 <span class="math inline">r</span> 该怎么 scale: <span class="math inline">r=8</span> 是 ImageNet 单数据集的最优, 但对更复杂的高分辨率/文本条件生成 (FLUX.2 用的是 <span class="math inline">r{=}128</span>), <span class="math inline">r</span> 是按数据复杂度、还是按 latent 维度、还是按某个比率选? 论文给的指引基本就是&quot;我们用了这两个数字&quot;。</li>
+<li><strong>Patch rank <span class="math inline">\(r{=}8\)</span> 是 ImageNet patch dim 768 的 1/96</strong>。这意味着噪声预测的&quot;有效自由度&quot;非常小。论文没讨论 <span class="math inline">\(r\)</span> 该怎么 scale: <span class="math inline">\(r=8\)</span> 是 ImageNet 单数据集的最优, 但对更复杂的高分辨率/文本条件生成 (FLUX.2 用的是 <span class="math inline">\(r{=}128\)</span>), <span class="math inline">\(r\)</span> 是按数据复杂度、还是按 latent 维度、还是按某个比率选? 论文给的指引基本就是&quot;我们用了这两个数字&quot;。</li>
 <li><strong>VR loss 的 perceptual gating schedule 是个黑盒</strong>: Appendix A.4 给的&quot;time-varying weight schedule&quot;实际是个手调函数 (<code>calc_shifted_signal_ratio</code>), 不同 base model 上是否要重新 tune 没说。代码里 <code>loss_shift=None</code> 是默认值, 显式开启 VR 才需要这个参数。</li>
 <li><strong>跟 L2P / PixelDiT-T2I 的对比不是完全公平</strong>: AsymFLUX.2 klein 用的是 9B base, PixelDiT-T2I 是从头训的小模型, L2P 用的是 6B Z-Image-Turbo base。Table 4 比的是&quot;哪个像素模型最好&quot;, 但实际是&quot;哪个 latent base + 哪个迁移策略&quot;的组合最好。要真比迁移策略本身, 需要 controlled experiment: 同一个 latent base, 分别用 AsymFlow vs L2P 微调。论文没做。</li>
 <li><strong>FLOPs 没换算到 T2I</strong>: Table 2 给了 ImageNet 上的 GFLOPs, AsymFlow 跟 JiT 完全一样 (363 GFLOPs)。但 T2I 9B 上 AsymFLUX.2 用了 UniPC + APG + LoRA + dynamic shift, 实际推理速度跟 base FLUX.2 klein 比起来是否打平? Inference cost 没公布。</li>
-<li><strong><span class="math inline">\lambda</span> clamp 到 [0,1] 是经验做法</strong>: 代码 <code>vr_coef.clamp_(0.0, 1.0)</code>, 论文里这个 clamp 没解释。理论上最优 <span class="math inline">\lambda</span> 可以是负的 (negative control variate), 强行 clamp 到 [0,1] 是 stability hack, 论文没讨论&quot;被 clamp 的样本占比有多少&quot;。</li>
+<li><strong><span class="math inline">\(\lambda\)</span> clamp 到 [0,1] 是经验做法</strong>: 代码 <code>vr_coef.clamp_(0.0, 1.0)</code>, 论文里这个 clamp 没解释。理论上最优 <span class="math inline">\(\lambda\)</span> 可以是负的 (negative control variate), 强行 clamp 到 [0,1] 是 stability hack, 论文没讨论&quot;被 clamp 的样本占比有多少&quot;。</li>
 </ul>
 <h3 id="sec-5-3">适用 vs 不适用</h3>
 <ul>
 <li>✅ <strong>适用</strong>: 你有一个 <em>plain DiT/Flow 架构</em> 的 latent 模型 (SD3, FLUX, Z-Image, Wan2.1 等), 想做像素空间迁移, 又不想改架构。AsymFlow 是干净选项。</li>
-<li>✅ <strong>适用</strong>: 你在做 from-scratch 像素扩散研究, 想找一个 &quot;loss-only&quot; 的改进 (不改架构、不加 perceptual prior), 替换 <span class="math inline">x_0</span>-pred 即可。</li>
+<li>✅ <strong>适用</strong>: 你在做 from-scratch 像素扩散研究, 想找一个 &quot;loss-only&quot; 的改进 (不改架构、不加 perceptual prior), 替换 <span class="math inline">\(x_0\)</span>-pred 即可。</li>
 <li>❌ <strong>不适用</strong>: 你的 base 是 RAE / DINOv2-aligned latent — Procrustes lift 假设破坏, latent→pixel 路径用不上。</li>
 <li>❌ <strong>不适用</strong>: 你只想搞 4K 极高分辨率 native generation — L2P 那种&quot;显式抛 VAE + 大 patch + Detailer Head&quot;路线更轻量 (8 卡 vs FLUX.2 9B 微调级别的算力), 而且 L2P 论文里直接证明了 4K 推理时间砍 97.67%。AsymFlow 在 T2I 上还是用 1MP 训练。</li>
 <li>❌ <strong>不适用</strong>: 你需要解释清楚的、单 GPU 可复现的像素扩散迁移 — Procrustes + VR + LPIPS gating + LoRA 这一套有 4-5 个互锁的部件, 复现门槛比 L2P 高。</li>
@@ -343,8 +343,8 @@ def asymflow_velocity(
 <h3 id="sec-5-4">进一步阅读</h3>
 <ul>
 <li><a href="../l2p-2026/index.html">L2P (Chen et al., 2026)</a> — 同期同问题的不同解法: 架构级 (冻结骨架 + 大 patch + Detailer Head + 合成数据), 跟 AsymFlow 形成完美对比。<strong>建议跟本篇并读</strong>, 参见<a href="../latent-to-pixel-2026/index.html">对比阅读</a>。</li>
-<li><a href="https://arxiv.org/abs/2511.20235">JiT (Li &amp; He, CVPR 2026)</a> — AsymFlow 的直接 baseline。&quot;Back to Basics: Let denoising generative models denoise&quot; — 推 <span class="math inline">x_0</span>-prediction + plain DiT 路线。AsymFlow 是 JiT 的 head 替换。</li>
-<li><a href="https://arxiv.org/abs/2602.02493">PixelGen (Ma et al., 2026)</a>, <a href="https://arxiv.org/abs/2603.14366">PixelREPA (Shin et al., 2026)</a> — 同样 plain DiT + <span class="math inline">x_0</span>-prediction 的兄弟工作, 都被 AsymFlow 超过。</li>
+<li><a href="https://arxiv.org/abs/2511.20235">JiT (Li &amp; He, CVPR 2026)</a> — AsymFlow 的直接 baseline。&quot;Back to Basics: Let denoising generative models denoise&quot; — 推 <span class="math inline">\(x_0\)</span>-prediction + plain DiT 路线。AsymFlow 是 JiT 的 head 替换。</li>
+<li><a href="https://arxiv.org/abs/2602.02493">PixelGen (Ma et al., 2026)</a>, <a href="https://arxiv.org/abs/2603.14366">PixelREPA (Shin et al., 2026)</a> — 同样 plain DiT + <span class="math inline">\(x_0\)</span>-prediction 的兄弟工作, 都被 AsymFlow 超过。</li>
 <li>PixNerd / DiP / DeCo / PixelDiT — 都是&quot;加 decoder head&quot;路线, Table 2 里的 1.6-2.2 FID 段, AsymFlow 用&quot;loss 改造&quot;打过了&quot;架构改造&quot;。</li>
 <li><a href="https://openreview.net/forum?id=0u1LigJaab">RAE (Zheng et al., ICLR 2026)</a> — AsymFlow 自己点名的&quot;不适用&quot;对象, 值得跟踪 RAE 路线的进展。</li>
 </ul>

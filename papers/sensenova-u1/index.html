@@ -63,7 +63,7 @@
     <li class="h3"><a href="#sec-2-1">核心思想 (类比)</a></li>
     <li class="h3"><a href="#sec-2-2">2.1 近无损视觉接口 (Near-Lossless Visual Interface)</a></li>
     <li class="h3"><a href="#sec-2-3">2.2 像素空间 Flow Matching</a></li>
-    <li class="h3"><a href="#sec-2-4">2.3 分辨率自适应噪声尺度 \sigma_R — 论文最巧的一笔</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 分辨率自适应噪声尺度 \(\sigma_R\) — 论文最巧的一笔</a></li>
     <li class="h3"><a href="#sec-2-5">2.4 联合训练目标</a></li>
     <li class="h3"><a href="#sec-2-6">2.5 Native MoT (Mixture-of-Transformers) 主干</a></li>
     <li class="h3"><a href="#sec-2-7">2.6 模型规模</a></li>
@@ -168,21 +168,21 @@
 <p>生成端没有 VAE, 那扩散去噪在哪做? 答: 直接在像素空间。</p>
 <p>用 <strong>Rectified Flow</strong> 的线性插值定义&quot;含噪样本&quot;:</p>
 <ul>
-<li><span class="math inline">x \in \mathbb{R}^{3 \times H \times W}</span> 是干净的真实图像</li>
-<li><span class="math inline">\epsilon</span> 是标准高斯噪声, 形状与 <span class="math inline">x</span> 一致</li>
-<li><span class="math inline">t=0</span> 时 <span class="math inline">z_0 = \sigma_R \epsilon</span> (纯噪声), <span class="math inline">t=1</span> 时 <span class="math inline">z_1 = x</span> (干净图像) — 直觉: <span class="math inline">t</span> 像&quot;信号纯度&quot;刻度, 从 0 (全噪) 滑到 1 (全图)</li>
-<li><span class="math inline">\sigma_R</span> 是<strong>分辨率自适应噪声尺度</strong>, 待解释</li>
+<li><span class="math inline">\(x \in \mathbb{R}^{3 \times H \times W}\)</span> 是干净的真实图像</li>
+<li><span class="math inline">\(\epsilon\)</span> 是标准高斯噪声, 形状与 <span class="math inline">\(x\)</span> 一致</li>
+<li><span class="math inline">\(t=0\)</span> 时 <span class="math inline">\(z_0 = \sigma_R \epsilon\)</span> (纯噪声), <span class="math inline">\(t=1\)</span> 时 <span class="math inline">\(z_1 = x\)</span> (干净图像) — 直觉: <span class="math inline">\(t\)</span> 像&quot;信号纯度&quot;刻度, 从 0 (全噪) 滑到 1 (全图)</li>
+<li><span class="math inline">\(\sigma_R\)</span> 是<strong>分辨率自适应噪声尺度</strong>, 待解释</li>
 </ul>
-<p>模型 <span class="math inline">\hat{x}_\theta</span> 学着从 <span class="math inline">z_t</span> 预测干净的 <span class="math inline">x</span>, 然后转成&quot;速度&quot;:</p>
-<p>这个速度 <span class="math inline">v</span> 就是 ODE 里 <span class="math inline">\frac{dz}{dt}</span> 的预测。训练用 MSE 让 <span class="math inline">v_\theta</span> 逼近真实速度 <span class="math inline">v_\star = \frac{x - z_t}{1-t}</span>:</p>
-<p><strong>数值小例子:</strong> 假设 <span class="math inline">t=0.6, x = 1.0, \epsilon = 0.0, \sigma_R = 1.0</span>, 则 <span class="math inline">z_t = 0.6</span>, <span class="math inline">v_\star = (1.0 - 0.6)/(1-0.6) = 1.0</span>。直觉: 离 <span class="math inline">x</span> 还差 <span class="math inline">0.4</span>, 但剩余时间也是 <span class="math inline">0.4</span>, 所以&quot;速度&quot;是 1.0。如果模型输出 <span class="math inline">v_\theta = 1.0</span> 就完美。</p>
-<h3 id="sec-2-4">2.3 分辨率自适应噪声尺度 <span class="math inline">\sigma_R</span> — 论文最巧的一笔</h3>
-<p>问题: 直接在像素空间训练, 不同分辨率的图 token 数差好几倍 (1024² 是 1024 个 token, 2048² 是 4096 个 token)。如果都用标准 <span class="math inline">\mathcal{N}(0,I)</span>, 高分辨率图的噪声&quot;总能量&quot;会远大于信号能量, 信噪比 (SNR) 完全错配。</p>
+<p>模型 <span class="math inline">\(\hat{x}_\theta\)</span> 学着从 <span class="math inline">\(z_t\)</span> 预测干净的 <span class="math inline">\(x\)</span>, 然后转成&quot;速度&quot;:</p>
+<p>这个速度 <span class="math inline">\(v\)</span> 就是 ODE 里 <span class="math inline">\(\frac{dz}{dt}\)</span> 的预测。训练用 MSE 让 <span class="math inline">\(v_\theta\)</span> 逼近真实速度 <span class="math inline">\(v_\star = \frac{x - z_t}{1-t}\)</span>:</p>
+<p><strong>数值小例子:</strong> 假设 <span class="math inline">\(t=0.6, x = 1.0, \epsilon = 0.0, \sigma_R = 1.0\)</span>, 则 <span class="math inline">\(z_t = 0.6\)</span>, <span class="math inline">\(v_\star = (1.0 - 0.6)/(1-0.6) = 1.0\)</span>。直觉: 离 <span class="math inline">\(x\)</span> 还差 <span class="math inline">\(0.4\)</span>, 但剩余时间也是 <span class="math inline">\(0.4\)</span>, 所以&quot;速度&quot;是 1.0。如果模型输出 <span class="math inline">\(v_\theta = 1.0\)</span> 就完美。</p>
+<h3 id="sec-2-4">2.3 分辨率自适应噪声尺度 <span class="math inline">\(\sigma_R\)</span> — 论文最巧的一笔</h3>
+<p>问题: 直接在像素空间训练, 不同分辨率的图 token 数差好几倍 (1024² 是 1024 个 token, 2048² 是 4096 个 token)。如果都用标准 <span class="math inline">\(\mathcal{N}(0,I)\)</span>, 高分辨率图的噪声&quot;总能量&quot;会远大于信号能量, 信噪比 (SNR) 完全错配。</p>
 <p>论文的做法: 让噪声的标准差随 token 数开根号增长, 保持<strong>每个 token 的噪声能量近似恒定</strong>。</p>
 <ul>
-<li><span class="math inline">N(H,W)</span> = 该分辨率下的 token 数 (因为 32× 压缩, 一个 token 对应 32×32 像素)</li>
-<li><span class="math inline">N_0</span> = 参考 token 数 (代码里 = 64, 对应 256×256 图)</li>
-<li><span class="math inline">\sigma_0</span> = 基础噪声尺度 (= 1)</li>
+<li><span class="math inline">\(N(H,W)\)</span> = 该分辨率下的 token 数 (因为 32× 压缩, 一个 token 对应 32×32 像素)</li>
+<li><span class="math inline">\(N_0\)</span> = 参考 token 数 (代码里 = 64, 对应 256×256 图)</li>
+<li><span class="math inline">\(\sigma_0\)</span> = 基础噪声尺度 (= 1)</li>
 <li>开根号是关键: token 总能量 ∝ N × σ², 想让能量随 N 线性增长就需要 σ ∝ √N</li>
 </ul>
 <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L815-L822 — 推理时计算 σ_R</p>
@@ -201,7 +201,7 @@ image_prediction = noise_scale * torch.randn(...)       # 初始 z_0 = σ_R · �
 <p>注意: 代码里实际有<strong>三种</strong>模式 (resolution / dynamic / <code>dynamic_sqrt</code>), 论文只描述了开根号那一种。<code>dynamic_sqrt</code> 是开两次根号 (= 四次方根), 论文没解释为什么需要这个。</p>
 <h3 id="sec-2-5">2.4 联合训练目标</h3>
 <p>整体训练 loss 是文本 next-token CE 和像素 flow matching MSE 的加权和:</p>
-<p>论文 Table 2 显示 Stage 3 (统一中训练) 之后 <span class="math inline">\lambda_1 = 0.1, \lambda_2 = 1.0</span> — 也就是 <strong>生成 loss 权重比理解 loss 大 10 倍</strong>。这暗示了一个工程现实: 生成更难收敛, 需要更多梯度。</p>
+<p>论文 Table 2 显示 Stage 3 (统一中训练) 之后 <span class="math inline">\(\lambda_1 = 0.1, \lambda_2 = 1.0\)</span> — 也就是 <strong>生成 loss 权重比理解 loss 大 10 倍</strong>。这暗示了一个工程现实: 生成更难收敛, 需要更多梯度。</p>
 <h3 id="sec-2-6">2.5 Native MoT (Mixture-of-Transformers) 主干</h3>
 <p>这是 SenseNova-U1 跟之前统一模型最不一样的一笔。架构上是单个 Transformer, 但每一层里有<strong>两套独立的 Q/K/V 投影、Norm、FFN</strong>:</p>
 <ul>
@@ -246,7 +246,7 @@ def extract_feature(self, pixel_values, gen_model=False, grid_hw=None):
       <figcaption>Table 1 — 两个变体的架构配置. <strong>8B-MoT</strong>: dense, 42 层, 8.2B/8.2B (Und/Gen) — 两条流都是 8B。<strong>A3B-MoT</strong>: MoE, 48 层, Und 用 128 个专家 (共 30B, 推理时激活 8 个); Gen 用 32 个专家 (共 8B, 激活 8 个 = A3B 即"激活 3B")。</figcaption>
     </figure>
 <h3 id="sec-2-8">2.7 推理流程 (含 CFG 双引导)</h3>
-<p>推理时 ODE 用 Euler 解, <span class="math inline">z_{t+\Delta t} = z_t + \Delta t \cdot v_\theta</span>。代码里就是一行:</p>
+<p>推理时 ODE 用 Euler 解, <span class="math inline">\(z_{t+\Delta t} = z_t + \Delta t \cdot v_\theta\)</span>。代码里就是一行:</p>
 <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L397-L399, L915-L916</p>
 <pre><code class="language-python">def _euler_step(self, v_pred, z, t, t_next):
     z_next = z + (t_next - t) * v_pred
@@ -259,8 +259,8 @@ image_prediction = self.unpatchify(z, self.patch_size * merge_size, ...)
 <h4>Unified model 里 &quot;空 prompt&quot; 有<strong>两种</strong></h4>
 <p>SD/SDXL 那种单一文本条件的 CFG 只需要一个 &quot;uncond&quot; (空字符串 / negative prompt)。但 SenseNova-U1 是 unified model, 输入是 <em>(图像上下文, 文本指令)</em> 两路条件, &quot;空&quot;得拆开做:</p>
 <ul>
-<li><strong>Text Uncondition (tu)</strong>: 文本&quot;空&quot;, 图像上下文<strong>保留</strong> → 对应分布 <span class="math inline">p(x \mid c_\text{img})</span></li>
-<li><strong>Image Uncondition (iu)</strong>: 文本空, 图像也<strong>不放</strong> → 对应分布 <span class="math inline">p(x)</span>, 真正的&quot;无条件&quot;</li>
+<li><strong>Text Uncondition (tu)</strong>: 文本&quot;空&quot;, 图像上下文<strong>保留</strong> → 对应分布 <span class="math inline">\(p(x \mid c_\text{img})\)</span></li>
+<li><strong>Image Uncondition (iu)</strong>: 文本空, 图像也<strong>不放</strong> → 对应分布 <span class="math inline">\(p(x)\)</span>, 真正的&quot;无条件&quot;</li>
 </ul>
 <p>推理一开始就同时跑 <strong>3 次 prefill</strong>, 拿到三套 KV cache, 后续每个 Euler step 都复用它们做 forward:</p>
 <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L682-L721 — 三套 KV cache 的构造</p>
@@ -282,15 +282,15 @@ past_key_values_iu = ...
 </code></pre>
 <p><strong>注意</strong> <code>tu</code> 不是真的空字符串 — user message 是 <code>'&lt;image&gt;' * N</code>, 占位符让图像 token 留在原位置。这样 &quot;cond − tu&quot; 才严格等于 &quot;<em>加上文本指令带来的边际贡献</em>&quot;, 而不会同时混入&quot;图像被移除&quot;的扰动。</p>
 <h4>三分支 CFG 公式</h4>
-<p>三个 cache 各跑一次 forward, 得到三个速度预测 <span class="math inline">v_\text{cond}, v_\text{img-cond}, v_\text{uncond}</span>, 按论文 Eq. 6 组合:</p>
+<p>三个 cache 各跑一次 forward, 得到三个速度预测 <span class="math inline">\(v_\text{cond}, v_\text{img-cond}, v_\text{uncond}\)</span>, 按论文 Eq. 6 组合:</p>
 <p>拆开看两个差分项的几何意义:</p>
 <ul>
-<li><span class="math inline">v_\text{cond} - v_\text{img-cond}</span> = &quot;加上文本后比只有图像多出来的方向&quot; → 用 <span class="math inline">\gamma</span> 放大 = <strong>文本听话度</strong></li>
-<li><span class="math inline">v_\text{img-cond} - v_\text{uncond}</span> = &quot;加上图像后比纯空白多出来的方向&quot; → 用 <span class="math inline">\gamma_\text{img}</span> 放大 = <strong>图像上下文影响力</strong></li>
+<li><span class="math inline">\(v_\text{cond} - v_\text{img-cond}\)</span> = &quot;加上文本后比只有图像多出来的方向&quot; → 用 <span class="math inline">\(\gamma\)</span> 放大 = <strong>文本听话度</strong></li>
+<li><span class="math inline">\(v_\text{img-cond} - v_\text{uncond}\)</span> = &quot;加上图像后比纯空白多出来的方向&quot; → 用 <span class="math inline">\(\gamma_\text{img}\)</span> 放大 = <strong>图像上下文影响力</strong></li>
 </ul>
-<p>论文推荐 <span class="math inline">\gamma = 4, \gamma_\text{img} = 1</span> — <strong>只放大文本, 不动图像</strong>。作者在 §3.3 解释: &quot;<em>model already captures visual conditioning effectively, while stronger guidance is primarily needed to enforce textual alignment</em>&quot; — unified 训练的副产品是模型对图像上下文已经&quot;自然听话&quot;, 文本反而需要外加引导, 跟普通 latent diffusion 的情况相反。</p>
+<p>论文推荐 <span class="math inline">\(\gamma = 4, \gamma_\text{img} = 1\)</span> — <strong>只放大文本, 不动图像</strong>。作者在 §3.3 解释: &quot;<em>model already captures visual conditioning effectively, while stronger guidance is primarily needed to enforce textual alignment</em>&quot; — unified 训练的副产品是模型对图像上下文已经&quot;自然听话&quot;, 文本反而需要外加引导, 跟普通 latent diffusion 的情况相反。</p>
 <h4>代码实现的 4 个分支</h4>
-<p>实际代码并不总是跑完整的 3 路 CFG。根据 <span class="math inline">\gamma</span> 和 <span class="math inline">\gamma_\text{img}</span> 的组合, 走不同的快速路径:</p>
+<p>实际代码并不总是跑完整的 3 路 CFG。根据 <span class="math inline">\(\gamma\)</span> 和 <span class="math inline">\(\gamma_\text{img}\)</span> 的组合, 走不同的快速路径:</p>
 <p class="code-source">repo/src/sensenova_u1/models/neo_unify/modeling_neo_chat.py:L883-L902 — 三分支 CFG 推理</p>
 <pre><code class="language-python">use_cfg = (t &gt; cfg_interval[0] and t &lt; cfg_interval[1]) or cfg_interval[0] == 0
 out_cond = self._t2i_predict_v(image_embeds, indexes_image_condition, ...)
@@ -347,7 +347,7 @@ else:                                                        # ④ 双 CFG, 3 �
 <ol>
 <li><strong>Stage 1</strong>: Understanding warmup — 初始化自 NEO, 先做 attention-fusion (合并 Q/K projection), 再 full-model 继续训练。</li>
 <li><strong>Stage 2</strong>: Generation pre-training (3 phases) — <strong>冻结理解分支</strong>, 单训生成分支。Phase I 256²→512², Phase II 512²→2048², Phase III 加入 editing/interleaved 数据。</li>
-<li><strong>Stage 3</strong>: Unified mid-training — 全量 joint training, 84K steps, <span class="math inline">\lambda_1{:}\lambda_2 = 0.1{:}1.0</span>。数据配比 Und : Gen : Edit : Interleave = 0.33 : 0.37 : 0.24 : 0.06。</li>
+<li><strong>Stage 3</strong>: Unified mid-training — 全量 joint training, 84K steps, <span class="math inline">\(\lambda_1{:}\lambda_2 = 0.1{:}1.0\)</span>。数据配比 Und : Gen : Edit : Interleave = 0.33 : 0.37 : 0.24 : 0.06。</li>
 <li><strong>Stage 4</strong>: Unified SFT — 9K steps, cosine 衰减, 同样的 loss 权重。</li>
 <li><strong>Stage 5</strong>: RL post-training — Flow-GRPO + 三个 reward (OCR IoU / VLM style judge / HPSv3 美学)。</li>
 <li><strong>Stage 6</strong>: DMD2 蒸馏 — 把 100 NFE 蒸到 8 NFE, 推理大幅加速。</li>

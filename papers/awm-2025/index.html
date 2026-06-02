@@ -80,13 +80,13 @@
 <h1>Advantage Weighted Matching:</h1>
 <p>把扩散模型 RL 拽回到预训练目标</p>
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
-<p>用一句&quot;LLM 哲学&quot;开篇: 在 LLM 里, <strong>pretraining 和 RL 用的是同一个 likelihood</strong>。SFT 是 <span class="math inline">\log p_\theta(y|x)</span>, PPO/GRPO 也是 <span class="math inline">\log p_\theta(y|x)</span> 乘上 advantage; 只是权重不同。两个阶段共享同一个 surrogate, 所以彼此之间过渡很自然。</p>
+<p>用一句&quot;LLM 哲学&quot;开篇: 在 LLM 里, <strong>pretraining 和 RL 用的是同一个 likelihood</strong>。SFT 是 <span class="math inline">\(\log p_\theta(y|x)\)</span>, PPO/GRPO 也是 <span class="math inline">\(\log p_\theta(y|x)\)</span> 乘上 advantage; 只是权重不同。两个阶段共享同一个 surrogate, 所以彼此之间过渡很自然。</p>
 <p>但扩散模型的 RL <em>没有</em>这个对称性:</p>
 <ul>
-<li><strong>Pretraining:</strong> 优化 score / flow matching loss <span class="math inline">\|v_\theta(x_t,t) - (\epsilon - x_0)\|^2</span> — 对应 ELBO, 也就是 <span class="math inline">\log p_\theta(x_0)</span> 的一个紧上界。</li>
-<li><strong>RL post-training (DDPO / Flow-GRPO / DanceGRPO):</strong> 把去噪展开成一个 multi-step MDP, 每一步反向转移 <span class="math inline">p_\theta(x_{t-\Delta t}\mid x_t)</span> 当成一个高斯策略, 优化 <em>per-step</em> 高斯对数似然。</li>
+<li><strong>Pretraining:</strong> 优化 score / flow matching loss <span class="math inline">\(\|v_\theta(x_t,t) - (\epsilon - x_0)\|^2\)</span> — 对应 ELBO, 也就是 <span class="math inline">\(\log p_\theta(x_0)\)</span> 的一个紧上界。</li>
+<li><strong>RL post-training (DDPO / Flow-GRPO / DanceGRPO):</strong> 把去噪展开成一个 multi-step MDP, 每一步反向转移 <span class="math inline">\(p_\theta(x_{t-\Delta t}\mid x_t)\)</span> 当成一个高斯策略, 优化 <em>per-step</em> 高斯对数似然。</li>
 </ul>
-<p>这两个 likelihood 长得就不一样, 一个在 forward (clean <span class="math inline">x_0</span> 条件), 一个在 reverse SDE 离散化 (noisy <span class="math inline">x_{t-\Delta t}</span> 条件)。作者问出了那个&quot;小学生都能问&quot;但很少有人正经回答的问题:</p>
+<p>这两个 likelihood 长得就不一样, 一个在 forward (clean <span class="math inline">\(x_0\)</span> 条件), 一个在 reverse SDE 离散化 (noisy <span class="math inline">\(x_{t-\Delta t}\)</span> 条件)。作者问出了那个&quot;小学生都能问&quot;但很少有人正经回答的问题:</p>
 <blockquote>
 <p>为什么 RL 阶段不直接复用 pretraining 用的 flow matching loss? DDPO 那个 per-step likelihood, 它到底在优化什么?</p>
 </blockquote>
@@ -102,28 +102,28 @@
 <li><strong>DDPO 流派:</strong> 让学生每完成一笔, 老师就根据 &quot;这一笔与某个噪声参考的差距&quot; 给反馈。但 &quot;噪声参考&quot; 本身是抖动的 — 老师每次抓的参照点都不一样, 反馈嘈杂, 学生学得慢。</li>
 <li><strong>AWM 流派:</strong> 让学生画完整张画, 跟 <em>原始的、干净的</em> 目标比对; 整张画好的话, 把这次的所有笔触都加权放大; 整张画坏, 就反向压缩。参照点稳定, 信号干净, 学得快。</li>
 </ul>
-<p>更技术地说: 同一个去噪过程, 同一个目标分布, 同一个 score 函数 <span class="math inline">\nabla \log p(x_t)</span>, 你可以用 <span class="math inline">x_0</span> 当条件来估它 (clean DSM), 也可以用 <span class="math inline">x_s</span> (<span class="math inline">s\lt t</span>) 当条件来估它 (noisy DSM)。两者 <em>期望相同, 都是 unbiased</em>; 但用 <span class="math inline">x_s</span> 当条件会 <em>放大目标向量的方差</em>。DDPO 优化的实际上就是 noisy-DSM, 多出来那个方差就是它收敛慢的根源。</p>
+<p>更技术地说: 同一个去噪过程, 同一个目标分布, 同一个 score 函数 <span class="math inline">\(\nabla \log p(x_t)\)</span>, 你可以用 <span class="math inline">\(x_0\)</span> 当条件来估它 (clean DSM), 也可以用 <span class="math inline">\(x_s\)</span> (<span class="math inline">\(s\lt t\)</span>) 当条件来估它 (noisy DSM)。两者 <em>期望相同, 都是 unbiased</em>; 但用 <span class="math inline">\(x_s\)</span> 当条件会 <em>放大目标向量的方差</em>。DDPO 优化的实际上就是 noisy-DSM, 多出来那个方差就是它收敛慢的根源。</p>
 <h3 id="sec-2-2">2.1 背景: DDPO 在做什么</h3>
-<p>Flow Matching pretraining 的目标 (论文里默认用的 noise schedule <span class="math inline">x_t = (1-t)x_0 + t\epsilon</span>):</p>
-<p>—— 翻译: 喂进噪声样本 <span class="math inline">x_t</span>, 让网络预测 &quot;干净到噪声&quot; 的方向 <span class="math inline">\epsilon - x_0</span>。这是 ELBO 的一个紧致 surrogate, 等价于 <span class="math inline">\log p_\theta(x_0)</span> 的最大化。</p>
-<p>DDPO 把 reverse-time SDE 离散化 (Euler–Maruyama, 步长 <span class="math inline">\Delta t</span>):</p>
-<p>这是个 isotropic Gaussian, mean 和 variance 都可解。于是 per-step log-likelihood <span class="math inline">\log p_\theta(x_{t-\Delta t}\mid x_t)</span> 是 tractable 的二次型, 把整个去噪轨迹当 MDP, 每步 likelihood 乘 advantage, 就是标准的 REINFORCE / PPO 套路。</p>
-<p>问题是: 这个目标 <strong>不是</strong> flow matching loss。它的条件变量是 noisy 的 <span class="math inline">x_t</span> → 更 noisy 的 <span class="math inline">x_{t-\Delta t}</span>。和预训练 (forward process: clean <span class="math inline">x_0</span> → noisy <span class="math inline">x_t</span>) 方向相反。这一不对齐, 是后面所有 variance / 收敛慢的根源。</p>
+<p>Flow Matching pretraining 的目标 (论文里默认用的 noise schedule <span class="math inline">\(x_t = (1-t)x_0 + t\epsilon\)</span>):</p>
+<p>—— 翻译: 喂进噪声样本 <span class="math inline">\(x_t\)</span>, 让网络预测 &quot;干净到噪声&quot; 的方向 <span class="math inline">\(\epsilon - x_0\)</span>。这是 ELBO 的一个紧致 surrogate, 等价于 <span class="math inline">\(\log p_\theta(x_0)\)</span> 的最大化。</p>
+<p>DDPO 把 reverse-time SDE 离散化 (Euler–Maruyama, 步长 <span class="math inline">\(\Delta t\)</span>):</p>
+<p>这是个 isotropic Gaussian, mean 和 variance 都可解。于是 per-step log-likelihood <span class="math inline">\(\log p_\theta(x_{t-\Delta t}\mid x_t)\)</span> 是 tractable 的二次型, 把整个去噪轨迹当 MDP, 每步 likelihood 乘 advantage, 就是标准的 REINFORCE / PPO 套路。</p>
+<p>问题是: 这个目标 <strong>不是</strong> flow matching loss。它的条件变量是 noisy 的 <span class="math inline">\(x_t\)</span> → 更 noisy 的 <span class="math inline">\(x_{t-\Delta t}\)</span>。和预训练 (forward process: clean <span class="math inline">\(x_0\)</span> → noisy <span class="math inline">\(x_t\)</span>) 方向相反。这一不对齐, 是后面所有 variance / 收敛慢的根源。</p>
 <h3 id="sec-2-3">2.2 Theorem 1 — DDPO 偷偷在做带噪声的 DSM</h3>
-<p>第一个关键定理: 把上面那个 per-step 高斯似然展开, 忽略 Euler–Maruyama 的离散化误差, 它等价于 <em>用 noisy <span class="math inline">x_{t-\Delta t}</span> 做 conditioning 的 denoising score matching</em>:</p>
-<p>—— 翻译: DDPO 那个 per-step likelihood loss, 在期望意义下等于 &quot;用上一时刻的 noisy 状态 <span class="math inline">x_{t-\Delta t}</span> 当条件, 让 score 网络 <span class="math inline">s_\theta</span> 去拟合 <span class="math inline">\log p(x_t\mid x_{t-\Delta t})</span> 的梯度&quot;。score / velocity 两种参数化下都成立。</p>
-<p>这个定理把 DDPO 从 &quot;策略梯度&quot; 翻译成了 &quot;score matching, 只是条件错了&quot;。证明的关键是: forward process 的 <span class="math inline">(x_{t-\Delta t}, x_t)</span> 联合分布等于 reverse process 的联合分布 (Haussmann–Pardoux 反时间公式), 于是可以把 reverse-likelihood 重写成 forward-conditional 的 DSM 形式。</p>
+<p>第一个关键定理: 把上面那个 per-step 高斯似然展开, 忽略 Euler–Maruyama 的离散化误差, 它等价于 <em>用 noisy <span class="math inline">\(x_{t-\Delta t}\)</span> 做 conditioning 的 denoising score matching</em>:</p>
+<p>—— 翻译: DDPO 那个 per-step likelihood loss, 在期望意义下等于 &quot;用上一时刻的 noisy 状态 <span class="math inline">\(x_{t-\Delta t}\)</span> 当条件, 让 score 网络 <span class="math inline">\(s_\theta\)</span> 去拟合 <span class="math inline">\(\log p(x_t\mid x_{t-\Delta t})\)</span> 的梯度&quot;。score / velocity 两种参数化下都成立。</p>
+<p>这个定理把 DDPO 从 &quot;策略梯度&quot; 翻译成了 &quot;score matching, 只是条件错了&quot;。证明的关键是: forward process 的 <span class="math inline">\((x_{t-\Delta t}, x_t)\)</span> 联合分布等于 reverse process 的联合分布 (Haussmann–Pardoux 反时间公式), 于是可以把 reverse-likelihood 重写成 forward-conditional 的 DSM 形式。</p>
 <h3 id="sec-2-4">2.3 Theorem 2 — 用 noisy 条件, 方差就是更大</h3>
-<p>那&quot;条件错了&quot;会带来什么? Lemma 1 先告诉你 <em>不影响 minimizer</em> (两者期望都是 <span class="math inline">\nabla\log p(x_t)</span>), 但 Theorem 2 告诉你 <em>影响方差</em>:</p>
+<p>那&quot;条件错了&quot;会带来什么? Lemma 1 先告诉你 <em>不影响 minimizer</em> (两者期望都是 <span class="math inline">\(\nabla\log p(x_t)\)</span>), 但 Theorem 2 告诉你 <em>影响方差</em>:</p>
 <p>其中 noise gap 系数</p>
-<p>—— 翻译: 用噪声 <span class="math inline">x_s</span> 而不是干净 <span class="math inline">x_0</span> 当条件, 估计 score 时多出一个 <span class="math inline">d\cdot\kappa(s,t)</span> 的 trace 方差 (其中 <span class="math inline">d</span> 是数据维度)。<span class="math inline">\kappa</span> 在 <span class="math inline">s \in [0, t)</span> 上严格递增, 且 <span class="math inline">\kappa(0, t) = 0</span> — 即 clean-<span class="math inline">x_0</span> 是这个家族里最低方差的那一个。</p>
-<p><strong>数值直觉:</strong> 设 <span class="math inline">t = 0.5</span>, <span class="math inline">s = 0.4</span>, 代入: <span class="math inline">\kappa \approx \frac{0.25 \cdot 0.16}{0.25(0.36 - 0.04)} = \frac{0.04}{0.08} = 0.5</span>。如果 latent 维度 <span class="math inline">d \approx 10000</span>, 多出来 5000 的 trace 方差 — 不小。这就是 DDPO &quot;理论上对、实际上慢&quot; 的根本原因。</p>
+<p>—— 翻译: 用噪声 <span class="math inline">\(x_s\)</span> 而不是干净 <span class="math inline">\(x_0\)</span> 当条件, 估计 score 时多出一个 <span class="math inline">\(d\cdot\kappa(s,t)\)</span> 的 trace 方差 (其中 <span class="math inline">\(d\)</span> 是数据维度)。<span class="math inline">\(\kappa\)</span> 在 <span class="math inline">\(s \in [0, t)\)</span> 上严格递增, 且 <span class="math inline">\(\kappa(0, t) = 0\)</span> — 即 clean-<span class="math inline">\(x_0\)</span> 是这个家族里最低方差的那一个。</p>
+<p><strong>数值直觉:</strong> 设 <span class="math inline">\(t = 0.5\)</span>, <span class="math inline">\(s = 0.4\)</span>, 代入: <span class="math inline">\(\kappa \approx \frac{0.25 \cdot 0.16}{0.25(0.36 - 0.04)} = \frac{0.04}{0.08} = 0.5\)</span>。如果 latent 维度 <span class="math inline">\(d \approx 10000\)</span>, 多出来 5000 的 trace 方差 — 不小。这就是 DDPO &quot;理论上对、实际上慢&quot; 的根本原因。</p>
 <figure>
       <img class="zoomable" alt="EDM 实验: 用 noisy DSM 训练扩散模型, FID 收敛更慢" src="figures/fig3-edm-fid.png">
       <figcaption>Fig. 3 — 用 EDM 框架 (Karras 2022) 把"噪声 DSM"接进去做对照实验: 同样结构、同样 schedule、同样 batch, 用 $x_s$ 当条件 vs. $x_0$ 当条件。在 CIFAR-10 和 ImageNet-64 上, noisy-DSM 始终 FID 更高、收敛更慢。Theorem 2 的预测得到验证。</figcaption>
     </figure>
 <h3 id="sec-2-5">2.4 AWM 目标函数</h3>
-<p>既然 noisy-conditioning 是病根, AWM 的处方是: <strong>把 RL surrogate 换成 clean-<span class="math inline">x_0</span> 的 flow matching loss</strong>, 即预训练用的那个 — 然后把它当作 sequence-level policy <span class="math inline">\log\pi_\theta(x_0\mid c)</span> 的 ELBO surrogate, 嵌入 GRPO 的 ratio × advantage 框架。</p>
+<p>既然 noisy-conditioning 是病根, AWM 的处方是: <strong>把 RL surrogate 换成 clean-<span class="math inline">\(x_0\)</span> 的 flow matching loss</strong>, 即预训练用的那个 — 然后把它当作 sequence-level policy <span class="math inline">\(\log\pi_\theta(x_0\mid c)\)</span> 的 ELBO surrogate, 嵌入 GRPO 的 ratio × advantage 框架。</p>
 <p>问题重新表述 (paper §4):</p>
 <table style="margin: 1em 0; border-collapse: collapse;">
       <tbody><tr><th></th><th>DDPO 的 setup</th><th>AWM 的 setup</th></tr>
@@ -132,12 +132,12 @@
       <tr><td>Policy</td><td>$\pi(a_t\mid s_t) = p_\theta(x_{t-1}\mid x_t,c)$</td><td>$\pi(a\mid s) = p_\theta(x_0\mid c)$</td></tr>
     </tbody></table>
 <p>—— DDPO 把 sampler 内部展开成 MDP; AWM 把 sampler 当成黑盒, 只看 input prompt → output image。</p>
-<p>把 <span class="math inline">\log \pi_\theta(x_0 \mid c)</span> 用 flow matching ELBO 替换:</p>
-<p>—— 翻译: 把 &quot;生成 <span class="math inline">x_0</span> 的对数概率&quot; 近似成 &quot;flow matching 损失的负值&quot;。<span class="math inline">w(t)</span> 是时间权重, 论文 §4 后面给出他们的发现: <span class="math inline">w(t)=1</span> (uniform) 在实践中最好。</p>
+<p>把 <span class="math inline">\(\log \pi_\theta(x_0 \mid c)\)</span> 用 flow matching ELBO 替换:</p>
+<p>—— 翻译: 把 &quot;生成 <span class="math inline">\(x_0\)</span> 的对数概率&quot; 近似成 &quot;flow matching 损失的负值&quot;。<span class="math inline">\(w(t)\)</span> 是时间权重, 论文 §4 后面给出他们的发现: <span class="math inline">\(w(t)=1\)</span> (uniform) 在实践中最好。</p>
 <p>于是 GRPO ratio 就可以用这个 ELBO surrogate 估:</p>
-<p>注意 trick: 论文里特别强调, 计算 ratio 用的 timesteps 和 noise 必须在 <span class="math inline">\pi_\theta</span> 和 <span class="math inline">\pi_{\theta_{\text{old}}}</span> 之间共享 — 这是 variance reduction 的关键 (借鉴 LLaDA 1.5)。否则两个 estimator 之间的额外噪声会把 ratio 信号淹没。</p>
+<p>注意 trick: 论文里特别强调, 计算 ratio 用的 timesteps 和 noise 必须在 <span class="math inline">\(\pi_\theta\)</span> 和 <span class="math inline">\(\pi_{\theta_{\text{old}}}\)</span> 之间共享 — 这是 variance reduction 的关键 (借鉴 LLaDA 1.5)。否则两个 estimator 之间的额外噪声会把 ratio 信号淹没。</p>
 <p>KL 项也在 velocity 空间里写:</p>
-<p>—— 翻译: 把 KL 用&quot;两个 velocity 网络在同一 <span class="math inline">(x_t,t)</span> 上的输出差&quot; 来近似 — 一个干净的 L2 项, 比标准 KL 估计稳定得多。</p>
+<p>—— 翻译: 把 KL 用&quot;两个 velocity 网络在同一 <span class="math inline">\((x_t,t)\)</span> 上的输出差&quot; 来近似 — 一个干净的 L2 项, 比标准 KL 估计稳定得多。</p>
 <h3 id="sec-2-6">2.5 AWM 算法</h3>
 <p>论文 Algorithm 1 极其紧凑, 我把它逐行翻译:</p>
 <pre><code class="language-python">for i in range(num_training_steps):
@@ -258,16 +258,16 @@ loss = policy_loss + beta*kl_loss + ema_beta*ema_kl_loss
 <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
 <p>下面这些是代码里跑通的细节, 但论文 §5 里没充分讨论 — 想复现的话每一条都得读一遍:</p>
 <ul>
-<li><strong>核心超参 (SD3.5-M GenEval):</strong> LoRA <span class="math inline">r=32, \alpha=64</span>; lr <span class="math inline">3\!\times\!10^{-4}</span> (const); group size <span class="math inline">G=24</span>; <code>train_timesteps=6</code> (注意: 论文 §5 说 &quot;total train timesteps of 4&quot;, 代码默认是 6 — 差 50%); <code>sample.num_steps=14</code> 训练时采样, <code>eval_num_steps=40</code> 评估时采样, 这就是论文说的&quot;decouple sampling/training&quot;. <code>repo/advantage_weighted_matching/config/dgx_awm.py:L37–L56</code></li>
-<li><strong><span class="math inline">\beta</span> 跟论文不一致:</strong> 论文 §5 开头说 &quot;<span class="math inline">\beta = 0.4</span> for GenEval and OCR, <span class="math inline">\beta = 0.01</span> for PickScore&quot;。实际代码默认: GenEval <code>beta=0.001</code>, OCR <code>beta=0.003</code>, PickScore <code>beta=0.0001</code> — <em>整整差 2–3 个数量级</em>。这是一个明显的论文 ↔ 代码 gap。猜测论文的 <span class="math inline">\beta</span> 是早期实验的、未更新到 release 配置里, 或者论文的 <span class="math inline">\beta</span> 对应另一种 KL 权重 (ELBO vs Uniform) 下的等效值, 但作者没说清。<code>repo/advantage_weighted_matching/config/dgx_awm.py:L55,L194,L333</code></li>
-<li><strong>w(t) 实际默认不是 uniform:</strong> 论文 §4 明确说 &quot;uniform weight <span class="math inline">w(t)=1</span> works better&quot;, 但 release 配置里 <code>weighting='ghuber'</code>, <code>ghuber_power=0.25</code> — 一种乘以 <span class="math inline">t</span> 的广义 Huber 权重 (<span class="math inline">\propto t \cdot \mathrm{MSE}^{0.25}</span>)。这跟论文最后定下的&quot;uniform&quot;叙事矛盾。如果你按论文设 <code>weighting='Uniform'</code>, 复现到的 speedup 可能比 24× 小。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L240–L249</code></li>
+<li><strong>核心超参 (SD3.5-M GenEval):</strong> LoRA <span class="math inline">\(r=32, \alpha=64\)</span>; lr <span class="math inline">\(3\!\times\!10^{-4}\)</span> (const); group size <span class="math inline">\(G=24\)</span>; <code>train_timesteps=6</code> (注意: 论文 §5 说 &quot;total train timesteps of 4&quot;, 代码默认是 6 — 差 50%); <code>sample.num_steps=14</code> 训练时采样, <code>eval_num_steps=40</code> 评估时采样, 这就是论文说的&quot;decouple sampling/training&quot;. <code>repo/advantage_weighted_matching/config/dgx_awm.py:L37–L56</code></li>
+<li><strong><span class="math inline">\(\beta\)</span> 跟论文不一致:</strong> 论文 §5 开头说 &quot;<span class="math inline">\(\beta = 0.4\)</span> for GenEval and OCR, <span class="math inline">\(\beta = 0.01\)</span> for PickScore&quot;。实际代码默认: GenEval <code>beta=0.001</code>, OCR <code>beta=0.003</code>, PickScore <code>beta=0.0001</code> — <em>整整差 2–3 个数量级</em>。这是一个明显的论文 ↔ 代码 gap。猜测论文的 <span class="math inline">\(\beta\)</span> 是早期实验的、未更新到 release 配置里, 或者论文的 <span class="math inline">\(\beta\)</span> 对应另一种 KL 权重 (ELBO vs Uniform) 下的等效值, 但作者没说清。<code>repo/advantage_weighted_matching/config/dgx_awm.py:L55,L194,L333</code></li>
+<li><strong>w(t) 实际默认不是 uniform:</strong> 论文 §4 明确说 &quot;uniform weight <span class="math inline">\(w(t)=1\)</span> works better&quot;, 但 release 配置里 <code>weighting='ghuber'</code>, <code>ghuber_power=0.25</code> — 一种乘以 <span class="math inline">\(t\)</span> 的广义 Huber 权重 (<span class="math inline">\(\propto t \cdot \mathrm{MSE}^{0.25}\)</span>)。这跟论文最后定下的&quot;uniform&quot;叙事矛盾。如果你按论文设 <code>weighting='Uniform'</code>, 复现到的 speedup 可能比 24× 小。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L240–L249</code></li>
 <li><strong>PPO clip 没有&quot;omit&quot;:</strong> 论文 Eq. 9 后面写 &quot;For simplicity, we omit the clip operation here&quot;。但代码里有标准 PPO clip, 默认 <code>clip_range=1.0</code> (相当宽松, 几乎不裁), 但 <code>train_sd3_awm.py:L1318–L1325</code> 里 unclipped/clipped 都算。clip_range 这个量级 (1.0) 跟标准 PPO (0.1–0.2) 差很多, 实际上是 &quot;假装有 clip 但不真 clip&quot;。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1318–L1325</code></li>
 <li><strong>EMA 自蒸馏 — 论文未提的关键组件:</strong> 默认所有 SD3.5-M 配置都开了 <code>ema=True</code>, <code>ema_beta=1.0</code> (跟主 KL 同权), <code>ema_decay=0.99</code>。第三个 L2 项 <code>‖v_θ - v_ema‖²</code> 跟 ref-KL 量级一样, 等于又加了一层蒸馏式正则。Algorithm 1 里没出现。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1341–L1349</code></li>
 <li><strong>std_dev_t 里的 0.7:</strong> <code>std_dev_t = sqrt(t/(1-clamp(t,0,0.99))) * 0.7</code> — 这个 0.7 没有理论出处, 也不在论文里讨论。它只在 <code>kl_weight=='ELBO'</code> 分支里参与 (做分母), uniform 分支不用。可能是经验校准。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L236</code></li>
-<li><strong>共享 noise/timesteps 做 variance reduction:</strong> 论文提了一嘴 (&quot;shared timesteps and noise for <span class="math inline">\pi_\theta</span> and <span class="math inline">\pi_{\theta_{\text{old}}}</span> from LLaDA 1.5&quot;), 但其重要性被低估 — 如果 current/old 用不同 noise, ratio 估计的方差会爆炸, 整个 AWM 就回退到 &quot;noisy ELBO ratio&quot; 的灾难场景。代码里通过把 noised_latents、timesteps 在两次 forward 之间复用来实现。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1232–L1268</code></li>
+<li><strong>共享 noise/timesteps 做 variance reduction:</strong> 论文提了一嘴 (&quot;shared timesteps and noise for <span class="math inline">\(\pi_\theta\)</span> and <span class="math inline">\(\pi_{\theta_{\text{old}}}\)</span> from LLaDA 1.5&quot;), 但其重要性被低估 — 如果 current/old 用不同 noise, ratio 估计的方差会爆炸, 整个 AWM 就回退到 &quot;noisy ELBO ratio&quot; 的灾难场景。代码里通过把 noised_latents、timesteps 在两次 forward 之间复用来实现。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1232–L1268</code></li>
 <li><strong>&quot;exp_first&quot; vs &quot;sum_first&quot; loss type:</strong> 代码提供两种 ratio 聚合方式 — exp_first 在每个 (sample, timestep) 上单独算 ratio, sum_first 在每个 sample 上把所有 timesteps 的 log_p 平均后再 exp。默认 <code>exp_first</code> — 即&quot;每个时间步当成一个独立 transition&quot;, 而不是按 sequence-level policy 严格写。这跟 §4 的 &quot;sequence-level conditional policy&quot; 叙事有微妙不一致。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1301–L1310</code></li>
 <li><strong>时间步采样: discrete + shift:</strong> 默认 <code>time_type='discrete_wo_init'</code>, <code>time_shift=3.0</code>。论文 Fig. 7a 比较了 discrete / uniform / logit-normal, 选了 discrete; 但 <code>time_shift=3.0</code> 这个 SD3 系列特有的 shift 参数没在正文出现。这个 shift 影响时间步在 high-noise 区的密度, 对 RL 阶段的 reward 信号 sensitivity 不算小。<code>repo/advantage_weighted_matching/config/dgx_awm.py:L88–L89</code></li>
-<li><strong>advantage 双重 clamp:</strong> 先 <code>torch.clamp(adv, -5, 5)</code> (<code>adv_clip_max=5</code>), 再 <code>adv / 5 * advantage_max</code> (<code>advantage_max=1</code>), 等于把 advantage 归到 <span class="math inline">[-1, 1]</span>。这是 PPO 实践里&quot;防止 reward 量级失控&quot;的标准操作。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1293–L1299</code></li>
+<li><strong>advantage 双重 clamp:</strong> 先 <code>torch.clamp(adv, -5, 5)</code> (<code>adv_clip_max=5</code>), 再 <code>adv / 5 * advantage_max</code> (<code>advantage_max=1</code>), 等于把 advantage 归到 <span class="math inline">\([-1, 1]\)</span>。这是 PPO 实践里&quot;防止 reward 量级失控&quot;的标准操作。<code>repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1293–L1299</code></li>
 </ul>
 <p>顺手贴一下&quot;四项 loss 装配&quot;代码 — 这是 §3 Algorithm 1 在 release 代码里的真身:</p>
 <p class="code-source">repo/advantage_weighted_matching/scripts/train_sd3_awm.py:L1330–L1354 — 最终 loss 装配</p>
@@ -298,7 +298,7 @@ else:
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">优点</h3>
 <ul>
-<li><strong>理论桥真的搭起来了。</strong> Theorem 1 给出 &quot;DDPO = noisy DSM&quot; 的精确等价, Theorem 2 量化了多出来的 <span class="math inline">d\cdot\kappa(s,t)</span> 方差。这是这类 RL 工作里少见的 &quot;先解释清楚 baseline 在干什么, 再提改进&quot; 的姿势 — 比 &quot;我们换了个 loss 性能上去了&quot; 信息量大很多。</li>
+<li><strong>理论桥真的搭起来了。</strong> Theorem 1 给出 &quot;DDPO = noisy DSM&quot; 的精确等价, Theorem 2 量化了多出来的 <span class="math inline">\(d\cdot\kappa(s,t)\)</span> 方差。这是这类 RL 工作里少见的 &quot;先解释清楚 baseline 在干什么, 再提改进&quot; 的姿势 — 比 &quot;我们换了个 loss 性能上去了&quot; 信息量大很多。</li>
 <li><strong>解耦 sampling 和 training 是真的有用。</strong> AWM 不绑定 Euler-Maruyama, 可以用 14 步采样 + 6 步训练, 也能换更快的 ODE solver (SA-Solver、DPM-Solver)。Flow-GRPO 因为要在每一步 sampler 里算 likelihood, 这条路被 lock 死了。</li>
 <li><strong>EDM 上的 ablation 干净利落。</strong> Figure 3 是 hard control: 同样架构、同样 schedule、只换条件变量。FID 差距清晰。这种 &quot;把理论假设单独 isolate 出来验证&quot; 的实验设计, 比直接在 SD3.5-M 上对比说服力强很多。</li>
 <li><strong>速度数字够极端。</strong> 8–24× 不是 1.x× 那种&quot;在 noise floor 内&quot;的优势, 是质变级别的。即使有部分来自工程优化, 主张 &quot;我们更快&quot; 的余量很大。</li>
@@ -306,10 +306,10 @@ else:
 </ul>
 <h3 id="sec-5-2">不足 / 疑点</h3>
 <ul>
-<li><strong>论文 vs 代码的关键超参不一致。</strong> §4-Implementation Notes 里列了至少 5 条, 最严重的是 <span class="math inline">\beta</span> 差 100-1000×, <span class="math inline">w(t)</span> 用 ghuber 而不是 uniform, EMA 自蒸馏在论文里完全不存在。这意味着 release 版的 &quot;24× speedup&quot; 是 <em>AWM 框架 + 一堆未公开的工程 trick</em> 共同的结果, 不是 §4 那个干净算法的结果。</li>
+<li><strong>论文 vs 代码的关键超参不一致。</strong> §4-Implementation Notes 里列了至少 5 条, 最严重的是 <span class="math inline">\(\beta\)</span> 差 100-1000×, <span class="math inline">\(w(t)\)</span> 用 ghuber 而不是 uniform, EMA 自蒸馏在论文里完全不存在。这意味着 release 版的 &quot;24× speedup&quot; 是 <em>AWM 框架 + 一堆未公开的工程 trick</em> 共同的结果, 不是 §4 那个干净算法的结果。</li>
 <li><strong>对 Flow-GRPO baseline 是否调到位有疑问。</strong> Flow-GRPO 的 415.9 GPU hours 是其默认配置, 但 AWM 在自家配置上做了 EMA、ghuber、advantage clamp、time shift 等工程加成。如果给 Flow-GRPO 同等工程预算, 速度差距会缩多少没有讨论。</li>
 <li><strong>&quot;24×&quot; 这个数字 cherry-picky.</strong> 它是 SD3.5-M OCR 上的最大值 (23.59×), 其他组合 (FLUX OCR 8.5×, FLUX PickScore 6.8×) 大体在 6–10× 区间。Title/Abstract 用 &quot;up to 24×&quot; 没错, 但容易让人误以为是 typical 值。</li>
-<li><strong>方差分析是 vacuum 里的, 没量化到 wall-clock。</strong> Theorem 2 说 noisy-DSM 多 <span class="math inline">d\cdot\kappa(s,t)</span> 的 trace 方差。但 RL 阶段的实际 gradient signal-to-noise 还受 reward variance、advantage 量级、KL 强度多重影响。论文没告诉你&quot;方差减小 X% → 收敛快 Y×&quot;的桥, 只能定性归因。</li>
+<li><strong>方差分析是 vacuum 里的, 没量化到 wall-clock。</strong> Theorem 2 说 noisy-DSM 多 <span class="math inline">\(d\cdot\kappa(s,t)\)</span> 的 trace 方差。但 RL 阶段的实际 gradient signal-to-noise 还受 reward variance、advantage 量级、KL 强度多重影响。论文没告诉你&quot;方差减小 X% → 收敛快 Y×&quot;的桥, 只能定性归因。</li>
 <li><strong>&quot;AWM 跟预训练 unified&quot;的卖点偏强。</strong> 严格说, AWM 的 ratio 用了 stop-grad trick (<code>exp(log_p - log_p.detach())</code>) 把 policy gradient 形式还原出来, 这跟 pretraining 那个标准 MSE loss 还是不一样的优化对象。&quot;loss 一样&quot; 的说法成立, &quot;优化器看到的目标一样&quot; 不成立。</li>
 <li><strong>没和 ReFL / DRaFT / DPO 系列定量对比。</strong> 文章把它们写在 Related Work 里 (§2.1.1, §2.1.3), 但 Table 1/2 只跟 Flow-GRPO 对比。读者无法判断 &quot;在 differentiable reward 场景下 ReFL 是不是更快&quot;。</li>
 <li><strong>FLUX 上的 saturation 现象没讨论。</strong> Table 2 里 FLUX PickScore 是 23.08 vs 23.08 (完全打平), AWM 的优势只在 GPU hours 上。可能 PickScore 这个 reward 在 FLUX 上已经接近 ceiling, 但论文没分析这一点 — 反而把它跟 &quot;8.5× speedup&quot; 并列展示。</li>

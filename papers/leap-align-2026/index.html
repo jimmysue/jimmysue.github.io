@@ -85,12 +85,12 @@
 </ul>
 <p>但 direct-gradient 有个硬约束:25 步 (或更多) 的长链 backward 会导致:</p>
 <ol>
-<li><strong>显存爆炸:</strong> 每一步的激活都要存,<span class="math inline">\partial x_0/\partial \theta</span> 沿着 25 步链展开。</li>
+<li><strong>显存爆炸:</strong> 每一步的激活都要存,<span class="math inline">\(\partial x_0/\partial \theta\)</span> 沿着 25 步链展开。</li>
 <li><strong>梯度爆炸:</strong> 多步乘积,数值不稳。</li>
 </ol>
 <p>现有 direct-gradient 方法的&quot;折中&quot;都不完美:</p>
 <ul>
-<li><strong>ReFL (Xu et al. 2023):</strong> 只在轨迹末端选 1 个时步,用 1-step leap 估计 <span class="math inline">\hat x_0</span>,在 <span class="math inline">\hat x_0</span> 上算 reward,只更新这一步。无法更新早期步。</li>
+<li><strong>ReFL (Xu et al. 2023):</strong> 只在轨迹末端选 1 个时步,用 1-step leap 估计 <span class="math inline">\(\hat x_0\)</span>,在 <span class="math inline">\(\hat x_0\)</span> 上算 reward,只更新这一步。无法更新早期步。</li>
 <li><strong>DRaFT-LV (Clark et al. 2023):</strong> 只更新最后一步,通过多次加噪+平均降方差。同样无法更新早期。</li>
 <li><strong>DRTune (Wu et al. 2023):</strong> 可以更新多步,但在每步的模型输入处 stop_gradient — 这相当于<em>砍掉了 nested gradient 项</em> (跨步交互),信息丢失严重。</li>
 </ul>
@@ -99,7 +99,7 @@
       <img class="zoomable" alt="Table 1: comparison of direct-gradient methods" src="figures/tab1-method-comparison.png">
       <figcaption>Tab. 1 — Direct-gradient 方法对比。LeapAlign 是<em>唯一</em>四个属性 (Early Steps / Nested Gradient / Leap Trajectory / Multi-Step) 全部满足的方法。</figcaption>
     </figure>
-<p>LeapAlign 的 TL;DR 思路:<strong>&quot;我不 backprop 整条 25 步链,我从中随机挑出 2 步,只在这 2 步上 backprop。&quot;</strong> 通过精心的 stop_gradient 设计,前向用真实轨迹 <span class="math inline">x_0</span> 算 reward,反向只走两步,可以 update 任何位置的步。</p>
+<p>LeapAlign 的 TL;DR 思路:<strong>&quot;我不 backprop 整条 25 步链,我从中随机挑出 2 步,只在这 2 步上 backprop。&quot;</strong> 通过精心的 stop_gradient 设计,前向用真实轨迹 <span class="math inline">\(x_0\)</span> 算 reward,反向只走两步,可以 update 任何位置的步。</p>
 <figure>
       <img class="zoomable" alt="Performance overview" src="figures/fig1-overview.png">
       <figcaption>Fig. 1 — (a) 在组合性 alignment 上 LeapAlign 收敛比 DRTune 快且最终 reward 更高;(b) 6 个 evaluator (HPSv2.1, HPSv3, PickScore, UnifiedReward Align/IQ, ImageReward) 全面领先;(c) GenEval 6 个子任务,Attribute Binding 这种需要早期 layout 控制的任务上提升尤其明显 (66 vs base 45)。</figcaption>
@@ -117,42 +117,42 @@
       <figcaption>Fig. 2 — 总体流程。$x_1$ 是初始噪声,$x_0$ 是最终图。黑色实线是正常 25 步 ODE 采样 (在 <code>no_grad</code> 下跑)。蓝色实线是两个 "leap" — $\hat x_{j\mid k} = x_k - (k-j) v_\theta(x_k)$ 和 $\hat x_{0\mid j} = x_j - j v_\theta(x_j)$。橘色虚线是 "latent connector" — 把 $\hat x$ 与真实 $x$ 通过 stop_gradient 拼起来。Reward 算在<em>真实</em> $x_0$ 上,梯度只通过紫色虚线 (leap trajectory) 反传。</figcaption>
     </figure>
 <h3 id="sec-2-2">2.1 Flow Matching 基础</h3>
-<p>Flow matching (Lipman et al. 2023; Liu et al. 2022) 学连续速度场 <span class="math inline">v_\theta(x_t, t)</span>,把噪声 <span class="math inline">x_1 \sim \mathcal N(0, I)</span> 映回数据 <span class="math inline">x_0 \sim p_{\text{data}}</span>:</p>
-<p>在<em>rectified flow</em> 下取线性 <span class="math inline">\alpha_t = 1-t,\ \beta_t = t</span>,速度场 <span class="math inline">v = x_1 - x_0</span> 是<em>常向量</em>。</p>
-<p><strong>One-step leap prediction (论文 Eq. 3):</strong> 从时步 <span class="math inline">k</span> 直接预测时步 <span class="math inline">j</span> 的潜变量:</p>
-<p>这是欧拉法 (Euler) 把 <span class="math inline">k</span> 到 <span class="math inline">j</span> 的所有中间步用<em>一次</em>速度估计跨过去 — 在长链上这是粗略近似,但在 leap trajectory 里只用来构造可微连接,精度通过 latent connector 修正。</p>
+<p>Flow matching (Lipman et al. 2023; Liu et al. 2022) 学连续速度场 <span class="math inline">\(v_\theta(x_t, t)\)</span>,把噪声 <span class="math inline">\(x_1 \sim \mathcal N(0, I)\)</span> 映回数据 <span class="math inline">\(x_0 \sim p_{\text{data}}\)</span>:</p>
+<p>在<em>rectified flow</em> 下取线性 <span class="math inline">\(\alpha_t = 1-t,\ \beta_t = t\)</span>,速度场 <span class="math inline">\(v = x_1 - x_0\)</span> 是<em>常向量</em>。</p>
+<p><strong>One-step leap prediction (论文 Eq. 3):</strong> 从时步 <span class="math inline">\(k\)</span> 直接预测时步 <span class="math inline">\(j\)</span> 的潜变量:</p>
+<p>这是欧拉法 (Euler) 把 <span class="math inline">\(k\)</span> 到 <span class="math inline">\(j\)</span> 的所有中间步用<em>一次</em>速度估计跨过去 — 在长链上这是粗略近似,但在 leap trajectory 里只用来构造可微连接,精度通过 latent connector 修正。</p>
 <h3 id="sec-2-3">2.2 Leap Trajectory 构造 (论文 §4.2)</h3>
 <p>每个 iteration:</p>
 <ol>
-<li>从噪声 <span class="math inline">x_1</span> 跑完整 25 步 ODE 采样得到 <span class="math inline">x_0</span> (<strong>整条用 <code>no_grad</code></strong>,但 <span class="math inline">x_k, x_j, x_0</span> 这三个状态保留下来)。</li>
-<li>随机抽 <span class="math inline">k, j \in [0, 1]</span>,<span class="math inline">k &gt; j</span>。</li>
+<li>从噪声 <span class="math inline">\(x_1\)</span> 跑完整 25 步 ODE 采样得到 <span class="math inline">\(x_0\)</span> (<strong>整条用 <code>no_grad</code></strong>,但 <span class="math inline">\(x_k, x_j, x_0\)</span> 这三个状态保留下来)。</li>
+<li>随机抽 <span class="math inline">\(k, j \in [0, 1]\)</span>,<span class="math inline">\(k &gt; j\)</span>。</li>
 <li>构造两个 one-step leap:
-$<span class="math inline">\hat x_{j\mid k} = x_k - (k - j) v_\theta(x_k) \quad (4)</span><span class="math inline"></span><span class="math inline">\hat x_{0\mid j} = x_j - j\, v_\theta(x_j) \quad (5)</span>$</li>
+$<span class="math inline">\(\hat x_{j\mid k} = x_k - (k - j) v_\theta(x_k) \quad (4)\)</span><span class="math inline">\(\)</span><span class="math inline">\(\hat x_{0\mid j} = x_j - j\, v_\theta(x_j) \quad (5)\)</span>$</li>
 <li><strong>Latent connector — 关键 trick:</strong>
-$<span class="math inline">x_j = \hat x_{j\mid k} + \text{sg}(x_j - \hat x_{j\mid k}) \quad (6)</span><span class="math inline"></span><span class="math inline">x_0 = \hat x_{0\mid j} + \text{sg}(x_0 - \hat x_{0\mid j}) \quad (7)</span><span class="math inline">&lt;p&gt;前向看:</span>x_j<span class="math inline">的&lt;em&gt;值&lt;/em&gt;仍然等于真实 ODE 采样得到的</span>x_j<span class="math inline">(因为</span>\hat x_{j\mid k} + (x_j - \hat x_{j\mid k}) = x_j<span class="math inline">)。但反向看:梯度只能流过</span>\hat x_{j\mid k}<span class="math inline">这一项 (</span>\text{sg}<span class="math inline">截断了</span>(x_j - \hat x_{j\mid k})$ 的梯度)。<strong>这就是&quot;forward 用真实状态、backward 只走两步&quot;的实现机制。</strong></p></li>
+$<span class="math inline">\(x_j = \hat x_{j\mid k} + \text{sg}(x_j - \hat x_{j\mid k}) \quad (6)\)</span><span class="math inline">\(\)</span><span class="math inline">\(x_0 = \hat x_{0\mid j} + \text{sg}(x_0 - \hat x_{0\mid j}) \quad (7)\)</span><span class="math inline">\(&lt;p&gt;前向看:\)</span>x_j<span class="math inline">\(的&lt;em&gt;值&lt;/em&gt;仍然等于真实 ODE 采样得到的\)</span>x_j<span class="math inline">\((因为\)</span>\hat x_{j\mid k} + (x_j - \hat x_{j\mid k}) = x_j<span class="math inline">\()。但反向看:梯度只能流过\)</span>\hat x_{j\mid k}<span class="math inline">\(这一项 (\)</span>\text{sg}<span class="math inline">\(截断了\)</span>(x_j - \hat x_{j\mid k})$ 的梯度)。<strong>这就是&quot;forward 用真实状态、backward 只走两步&quot;的实现机制。</strong></p></li>
 </ol>
 <p>论文用一句紧凑的箭头表示:</p>
-<p>实线箭头是 leap (走 <span class="math inline">v_\theta</span>),虚线箭头是 latent connector (stop_gradient)。<strong>backward 只展开 2 步</strong>,显存 O(1),还能更新任何 <span class="math inline">(k, j)</span>。</p>
+<p>实线箭头是 leap (走 <span class="math inline">\(v_\theta\)</span>),虚线箭头是 latent connector (stop_gradient)。<strong>backward 只展开 2 步</strong>,显存 O(1),还能更新任何 <span class="math inline">\((k, j)\)</span>。</p>
 <h3 id="sec-2-4">2.3 梯度分解 + 折扣 (论文 §4.3)</h3>
-<p>把 <span class="math inline">\partial x_0 / \partial \theta</span> 沿 leap trajectory 展开 (论文 Eq. 8,Appendix G 推导):</p>
+<p>把 <span class="math inline">\(\partial x_0 / \partial \theta\)</span> 沿 leap trajectory 展开 (论文 Eq. 8,Appendix G 推导):</p>
 <p>三项含义:</p>
 <ul>
 <li>前两项 (&quot;single-step gradients&quot;):各自来自一个 leap,DRTune 也有这两项。</li>
-<li>第三项 (&quot;nested gradient&quot;):<span class="math inline">v_\theta(x_j)</span> 对 <span class="math inline">x_j</span> 的偏导 × <span class="math inline">v_\theta(x_k)</span> 对 <span class="math inline">\theta</span> 的偏导 — 捕捉<em>跨时步</em>的交互。直觉上:&quot;我在 <span class="math inline">k</span> 步动了模型一下,影响了 <span class="math inline">x_j</span>,然后这个 <span class="math inline">x_j</span> 又影响了 <span class="math inline">v_\theta(x_j)</span>,最后影响 <span class="math inline">x_0</span>&quot;。<strong>DRTune 把这一项整个砍掉了</strong> (通过 stop_gradient at model input)。</li>
+<li>第三项 (&quot;nested gradient&quot;):<span class="math inline">\(v_\theta(x_j)\)</span> 对 <span class="math inline">\(x_j\)</span> 的偏导 × <span class="math inline">\(v_\theta(x_k)\)</span> 对 <span class="math inline">\(\theta\)</span> 的偏导 — 捕捉<em>跨时步</em>的交互。直觉上:&quot;我在 <span class="math inline">\(k\)</span> 步动了模型一下,影响了 <span class="math inline">\(x_j\)</span>,然后这个 <span class="math inline">\(x_j\)</span> 又影响了 <span class="math inline">\(v_\theta(x_j)\)</span>,最后影响 <span class="math inline">\(x_0\)</span>&quot;。<strong>DRTune 把这一项整个砍掉了</strong> (通过 stop_gradient at model input)。</li>
 </ul>
-<p>论文观察:nested gradient 是真有用,但<em>整项保留</em>又容易爆。所以引入<strong>gradient discounting factor <span class="math inline">\alpha \in [0, 1]</span></strong>,把 nested 项乘 <span class="math inline">\alpha</span> 缩小:</p>
-<p>这一步实现非常巧妙。前向看 <span class="math inline">\alpha x_j + (1-\alpha) \text{sg}(x_j) = x_j</span> — 没有任何数值改变。反向看:<span class="math inline">\partial / \partial x_j</span> 这条链路只收到 <span class="math inline">\alpha</span> 倍的梯度 (<span class="math inline">\text{sg}</span> 那一支不传梯度)。结果是 nested gradient 乘 <span class="math inline">\alpha</span>:</p>
-<p>消融 (Fig. 4a) 显示 <span class="math inline">\alpha = 0.3</span> 最优,<span class="math inline">\alpha = 0</span> (DRTune 等价) 和 <span class="math inline">\alpha = 1</span> (整项保留) 都更差。**&quot;不删,缩小&quot;**是论文工程上的核心 trick。</p>
+<p>论文观察:nested gradient 是真有用,但<em>整项保留</em>又容易爆。所以引入<strong>gradient discounting factor <span class="math inline">\(\alpha \in [0, 1]\)</span></strong>,把 nested 项乘 <span class="math inline">\(\alpha\)</span> 缩小:</p>
+<p>这一步实现非常巧妙。前向看 <span class="math inline">\(\alpha x_j + (1-\alpha) \text{sg}(x_j) = x_j\)</span> — 没有任何数值改变。反向看:<span class="math inline">\(\partial / \partial x_j\)</span> 这条链路只收到 <span class="math inline">\(\alpha\)</span> 倍的梯度 (<span class="math inline">\(\text{sg}\)</span> 那一支不传梯度)。结果是 nested gradient 乘 <span class="math inline">\(\alpha\)</span>:</p>
+<p>消融 (Fig. 4a) 显示 <span class="math inline">\(\alpha = 0.3\)</span> 最优,<span class="math inline">\(\alpha = 0\)</span> (DRTune 等价) 和 <span class="math inline">\(\alpha = 1\)</span> (整项保留) 都更差。**&quot;不删,缩小&quot;**是论文工程上的核心 trick。</p>
 <h3 id="sec-2-5">2.4 Loss + 轨迹相似加权 (论文 §4.4, §4.5)</h3>
 <p><strong>Hinge-style reward loss (Eq. 11):</strong></p>
-<p><span class="math inline">r(\cdot)</span> 是 reward model (默认 HPSv2.1),<span class="math inline">\lambda</span> 是阈值 (论文设 0.55)。超过阈值后停止施压,防 reward hacking。<u>注意</u>:reward 算在<em>真实</em> <span class="math inline">x_0</span> 上,不是 leap 估计的 <span class="math inline">\hat x_{0\mid j}</span> — 这跟 ReFL 不同 (ReFL 在 <span class="math inline">\hat x_0</span> 上算 reward)。论文论证:<span class="math inline">\hat x_0</span> 可能模糊有 artifact,reward 评估不可靠;<span class="math inline">x_0</span> 来自完整 25 步推理,质量真实。</p>
+<p><span class="math inline">\(r(\cdot)\)</span> 是 reward model (默认 HPSv2.1),<span class="math inline">\(\lambda\)</span> 是阈值 (论文设 0.55)。超过阈值后停止施压,防 reward hacking。<u>注意</u>:reward 算在<em>真实</em> <span class="math inline">\(x_0\)</span> 上,不是 leap 估计的 <span class="math inline">\(\hat x_{0\mid j}\)</span> — 这跟 ReFL 不同 (ReFL 在 <span class="math inline">\(\hat x_0\)</span> 上算 reward)。论文论证:<span class="math inline">\(\hat x_0\)</span> 可能模糊有 artifact,reward 评估不可靠;<span class="math inline">\(x_0\)</span> 来自完整 25 步推理,质量真实。</p>
 <p><strong>轨迹相似加权 (Eq. 12):</strong> Leap trajectory 是粗近似,如果两次 leap 离真实轨迹太远,梯度信号反而误导。论文定义两个 connection 点的近似误差:</p>
 <p>加权因子 (clamp 防止过度强调几乎相同的点):</p>
 <p>最终目标 (Eq. 13):</p>
-<p>注意 <span class="math inline">w_{\text{sim}}</span> 自身也走 stop_gradient — 它只是<em>样本权重</em>,不参与优化目标。<span class="math inline">\tau</span> 设 0.1。leap trajectory 越接近真实轨迹,权重越高,反之 down-weight。</p>
+<p>注意 <span class="math inline">\(w_{\text{sim}}\)</span> 自身也走 stop_gradient — 它只是<em>样本权重</em>,不参与优化目标。<span class="math inline">\(\tau\)</span> 设 0.1。leap trajectory 越接近真实轨迹,权重越高,反之 down-weight。</p>
 <h3 id="sec-2-6">2.5 与代码对照</h3>
 <p>LeapAlign 的代码非常干净。核心训练循环不到 200 行,把上面所有公式逐行翻译。</p>
-<p><strong>(a) 随机抽两个时步 <span class="math inline">k, j</span></strong> — 实现 Algorithm 1 的开头。</p>
+<p><strong>(a) 随机抽两个时步 <span class="math inline">\(k, j\)</span></strong> — 实现 Algorithm 1 的开头。</p>
 <p class="code-source">repo/fastvideo/train_leapalign_flux.py:L106-L168 — sample_trajectory 入口</p>
 <pre><code class="language-python">idx_bs = 2
 select_indices = (
@@ -177,7 +177,7 @@ for idx, step_t in enumerate(timesteps):
     with nullcontext() if (idx in grad_on_ind_set) else torch.no_grad():
         ...
 </code></pre>
-<p>L107-L115:从 <code>[min_idx, max_idx)</code> 区间随机抽 2 个 unique 整数,然后降序排成 <span class="math inline">(k, j)</span>。L165-L168:把这两个索引位置加入 <code>grad_on_ind_set</code>,主循环里只有这两步的 forward 在 <code>nullcontext()</code> 下跑 (梯度开启),其他 23 步都在 <code>no_grad</code> 下跑。</p>
+<p>L107-L115:从 <code>[min_idx, max_idx)</code> 区间随机抽 2 个 unique 整数,然后降序排成 <span class="math inline">\((k, j)\)</span>。L165-L168:把这两个索引位置加入 <code>grad_on_ind_set</code>,主循环里只有这两步的 forward 在 <code>nullcontext()</code> 下跑 (梯度开启),其他 23 步都在 <code>no_grad</code> 下跑。</p>
 <p><strong>(b) Latent connector + gradient discounting</strong> — 实现 Eq. 6, 9。<u>论文最核心的工程实现</u>。</p>
 <p class="code-source">repo/fastvideo/train_leapalign_flux.py:L174-L194 — latent connector @ step $j$</p>
 <pre><code class="language-python">if idx == timesteps.size(0) - select_indices[1].item():
@@ -205,8 +205,8 @@ else:
 <p>三个对照点:</p>
 <ul>
 <li><strong>L184 是 Eq. 6 的逐字翻译:</strong> <code>latents_xt = pred_xt2 + (latents_xt - pred_xt2).detach()</code> — 前向 = <code>pred_xt2 + (latents_xt - pred_xt2)</code> = <code>latents_xt</code> (真实值);反向只走 <code>pred_xt2</code> 这一支。</li>
-<li><strong>L188-L191 是 Eq. 9 的逐字翻译:</strong> <code>nested_grad_coe</code> = paper 的 <span class="math inline">\alpha</span>。前向 = <span class="math inline">\alpha \cdot x_j + (1-\alpha) \cdot x_j = x_j</span> (不变);反向只 <span class="math inline">\alpha</span> 比例传给 <span class="math inline">x_j</span> 的梯度路径,因此 nested gradient 乘 <span class="math inline">\alpha</span>。</li>
-<li><strong>L175-L182</strong> 顺手算 <span class="math inline">d_j</span> — 用于后面的 trajectory similarity weighting。</li>
+<li><strong>L188-L191 是 Eq. 9 的逐字翻译:</strong> <code>nested_grad_coe</code> = paper 的 <span class="math inline">\(\alpha\)</span>。前向 = <span class="math inline">\(\alpha \cdot x_j + (1-\alpha) \cdot x_j = x_j\)</span> (不变);反向只 <span class="math inline">\(\alpha\)</span> 比例传给 <span class="math inline">\(x_j\)</span> 的梯度路径,因此 nested gradient 乘 <span class="math inline">\(\alpha\)</span>。</li>
+<li><strong>L175-L182</strong> 顺手算 <span class="math inline">\(d_j\)</span> — 用于后面的 trajectory similarity weighting。</li>
 </ul>
 <p><strong>(c) Leap step + 最终 latent connector</strong> — 实现 Eq. 4, 5, 7。</p>
 <p class="code-source">repo/fastvideo/train_leapalign_flux.py:L195-L247 — two-leap + final connector</p>
@@ -241,9 +241,9 @@ return latents_xt, latents_pred_x0, traj_sim_weight_factor
 </code></pre>
 <p>对照点:</p>
 <ul>
-<li><strong>L208-L215:</strong> 在 <span class="math inline">k</span> 步执行 <code>jump_to_step</code> 从 <span class="math inline">x_k</span> 一跳预测 <span class="math inline">\hat x_{j\mid k}</span> — Eq. 4。同时 <code>pred = pred.detach()</code> 防止 <span class="math inline">v_\theta(x_k)</span> 被双重 backward。</li>
-<li><strong>L217-L224:</strong> 在 <span class="math inline">j</span> 步用 <code>with_pred_x0=True</code> 同时拿到 <span class="math inline">x_{j-\Delta t}</span> 和 <span class="math inline">\hat x_{0\mid j}</span> (这就是 Eq. 5)。</li>
-<li><strong>L247:</strong> 把 <span class="math inline">\hat x_{0\mid j}</span> 和真实 <span class="math inline">x_0</span> 通过 connector 拼起来 — Eq. 7。</li>
+<li><strong>L208-L215:</strong> 在 <span class="math inline">\(k\)</span> 步执行 <code>jump_to_step</code> 从 <span class="math inline">\(x_k\)</span> 一跳预测 <span class="math inline">\(\hat x_{j\mid k}\)</span> — Eq. 4。同时 <code>pred = pred.detach()</code> 防止 <span class="math inline">\(v_\theta(x_k)\)</span> 被双重 backward。</li>
+<li><strong>L217-L224:</strong> 在 <span class="math inline">\(j\)</span> 步用 <code>with_pred_x0=True</code> 同时拿到 <span class="math inline">\(x_{j-\Delta t}\)</span> 和 <span class="math inline">\(\hat x_{0\mid j}\)</span> (这就是 Eq. 5)。</li>
+<li><strong>L247:</strong> 把 <span class="math inline">\(\hat x_{0\mid j}\)</span> 和真实 <span class="math inline">\(x_0\)</span> 通过 connector 拼起来 — Eq. 7。</li>
 </ul>
 <p><strong>(d) One-step leap 实现 — Scheduler</strong></p>
 <p class="code-source">repo/fastvideo/schedulers/fm_euler_discrete_with_pred_x0.py:L25-L108 — Euler step + jump_to_step</p>
@@ -269,7 +269,7 @@ def jump_to_step(self, model_output, timestep, sample, target_idx):
     target_sample = sample + (sigma_next - sigma) * model_output         # ⟵ paper Eq. 4: x̂_{j|k} = x_k - (k-j)·v_θ(x_k)
     return target_sample
 </code></pre>
-<p>注意:<code>jump_to_step</code> 和普通 Euler step 的区别<em>只是 sigma_next 的取值</em> — 一个步进取 <code>sigmas[step_index+1]</code> (下一步),一个直接取 <code>sigmas[target_idx]</code> (跳到 <span class="math inline">j</span> 位置)。在 rectified flow 下 sigma 与 timestep 成线性关系,所以 <code>sigma_next - sigma</code> 就是 <span class="math inline">-(k-j)</span>。</p>
+<p>注意:<code>jump_to_step</code> 和普通 Euler step 的区别<em>只是 sigma_next 的取值</em> — 一个步进取 <code>sigmas[step_index+1]</code> (下一步),一个直接取 <code>sigmas[target_idx]</code> (跳到 <span class="math inline">\(j\)</span> 位置)。在 rectified flow 下 sigma 与 timestep 成线性关系,所以 <code>sigma_next - sigma</code> 就是 <span class="math inline">\(-(k-j)\)</span>。</p>
 <p><strong>(e) Hinge reward loss + trajectory similarity weighting</strong></p>
 <p class="code-source">repo/fastvideo/train_leapalign_flux.py:L251-L294 — get_reward_loss</p>
 <pre><code class="language-python">def get_reward_loss(args, latents_pred_x0, vae, reward_model, tokenizer, caption,
@@ -299,7 +299,7 @@ def jump_to_step(self, model_output, timestep, sample, target_idx):
     reward_loss = torch.mean(reward_loss)
     return reward_loss, reward_pred_x0.detach().mean()
 </code></pre>
-<p>L287 实现 Eq. 11:<code>F.relu(-r + λ)</code> = <span class="math inline">\max(0, λ - r)</span>。L289 实现 Eq. 12-13:<code>reward_loss / traj_sim_weight_factor</code> = <code>reward_loss * w_sim</code> (因为 <code>w_sim = 1 / (max(d_j, τ) + max(d_0, τ))</code>,而 <code>traj_sim_weight_factor</code> 就是分母)。</p>
+<p>L287 实现 Eq. 11:<code>F.relu(-r + λ)</code> = <span class="math inline">\(\max(0, λ - r)\)</span>。L289 实现 Eq. 12-13:<code>reward_loss / traj_sim_weight_factor</code> = <code>reward_loss * w_sim</code> (因为 <code>w_sim = 1 / (max(d_j, τ) + max(d_0, τ))</code>,而 <code>traj_sim_weight_factor</code> 就是分母)。</p>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <figure>
       <img class="zoomable" alt="Table 2: main results" src="figures/tab2-main-results.png">
@@ -327,30 +327,30 @@ def jump_to_step(self, model_output, timestep, sample, target_idx):
       <img class="zoomable" alt="Ablation grid" src="figures/fig4-ablations.png">
       <figcaption>Fig. 4 — 6 个 ablation。(a) $\alpha = 0.3$ 是 nested gradient 折扣的甜点;(b) 2-step leap 是性能/显存的最佳平衡 (3-step 没收益);(c) reward 算在 $x_0$ 上优于 $\hat x_{0\mid j}$;(d) trajectory similarity 同时考虑 $d_j$ 和 $d_0$ 优于单独;(e) 训练时步范围 $[0, 1]$ 优于 $[0, 1/2]$ — 验证"早期步重要"的 motivation;(f) 随机选 $(k, j)$ 比固定距离稍好且更简单。</figcaption>
     </figure>
-<p>额外有意思的发现 (Fig 4a):<strong>即使 <span class="math inline">\alpha = 0</span> (砍掉 nested gradient,行为类似 DRTune),LeapAlign 仍然比 DRTune 更好</strong> (HPSv2.1 0.4064 vs DRTune 0.3882)。说明 leap trajectory 架构本身就有收益,nested gradient discounting 是额外的 boost。</p>
+<p>额外有意思的发现 (Fig 4a):<strong>即使 <span class="math inline">\(\alpha = 0\)</span> (砍掉 nested gradient,行为类似 DRTune),LeapAlign 仍然比 DRTune 更好</strong> (HPSv2.1 0.4064 vs DRTune 0.3882)。说明 leap trajectory 架构本身就有收益,nested gradient discounting 是额外的 boost。</p>
 <h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
 <p>训练代码<em>已发布</em>,基于 <a href="https://github.com/hao-ai-lab/FastVideo">FastVideo</a> 框架。可重现性较高,只需 16 GPUs。</p>
 <ul>
 <li><strong>Backbone:</strong> Flux.1-Dev (12B rectified flow matching DiT)。SD3.5-M 也验证过 (Appendix B)。<code>scripts/finetune/train_flux_leapalign_hpdv2_hpsv2.sh</code></li>
 <li><strong>Reward model:</strong> 代码<em>只支持 HPSv2</em> — <code>train_leapalign_flux.py:L285</code> 显式 <code>raise NotImplementedError(&quot;Only HPSv2 is currently supported&quot;)</code>。Tab 3 报告的 PickScore / HPSv3 训练需要读者自己加 reward model 接入。</li>
-<li><strong>Optimizer:</strong> AdamW,lr 1e-5,batch 64,weight decay 1e-4,EMA decay 0.995,<span class="math inline">\beta_1=0.9, \beta_2=0.999</span>。300 iterations。 <code>train_leapalign_flux.py:L1-L100</code></li>
+<li><strong>Optimizer:</strong> AdamW,lr 1e-5,batch 64,weight decay 1e-4,EMA decay 0.995,<span class="math inline">\(\beta_1=0.9, \beta_2=0.999\)</span>。300 iterations。 <code>train_leapalign_flux.py:L1-L100</code></li>
 <li><strong>采样配置:</strong> 训练时 25 steps + CFG scale 3.5;测试时 50 steps,同 CFG。720×720 分辨率。<code>scripts/finetune/...</code> 与 <code>sample_trajectory:L148</code></li>
-<li><strong><span class="math inline">\alpha</span> (gradient discounting):</strong> CLI arg <code>--nested_grad_coe</code>,论文默认 0.3 (Fig. 4a 最优值)。设为 0 时退化为 DRTune-style;设为 1 时完整 nested gradient (训练不稳定)。<code>train_leapalign_flux.py:L185-L191</code></li>
-<li><strong><span class="math inline">\tau</span> (similarity clamp):</strong> 0.1。<code>traj_sim_weighting_min</code> arg。</li>
-<li><strong>Hinge <span class="math inline">\lambda</span>:</strong> 0.55 (论文设定)。<code>loss_relu_clip</code> arg,默认 0.55。</li>
-<li><strong>时步采样范围:</strong> CLI arg <code>--min_idx</code>, <code>--max_idx</code> 决定能选哪些时步。论文默认 <code>[0, sample_steps)</code> = <span class="math inline">[0, 1]</span> 全范围。Ablation (Fig. 4e) 用 <span class="math inline">[0, 12]</span> (即 <span class="math inline">[0, 1/2]</span>) 对比。</li>
+<li><strong><span class="math inline">\(\alpha\)</span> (gradient discounting):</strong> CLI arg <code>--nested_grad_coe</code>,论文默认 0.3 (Fig. 4a 最优值)。设为 0 时退化为 DRTune-style;设为 1 时完整 nested gradient (训练不稳定)。<code>train_leapalign_flux.py:L185-L191</code></li>
+<li><strong><span class="math inline">\(\tau\)</span> (similarity clamp):</strong> 0.1。<code>traj_sim_weighting_min</code> arg。</li>
+<li><strong>Hinge <span class="math inline">\(\lambda\)</span>:</strong> 0.55 (论文设定)。<code>loss_relu_clip</code> arg,默认 0.55。</li>
+<li><strong>时步采样范围:</strong> CLI arg <code>--min_idx</code>, <code>--max_idx</code> 决定能选哪些时步。论文默认 <code>[0, sample_steps)</code> = <span class="math inline">\([0, 1]\)</span> 全范围。Ablation (Fig. 4e) 用 <span class="math inline">\([0, 12]\)</span> (即 <span class="math inline">\([0, 1/2]\)</span>) 对比。</li>
 <li><strong>训练资源:</strong> 16 GPUs (paper §6.1)。比 Flow-OPD 的 32 GPUs 友好,可在 2 节点的小集群上跑。</li>
-<li><strong>梯度优化:</strong> 整条 25 步 sampling 在 <code>no_grad</code> 下跑 (<code>train_leapalign_flux.py:L171</code> 的 <code>nullcontext() if (idx in grad_on_ind_set) else torch.no_grad()</code>),只有 <span class="math inline">(k, j)</span> 两个时步开启梯度。<u>这是 LeapAlign 显存常数复杂度的核心实现</u>。</li>
-<li><strong>代码 vs 论文不一致 — 一条小细节:</strong> 论文 Eq. 13 写 <span class="math inline">\mathcal{L} = \text{sg}(w_{\text{sim}}) \cdot \mathcal{L}_{\text{raw}}</span>,代码 L289 实现为 <code>reward_loss / traj_sim_weight_factor</code> 而 <code>traj_sim_weight_factor</code> 是 <em>分母</em> 而非 <span class="math inline">w_{\text{sim}}</span> 本身。两种写法数值等价 (两者都是除以 <code>max(d_j, τ) + max(d_0, τ)</code>),但 Eq. 12 的&quot;分式形式&quot;和代码的&quot;除法形式&quot;对应需要读者自己反推。</li>
+<li><strong>梯度优化:</strong> 整条 25 步 sampling 在 <code>no_grad</code> 下跑 (<code>train_leapalign_flux.py:L171</code> 的 <code>nullcontext() if (idx in grad_on_ind_set) else torch.no_grad()</code>),只有 <span class="math inline">\((k, j)\)</span> 两个时步开启梯度。<u>这是 LeapAlign 显存常数复杂度的核心实现</u>。</li>
+<li><strong>代码 vs 论文不一致 — 一条小细节:</strong> 论文 Eq. 13 写 <span class="math inline">\(\mathcal{L} = \text{sg}(w_{\text{sim}}) \cdot \mathcal{L}_{\text{raw}}\)</span>,代码 L289 实现为 <code>reward_loss / traj_sim_weight_factor</code> 而 <code>traj_sim_weight_factor</code> 是 <em>分母</em> 而非 <span class="math inline">\(w_{\text{sim}}\)</span> 本身。两种写法数值等价 (两者都是除以 <code>max(d_j, τ) + max(d_0, τ)</code>),但 Eq. 12 的&quot;分式形式&quot;和代码的&quot;除法形式&quot;对应需要读者自己反推。</li>
 <li><strong>FSDP 支持:</strong> 代码集成了 FSDP (<code>fsdp_util.py</code>) — 12B Flux 需要 FSDP 才能在 16 GPUs 上 fit。</li>
 </ul>
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">5.1 优点</h3>
 <ul>
 <li><strong>Latent connector + gradient discounting 是真聪明的工程 trick。</strong> Eq. 6 和 Eq. 9 都用了同样的 stop_gradient 套路:前向数值不变,反向选择性截断/缩放梯度。两行代码搞定一个理论上很复杂的目标 (early-step gradient with controlled magnitude)。这种&quot;前向真实、反向控制&quot;的设计模式可以借鉴到其他场景。</li>
-<li><strong>梯度三项分解 (Eq. 8) + 分项消融 (Fig. 4a) 给出了机制层面的解释。</strong> 不是黑盒&quot;我们方法更好&quot;,而是明确&quot;nested gradient 这一项有用、整项保留会爆、所以我们缩小它&quot;。<span class="math inline">\alpha = 0</span> 时仍然超过 DRTune 也说明 leap trajectory 架构本身就是 win。</li>
+<li><strong>梯度三项分解 (Eq. 8) + 分项消融 (Fig. 4a) 给出了机制层面的解释。</strong> 不是黑盒&quot;我们方法更好&quot;,而是明确&quot;nested gradient 这一项有用、整项保留会爆、所以我们缩小它&quot;。<span class="math inline">\(\alpha = 0\)</span> 时仍然超过 DRTune 也说明 leap trajectory 架构本身就是 win。</li>
 <li><strong>训练代码完整发布,可在 16 GPUs 上 reproduce。</strong> 不像 Flow-OPD 那种&quot;挂个 README 拖延&quot;,这个 repo 给出 <code>train_leapalign_flux.py</code> 全部 994 行 + 配置脚本。</li>
-<li>**Reward 算在<em>真实</em> <span class="math inline">x_0</span> (不是 leap 估计) 上。**论文明确论证 <span class="math inline">\hat x_{0\mid j}</span> 在早期步上充满 artifact,reward model 评分不可靠;真实 <span class="math inline">x_0</span> 是 25 步推理得到的真图,reward 评分准。这是个比 ReFL 干净的设计。</li>
+<li>**Reward 算在<em>真实</em> <span class="math inline">\(x_0\)</span> (不是 leap 估计) 上。**论文明确论证 <span class="math inline">\(\hat x_{0\mid j}\)</span> 在早期步上充满 artifact,reward model 评分不可靠;真实 <span class="math inline">\(x_0\)</span> 是 25 步推理得到的真图,reward 评分准。这是个比 ReFL 干净的设计。</li>
 <li><strong>Trajectory similarity weighting 是个自然的样本权重。</strong> 当两次 leap 的近似误差大时 (说明 leap 离真实远),down-weight 这个样本 — 防止用错误近似 train 模型。</li>
 <li><strong>实验广度:</strong> Flux + SD3.5-M 两个 backbone × HPSv2.1/PickScore/HPSv3 三个 reward model × HPDv2/MJHQ-30k/GenEval 三个 prompt set × 5 个基线。比同期 Flow-OPD 在 SD-3.5-M 单 backbone 上的对比更广。</li>
 </ul>
@@ -358,14 +358,14 @@ def jump_to_step(self, model_output, timestep, sample, target_idx):
 <ul>
 <li><strong>Reward model 代码只支持 HPSv2.</strong> Tab 3 报告了 PickScore / HPSv3 的结果,但 <code>train_leapalign_flux.py:L285</code> 一个 <code>NotImplementedError</code> 摆在那。读者要复现 Tab 3 得自己接 PickScore / HPSv3 reward。这是个不大不小的&quot;代码 vs 论文 gap&quot;。</li>
 <li><strong>&quot;任意步&quot;的代价:每次 iteration 需要先跑完整 25 步采样。</strong> 虽然 23 步在 <code>no_grad</code> 下,但前向开销仍然是 1 倍 + 反向的 2 步 ≈ 总 27 步 worth of compute。比 ReFL (只 1 步) 慢约 27 倍,比 DRTune (多步多次 forward) 慢约 2-3 倍。论文没显式对比 wall-clock 收敛时间 / 显存 — 只画了 reward curve (Fig 1a) 但没给单位时间。</li>
-<li><strong><span class="math inline">\alpha = 0.3</span> 没解释为什么。</strong> Fig 4a 显示 <span class="math inline">\alpha = 0.1, 0.3, 0.5, 0.7</span> 的扫,0.3 最优 — 但<em>为什么</em> 0.3 是 sweet spot 没机制解释。是不是会跟模型大小 / 训练步数有耦合?跨模型 (例如换成 Wan 视频模型) 还成立吗?Appendix C 据说有分析但正文没提。</li>
+<li><strong><span class="math inline">\(\alpha = 0.3\)</span> 没解释为什么。</strong> Fig 4a 显示 <span class="math inline">\(\alpha = 0.1, 0.3, 0.5, 0.7\)</span> 的扫,0.3 最优 — 但<em>为什么</em> 0.3 是 sweet spot 没机制解释。是不是会跟模型大小 / 训练步数有耦合?跨模型 (例如换成 Wan 视频模型) 还成立吗?Appendix C 据说有分析但正文没提。</li>
 <li><strong>Two Objects 子任务上 LeapAlign 反而轻微回退 (73.12 → 72.50)。</strong> Tab 2 唯一回退的子项。论文没解释 — 是否说明 leap trajectory 对某类&quot;双对象排版&quot;的早期步控制不够稳?</li>
-<li><strong>&quot;Multi-step&quot; 的优势没单独 ablation.</strong> Tab 1 把 multi-step 列为 LeapAlign 的优势之一,但 Fig 4b 比较的是 &quot;1 leap vs 2 leap vs 3 leap&quot; 在同一次 backward 内,不是 &quot;1 个 leap trajectory 每 iter vs N 个 leap trajectory 每 iter&quot;。&quot;一次 iter 更新几对 <span class="math inline">(k, j)</span>&quot; 这个变量没扫。</li>
-<li><strong>Reward hacking 论证不充分。</strong> 论文用 hinge loss + <span class="math inline">\lambda</span> 阈值防 reward hacking,但只在 HPSv2.1 上验证。HPSv2.1 reward model 本身的 bias 跟生成图的 alignment 度是循环论证 — 没有人评 (user study) 验证 &quot;高 HPSv2.1 = 真的更好&quot;。Flow-OPD 至少给了 UnifiedReward / QwenVL Score 等多种&quot;评判员&quot;,而本论文只在 HPSv2.1 主 reward 上做训练,跨 reward generalization 用的指标也都是自动指标。</li>
-<li><strong>&quot;<span class="math inline">x_0</span> vs <span class="math inline">\hat x_{0\mid j}</span>&quot; 这个选择有点 self-serving.</strong> 论文在 §4.4 论证 reward 算 <span class="math inline">x_0</span> 更好,Fig 4c 用 ablation 验证。但 <span class="math inline">x_0</span> 是 25 步真图,<span class="math inline">\hat x_{0\mid j}</span> 是 1 步估计 — 25 步图当然更清晰,reward model 当然给更高分。<em>不是 reward 评分更&quot;准&quot;,而是图本身就更好</em>。论证逻辑有点循环。</li>
+<li><strong>&quot;Multi-step&quot; 的优势没单独 ablation.</strong> Tab 1 把 multi-step 列为 LeapAlign 的优势之一,但 Fig 4b 比较的是 &quot;1 leap vs 2 leap vs 3 leap&quot; 在同一次 backward 内,不是 &quot;1 个 leap trajectory 每 iter vs N 个 leap trajectory 每 iter&quot;。&quot;一次 iter 更新几对 <span class="math inline">\((k, j)\)</span>&quot; 这个变量没扫。</li>
+<li><strong>Reward hacking 论证不充分。</strong> 论文用 hinge loss + <span class="math inline">\(\lambda\)</span> 阈值防 reward hacking,但只在 HPSv2.1 上验证。HPSv2.1 reward model 本身的 bias 跟生成图的 alignment 度是循环论证 — 没有人评 (user study) 验证 &quot;高 HPSv2.1 = 真的更好&quot;。Flow-OPD 至少给了 UnifiedReward / QwenVL Score 等多种&quot;评判员&quot;,而本论文只在 HPSv2.1 主 reward 上做训练,跨 reward generalization 用的指标也都是自动指标。</li>
+<li><strong>&quot;<span class="math inline">\(x_0\)</span> vs <span class="math inline">\(\hat x_{0\mid j}\)</span>&quot; 这个选择有点 self-serving.</strong> 论文在 §4.4 论证 reward 算 <span class="math inline">\(x_0\)</span> 更好,Fig 4c 用 ablation 验证。但 <span class="math inline">\(x_0\)</span> 是 25 步真图,<span class="math inline">\(\hat x_{0\mid j}\)</span> 是 1 步估计 — 25 步图当然更清晰,reward model 当然给更高分。<em>不是 reward 评分更&quot;准&quot;,而是图本身就更好</em>。论证逻辑有点循环。</li>
 <li><strong>SD3.5-M 上的结果只在 Appendix.</strong> 正文全部是 Flux 数字。读者要 trust &quot;也适用于其他 flow matching&quot; 需要翻 appendix B。同期 Flow-OPD 主表上也以 Flux 为主,可能 Flux 是当前社区基准,但 SD3.5-M 的数字不在主表是个小遗憾。</li>
 <li><strong>没有 user study.</strong> 全部是 reward model 评分。直接用 reward model 评 reward fine-tuning 的方法有循环 bias。</li>
-<li><strong>&quot;任意时步&quot; claim 在<em>极端</em>早期步上的表现没单独测.</strong> Fig 4e 比较 <span class="math inline">[0, 1]</span> vs <span class="math inline">[0, 1/2]</span> — 后者是早期一半。但极端早期 (例如 <span class="math inline">[0.9, 1.0]</span> 只在最后 10%) 单独训练的结果没给。直觉上极晚期更新对 GenEval (layout) 帮助不大,但论文没验证 &quot;只训练早期 vs 只训练晚期&quot; 的对比。</li>
+<li><strong>&quot;任意时步&quot; claim 在<em>极端</em>早期步上的表现没单独测.</strong> Fig 4e 比较 <span class="math inline">\([0, 1]\)</span> vs <span class="math inline">\([0, 1/2]\)</span> — 后者是早期一半。但极端早期 (例如 <span class="math inline">\([0.9, 1.0]\)</span> 只在最后 10%) 单独训练的结果没给。直觉上极晚期更新对 GenEval (layout) 帮助不大,但论文没验证 &quot;只训练早期 vs 只训练晚期&quot; 的对比。</li>
 </ul>
 <h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
 <ul>
@@ -375,7 +375,7 @@ def jump_to_step(self, model_output, timestep, sample, target_idx):
 <li>❌ **不适用:**One-step / few-step (4 步以下) 模型 — 论文 §5 自己说了 &quot;less important&quot;,因为短链直接 backprop 即可。</li>
 <li>❌ **不适用:**非可微 reward (rule-based metric, GenEval rule judge 这种) — 需要先把 reward model 化或者用 RL 风格的 GRPO。</li>
 <li>⚠️ **谨慎:**想用 HPSv2 以外的 reward 时,代码层面要自己加;论文的 Tab 3 数字按 paper claim 看,但官方代码没实现。</li>
-<li>⚠️ <strong>谨慎:</strong><span class="math inline">\alpha = 0.3</span> 是 Flux + HPSv2.1 的最优值,换 backbone 或 reward 时建议重新 sweep。</li>
+<li>⚠️ <strong>谨慎:</strong><span class="math inline">\(\alpha = 0.3\)</span> 是 Flux + HPSv2.1 的最优值,换 backbone 或 reward 时建议重新 sweep。</li>
 </ul>
 <h3 id="sec-5-4">5.4 进一步阅读</h3>
 <ul>

@@ -152,17 +152,17 @@
 <h4>定义</h4>
 <p>Rectified flow 线性插值定义&quot;含噪像素&quot; (Eq. 1):</p>
 <ul>
-<li><span class="math inline">x_1</span>: 真实干净图 (注意论文用 <span class="math inline">x_1</span> 表示&quot;目的地&quot;; 部分扩散文献用 <span class="math inline">x_0</span>, 容易混淆)</li>
-<li><span class="math inline">x_0</span>: 起点纯噪声</li>
-<li><span class="math inline">t</span> 是&quot;信号纯度&quot;刻度: <span class="math inline">t=0</span> 全噪, <span class="math inline">t=1</span> 干净图</li>
+<li><span class="math inline">\(x_1\)</span>: 真实干净图 (注意论文用 <span class="math inline">\(x_1\)</span> 表示&quot;目的地&quot;; 部分扩散文献用 <span class="math inline">\(x_0\)</span>, 容易混淆)</li>
+<li><span class="math inline">\(x_0\)</span>: 起点纯噪声</li>
+<li><span class="math inline">\(t\)</span> 是&quot;信号纯度&quot;刻度: <span class="math inline">\(t=0\)</span> 全噪, <span class="math inline">\(t=1\)</span> 干净图</li>
 </ul>
-<p>模型 <span class="math inline">\pi_\theta</span> <strong>直接预测干净图</strong> <span class="math inline">x_\theta</span> (Eq. 2):</p>
-<p>其中 <span class="math inline">c</span> 是条件 (T2I 时是文本, 编辑时是文本+源图)。</p>
-<p>预测的 <span class="math inline">x_\theta</span> 转换为速度 (Eq. 3):</p>
-<p>训练时用 MSE 让 <span class="math inline">v_\theta</span> 逼近真速度 <span class="math inline">v = x_1 - x_0</span> (Eq. 4):</p>
+<p>模型 <span class="math inline">\(\pi_\theta\)</span> <strong>直接预测干净图</strong> <span class="math inline">\(x_\theta\)</span> (Eq. 2):</p>
+<p>其中 <span class="math inline">\(c\)</span> 是条件 (T2I 时是文本, 编辑时是文本+源图)。</p>
+<p>预测的 <span class="math inline">\(x_\theta\)</span> 转换为速度 (Eq. 3):</p>
+<p>训练时用 MSE 让 <span class="math inline">\(v_\theta\)</span> 逼近真速度 <span class="math inline">\(v = x_1 - x_0\)</span> (Eq. 4):</p>
 <h4>为什么是 &quot;x-prediction + v-loss&quot; 这个组合?</h4>
-<p>直接看 Eq. 3 可以推出: 在 v-loss 上做 MSE, 等价于在 x-prediction 上做<strong>带 <span class="math inline">1/(1-t)^2</span> 权重的 MSE</strong>。代入:</p>
-<p>这个权重的好处是: 当 <span class="math inline">t \to 1</span> (接近干净图), 权重 <span class="math inline">\to \infty</span>, 强迫模型在<strong>低噪声端</strong>预测得更准 — 而这正是肉眼最敏感的细节区域。代码里这个权重显式写出来:</p>
+<p>直接看 Eq. 3 可以推出: 在 v-loss 上做 MSE, 等价于在 x-prediction 上做<strong>带 <span class="math inline">\(1/(1-t)^2\)</span> 权重的 MSE</strong>。代入:</p>
+<p>这个权重的好处是: 当 <span class="math inline">\(t \to 1\)</span> (接近干净图), 权重 <span class="math inline">\(\to \infty\)</span>, 强迫模型在<strong>低噪声端</strong>预测得更准 — 而这正是肉眼最敏感的细节区域。代码里这个权重显式写出来:</p>
 <p class="code-source">repo/tuna/models/jit_utils.py:L74-L90 — JiT-style x0 prediction loss with v-loss reweighting</p>
 <pre><code class="language-python">def jit_x0_prediction_loss(x0_pred, x0_target, t=None, mask=None):
     &quot;&quot;&quot;MSE on x0 with optional 1/(1-t)^2 weighting and a token mask.&quot;&quot;&quot;
@@ -177,9 +177,9 @@
         loss = loss.mean()
     return loss
 </code></pre>
-<p><code>clamp(min=5e-2)</code> 这里关键 — 防止 <span class="math inline">t \to 1</span> 时权重爆炸, 把 <span class="math inline">(1-t)</span> 下限钉在 0.05, 等效最大权重 <span class="math inline">1/0.05^2 = 400</span>。这是论文没提的<strong>数值稳定 trick</strong>。</p>
+<p><code>clamp(min=5e-2)</code> 这里关键 — 防止 <span class="math inline">\(t \to 1\)</span> 时权重爆炸, 把 <span class="math inline">\((1-t)\)</span> 下限钉在 0.05, 等效最大权重 <span class="math inline">\(1/0.05^2 = 400\)</span>。这是论文没提的<strong>数值稳定 trick</strong>。</p>
 <h4>采样</h4>
-<p>推理时 Euler 求解 ODE: <span class="math inline">x_{t'} = x_t + (t' - t) v_\theta</span>。代码里默认 50 步, 也支持 Heun。</p>
+<p>推理时 Euler 求解 ODE: <span class="math inline">\(x_{t'} = x_t + (t' - t) v_\theta\)</span>。代码里默认 50 步, 也支持 Heun。</p>
 <h3 id="sec-2-4">2.3 Masking-based Visual Representation Learning (论文最关键的 trick)</h3>
 <p>这是 Tuna-2 区别于 NEO / SenseNova-U1 等同类工作的地方。<strong>问题</strong>: 像素空间维度太高, 模型容易学到&quot;作弊捷径&quot; (例如复制粘贴局部纹理而不理解语义)。</p>
 <p><strong>方案</strong>: 训练时随机 mask 一部分 patch, 用<strong>可学习的 mask token</strong> 替代:</p>
@@ -194,7 +194,7 @@
 </ol>
 <h4>关键工程细节</h4>
 <ul>
-<li>Mask ratio 默认 <strong>75%</strong> (跟 MAE 一样), 但每个样本独立从 <span class="math inline">[\text{min}, 0.75]</span> 均匀采样</li>
+<li>Mask ratio 默认 <strong>75%</strong> (跟 MAE 一样), 但每个样本独立从 <span class="math inline">\([\text{min}, 0.75]\)</span> 均匀采样</li>
 <li>Mask token 初始化为 <code>scale * randn</code>, 其中 <code>scale = hidden_size^{-0.5}</code></li>
 <li><strong>Masking 不是从头开 — 只在 pretraining 最后 40% 启用</strong>。前 60% 让模型先建立基础多模态能力, 再加 mask 当 regularizer。</li>
 <li>消融显示 (Tab. 6): Tuna-2 比 Tuna-R 更受益于 masking (Tuna-R 用 SigLIP 2, 而 SigLIP 2 本身预训练就有类似 masked 目标, 边际收益小)。</li>
@@ -305,7 +305,7 @@ return logits, loss_ntp, loss_flow, loss_disp
 <li><strong>位置编码</strong>: 共用 LLM 的 1D RoPE + 一个 image_position_ids buffer; <strong>不像 SenseNova-U1 那样有显式的 2D 位置编码</strong></li>
 </ul>
 <h3 id="sec-4-2">4.2 v-loss 重加权 + 数值稳定</h3>
-<p>代码里 <code>jit_x0_prediction_loss</code> 把 v-loss 等价转写成 x-loss × <span class="math inline">1/(1-t)^2</span> 权重 (见 §2.2)。<code>(1-t).clamp(min=5e-2)</code> 把权重最大值钉在 400, 防止 <span class="math inline">t \to 1</span> 时梯度爆炸 — 论文 §2 没提这个 clamp, 但它对训练稳定性<strong>非常关键</strong>。</p>
+<p>代码里 <code>jit_x0_prediction_loss</code> 把 v-loss 等价转写成 x-loss × <span class="math inline">\(1/(1-t)^2\)</span> 权重 (见 §2.2)。<code>(1-t).clamp(min=5e-2)</code> 把权重最大值钉在 400, 防止 <span class="math inline">\(t \to 1\)</span> 时梯度爆炸 — 论文 §2 没提这个 clamp, 但它对训练稳定性<strong>非常关键</strong>。</p>
 <h3 id="sec-4-3">4.3 Masking 应用细节</h3>
 <ul>
 <li><strong>触发条件</strong>: <code>self.enable_mask_token and self.training</code> — 只在训练且开启该 flag 时生效, 推理时不 mask</li>
@@ -327,7 +327,7 @@ return logits, loss_ntp, loss_flow, loss_disp
     </tbody></table>
 <h3 id="sec-4-5">4.5 论文 vs 代码的几处不一致</h3>
 <ul>
-<li><strong>v-loss reweighting clamp</strong>: 论文 Eq. 3-4 是纯数学公式 <span class="math inline">v = (x_\theta - x_t)/(1-t)</span>, 没提 <span class="math inline">1-t</span> 的下限。代码 <code>jit_utils.py:L84</code> 用 <code>clamp(min=5e-2)</code> — 这是 max-weight=400 的隐含截断, 不是数学定义。</li>
+<li><strong>v-loss reweighting clamp</strong>: 论文 Eq. 3-4 是纯数学公式 <span class="math inline">\(v = (x_\theta - x_t)/(1-t)\)</span>, 没提 <span class="math inline">\(1-t\)</span> 的下限。代码 <code>jit_utils.py:L84</code> 用 <code>clamp(min=5e-2)</code> — 这是 max-weight=400 的隐含截断, 不是数学定义。</li>
 <li><strong>masked_image_ratio_min</strong>: 论文 §2.2 说 &quot;according to a masking ratio&quot;, 暗示是单一 ratio。代码默认 <code>min=0.0, max=0.75</code>, 每个样本从这个区间均匀采样 — <strong>实际 mask 比例的均值是 37.5%, 不是 75%</strong>。</li>
 <li><strong>Masking 应用时机</strong>: 论文 §3.4 说&quot;masking 应用在 pretraining 最后 40% 步数&quot;, 代码里这个开关是 <code>enable_mask_token</code> 配置项, 由训练脚本控制何时启用, 不是模型自身知道当前 step 然后切换 — 需要外部 scheduler 配合。</li>
 <li><strong>CFG drop 概率</strong>: 论文里完全没提 CFG 训练时如何 drop conditioning。代码 <code>tuna_2_pixel.py:L325-L340</code> 暗示 batch 维度有 cond/uncond 交错 (<code>t[1::2]</code>), 但具体 drop 概率没在公开代码里找到 — 训练时由外部数据 pipeline 决定。</li>

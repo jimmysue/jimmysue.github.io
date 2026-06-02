@@ -62,7 +62,7 @@
     <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
     <li class="h3"><a href="#sec-2-1">2.1 LLM 上的 OPD 长什么样 (Preliminary)</a></li>
     <li class="h3"><a href="#sec-2-2">2.2 把 OPD 抬到 diffusion: 离散时间 Markov chain 视角</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 关键洞察: SDE 离散化让 p_S, p_T 是同协方差 Gaussian</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 关键洞察: SDE 离散化让 \(p_S, p_T\) 是同协方差 Gaussian</a></li>
     <li class="h3"><a href="#sec-2-4">2.4 同协方差 Gaussian 的 KL 有 closed form</a></li>
     <li class="h3"><a href="#sec-2-5">2.5 §3.3 关键论证: PPO-style 和 closed-form KL 期望梯度相同, 但 PPO 多一项纯噪声</a></li>
     <li class="h3"><a href="#sec-2-6">2.6 Two-stage 训练 recipe</a></li>
@@ -103,42 +103,42 @@
 <p>LLM 上 OPD 的关键技术是<strong>反向 KL 在离散 token 分布上有 closed form</strong> (vocabulary 上的求和), 所以可以直接 backprop, 不用 REINFORCE。要把它搬到 diffusion 上, 论文要解决一个根问题: <strong>diffusion 的每一步是连续状态空间 Gaussian transition, KL 怎么算?</strong> 答案就是 §3.2 的核心推导。</p>
 <h2 id="sec-2">2. 方法 (Method)</h2>
 <h3 id="sec-2-1">2.1 LLM 上的 OPD 长什么样 (Preliminary)</h3>
-<p>LLM 是自回归 token 序列 <span class="math inline">x = (x_1, \dots, x_T)</span>, 学生 <span class="math inline">\pi_\theta</span> 和 teacher <span class="math inline">\pi^\star</span> 都按 chain rule 分解:</p>
+<p>LLM 是自回归 token 序列 <span class="math inline">\(x = (x_1, \dots, x_T)\)</span>, 学生 <span class="math inline">\(\pi_\theta\)</span> 和 teacher <span class="math inline">\(\pi^\star\)</span> 都按 chain rule 分解:</p>
 <div class="math block">
-\pi_\theta(x) = \prod_{t=1}^T \pi_\theta(x_t \mid x_{\lt t}), \quad \pi^\star(x) = \prod_{t=1}^T \pi^\star(x_t \mid x_{\lt t})
+\[\pi_\theta(x) = \prod_{t=1}^T \pi_\theta(x_t \mid x_{\lt t}), \quad \pi^\star(x) = \prod_{t=1}^T \pi^\star(x_t \mid x_{\lt t})\]
 </div>
 <p class="math-translation">—— 翻译: 整个序列的概率 = 每一步在给定前缀下的条件概率之积。</p>
 <p>OPD 目标是 <strong>学生自己 rollout</strong> 后, 在它走过的前缀上, 让每一步条件分布去匹配 teacher:</p>
 <div class="math block">
-\mathcal{L}_{\text{OPD}}^{\text{LLM}}(\theta) = \mathbb{E}_{x \sim \pi_\theta} \left[ \sum_{t=1}^T \mathrm{KL}\big(\pi_\theta(\cdot \mid x_{\lt t}) \,\Vert\, \pi^\star(\cdot \mid x_{\lt t})\big) \right]
+\[\mathcal{L}_{\text{OPD}}^{\text{LLM}}(\theta) = \mathbb{E}_{x \sim \pi_\theta} \left[ \sum_{t=1}^T \mathrm{KL}\big(\pi_\theta(\cdot \mid x_{\lt t}) \,\Vert\, \pi^\star(\cdot \mid x_{\lt t})\big) \right]\]
 </div>
 <p class="math-translation">—— 翻译: 期望(在学生采样的轨迹上)的每一步条件 KL 之和。它跟 sequence-level 反向 KL 是数学上等价的 — 链式法则一摊就出来。</p>
-<p>对 LLM, 每个 step 的 KL 是<strong>离散词表 <span class="math inline">\mathcal{V}</span> 上的求和</strong>, 显式 closed form:</p>
+<p>对 LLM, 每个 step 的 KL 是<strong>离散词表 <span class="math inline">\(\mathcal{V}\)</span> 上的求和</strong>, 显式 closed form:</p>
 <div class="math block">
-\mathrm{KL}(\pi_\theta \Vert \pi^\star) = \sum_{v \in \mathcal{V}} \pi_\theta(v \mid x_{\lt t}) \log \frac{\pi_\theta(v \mid x_{\lt t})}{\pi^\star(v \mid x_{\lt t})}
+\[\mathrm{KL}(\pi_\theta \Vert \pi^\star) = \sum_{v \in \mathcal{V}} \pi_\theta(v \mid x_{\lt t}) \log \frac{\pi_\theta(v \mid x_{\lt t})}{\pi^\star(v \mid x_{\lt t})}\]
 </div>
 <p>这就是为什么 LLM 上 OPD 这么便宜 — 没有 high-variance policy gradient, 直接 backprop。</p>
 <h3 id="sec-2-2">2.2 把 OPD 抬到 diffusion: 离散时间 Markov chain 视角</h3>
-<p>把 (3) 抽象一层: 它<strong>根本不依赖 token 性质</strong>, 只需要 (i) 同样的状态空间和 transition kernel 结构, (ii) per-step KL 是 closed-form。所以 paper 把&quot;前缀&quot;换成&quot;denoising 状态&quot;, 把&quot;<span class="math inline">\pi(\cdot \mid x_{\lt t})</span>&quot;换成&quot;<span class="math inline">p(\cdot \mid x_{t_j})</span>&quot;:</p>
+<p>把 (3) 抽象一层: 它<strong>根本不依赖 token 性质</strong>, 只需要 (i) 同样的状态空间和 transition kernel 结构, (ii) per-step KL 是 closed-form。所以 paper 把&quot;前缀&quot;换成&quot;denoising 状态&quot;, 把&quot;<span class="math inline">\(\pi(\cdot \mid x_{\lt t})\)</span>&quot;换成&quot;<span class="math inline">\(p(\cdot \mid x_{t_j})\)</span>&quot;:</p>
 <div class="math block">
-\mathcal{L}_{\text{OPD}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_S} \left[ \sum_{j=0}^{N-1} \mathrm{KL}\big(p_S(\cdot \mid x_{t_j}) \,\Vert\, p_T(\cdot \mid x_{t_j})\big) \right]
+\[\mathcal{L}_{\text{OPD}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_S} \left[ \sum_{j=0}^{N-1} \mathrm{KL}\big(p_S(\cdot \mid x_{t_j}) \,\Vert\, p_T(\cdot \mid x_{t_j})\big) \right]\]
 </div>
 <p class="math-translation">—— 翻译: 在学生 rollout 的 N 步去噪轨迹上, 每一步学生 transition kernel $p_S$ 和 teacher transition kernel $p_T$ 的 KL 求和。其中 $t_0 > t_1 > \dots > t_N = 0$ 是逆向时间。</p>
-<h3 id="sec-2-3">2.3 关键洞察: SDE 离散化让 <span class="math inline">p_S, p_T</span> 是同协方差 Gaussian</h3>
-<p>跟 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> / <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 一样, paper 沿用 Flow-GRPO 的 Euler-Maruyama 反向 SDE 离散化。给定 noise schedule <span class="math inline">\sigma_t = a \sqrt{t/(1-t)}</span> (其中 <span class="math inline">a</span> 是全局噪声水平), 学生 velocity <span class="math inline">v_j^S := v_\theta(x_{t_j}, t_j)</span>, 学生这一步 SDE update 是:</p>
+<h3 id="sec-2-3">2.3 关键洞察: SDE 离散化让 <span class="math inline">\(p_S, p_T\)</span> 是同协方差 Gaussian</h3>
+<p>跟 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> / <a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a> 一样, paper 沿用 Flow-GRPO 的 Euler-Maruyama 反向 SDE 离散化。给定 noise schedule <span class="math inline">\(\sigma_t = a \sqrt{t/(1-t)}\)</span> (其中 <span class="math inline">\(a\)</span> 是全局噪声水平), 学生 velocity <span class="math inline">\(v_j^S := v_\theta(x_{t_j}, t_j)\)</span>, 学生这一步 SDE update 是:</p>
 <div class="math block">
-x_{t_{j+1}} = x_{t_j} + \left[v_j^S + \frac{\sigma_{t_j}^2}{2 t_j}\big(x_{t_j} + (1-t_j) v_j^S\big)\right] \Delta t_j + \sigma_{t_j} \sqrt{-\Delta t_j}\, \varepsilon_j
+\[x_{t_{j+1}} = x_{t_j} + \left[v_j^S + \frac{\sigma_{t_j}^2}{2 t_j}\big(x_{t_j} + (1-t_j) v_j^S\big)\right] \Delta t_j + \sigma_{t_j} \sqrt{-\Delta t_j}\, \varepsilon_j\]
 </div>
 <p class="math-translation">—— 翻译: 当前噪声态 $x_{t_j}$ 加上一个由 velocity + drift correction 决定的确定性位移, 再叠一个 $\mathcal{N}(0, I)$ 的随机扰动。$\Delta t_j < 0$ 因为时间是反向走。</p>
 <p>把式中确定性部分聚合, 抽象成 transition kernel:</p>
 <div class="math block">
-p_S(x_{t_{j+1}} \mid x_{t_j}) = \mathcal{N}\big(\mu^S(x_{t_j}), \bar\sigma_j^2 I_d\big), \quad \bar\sigma_j^2 := \sigma_{t_j}^2 (-\Delta t_j)
+\[p_S(x_{t_{j+1}} \mid x_{t_j}) = \mathcal{N}\big(\mu^S(x_{t_j}), \bar\sigma_j^2 I_d\big), \quad \bar\sigma_j^2 := \sigma_{t_j}^2 (-\Delta t_j)\]
 </div>
 <div class="math block">
-\mu^S(x_{t_j}) = \left(1 + \tfrac{\sigma_{t_j}^2}{2 t_j} \Delta t_j\right) x_{t_j} + \left(1 + \tfrac{\sigma_{t_j}^2 (1-t_j)}{2 t_j}\right) v_j^S \Delta t_j
+\[\mu^S(x_{t_j}) = \left(1 + \tfrac{\sigma_{t_j}^2}{2 t_j} \Delta t_j\right) x_{t_j} + \left(1 + \tfrac{\sigma_{t_j}^2 (1-t_j)}{2 t_j}\right) v_j^S \Delta t_j\]
 </div>
 <p class="math-translation">—— 翻译: 学生这一步的 transition mean $\mu^S$ 是 $x_{t_j}$ 和学生 velocity $v_j^S$ 的线性组合; 协方差 $\bar\sigma_j^2$ 只跟 schedule + 全局噪声水平 $a$ 有关, 跟模型参数 $\theta$ 完全无关。</p>
-<p>Teacher 用<strong>完全一样的公式</strong>, velocity 换成 frozen teacher <span class="math inline">v_j^T := v_\phi(x_{t_j}, t_j)</span>, 得到 <span class="math inline">p_T = \mathcal{N}(\mu^T(x_{t_j}), \bar\sigma_j^2 I_d)</span>。<strong>关键: 学生和老师协方差一致</strong> (都依赖同一个 schedule), 而且都在<strong>学生 rollout 的同一个 <span class="math inline">x_{t_j}</span> 上 evaluate</strong>。</p>
+<p>Teacher 用<strong>完全一样的公式</strong>, velocity 换成 frozen teacher <span class="math inline">\(v_j^T := v_\phi(x_{t_j}, t_j)\)</span>, 得到 <span class="math inline">\(p_T = \mathcal{N}(\mu^T(x_{t_j}), \bar\sigma_j^2 I_d)\)</span>。<strong>关键: 学生和老师协方差一致</strong> (都依赖同一个 schedule), 而且都在<strong>学生 rollout 的同一个 <span class="math inline">\(x_{t_j}\)</span> 上 evaluate</strong>。</p>
 <p class="code-source">repo/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L48-L58 — 反向 SDE 的 prev_sample_mean 实现 (Eq. 7)</p>
 <pre><code class="language-python">sigma = self.sigmas[step_index].view(-1, *([1] * (len(sample.shape) - 1)))
 sigma_prev = self.sigmas[prev_step_index].view(-1, *([1] * (len(sample.shape) - 1)))
@@ -151,24 +151,24 @@ if sde_type == 'sde':
     # our sde
     prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt)+model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
 </code></pre>
-<p>对应 paper Eq. (7): <code>sigma</code> ↔ <span class="math inline">t_j</span> (SD3 scheduler 用 sigma 作时间), <code>std_dev_t</code> ↔ <span class="math inline">\sigma_{t_j}</span>, <code>model_output</code> ↔ <span class="math inline">v_j^S</span> (或 <span class="math inline">v_j^T</span> — 同函数复用), <code>dt</code> ↔ <span class="math inline">\Delta t_j &lt; 0</span>。<code>noise_level</code> 就是 paper 的 <span class="math inline">a</span>。</p>
+<p>对应 paper Eq. (7): <code>sigma</code> ↔ <span class="math inline">\(t_j\)</span> (SD3 scheduler 用 sigma 作时间), <code>std_dev_t</code> ↔ <span class="math inline">\(\sigma_{t_j}\)</span>, <code>model_output</code> ↔ <span class="math inline">\(v_j^S\)</span> (或 <span class="math inline">\(v_j^T\)</span> — 同函数复用), <code>dt</code> ↔ <span class="math inline">\(\Delta t_j &lt; 0\)</span>。<code>noise_level</code> 就是 paper 的 <span class="math inline">\(a\)</span>。</p>
 <h3 id="sec-2-4">2.4 同协方差 Gaussian 的 KL 有 closed form</h3>
-<p>两个 <span class="math inline">d</span> 维同协方差高斯之间的 KL:</p>
+<p>两个 <span class="math inline">\(d\)</span> 维同协方差高斯之间的 KL:</p>
 <div class="math block">
-\mathrm{KL}\big(\mathcal{N}(\mu_1, \Sigma) \,\Vert\, \mathcal{N}(\mu_2, \Sigma)\big) = \tfrac{1}{2} (\mu_1 - \mu_2)^\top \Sigma^{-1} (\mu_1 - \mu_2)
+\[\mathrm{KL}\big(\mathcal{N}(\mu_1, \Sigma) \,\Vert\, \mathcal{N}(\mu_2, \Sigma)\big) = \tfrac{1}{2} (\mu_1 - \mu_2)^\top \Sigma^{-1} (\mu_1 - \mu_2)\]
 </div>
-<p>代 <span class="math inline">\Sigma = \bar\sigma_j^2 I_d</span>, 得:</p>
+<p>代 <span class="math inline">\(\Sigma = \bar\sigma_j^2 I_d\)</span>, 得:</p>
 <div class="math block">
-\boxed{\mathrm{KL}\big(p_S \Vert p_T\big) = \frac{\| \mu^S(x_{t_j}) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2}}
+\[\boxed{\mathrm{KL}\big(p_S \Vert p_T\big) = \frac{\| \mu^S(x_{t_j}) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2}}\]
 </div>
 <p class="math-translation">—— 翻译 (核心): 学生和老师在同一个 noise 态上的 transition KL = "transition mean 的平方差" 除以 "transition 方差的 2 倍"。这是<strong>纯 deterministic 表达式</strong> — 采样噪声 $\varepsilon_j$ 在解析过程中完全消掉了。</p>
 <p>整体 DiffusionOPD 目标 (Eq. 11):</p>
 <div class="math block">
-\mathcal{L}_{\text{OPD}}^{\text{diffusion}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_{S,\theta}} \left[ \sum_{j=0}^{N-1} \frac{\| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2} \right]
+\[\mathcal{L}_{\text{OPD}}^{\text{diffusion}}(\theta) = \mathbb{E}_{x_{0:N} \sim p_{S,\theta}} \left[ \sum_{j=0}^{N-1} \frac{\| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2}{2 \bar\sigma_j^2} \right]\]
 </div>
-<p><strong>ODE 极限</strong>: 当 <span class="math inline">a \to 0</span> (noise level → 0), <span class="math inline">\bar\sigma_j \to 0</span>, KL 形式 (除以 <span class="math inline">2\bar\sigma_j^2</span>) 会爆。Paper 直接论证: 在确定性 ODE Euler update 下, <span class="math inline">p_S, p_T</span> 不再是 stochastic kernel 而是 pointwise 映射, 所以&quot;分布匹配&quot;退化成&quot;transition mean 匹配&quot;, 损失就是 (Eq. 12):</p>
+<p><strong>ODE 极限</strong>: 当 <span class="math inline">\(a \to 0\)</span> (noise level → 0), <span class="math inline">\(\bar\sigma_j \to 0\)</span>, KL 形式 (除以 <span class="math inline">\(2\bar\sigma_j^2\)</span>) 会爆。Paper 直接论证: 在确定性 ODE Euler update 下, <span class="math inline">\(p_S, p_T\)</span> 不再是 stochastic kernel 而是 pointwise 映射, 所以&quot;分布匹配&quot;退化成&quot;transition mean 匹配&quot;, 损失就是 (Eq. 12):</p>
 <div class="math block">
-\mathcal{L}_{\text{OPD}}^{\text{ODE}}(\theta) = \mathbb{E} \left[ \sum_{j=0}^{N-1} \tfrac{1}{2} \| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2 \right]
+\[\mathcal{L}_{\text{OPD}}^{\text{ODE}}(\theta) = \mathbb{E} \left[ \sum_{j=0}^{N-1} \tfrac{1}{2} \| \mu^S(x_{t_j}; \theta) - \mu^T(x_{t_j}) \|_2^2 \right]\]
 </div>
 <p class="math-translation">—— 翻译: ODE 极限下损失就是<strong>纯 L2 transition matching</strong>, 没有 $\bar\sigma_j^2$ 的归一化。SDE / ODE 在 DiffusionOPD 框架下用<em>同一套代码</em>实现, 只看 $a$ 的取值。</p>
 <p class="code-source">repo/scripts/train_sd3_opd.py:L1167-L1191 — DiffusionOPD loss 实现 (Eq. 11/12 一体化分支)</p>
@@ -197,21 +197,21 @@ loss = distill_loss
 </code></pre>
 <p>10 行就是 Eq. 11/12 的完整实现。<code>delta</code> 是 transition mean 之差; <code>noise_level=0</code> 触发 ODE 分支 (Eq. 12), 否则用 σ² 归一化 (Eq. 11)。注意 <code>.detach()</code> — teacher mean 不参与梯度。<strong>默认 config 用 <code>noise_level=0.0</code> (即 ODE 分支)</strong>, 配 §4.3 ablation 的结论 (ODE 比 SDE 快最多 5x)。</p>
 <h3 id="sec-2-5">2.5 §3.3 关键论证: PPO-style 和 closed-form KL 期望梯度相同, 但 PPO 多一项纯噪声</h3>
-<p>这一节是 paper 最有教育意义的部分。换种角度想 OPD: 把 teacher 视为 process reward model, 每一步的 negative KL 当作 advantage <span class="math inline">A_j</span>, 用 PPO surrogate 优化:</p>
+<p>这一节是 paper 最有教育意义的部分。换种角度想 OPD: 把 teacher 视为 process reward model, 每一步的 negative KL 当作 advantage <span class="math inline">\(A_j\)</span>, 用 PPO surrogate 优化:</p>
 <div class="math block">
-\mathcal{L}_{\text{PG}}(\theta) = -\mathbb{E}_{a_j \sim \pi_{\theta_{\text{old}}}} \left[ \min\big(\rho_j(\theta) A_j,\, \text{clip}(\rho_j, 1-\epsilon, 1+\epsilon) A_j\big) \right]
+\[\mathcal{L}_{\text{PG}}(\theta) = -\mathbb{E}_{a_j \sim \pi_{\theta_{\text{old}}}} \left[ \min\big(\rho_j(\theta) A_j,\, \text{clip}(\rho_j, 1-\epsilon, 1+\epsilon) A_j\big) \right]\]
 </div>
-<p>忽略 clipping, gradient accumulation 期间 <span class="math inline">\pi_{\theta_{\text{old}}} = \pi_\theta</span> 所以 <span class="math inline">\rho_j = 1</span>, 梯度展开:</p>
+<p>忽略 clipping, gradient accumulation 期间 <span class="math inline">\(\pi_{\theta_{\text{old}}} = \pi_\theta\)</span> 所以 <span class="math inline">\(\rho_j = 1\)</span>, 梯度展开:</p>
 <div class="math block">
-\nabla_\theta \big(\rho_j \Delta_j\big) = \underbrace{\nabla_\theta \Delta_j}_{\text{pathwise term}} + \underbrace{\Delta_j \,\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j})}_{\text{score-function term}}
+\[\nabla_\theta \big(\rho_j \Delta_j\big) = \underbrace{\nabla_\theta \Delta_j}_{\text{pathwise term}} + \underbrace{\Delta_j \,\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j})}_{\text{score-function term}}\]
 </div>
 <p class="math-translation">—— 翻译: PPO 梯度 = 解析的 pathwise term + 一个跟 sampled action $a_j$ 相关的 score-function term。</p>
-<p>由于 <span class="math inline">\Delta_j</span> 不依赖采样动作 <span class="math inline">a_j</span> (它只是 closed-form KL), 而 <span class="math inline">\mathbb{E}_{a_j}[\nabla \log \pi_\theta] = 0</span>, 所以 <strong>score-function term 的期望为 0</strong>:</p>
+<p>由于 <span class="math inline">\(\Delta_j\)</span> 不依赖采样动作 <span class="math inline">\(a_j\)</span> (它只是 closed-form KL), 而 <span class="math inline">\(\mathbb{E}_{a_j}[\nabla \log \pi_\theta] = 0\)</span>, 所以 <strong>score-function term 的期望为 0</strong>:</p>
 <div class="math block">
-\mathbb{E}[\nabla_\theta \mathcal{L}_{\text{PG}}] = \nabla_\theta \mathcal{L}_{\text{OPD}}^{\text{diffusion}}
+\[\mathbb{E}[\nabla_\theta \mathcal{L}_{\text{PG}}] = \nabla_\theta \mathcal{L}_{\text{OPD}}^{\text{diffusion}}\]
 </div>
-<p>两个 estimator 期望相同。<strong>但 PPO 多出来的这一项是纯方差</strong>。具体: 对 Gaussian transition <span class="math inline">a_j = \mu^S(x_{t_j}; \theta) + \bar\sigma_j \varepsilon_j</span>, <span class="math inline">\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j}) = (\varepsilon_j / \bar\sigma_j) \cdot \nabla_\theta \mu^S</span> — 这一项跟采样噪声 <span class="math inline">\varepsilon_j</span> 直接耦合, <strong>每次 mini-batch 都注入新方差</strong>。</p>
-<p>Paper 还指出 PPO 形式的第二个缺陷: <strong>它依赖 stochastic policy density 和 <span class="math inline">\rho_j</span></strong>, 在 ODE (确定性) 极限下根本写不出来。Closed-form KL 反而能从 SDE 平滑过渡到 ODE — 这就是 paper 标题的&quot;unified perspective&quot;。</p>
+<p>两个 estimator 期望相同。<strong>但 PPO 多出来的这一项是纯方差</strong>。具体: 对 Gaussian transition <span class="math inline">\(a_j = \mu^S(x_{t_j}; \theta) + \bar\sigma_j \varepsilon_j\)</span>, <span class="math inline">\(\nabla_\theta \log \pi_\theta(a_j \mid x_{t_j}) = (\varepsilon_j / \bar\sigma_j) \cdot \nabla_\theta \mu^S\)</span> — 这一项跟采样噪声 <span class="math inline">\(\varepsilon_j\)</span> 直接耦合, <strong>每次 mini-batch 都注入新方差</strong>。</p>
+<p>Paper 还指出 PPO 形式的第二个缺陷: <strong>它依赖 stochastic policy density 和 <span class="math inline">\(\rho_j\)</span></strong>, 在 ODE (确定性) 极限下根本写不出来。Closed-form KL 反而能从 SDE 平滑过渡到 ODE — 这就是 paper 标题的&quot;unified perspective&quot;。</p>
 <h3 id="sec-2-6">2.6 Two-stage 训练 recipe</h3>
 <figure>
   <img class="zoomable" src="figures/fig-algo.png" alt="Algorithm 1: DiffusionOPD">
@@ -229,7 +229,7 @@ train_samplers[teacher_idx].set_epoch(
 )
 prompts, prompt_metadata = next(train_iters[teacher_idx])
 </code></pre>
-<p>学生用 <code>default</code> LoRA adapter 自采轨迹, 然后对每个 task 的 teacher LoRA adapter 切过去算 <span class="math inline">\mu^T</span>:</p>
+<p>学生用 <code>default</code> LoRA adapter 自采轨迹, 然后对每个 task 的 teacher LoRA adapter 切过去算 <span class="math inline">\(\mu^T\)</span>:</p>
 <p class="code-source">repo/scripts/train_sd3_opd.py:L936-L965 — 切到 teacher LoRA 算 transition mean</p>
 <pre><code class="language-python">for k_idx, adapter_name in enumerate(slot_adapters):
     unwrap_model(transformer, accelerator).set_adapter(adapter_name)
@@ -254,7 +254,7 @@ prompts, prompt_metadata = next(train_iters[teacher_idx])
                     deterministic=sample_deterministic,
                 )
 </code></pre>
-<p>Gradient accumulation factor <span class="math inline">G = M</span> — 即一个 round-robin cycle (覆盖所有 <span class="math inline">M</span> 个 task) 才做一次 backward + optimizer step。Config 里:</p>
+<p>Gradient accumulation factor <span class="math inline">\(G = M\)</span> — 即一个 round-robin cycle (覆盖所有 <span class="math inline">\(M\)</span> 个 task) 才做一次 backward + optimizer step。Config 里:</p>
 <p class="code-source">repo/config/opd.py:L40-L55 — gradient_accumulation_steps 跟 round-robin cycle 对齐</p>
 <pre><code class="language-python">config.sample.train_batch_size = 3
 config.sample.num_image_per_prompt = 1
@@ -339,7 +339,7 @@ config.train.timestep_fraction = 0.99
 <p><strong><code>gradient_accumulation_steps</code> 跟 <code>num_batches_per_epoch</code> 锁死成同一值</strong> — 这意味着每个 epoch (round-robin 循环 M 个 task 一次) 只做 1 次 optimizer step。如果你改了 batch size 而不调 grad_accum, 训练完全跑不通 (assert 会先 crash)。</p>
 </li>
 <li>
-<p><strong>没有显式的 distill_loss 平衡</strong> — 多任务 loss 直接 <code>.sum()</code> 加起来 (<code>train_sd3_opd.py:L1188</code>)。Paper 没讨论, 但因为同一架构、同一 schedule, 三个 task 的 <span class="math inline">\|\mu^S - \mu^T\|^2</span> 尺度其实接近, 不像异质 reward 需要权重调。</p>
+<p><strong>没有显式的 distill_loss 平衡</strong> — 多任务 loss 直接 <code>.sum()</code> 加起来 (<code>train_sd3_opd.py:L1188</code>)。Paper 没讨论, 但因为同一架构、同一 schedule, 三个 task 的 <span class="math inline">\(\|\mu^S - \mu^T\|^2\)</span> 尺度其实接近, 不像异质 reward 需要权重调。</p>
 </li>
 <li>
 <p><strong>首版代码 release 里 <code>lora_path</code> 全是占位符</strong> <code>&quot;YOUR_AES_TEACHER_PATH&quot;</code>, 真要复现得自己先训 3 个 teacher (或下载 Hugging Face 上 <code>quanhaol/Aes-Teacher</code>, <code>OCR-Teacher</code>, <code>GenEval-Teacher</code>)。</p>
@@ -358,7 +358,7 @@ config.train.timestep_fraction = 0.99
 </ul>
 <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
 <ul>
-<li><strong>理论上的&quot;unified&quot;略显勉强</strong>: Eq. 12 (ODE 极限) 是用&quot;分布退化成 pointwise 映射, 所以 KL 写不出来, 退化成 L2&quot;这种文字论证, <strong>没给严格的 <span class="math inline">a \to 0</span> 极限推导</strong>。读者得自己确信&quot;<span class="math inline">\bar\sigma_j^2 \to 0</span> 时, KL 这个量本身爆掉但梯度方向收敛到 L2 的方向&quot;。一个数学严谨的版本应该取 <span class="math inline">\bar\sigma_j^2</span> 的极限然后用 <span class="math inline">\Gamma</span>-convergence 或类似工具证明。</li>
+<li><strong>理论上的&quot;unified&quot;略显勉强</strong>: Eq. 12 (ODE 极限) 是用&quot;分布退化成 pointwise 映射, 所以 KL 写不出来, 退化成 L2&quot;这种文字论证, <strong>没给严格的 <span class="math inline">\(a \to 0\)</span> 极限推导</strong>。读者得自己确信&quot;<span class="math inline">\(\bar\sigma_j^2 \to 0\)</span> 时, KL 这个量本身爆掉但梯度方向收敛到 L2 的方向&quot;。一个数学严谨的版本应该取 <span class="math inline">\(\bar\sigma_j^2\)</span> 的极限然后用 <span class="math inline">\(\Gamma\)</span>-convergence 或类似工具证明。</li>
 <li><strong>PPO-style baseline 的代码没 release</strong> (§4 提到), 想精确复现 Fig 6 紫色曲线得自己写。这是个透明性问题。</li>
 <li><strong>配置假设 3 teacher</strong>: assert <code>num_batches_per_epoch % 3 == 0</code> 是 hard-coded 数。如果要扩展到 5 个 reward, 改 batch 数 + assert 就行, 但 paper 没在更多 reward 数量上跑 — 是否 round-robin 还稳, 是开放问题。</li>
 <li><strong>Teacher 的 reward hack 会被 student 完整复现</strong>: §3.3 的论证只关心&quot;对 teacher 的匹配方差&quot;; 它不关心&quot;teacher 是不是个好东西&quot;。如果 OCR teacher 本身在某些 prompt 上崩溃了 (paper 提过 DiffusionNFT 在 OCR 上易 reward hack — 所以才换 GRPO-Guard), student 也会忠实学过来。<strong>OPD 的上限就是 teacher 集合的上限的某种凸组合, 不会超过去</strong>。</li>

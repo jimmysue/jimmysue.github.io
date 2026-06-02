@@ -103,17 +103,17 @@
 <li>&quot;这张图右半边加了 80% 噪声 (基本看不见),左半边只加了 20%。还原全图。&quot;</li>
 <li>学生要还原右半边,<em>必须</em>看左半边的语义(这是只猫 → 右半边八成也是这只猫的延续)。强制学到 &quot;这是只猫&quot; 这种全局表征。</li>
 </ul>
-<p>但只这样训练有<em>train-inference gap</em>:推理时每步噪声等级是均匀的,如果训练时全是不对称的,模型推理就崩。Self-Flow 的具体方案:<em>采样两个时步 <span class="math inline">t, s</span>,用<u>较干净的</u>那个 <span class="math inline">\min(t, s)</span> 给 mask 内的 token,另一个 <span class="math inline">t</span> 给其他 token</em>。这样每个 token 的<em>边缘</em>噪声分布仍跟 vanilla flow matching 一致,只是被 mask 的子集系统性地更干净 — 推理时不会有意外。</p>
+<p>但只这样训练有<em>train-inference gap</em>:推理时每步噪声等级是均匀的,如果训练时全是不对称的,模型推理就崩。Self-Flow 的具体方案:<em>采样两个时步 <span class="math inline">\(t, s\)</span>,用<u>较干净的</u>那个 <span class="math inline">\(\min(t, s)\)</span> 给 mask 内的 token,另一个 <span class="math inline">\(t\)</span> 给其他 token</em>。这样每个 token 的<em>边缘</em>噪声分布仍跟 vanilla flow matching 一致,只是被 mask 的子集系统性地更干净 — 推理时不会有意外。</p>
 <p>有了不对称输入,Self-Flow 做<strong>self-distillation</strong>:同一个模型扮 student (噪声混合输入) 和 teacher (EMA 副本, 用 <em>min(t,s)</em> 的更干净版本输入),让 student 的中间层 feature 跟 teacher 的对齐 — 跟 REPA 形式上一样,但 teacher 变成了模型自己更干净的副本而非外部 DINO。</p>
 <figure>
       <img class="zoomable" alt="Self-Flow architecture" src="figures/fig3-architecture.png">
       <figcaption>Fig. 3 — 总体框架。给定干净输入 $x_0$(图像/视频/音频),采样两个时步 $t, s$ 和随机 mask $M$,按 mask 给每个 token 分配 $t$ 或 $s$ → 构造 $x_\tau$ (student 输入)。Teacher 输入用 $\tau_{\min} = \min(t, s)$,所有 token 都用<em>较干净</em>的时步,获得了 student 没有的信息。Student 同时做两件事:(1) 在 $x_\tau$ 上做 flow matching 的 denoising (生成损失 $\mathcal L_{\text{gen}}$),(2) 让自己的某个中间层 feature 跟 teacher 在 $x_{\tau_{\min}}$ 上的 feature 对齐(表征损失 $\mathcal L_{\text{rep}}$)。</figcaption>
     </figure>
 <h3 id="sec-2-2">2.1 Flow Matching + REPA 基础</h3>
-<p><strong>Rectified flow (Liu et al. 2022).</strong> <span class="math inline">x_0</span> 是干净数据 (N 个 token,每个维度 C),<span class="math inline">x_1 \sim \mathcal N(0, I)</span> 是噪声。线性插值轨迹:</p>
-<p>速度场是常向量 <span class="math inline">v_t = dx_t/dt = x_1 - x_0</span>。生成损失(Eq 2):</p>
-<p><strong>REPA (Yu et al. 2024).</strong> 用一个冻结的外部 encoder <span class="math inline">r_\phi</span> (DINOv2 等),把 flow 模型第 <span class="math inline">l</span> 层 feature 跟 encoder 第 <span class="math inline">k</span> 层 feature 对齐(Eq 3):</p>
-<p><span class="math inline">h_\theta</span> 是 student 的 MLP projection head,<span class="math inline">\mathrm{sim}</span> 是 cosine similarity。<strong>关键问题:</strong><span class="math inline">r_\phi</span> 是 DINO,训练目标不是生成。把生成模型的 feature 拉向 DINO 的 feature manifold 会创造一个 bottleneck — 强模型反而被锁死在 DINO 的 representation 里。</p>
+<p><strong>Rectified flow (Liu et al. 2022).</strong> <span class="math inline">\(x_0\)</span> 是干净数据 (N 个 token,每个维度 C),<span class="math inline">\(x_1 \sim \mathcal N(0, I)\)</span> 是噪声。线性插值轨迹:</p>
+<p>速度场是常向量 <span class="math inline">\(v_t = dx_t/dt = x_1 - x_0\)</span>。生成损失(Eq 2):</p>
+<p><strong>REPA (Yu et al. 2024).</strong> 用一个冻结的外部 encoder <span class="math inline">\(r_\phi\)</span> (DINOv2 等),把 flow 模型第 <span class="math inline">\(l\)</span> 层 feature 跟 encoder 第 <span class="math inline">\(k\)</span> 层 feature 对齐(Eq 3):</p>
+<p><span class="math inline">\(h_\theta\)</span> 是 student 的 MLP projection head,<span class="math inline">\(\mathrm{sim}\)</span> 是 cosine similarity。<strong>关键问题:</strong><span class="math inline">\(r_\phi\)</span> 是 DINO,训练目标不是生成。把生成模型的 feature 拉向 DINO 的 feature manifold 会创造一个 bottleneck — 强模型反而被锁死在 DINO 的 representation 里。</p>
 <h3 id="sec-2-3">2.2 REPA 反向 scaling — 论文最有力的实证</h3>
 <figure>
       <img class="zoomable" alt="REPA scaling + scheduler comparison" src="figures/fig2-motivation.png">
@@ -123,32 +123,32 @@
 <h3 id="sec-2-4">2.3 Dual-Timestep Scheduling (§3.3) — 核心 trick</h3>
 <p>怎么&quot;给不同 token 加不同噪声&quot;又不引入 train-inference gap?三种 naive 方案的失败:</p>
 <ul>
-<li>**Naive Masking:**随机把一些 token 设为 <span class="math inline">t = 1</span> (完全噪声)。崩 — 推理时不会出现&quot;一半 token 完全噪声&quot;这种情形。</li>
-<li>**Diffusion Forcing:**每个 token 独立采样一个 <span class="math inline">t</span>。也崩 — 推理时还是均匀。</li>
+<li>**Naive Masking:**随机把一些 token 设为 <span class="math inline">\(t = 1\)</span> (完全噪声)。崩 — 推理时不会出现&quot;一半 token 完全噪声&quot;这种情形。</li>
+<li>**Diffusion Forcing:**每个 token 独立采样一个 <span class="math inline">\(t\)</span>。也崩 — 推理时还是均匀。</li>
 </ul>
 <p><strong>Self-Flow 的方案 (Eq 4-5):</strong></p>
 <ol>
-<li>采样<em>两个</em>时步 <span class="math inline">t, s \sim p(t)</span>。</li>
-<li>采样一个 mask <span class="math inline">M = \{i \in \{1, \ldots, N\} \mid u_i \lt R_M\}</span>,其中 <span class="math inline">u_i \sim U(0, 1)</span>,masking ratio <span class="math inline">R_M \leq 0.5</span>。</li>
-<li>构造 per-token 时步 <span class="math inline">\tau \in \mathbb R^N</span>:
-$<span class="math inline">\tau^i = \begin{cases} s, &amp; i \in M \\ t, &amp; \text{otherwise} \end{cases}</span>$</li>
-<li>每个 token 按自己的 <span class="math inline">\tau^i</span> 加噪:
-$<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \mathrm{diag}(\tau)\,x_1</span>$</li>
+<li>采样<em>两个</em>时步 <span class="math inline">\(t, s \sim p(t)\)</span>。</li>
+<li>采样一个 mask <span class="math inline">\(M = \{i \in \{1, \ldots, N\} \mid u_i \lt R_M\}\)</span>,其中 <span class="math inline">\(u_i \sim U(0, 1)\)</span>,masking ratio <span class="math inline">\(R_M \leq 0.5\)</span>。</li>
+<li>构造 per-token 时步 <span class="math inline">\(\tau \in \mathbb R^N\)</span>:
+$<span class="math inline">\(\tau^i = \begin{cases} s, &amp; i \in M \\ t, &amp; \text{otherwise} \end{cases}\)</span>$</li>
+<li>每个 token 按自己的 <span class="math inline">\(\tau^i\)</span> 加噪:
+$<span class="math inline">\(x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \mathrm{diag}(\tau)\,x_1\)</span>$</li>
 </ol>
-<p><strong>关键性质:</strong> 因为 mask 是<em>随机</em>且 <span class="math inline">s</span> 和 <span class="math inline">t</span> 都从同一分布 <span class="math inline">p(t)</span> 采样,任何一个 token 的<em>边缘</em>噪声分布 仍然是 <span class="math inline">p(t)</span> — 跟 vanilla flow matching 完全一样。所以推理时模型遇到的输入分布跟训练时<em>每个 token 看到的分布</em>没差异。</p>
-<p>但是 batch 内的<em>联合</em>分布变了:同一张图的 token 之间有了正相关 (mask 内的都用 <span class="math inline">s</span>,mask 外的都用 <span class="math inline">t</span>)。Student 要 denoise 噪声较大的那一组,必须用噪声较小的那一组当线索 — 强制学全局表征。</p>
+<p><strong>关键性质:</strong> 因为 mask 是<em>随机</em>且 <span class="math inline">\(s\)</span> 和 <span class="math inline">\(t\)</span> 都从同一分布 <span class="math inline">\(p(t)\)</span> 采样,任何一个 token 的<em>边缘</em>噪声分布 仍然是 <span class="math inline">\(p(t)\)</span> — 跟 vanilla flow matching 完全一样。所以推理时模型遇到的输入分布跟训练时<em>每个 token 看到的分布</em>没差异。</p>
+<p>但是 batch 内的<em>联合</em>分布变了:同一张图的 token 之间有了正相关 (mask 内的都用 <span class="math inline">\(s\)</span>,mask 外的都用 <span class="math inline">\(t\)</span>)。Student 要 denoise 噪声较大的那一组,必须用噪声较小的那一组当线索 — 强制学全局表征。</p>
 <p>Fig 2b 的黄线表明:就算<em>不加</em> self-supervised loss (仅改 scheduler),Dual-Timestep Scheduling 单独就能改善生成。这是一个非平凡的副效应。</p>
 <h3 id="sec-2-5">2.4 EMA Teacher + Self-Flow Loss (§3.4)</h3>
-<p>有了不对称输入,Self-Flow 把 REPA 的外部 encoder 换成<em>同一模型的 EMA 副本</em>。设 <span class="math inline">f_\theta</span> 是 student,<span class="math inline">f_{\theta'}</span> 是 EMA teacher (动量更新)。Teacher 输入用 <span class="math inline">\tau_{\min} = \min(\tau) \in \{t, s\}</span> — 即所有 token 都用更干净的那个时步,得到 <span class="math inline">x_{\tau_{\min}}</span>。</p>
+<p>有了不对称输入,Self-Flow 把 REPA 的外部 encoder 换成<em>同一模型的 EMA 副本</em>。设 <span class="math inline">\(f_\theta\)</span> 是 student,<span class="math inline">\(f_{\theta'}\)</span> 是 EMA teacher (动量更新)。Teacher 输入用 <span class="math inline">\(\tau_{\min} = \min(\tau) \in \{t, s\}\)</span> — 即所有 token 都用更干净的那个时步,得到 <span class="math inline">\(x_{\tau_{\min}}\)</span>。</p>
 <p><strong>表征对齐目标 (Eq 6):</strong></p>
-<p>跟 REPA 的形式一样,只是把 <span class="math inline">r_\phi</span> 换成了 <span class="math inline">f_{\theta'}</span>。<em>层选择规则跟 REPA 一致</em>:<span class="math inline">l &lt; k</span> (student 的早期层对齐 teacher 的中后期层,因为 diffusion 模型的语义 feature 集中在中后期)。</p>
+<p>跟 REPA 的形式一样,只是把 <span class="math inline">\(r_\phi\)</span> 换成了 <span class="math inline">\(f_{\theta'}\)</span>。<em>层选择规则跟 REPA 一致</em>:<span class="math inline">\(l &lt; k\)</span> (student 的早期层对齐 teacher 的中后期层,因为 diffusion 模型的语义 feature 集中在中后期)。</p>
 <p><strong>总目标 (Eq 7):</strong></p>
-<p><span class="math inline">\gamma</span> 是平衡系数。Teacher 通过 EMA 慢慢追 student:</p>
-<p><span class="math inline">\alpha \approx 0.999</span> 量级。<strong>关键洞察</strong>:这条 self-distillation 之所以能 work,是因为 (a) teacher 看的输入<em>本质上更容易</em> (噪声整体更小),(b) student 看的输入<em>缺信息</em>,(c) 强迫 student 在缺信息的情况下匹配 teacher 的 feature,就是在强迫 student 学 &quot;如何从少量线索推全图&quot; 的语义能力。</p>
+<p><span class="math inline">\(\gamma\)</span> 是平衡系数。Teacher 通过 EMA 慢慢追 student:</p>
+<p><span class="math inline">\(\alpha \approx 0.999\)</span> 量级。<strong>关键洞察</strong>:这条 self-distillation 之所以能 work,是因为 (a) teacher 看的输入<em>本质上更容易</em> (噪声整体更小),(b) student 看的输入<em>缺信息</em>,(c) 强迫 student 在缺信息的情况下匹配 teacher 的 feature,就是在强迫 student 学 &quot;如何从少量线索推全图&quot; 的语义能力。</p>
 <p>跟 REPA 比 — REPA 的 teacher (DINO) 看的图<em>没有噪声</em>且模型完全不同,这条 chain 走不通;Self-Flow 的 teacher 跟 student 是<em>同一模型同一架构</em>,差距只在&quot;看到的输入有多干净&quot;,所以表征 chain 走得顺。这正是为什么 Self-Flow 可以 scale (Fig 6) 而 REPA 不行。</p>
 <h3 id="sec-2-6">2.5 与代码对照</h3>
 <p>repo (BFL 官方) <strong>只发布 inference 代码 + ImageNet 256 checkpoint</strong>,训练代码<em>未公开</em>。下面引的是模型架构里的 per-token 时步实现 — 这是 Dual-Timestep Scheduling 在前向时唯一需要的修改。</p>
-<p><strong>(a) per-token 时步 embedding</strong> — Eq 4 的 <span class="math inline">\tau \in \mathbb R^N</span> 在 transformer 里怎么用?</p>
+<p><strong>(a) per-token 时步 embedding</strong> — Eq 4 的 <span class="math inline">\(\tau \in \mathbb R^N\)</span> 在 transformer 里怎么用?</p>
 <p class="code-source">repo/src/model.py:L455-L491 — SelfFlowDiT._forward (per-token timestep conditioning)</p>
 <pre><code class="language-python">def _forward(self, x, t, y, return_features=False, return_raw_features=False):
     &quot;&quot;&quot;Forward with per-token timestep conditioning.&quot;&quot;&quot;
@@ -193,11 +193,11 @@ $<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \math
 </code></pre>
 <p>三个对照点:</p>
 <ul>
-<li><strong>L463-L470:</strong> 时步 tensor 可以是 1D (兼容 vanilla flow matching,每个 token 同样 <span class="math inline">t</span>) 或 2D (Self-Flow,<span class="math inline">t \in \mathbb R^{B \times N}</span>,每个 token 有自己的时步)。<strong>Dual-Timestep 在前向只需要这一个改动</strong> — 把广播改成 per-token reshape。</li>
-<li><strong>L479-L484:</strong> <code>return_features</code> 参数告诉模型在第几层吐 feature 给 <span class="math inline">\mathcal L_{\text{rep}}</span>。MLP projector 在那一层接出去 — 就是论文 Eq 6 的 <span class="math inline">h_\theta^{(l)}</span>。</li>
-<li><strong>L476:</strong> condition <span class="math inline">c</span> = 时步嵌入 + 类别嵌入 → 每层 adaLN 模拟。整套 modulation 现在也是 per-token (PerTokenDiTBlock),而不是 batch 级的标量 modulation。</li>
+<li><strong>L463-L470:</strong> 时步 tensor 可以是 1D (兼容 vanilla flow matching,每个 token 同样 <span class="math inline">\(t\)</span>) 或 2D (Self-Flow,<span class="math inline">\(t \in \mathbb R^{B \times N}\)</span>,每个 token 有自己的时步)。<strong>Dual-Timestep 在前向只需要这一个改动</strong> — 把广播改成 per-token reshape。</li>
+<li><strong>L479-L484:</strong> <code>return_features</code> 参数告诉模型在第几层吐 feature 给 <span class="math inline">\(\mathcal L_{\text{rep}}\)</span>。MLP projector 在那一层接出去 — 就是论文 Eq 6 的 <span class="math inline">\(h_\theta^{(l)}\)</span>。</li>
+<li><strong>L476:</strong> condition <span class="math inline">\(c\)</span> = 时步嵌入 + 类别嵌入 → 每层 adaLN 模拟。整套 modulation 现在也是 per-token (PerTokenDiTBlock),而不是 batch 级的标量 modulation。</li>
 </ul>
-<p><strong>(b) per-token adaLN 块</strong> — 标准 DiT block 的 adaLN 是 per-sequence (一个 batch 一个 <span class="math inline">c</span>),Self-Flow 改成 per-token (每个 token 都有自己的 <span class="math inline">(\gamma, \beta)</span>)。</p>
+<p><strong>(b) per-token adaLN 块</strong> — 标准 DiT block 的 adaLN 是 per-sequence (一个 batch 一个 <span class="math inline">\(c\)</span>),Self-Flow 改成 per-token (每个 token 都有自己的 <span class="math inline">\((\gamma, \beta)\)</span>)。</p>
 <p class="code-source">repo/src/model.py:L171-L189 — PerTokenDiTBlock</p>
 <pre><code class="language-python">class PerTokenDiTBlock(DiTBlock):
     &quot;&quot;&quot;DiT block that handles per-token conditioning (N, T, D) instead of (N, D).&quot;&quot;&quot;
@@ -221,7 +221,7 @@ $<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \math
         x = x + gate_mlp * self.mlp(modulate_per_token(self.norm2(x), shift_mlp, scale_mlp))
         return x
 </code></pre>
-<p>对比标准 DiTBlock (model.py:L139-L168): 那里 shift/scale/gate 是 <code>(N, D)</code>,被 <code>unsqueeze(1)</code> 广播到所有 token。Self-Flow 这版直接保留 <code>(N, T, D)</code> 维度,每个 token 用自己的 (γ, β)。<strong>这是适配 per-token 时步的必要架构改动 — 但它本质上无损兼容 vanilla flow matching(只要 <span class="math inline">\tau</span> 在所有 token 上相同就行)</strong>。</p>
+<p>对比标准 DiTBlock (model.py:L139-L168): 那里 shift/scale/gate 是 <code>(N, D)</code>,被 <code>unsqueeze(1)</code> 广播到所有 token。Self-Flow 这版直接保留 <code>(N, T, D)</code> 维度,每个 token 用自己的 (γ, β)。<strong>这是适配 per-token 时步的必要架构改动 — 但它本质上无损兼容 vanilla flow matching(只要 <span class="math inline">\(\tau\)</span> 在所有 token 上相同就行)</strong>。</p>
 <p><strong>(c) 训练循环 (didactic)</strong> — 论文 Algorithm 1 等价,repo 未发布训练代码。</p>
 <p class="code-source"><em>Didactic — not Self-Flow official code; reconstructed from paper §3</em></p>
 <pre><code class="language-python">def self_flow_train_step(student, teacher_ema, x0, y, gamma=0.5, mask_ratio=0.25,
@@ -310,13 +310,13 @@ $<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \math
 <li>**ImageNet 实验:**SiT-XL/2 (28 层,~675M);REPA setup (Yu et al. 2024)。</li>
 <li>**多模态实验:**FLUX.2 transformer (BFL 自家 backbone),~625M (默认),也测了 290M/420M/1B。</li>
 <li>**Autoencoders 分模态选不同:**T2I 用 Stable Diffusion AE → 20M text-image pairs;T2V 用 Wan2.2 AE → 6M videos;T2A 用 Songbloom AE → FMA 数据集。</li>
-<li><strong>采样配置:</strong><span class="math inline">\tau_{\min} = \min(t, s)</span> 喂 teacher;mask ratio <span class="math inline">R_M \leq 0.5</span>(具体值未披露);<span class="math inline">l &lt; k</span>(student 早期层对齐 teacher 中后期层) — 跟 REPA 一致。</li>
+<li><strong>采样配置:</strong><span class="math inline">\(\tau_{\min} = \min(t, s)\)</span> 喂 teacher;mask ratio <span class="math inline">\(R_M \leq 0.5\)</span>(具体值未披露);<span class="math inline">\(l &lt; k\)</span>(student 早期层对齐 teacher 中后期层) — 跟 REPA 一致。</li>
 <li>**EMA decay:**未披露(估计 0.999 或 0.9999 量级)。</li>
 <li>**SimpleHead:**projection head 是 2 层 MLP + SiLU(<code>repo/src/model.py:L232-L243</code>) — 跟 REPA 一致的<em>2-layer non-linear projector</em>,不是简单线性。</li>
-<li>**Per-token modulation:**所有 DiT block 改用 <code>PerTokenDiTBlock</code> (<code>model.py:L171-L189</code>) — 这是适配 per-token 时步的必要架构改动。<u>无损兼容 vanilla flow matching</u>(在 <span class="math inline">\tau</span> 所有 token 相同时退化)。</li>
-<li>**Class embedding 仍是 sequence-level:**L473 把 <span class="math inline">y_{\text{emb}}</span> broadcast 到所有 token,只有时步 embedding 是 per-token。</li>
-<li>**Loss balance <span class="math inline">\gamma</span>:**未披露具体值,但论文显示对 <span class="math inline">\gamma</span> 不敏感。</li>
-<li>**repo-vs-paper gap:**训练流程、<span class="math inline">\gamma</span>、EMA 系数、mask ratio 这些<em>都没在 repo 出现</em>。要复现需要自己拼。</li>
+<li>**Per-token modulation:**所有 DiT block 改用 <code>PerTokenDiTBlock</code> (<code>model.py:L171-L189</code>) — 这是适配 per-token 时步的必要架构改动。<u>无损兼容 vanilla flow matching</u>(在 <span class="math inline">\(\tau\)</span> 所有 token 相同时退化)。</li>
+<li>**Class embedding 仍是 sequence-level:**L473 把 <span class="math inline">\(y_{\text{emb}}\)</span> broadcast 到所有 token,只有时步 embedding 是 per-token。</li>
+<li>**Loss balance <span class="math inline">\(\gamma\)</span>:**未披露具体值,但论文显示对 <span class="math inline">\(\gamma\)</span> 不敏感。</li>
+<li>**repo-vs-paper gap:**训练流程、<span class="math inline">\(\gamma\)</span>、EMA 系数、mask ratio 这些<em>都没在 repo 出现</em>。要复现需要自己拼。</li>
 </ul>
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">5.1 优点</h3>
@@ -331,11 +331,11 @@ $<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \math
 </ul>
 <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
 <ul>
-<li>**训练代码未公开 — 致命短板。**方法的关键超参 (mask_ratio、<span class="math inline">\gamma</span>、EMA decay、time scheduler 的 <span class="math inline">p(t)</span>、projection head 维度) 都没在 repo 或 paper 主文里给完整列表。要&quot;完全复现&quot;得自己 sweep。仅放 inference 代码 + checkpoint 对学界帮助有限。</li>
+<li>**训练代码未公开 — 致命短板。**方法的关键超参 (mask_ratio、<span class="math inline">\(\gamma\)</span>、EMA decay、time scheduler 的 <span class="math inline">\(p(t)\)</span>、projection head 维度) 都没在 repo 或 paper 主文里给完整列表。要&quot;完全复现&quot;得自己 sweep。仅放 inference 代码 + checkpoint 对学界帮助有限。</li>
 <li><strong>EMA teacher 是不是真的 &quot;self&quot;?</strong> 论文 framing 是 &quot;self-supervised&quot;,但其实 EMA teacher 是 student 几千 step 前的副本。如果 EMA decay 大 (~0.9999),teacher 实际跟 student 差几千 step,几乎像两个独立模型。这跟 BYOL / DINO 的 &quot;self&quot; 是同一个语义,但*&quot;self-supervised&quot;* 这个名字会让读者以为完全不需要副本 — 实际还是要在显存里多放一份 EMA。</li>
-<li><strong>Train-inference gap 的&quot;避免&quot;被高估了.</strong> 虽然每个 token 的 marginal noise 分布跟 vanilla 一致,但<em>joint</em>(同一张图内 token 之间的相关性)是不同的:训练时 token 噪声有&quot;两簇&quot;结构(一簇 <span class="math inline">s</span> 一簇 <span class="math inline">t</span>);推理时所有 token 同一 noise level。论文用 Fig 2b 显示 generation 没崩 — 但<em>没有量化</em>这个 joint distribution gap 多大、对边缘任务(例如长序列视频 / 高分辨率)是否有累积偏差。</li>
+<li><strong>Train-inference gap 的&quot;避免&quot;被高估了.</strong> 虽然每个 token 的 marginal noise 分布跟 vanilla 一致,但<em>joint</em>(同一张图内 token 之间的相关性)是不同的:训练时 token 噪声有&quot;两簇&quot;结构(一簇 <span class="math inline">\(s\)</span> 一簇 <span class="math inline">\(t\)</span>);推理时所有 token 同一 noise level。论文用 Fig 2b 显示 generation 没崩 — 但<em>没有量化</em>这个 joint distribution gap 多大、对边缘任务(例如长序列视频 / 高分辨率)是否有累积偏差。</li>
 <li>**跟 SRA (Jiang et al. 2025) 这条最直接对照,差距并不大。**ImageNet 上 SRA 7.27 vs Self-Flow 5.70 看着差异 1.57 FID 是显著的,但 SRA 走的也是 &quot;self-supervised, 用模型自身 feature&quot; 路线,只是不带 EMA teacher 和 dual-timestep。<em>到底是 EMA teacher 重要、还是 dual-timestep 重要、还是两者都重要</em> — 论文没单独消融出两者的边际贡献。Fig 2b 单独评估了 dual-timestep 的<em>generation</em> 收益(无 self-supervised loss),但没有&quot;有 dual-timestep 无 EMA teacher&quot; vs &quot;有 EMA teacher 无 dual-timestep&quot; 的对比。</li>
-<li><strong><span class="math inline">R_M \leq 0.5</span> 这条约束没解释。</strong>&quot;mask ratio 不超过 50%&quot; 看起来是一个 hack —— 如果 mask 太多,信息不对称就崩成纯 masking 了。但 50% 是怎么选的、SCAN 起来怎么样,论文没给。</li>
+<li><strong><span class="math inline">\(R_M \leq 0.5\)</span> 这条约束没解释。</strong>&quot;mask ratio 不超过 50%&quot; 看起来是一个 hack —— 如果 mask 太多,信息不对称就崩成纯 masking 了。但 50% 是怎么选的、SCAN 起来怎么样,论文没给。</li>
 <li>**&quot;FD-DINOv2 上 Self-Flow 超过 REPA&quot;这个 framing 略巧妙.**Fig 5b 看 Self-Flow FD-DINOv2 167.98 vs REPA 173.35,作者强调这是&quot;我们没对齐 DINO 都比对齐了 DINO 的 REPA 在 DINO metric 上更好&quot;。但<em>FD-DINOv2 本身是 DINO 学的 feature distance</em>,跟人类感知的差异不直接对应。Self-Flow 之所以赢可能是它的<em>整体生成质量</em>更好(纹理/结构都更好),被 DINO 顺便也认出来,而不是&quot;语义对齐&quot;上真的胜过 DINO 蒸馏。</li>
 <li>**Compute 对比不完全公平.**EMA teacher 在训练时需要前向一遍 → 训练 FLOPs 至少多 1×(忽略不算 grad)。论文 Fig 6b 给的 FLOPs 没说<em>是否</em>包括 teacher 前向。如果包括,REPA 训练时也要 DINO 前向(更小,~86M),所以两者大致可比;如果不包括,Self-Flow 的实际训练成本被低估。</li>
 <li><strong>视频实验上 V-JEPA2 / Depth Anything 3 反而比 vanilla flow matching 还差的现象,论文用一句 &quot;objective misalignment&quot; 带过.</strong> 但这是个非常强的负面发现 — V-JEPA2 是 Meta 专门为视频训的 self-supervised encoder,Depth Anything 3 是专门给视频 / 视图建模的,它们<em>都</em>在 video task 上让 flow 模型变差。<em>这是不是说外部对齐这条路在视频上根本走不通</em>,而不只是&quot;换 encoder 问题&quot;?paper 不愿意把这个 claim 推到底。</li>
@@ -348,7 +348,7 @@ $<span class="math inline">x_\tau = \mathrm{diag}(\mathbf 1 - \tau)\,x_0 + \math
 <li>✅ **适用:**flow matching / 扩散模型的<em>从头预训练</em>,尤其是图像、视频、音频任意单模态或多模态。</li>
 <li>✅ **适用:**当下游目标是<em>组合 / 结构 / 文本渲染</em>这种需要全局语义的任务 (Fig 1 hero 上 &quot;LOVE&quot; 写在指甲 / push-up 姿势)。</li>
 <li>✅ **适用:**跨模态统一架构 — Self-Flow 跟模态无关,跟外部 encoder 解耦,适合 BFL FLUX.2 这种统一 backbone。</li>
-<li>✅ **适用:**已经在用 REPA 但发现 scaling 不出来的团队 — 直接替换 <span class="math inline">\mathcal L_{\text{rep}}</span> 的 teacher 从外部 → EMA self。</li>
+<li>✅ **适用:**已经在用 REPA 但发现 scaling 不出来的团队 — 直接替换 <span class="math inline">\(\mathcal L_{\text{rep}}\)</span> 的 teacher 从外部 → EMA self。</li>
 <li>❌ **不适用:**已经训好一个 vanilla flow matching 模型,只想&quot;轻量改造&quot; — Self-Flow 是 pretraining-time 的 inductive bias,把 mid-training 切到 dual-timestep 是否有效未知。</li>
 <li>❌ **不适用:**下游任务对外部 representation 强对齐<em>本身</em>有特殊需求 (例如 retrieval pipeline 里跟 DINO embed 显式 join) — Self-Flow 的 feature 不直接住在 DINO 空间。</li>
 <li>⚠️ **谨慎:**训练代码未发布。要复现需要自己实现 Dual-Timestep loader + EMA teacher + loss balancing,paper 没给完整超参。</li>

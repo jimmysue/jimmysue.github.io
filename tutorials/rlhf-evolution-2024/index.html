@@ -122,12 +122,12 @@
 <p>本文 8 大节按螺旋方式组织: 每节都先给&quot;直觉&quot; (高三能听懂), 再给&quot;最小 demo&quot; (15-50 行能跑), 再给&quot;完整推导&quot; (一步不省), 再&quot;引真实 repo 代码&quot; (file:Lstart-Lend 可追溯), 最后给&quot;洞察&quot; (这个设计为什么不是另一种). DPO 与 GRPO 两节代码深度对等, 各有 3-4 段 verbatim 引用 + 公式↔代码逐行对照表.</p>
 <h2 id="sec-1">1. 公式里那些符号到底是什么 —— policy、log π、KL 的工程意义</h2>
 <h3 id="sec-1-1">1.1 直觉</h3>
-<p>你打开任何一篇 RLHF 论文,扑面而来的都是 <span class="math inline">\pi_\theta</span>、<span class="math inline">\log \pi</span>、<span class="math inline">\mathrm{KL}</span> 这些抽象记号。它们让人误以为强化学习是在某种平行宇宙里跑的——而你硬盘上那个 7B 参数的 transformer 是另外一回事。完全不是。</p>
-<p><strong>(a) Policy 就是你的网络本身。</strong>&quot;policy <span class="math inline">\pi_\theta</span>&quot; 翻译成工程语言就是:你那个加载到 GPU 里的 transformer 或者 U-Net,参数集合 <span class="math inline">\theta</span> 就是它的 state_dict。训练前训练后是同一个文件、同一份代码,只是 .pt 里的数值变了。不要把 policy 想成一个新对象。</p>
-<p>**(b) LLM 的 policy 长什么样。**给定 prompt <span class="math inline">x</span>,它对词表里每个 token <span class="math inline">v</span> 输出一个概率 <span class="math inline">\pi_\theta(v \mid x, y_{\lt t})</span>。这就是 softmax 之后的那一行——50257 维的向量,和为 1。采样一次就是 generate 一个 token。</p>
-<p>**(c) Diffusion 的 policy 长什么样。**U-Net 在第 <span class="math inline">t</span> 步收到带噪图 <span class="math inline">x_t</span> 和时间步 <span class="math inline">t</span>,输出&quot;该往哪个方向去噪&quot;。把每一步去噪也看成&quot;从一个分布里采样下一个 <span class="math inline">x_{t-1}</span>&quot;,整个反向链就是一个多步 policy。后面 §7 会把它和 LLM 的 per-token policy 对齐。</p>
-<p>**(d) log 不是炫技,是两条工程理由的合谋。**其一,LLM 一个回答 200 token,把 200 个 1e-3 的概率乘起来是 1e-600,fp16 下直接是 0;取 log 后变成加法,数值稳得像石头。其二,梯度推导里有一个救命恒等式 <span class="math inline">\nabla_\theta p = p \cdot \nabla_\theta \log p</span>,它让&quot;对采样出来的样本求梯度&quot;这件不可能的事变得可能——后面 §2 会反复用。</p>
-<p>**(e) KL 是&quot;别走太远&quot;的统一记号。**所有 RLHF 算法本质上都在做同一件事:让新 policy 比旧 policy 更好,但不要变得面目全非。&quot;不要变得面目全非&quot;这句话,数学家写出来就是 <span class="math inline">\mathrm{KL}(\pi_\theta \,\|\, \pi_{\text{ref}})</span>。PPO、DPO、GRPO 只是 KL 出现的位置和估计方式不同。</p>
+<p>你打开任何一篇 RLHF 论文,扑面而来的都是 <span class="math inline">\(\pi_\theta\)</span>、<span class="math inline">\(\log \pi\)</span>、<span class="math inline">\(\mathrm{KL}\)</span> 这些抽象记号。它们让人误以为强化学习是在某种平行宇宙里跑的——而你硬盘上那个 7B 参数的 transformer 是另外一回事。完全不是。</p>
+<p><strong>(a) Policy 就是你的网络本身。</strong>&quot;policy <span class="math inline">\(\pi_\theta\)</span>&quot; 翻译成工程语言就是:你那个加载到 GPU 里的 transformer 或者 U-Net,参数集合 <span class="math inline">\(\theta\)</span> 就是它的 state_dict。训练前训练后是同一个文件、同一份代码,只是 .pt 里的数值变了。不要把 policy 想成一个新对象。</p>
+<p>**(b) LLM 的 policy 长什么样。**给定 prompt <span class="math inline">\(x\)</span>,它对词表里每个 token <span class="math inline">\(v\)</span> 输出一个概率 <span class="math inline">\(\pi_\theta(v \mid x, y_{\lt t})\)</span>。这就是 softmax 之后的那一行——50257 维的向量,和为 1。采样一次就是 generate 一个 token。</p>
+<p>**(c) Diffusion 的 policy 长什么样。**U-Net 在第 <span class="math inline">\(t\)</span> 步收到带噪图 <span class="math inline">\(x_t\)</span> 和时间步 <span class="math inline">\(t\)</span>,输出&quot;该往哪个方向去噪&quot;。把每一步去噪也看成&quot;从一个分布里采样下一个 <span class="math inline">\(x_{t-1}\)</span>&quot;,整个反向链就是一个多步 policy。后面 §7 会把它和 LLM 的 per-token policy 对齐。</p>
+<p>**(d) log 不是炫技,是两条工程理由的合谋。**其一,LLM 一个回答 200 token,把 200 个 1e-3 的概率乘起来是 1e-600,fp16 下直接是 0;取 log 后变成加法,数值稳得像石头。其二,梯度推导里有一个救命恒等式 <span class="math inline">\(\nabla_\theta p = p \cdot \nabla_\theta \log p\)</span>,它让&quot;对采样出来的样本求梯度&quot;这件不可能的事变得可能——后面 §2 会反复用。</p>
+<p>**(e) KL 是&quot;别走太远&quot;的统一记号。**所有 RLHF 算法本质上都在做同一件事:让新 policy 比旧 policy 更好,但不要变得面目全非。&quot;不要变得面目全非&quot;这句话,数学家写出来就是 <span class="math inline">\(\mathrm{KL}(\pi_\theta \,\|\, \pi_{\text{ref}})\)</span>。PPO、DPO、GRPO 只是 KL 出现的位置和估计方式不同。</p>
 <figure>
     <pre style="font-family: 'SF Mono', monospace; font-size: 0.85em; line-height: 1.3; background: #1e2530; color: #e8e8e8; padding: 1em; border-radius: 6px;">  vocab:      "猫"      "狗"      "鸟"      "鱼"
    prob:    █████████ ████     ██       █
@@ -168,17 +168,17 @@ kl = (p * (log_p - log_q)).sum()
 print(f&quot;p={p.round(3)}  log p={log_p.round(3)}  KL(p||q)={kl:.4f}&quot;)
 print(f&quot;  prod(0.05^200)={seq_prob}  sum(log 0.05*200)={seq_logp:.1f}&quot;)
 </code></pre>
-<p>跑一遍你会看到:<code>seq_prob</code> 直接打印成 <code>0.0</code>(下溢成 0,梯度全废),而 <code>seq_logp ≈ -599.1</code> 仍然是一个普通浮点数。<code>KL(p||q)</code> 是一个正数(KL 永远非负),它告诉你两个分布&quot;差多远&quot;——这就是后面 PPO 里 <span class="math inline">\beta \cdot \mathrm{KL}</span> 那一项的本质。所有这一套,生产代码里也就是把 numpy 换成 torch、把 print 换成 backward。</p>
+<p>跑一遍你会看到:<code>seq_prob</code> 直接打印成 <code>0.0</code>(下溢成 0,梯度全废),而 <code>seq_logp ≈ -599.1</code> 仍然是一个普通浮点数。<code>KL(p||q)</code> 是一个正数(KL 永远非负),它告诉你两个分布&quot;差多远&quot;——这就是后面 PPO 里 <span class="math inline">\(\beta \cdot \mathrm{KL}\)</span> 那一项的本质。所有这一套,生产代码里也就是把 numpy 换成 torch、把 print 换成 backward。</p>
 <h3 id="sec-1-3">1.3 正式化</h3>
 <p>现在把上面的直觉写严。一个 policy 是参数化的条件分布</p>
 <p class="math-translation">—— 翻译: 给定当前状态 $s$,网络参数 $\theta$ 决定了下一个动作 $a$ 落在每个可能取值上的概率;$\theta$ 就是 transformer 的权重。</p>
-<p>对 LLM 来说,<span class="math inline">s</span> 是当前已生成的前缀 <span class="math inline">(x, y_{\lt t})</span>,<span class="math inline">a</span> 是下一个 token <span class="math inline">y_t</span>。由链式法则,一个长度为 <span class="math inline">T</span> 的回答 <span class="math inline">y</span> 的对数概率天然可分解:</p>
+<p>对 LLM 来说,<span class="math inline">\(s\)</span> 是当前已生成的前缀 <span class="math inline">\((x, y_{\lt t})\)</span>,<span class="math inline">\(a\)</span> 是下一个 token <span class="math inline">\(y_t\)</span>。由链式法则,一个长度为 <span class="math inline">\(T\)</span> 的回答 <span class="math inline">\(y\)</span> 的对数概率天然可分解:</p>
 <p class="math-translation">—— 翻译: 一句话的 log 概率等于每个 token 的 log 概率相加。这就是 §1.2 demo 中"乘积下溢、求和稳定"的数学版,也是后面 per-token loss 的基础。</p>
-<p>引入一个参考策略 <span class="math inline">\pi_{\text{ref}}</span>(通常是 SFT 之后、RL 之前的 frozen 副本)。两个 policy 的距离用 KL 散度度量:</p>
+<p>引入一个参考策略 <span class="math inline">\(\pi_{\text{ref}}\)</span>(通常是 SFT 之后、RL 之前的 frozen 副本)。两个 policy 的距离用 KL 散度度量:</p>
 <p class="math-translation">—— 翻译: KL 是"在 $\pi_\theta$ 自己采样出的回答上,新旧 log-prob 之差的期望"。在实现里这是一个单样本估计——抽一个 $y$,算两次 log-prob,作差。</p>
-<p>RL 的目标函数(<span class="math inline">R(x,y)</span> 是奖励,例如人类偏好打分或一个规则验证器):</p>
+<p>RL 的目标函数(<span class="math inline">\(R(x,y)\)</span> 是奖励,例如人类偏好打分或一个规则验证器):</p>
 <p class="math-translation">—— 翻译: 我们想最大化的是"在自己采的样本上拿到的平均奖励"。注意 $y$ 是从 $\pi_\theta$ 自己采的,所以 $\theta$ 同时出现在分布里和被求期望的函数里——这正是 policy gradient 要解决的核心难点。</p>
-<p>大部分 RLHF 算法都在最大化 <span class="math inline">J(\theta) - \beta \cdot \mathrm{KL}(\pi_\theta \,\|\, \pi_{\text{ref}})</span>:第一项推着 policy 去拿高分,第二项把它拽回 <span class="math inline">\pi_{\text{ref}}</span> 附近,<span class="math inline">\beta</span> 是松紧带的硬度。</p>
+<p>大部分 RLHF 算法都在最大化 <span class="math inline">\(J(\theta) - \beta \cdot \mathrm{KL}(\pi_\theta \,\|\, \pi_{\text{ref}})\)</span>:第一项推着 policy 去拿高分,第二项把它拽回 <span class="math inline">\(\pi_{\text{ref}}\)</span> 附近,<span class="math inline">\(\beta\)</span> 是松紧带的硬度。</p>
 <h3 id="sec-1-4">1.4 代码引用</h3>
 <p class="code-source">sources/repos/huggingface-trl/trl/trainer/utils.py:L436-L480 — selective_log_softmax: 从 LM logits 算 per-token log π</p>
 <pre><code class="language-python">def selective_log_softmax(logits, index) -&gt; torch.Tensor:
@@ -216,18 +216,18 @@ print(f&quot;  prod(0.05^200)={seq_prob}  sum(log 0.05*200)={seq_logp:.1f}&quot;
 
     return per_token_logps
 </code></pre>
-<p>这是 TRL 库里几乎每个 trainer(PPO/DPO/GRPO)第一步都会调的函数,它把网络的 raw logits 变成&quot;采到的那个 token 的 log π&quot;。对照 §1.3 的公式:输入 <code>logits</code> 的形状是 <code>[batch, seq_len, vocab]</code>,正是 <span class="math inline">\pi_\theta(\cdot \mid x, y_{\lt t})</span> 的未归一化版本;<code>index</code> 是真正采出来的 token id,即 <span class="math inline">y_t</span>。<code>selected_logits = torch.gather(logits, dim=-1, index=index)</code> 取出 <span class="math inline">y_t</span> 对应那一维的 logit;<code>logsumexp_values = torch.stack([torch.logsumexp(lg, dim=-1) for lg in logits])</code> 算出 partition function 的 log,即 <span class="math inline">\log\sum_v \exp(\mathrm{logit}_v)</span>;最后一行 <code>selected_logits - logsumexp_values.unsqueeze(-1)</code> 实现的就是恒等式 <span class="math inline">\log \pi_\theta(y_t \mid x, y_{\lt t}) = \mathrm{logit}_{y_t} - \log\sum_v \exp(\mathrm{logit}_v)</span>。bfloat16 分支用 <code>F.log_softmax</code> 走标准路径,原因是低精度下 logsumexp 会跑偏——这正是 §1.1(d) 提到的工程现实。</p>
+<p>这是 TRL 库里几乎每个 trainer(PPO/DPO/GRPO)第一步都会调的函数,它把网络的 raw logits 变成&quot;采到的那个 token 的 log π&quot;。对照 §1.3 的公式:输入 <code>logits</code> 的形状是 <code>[batch, seq_len, vocab]</code>,正是 <span class="math inline">\(\pi_\theta(\cdot \mid x, y_{\lt t})\)</span> 的未归一化版本;<code>index</code> 是真正采出来的 token id,即 <span class="math inline">\(y_t\)</span>。<code>selected_logits = torch.gather(logits, dim=-1, index=index)</code> 取出 <span class="math inline">\(y_t\)</span> 对应那一维的 logit;<code>logsumexp_values = torch.stack([torch.logsumexp(lg, dim=-1) for lg in logits])</code> 算出 partition function 的 log,即 <span class="math inline">\(\log\sum_v \exp(\mathrm{logit}_v)\)</span>;最后一行 <code>selected_logits - logsumexp_values.unsqueeze(-1)</code> 实现的就是恒等式 <span class="math inline">\(\log \pi_\theta(y_t \mid x, y_{\lt t}) = \mathrm{logit}_{y_t} - \log\sum_v \exp(\mathrm{logit}_v)\)</span>。bfloat16 分支用 <code>F.log_softmax</code> 走标准路径,原因是低精度下 logsumexp 会跑偏——这正是 §1.1(d) 提到的工程现实。</p>
 <h3 id="sec-1-5">1.5 洞察</h3>
 <ul>
 <li>**log 不是数学家的洁癖,是 fp16 下 1e-30 概率必死的工程必需。**从此往后所有 loss 都是 log-prob 的线性组合——记住这一点,后面任何公式你都能在 5 行 PyTorch 里复现。</li>
-<li>**KL 不需要算两个分布的真距离。**在 PPO/DPO/GRPO 里,它都是用单样本 log-prob 之差 <span class="math inline">\log\pi_\theta(y) - \log\pi_{\text{ref}}(y)</span> 做的无偏(或低偏)估计;真要算 <span class="math inline">\sum_v \pi(v)\log(\pi(v)/\pi_{\text{ref}}(v))</span>,词表 5 万维根本算不动。</li>
-<li>**Policy 不是抽象,它就是你硬盘上那个 .pt 文件。**RLHF 全部魔法,本质上是用一份奖励信号去微调那份 .pt——所以每次看到 <span class="math inline">\pi_\theta</span>,在脑子里把它读成&quot;我的模型&quot;。</li>
+<li>**KL 不需要算两个分布的真距离。**在 PPO/DPO/GRPO 里,它都是用单样本 log-prob 之差 <span class="math inline">\(\log\pi_\theta(y) - \log\pi_{\text{ref}}(y)\)</span> 做的无偏(或低偏)估计;真要算 <span class="math inline">\(\sum_v \pi(v)\log(\pi(v)/\pi_{\text{ref}}(v))\)</span>,词表 5 万维根本算不动。</li>
+<li>**Policy 不是抽象,它就是你硬盘上那个 .pt 文件。**RLHF 全部魔法,本质上是用一份奖励信号去微调那份 .pt——所以每次看到 <span class="math inline">\(\pi_\theta\)</span>,在脑子里把它读成&quot;我的模型&quot;。</li>
 </ul>
 <h2 id="sec-2">2. Policy Gradient: 不可微 reward 怎么求导 —— REINFORCE 起手</h2>
 <h3 id="sec-2-1">2.1 直觉</h3>
-<p>RL 在生成模型里之所以&quot;不可替代&quot;,起点就一句话:<strong>我们想最大化的目标不可导</strong>。BLEU、人类偏好打分、CLIP 相似度、单元测试是否通过、编译器 pass/fail —— 这些 reward 要么是离散的、要么经过黑箱评测器,根本没有 <span class="math inline">\partial R / \partial \theta</span> 可以反传。所以即便把 LLM 的输出 logits 接上一个 reward,也无法像监督学习那样&quot;loss.backward()&quot;完事。</p>
-<p>突破口是一个看似无害的恒等式 —— <em>log-derivative trick</em>:<span class="math inline">\nabla_\theta p_\theta(x) = p_\theta(x)\,\nabla_\theta \log p_\theta(x)</span>。把它代进期望里,梯度被&quot;挪到 log π 上面&quot;,而 R 只作为一个采样到的<strong>常数权重</strong>留在外面。结论非常便宜:只要你能 sample 一条 trajectory <span class="math inline">\tau</span>、能算它的 <span class="math inline">\log \pi_\theta(\tau)</span>,你就能更新 <span class="math inline">\theta</span> —— reward 是不是可导,根本不进梯度公式。</p>
-<p>一个通俗类比:你想最大化&quot;刮彩票的中奖额&quot;。中奖与否是离散事件、没有梯度,但你<em>可以</em>调整&quot;买哪张票&quot;的策略 <span class="math inline">\pi_\theta</span>。REINFORCE 告诉你:把每次中奖额拿来,按当时&quot;为什么买这张票&quot;的 log 概率梯度加权,平均一下就是策略改进方向。中奖那张,下次更可能买;没中那张,下次更不可能买。</p>
+<p>RL 在生成模型里之所以&quot;不可替代&quot;,起点就一句话:<strong>我们想最大化的目标不可导</strong>。BLEU、人类偏好打分、CLIP 相似度、单元测试是否通过、编译器 pass/fail —— 这些 reward 要么是离散的、要么经过黑箱评测器,根本没有 <span class="math inline">\(\partial R / \partial \theta\)</span> 可以反传。所以即便把 LLM 的输出 logits 接上一个 reward,也无法像监督学习那样&quot;loss.backward()&quot;完事。</p>
+<p>突破口是一个看似无害的恒等式 —— <em>log-derivative trick</em>:<span class="math inline">\(\nabla_\theta p_\theta(x) = p_\theta(x)\,\nabla_\theta \log p_\theta(x)\)</span>。把它代进期望里,梯度被&quot;挪到 log π 上面&quot;,而 R 只作为一个采样到的<strong>常数权重</strong>留在外面。结论非常便宜:只要你能 sample 一条 trajectory <span class="math inline">\(\tau\)</span>、能算它的 <span class="math inline">\(\log \pi_\theta(\tau)\)</span>,你就能更新 <span class="math inline">\(\theta\)</span> —— reward 是不是可导,根本不进梯度公式。</p>
+<p>一个通俗类比:你想最大化&quot;刮彩票的中奖额&quot;。中奖与否是离散事件、没有梯度,但你<em>可以</em>调整&quot;买哪张票&quot;的策略 <span class="math inline">\(\pi_\theta\)</span>。REINFORCE 告诉你:把每次中奖额拿来,按当时&quot;为什么买这张票&quot;的 log 概率梯度加权,平均一下就是策略改进方向。中奖那张,下次更可能买;没中那张,下次更不可能买。</p>
 <figure class="derivation-chain">
     <div class="chain-step"><strong>① 目标</strong>   想最大化期望 reward,$R$ 是黑箱(BLEU、打分、规则裁判),不可导。</div>
     $$J(\theta) \;=\; \mathbb{E}_{\tau \sim \pi_\theta}\!\big[R(\tau)\big]$$
@@ -254,7 +254,7 @@ $$\nabla_\theta J(\theta) \;=\; \mathbb{E}_{\tau \sim \pi_\theta}\!\Big[\,\under
     .derivation-chain figcaption { margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px dashed var(--rule, #e8e2d4); font-size: 0.88rem; color: var(--text-secondary, #5f5a52); }
   </style>
 <h3 id="sec-2-2">2.2 最小 demo</h3>
-<p>30 行 numpy 跑一个 3-arm bandit:真实 reward 是 <span class="math inline">[0.1, 0.5, 0.9]</span>,policy 是 softmax(θ)。注意 reward 在代码里就是个查表得到的标量,完全不可导,但 θ 仍然能收敛到只拉第 3 根 arm。</p>
+<p>30 行 numpy 跑一个 3-arm bandit:真实 reward 是 <span class="math inline">\([0.1, 0.5, 0.9]\)</span>,policy 是 softmax(θ)。注意 reward 在代码里就是个查表得到的标量,完全不可导,但 θ 仍然能收敛到只拉第 3 根 arm。</p>
 <pre><code class="language-python">import numpy as np
 np.random.seed(0)
 
@@ -282,17 +282,17 @@ for step in range(300):
 print(&quot;final policy:&quot;, np.round(probs, 3))   # ≈ [0.00, 0.01, 0.99]
 print(&quot;avg reward last 50:&quot;, np.mean(history[-50:]))
 </code></pre>
-<p>关键不在循环长度,而在于第 2 步:<code>r = true_rewards[a]</code> 是离散查表,Python 永远不会对它求导;真正进入梯度的是<strong>第 3 步</strong> <span class="math inline">\nabla_\theta \log \pi</span> —— softmax 对 logits 的导数,完全可导。reward 只是个权重:r 越大,把这个 action 的概率往上推得越用力。这正是把&quot;不可导优化&quot;翻译成&quot;可导优化&quot;的全部内容。</p>
+<p>关键不在循环长度,而在于第 2 步:<code>r = true_rewards[a]</code> 是离散查表,Python 永远不会对它求导;真正进入梯度的是<strong>第 3 步</strong> <span class="math inline">\(\nabla_\theta \log \pi\)</span> —— softmax 对 logits 的导数,完全可导。reward 只是个权重:r 越大,把这个 action 的概率往上推得越用力。这正是把&quot;不可导优化&quot;翻译成&quot;可导优化&quot;的全部内容。</p>
 <h3 id="sec-2-3">2.3 正式化</h3>
-<p>从 §1 的目标函数出发(τ 表示一整条轨迹 <span class="math inline">s_0, a_0, s_1, a_1, \dots, s_T</span>):</p>
+<p>从 §1 的目标函数出发(τ 表示一整条轨迹 <span class="math inline">\(s_0, a_0, s_1, a_1, \dots, s_T\)</span>):</p>
 <p class="math-translation">—— 翻译: 我们要让"按当前策略 π_θ 跑出来的轨迹,平均得分"尽可能高。</p>
-<p>对 θ 求梯度。<span class="math inline">R(\tau)</span> 与 θ 无关,只有 <span class="math inline">p_\theta(\tau)</span> 含 θ。套 log-derivative trick:</p>
+<p>对 θ 求梯度。<span class="math inline">\(R(\tau)\)</span> 与 θ 无关,只有 <span class="math inline">\(p_\theta(\tau)\)</span> 含 θ。套 log-derivative trick:</p>
 <p class="math-translation">—— 翻译: 用恒等式 ∇p = p · ∇log p 把"求导对象"从 p 换成 log p,这样积分又能写回期望形式。</p>
-<p>因为 <span class="math inline">p_\theta(\tau) = p(s_0)\prod_t \pi_\theta(a_t \mid s_t)\, p(s_{t+1}\mid s_t, a_t)</span>,只有 <span class="math inline">\pi_\theta</span> 项依赖 θ,环境转移项 <span class="math inline">\log p(s_{t+1}\mid s_t, a_t)</span> 的梯度为零。于是得到 REINFORCE 估计:</p>
+<p>因为 <span class="math inline">\(p_\theta(\tau) = p(s_0)\prod_t \pi_\theta(a_t \mid s_t)\, p(s_{t+1}\mid s_t, a_t)\)</span>,只有 <span class="math inline">\(\pi_\theta\)</span> 项依赖 θ,环境转移项 <span class="math inline">\(\log p(s_{t+1}\mid s_t, a_t)\)</span> 的梯度为零。于是得到 REINFORCE 估计:</p>
 <p class="math-translation">—— 翻译: 只要能采样轨迹、能算每步动作的 log 概率梯度,再用 R 加权求和,就是策略梯度的无偏估计。</p>
-<p><strong>Baseline 降方差。</strong> 注意到任何与动作无关的函数 <span class="math inline">b(s)</span> 满足 <span class="math inline">\mathbb{E}_{a\sim\pi}[b(s)\,\nabla\log\pi(a\mid s)] = b(s)\,\nabla\sum_a \pi(a\mid s) = b(s)\,\nabla 1 = 0</span>,因此把 <span class="math inline">R</span> 换成 <span class="math inline">R - b(s)</span> 不改变期望,却能显著压方差。取 <span class="math inline">b(s) = V^\pi(s)</span>,定义优势:</p>
+<p><strong>Baseline 降方差。</strong> 注意到任何与动作无关的函数 <span class="math inline">\(b(s)\)</span> 满足 <span class="math inline">\(\mathbb{E}_{a\sim\pi}[b(s)\,\nabla\log\pi(a\mid s)] = b(s)\,\nabla\sum_a \pi(a\mid s) = b(s)\,\nabla 1 = 0\)</span>,因此把 <span class="math inline">\(R\)</span> 换成 <span class="math inline">\(R - b(s)\)</span> 不改变期望,却能显著压方差。取 <span class="math inline">\(b(s) = V^\pi(s)\)</span>,定义优势:</p>
 <p class="math-translation">—— 翻译: 优势 = 这个动作的回报 − 这个状态的平均回报,"比平均好多少"才是有信息量的学习信号。</p>
-<p>实际中 <span class="math inline">A</span> 不可解析,需要从样本估计。Schulman 等人 (2016) 的 GAE 用 TD 残差 <span class="math inline">\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)</span> 的几何加权和:</p>
+<p>实际中 <span class="math inline">\(A\)</span> 不可解析,需要从样本估计。Schulman 等人 (2016) 的 GAE 用 TD 残差 <span class="math inline">\(\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)\)</span> 的几何加权和:</p>
 <p class="math-translation">—— 翻译: λ 越接近 0 越像单步 TD(低方差高偏差),越接近 1 越像 Monte Carlo(低偏差高方差),λ 就是一个手动旋钮。</p>
 <h3 id="sec-2-4">2.4 代码引用</h3>
 <p>看一下 TRL 里 PPO 训练器是怎么把 GAE 写成几行 PyTorch 的。这段代码会在 §3 PPO 里被反复引用,这里只关注 advantage 计算本身:</p>
@@ -313,21 +313,21 @@ advantages = torch.masked_fill(advantages, padding_mask, 0)
 </code></pre>
 <p>三处对照:</p>
 <ul>
-<li><code>delta = rewards[:, t] + args.gamma * nextvalues - values[:, t]</code> 就是公式里的 <span class="math inline">\delta_t = r_t + \gamma V_{t+1} - V_t</span>;<code>nextvalues</code> 在最后一步是 0,因为序列末尾没有下一时刻 value。</li>
-<li><code>lastgaelam = delta + args.gamma * args.lam * lastgaelam</code> 是 GAE 递推 <span class="math inline">\hat{A}_t = \delta_t + \gamma\lambda \hat{A}_{t+1}</span> 的逐字翻译。反向遍历 <code>for t in reversed(range(gen_length))</code> 是因为 <span class="math inline">\hat{A}_t</span> 依赖 <span class="math inline">\hat{A}_{t+1}</span> —— 必须先有未来,才能算现在。</li>
+<li><code>delta = rewards[:, t] + args.gamma * nextvalues - values[:, t]</code> 就是公式里的 <span class="math inline">\(\delta_t = r_t + \gamma V_{t+1} - V_t\)</span>;<code>nextvalues</code> 在最后一步是 0,因为序列末尾没有下一时刻 value。</li>
+<li><code>lastgaelam = delta + args.gamma * args.lam * lastgaelam</code> 是 GAE 递推 <span class="math inline">\(\hat{A}_t = \delta_t + \gamma\lambda \hat{A}_{t+1}\)</span> 的逐字翻译。反向遍历 <code>for t in reversed(range(gen_length))</code> 是因为 <span class="math inline">\(\hat{A}_t\)</span> 依赖 <span class="math inline">\(\hat{A}_{t+1}\)</span> —— 必须先有未来,才能算现在。</li>
 <li><code>masked_whiten(advantages, ~padding_mask)</code> 把整个 batch 的 advantage 做 mean=0, var=1 的标准化(并屏蔽 padding 位)。这一步纯粹是<strong>降方差的工程 trick</strong>,理论上不改变期望梯度方向,但显著稳住 LLM 上的 PPO 训练 —— 后面 §3 会看到为什么 LLM 设定下方差是头号敌人。</li>
 </ul>
 <h3 id="sec-2-5">2.5 洞察</h3>
 <ul>
-<li><strong>REINFORCE 是入场券,但单跑会爆。</strong> bandit 上几行就收敛;LLM 上,reward 是 sequence-level 的一个标量(整条几百 token 的回答只回收一个分),分母还有指数级的轨迹空间。结果是 <span class="math inline">\nabla \log \pi</span> 的方差极大、梯度乱跳。§3 PPO 的两件武器 —— ratio clip 和 value head —— 都是直接攻这个根。</li>
+<li><strong>REINFORCE 是入场券,但单跑会爆。</strong> bandit 上几行就收敛;LLM 上,reward 是 sequence-level 的一个标量(整条几百 token 的回答只回收一个分),分母还有指数级的轨迹空间。结果是 <span class="math inline">\(\nabla \log \pi\)</span> 的方差极大、梯度乱跳。§3 PPO 的两件武器 —— ratio clip 和 value head —— 都是直接攻这个根。</li>
 <li><strong>Advantage 不是&quot;数学美感&quot;,是&quot;相对信号&quot;。</strong> 用 raw reward 训练,优化器收到的是&quot;这条轨迹得了 0.7&quot;;用 advantage 训练,优化器收到的是&quot;这条轨迹比平均水平好 +0.2&quot;。后者去掉了所有 prompt 难度差异带来的 baseline 漂移,信噪比高一个数量级。RLHF/DPO 之争背后,本质就是&quot;要不要显式 value 来算 advantage&quot;这个问题。</li>
-<li><strong><span class="math inline">(\gamma, \lambda)</span> 是偏差/方差旋钮。</strong> <span class="math inline">\lambda \to 0</span> 退化为单步 TD,bias 高、variance 低;<span class="math inline">\lambda \to 1</span> 变成 Monte Carlo,bias 低、variance 高。LLM RLHF 实战里 <span class="math inline">\lambda = 0.95</span>、<span class="math inline">\gamma = 1.0</span> 是几乎所有开源实现的默认值 —— 不是巧合,是被无数次 run 砸出来的 sweet spot。</li>
+<li><strong><span class="math inline">\((\gamma, \lambda)\)</span> 是偏差/方差旋钮。</strong> <span class="math inline">\(\lambda \to 0\)</span> 退化为单步 TD,bias 高、variance 低;<span class="math inline">\(\lambda \to 1\)</span> 变成 Monte Carlo,bias 低、variance 高。LLM RLHF 实战里 <span class="math inline">\(\lambda = 0.95\)</span>、<span class="math inline">\(\gamma = 1.0\)</span> 是几乎所有开源实现的默认值 —— 不是巧合,是被无数次 run 砸出来的 sweet spot。</li>
 </ul>
 <h2 id="sec-3">3. PPO: 走得快, 但别翻车 —— clip 是怎样想出来的</h2>
 <h3 id="sec-3-1">3.1 直觉</h3>
-<p>§2 的 REINFORCE 给出了&quot;reward 不可导也能更新&quot;的钥匙, 但留了一个尾巴: 一旦学习率稍微大一点, 或者某条 trajectory 的 advantage 异常大, <span class="math inline">\nabla \log \pi_\theta</span> 就把策略推得过远 —— 新策略采样出来的轨迹分布跟旧策略相去甚远, 已经收集好的那批样本立刻&quot;过期&quot;, 训练曲线常常先升后崩。问题的本质是: 普通 policy gradient <strong>没有任何机制约束&quot;一步能走多远&quot;</strong>, 而 on-policy 算法的样本效率又逼着我们想在同一批 rollout 上做多次梯度更新, 矛盾立刻浮现。</p>
-<p>2015 年的 TRPO 给出了第一版严肃答案: 在每次更新时, 显式约束新旧策略的 KL 距离 <span class="math inline">\mathrm{KL}(\pi_{\text{old}} \| \pi_\theta) \le \delta</span>, 把更新限制在一个&quot;信赖域&quot;里。理论很漂亮 (单调改进保证), 但实现要做共轭梯度 + line search, 还得算 Fisher 矩阵向量积, 对 dropout、参数共享、RNN 都不友好, 拿到一个新框架往往要重写半套优化器, 在 PyTorch 这种动态图生态里水土不服。</p>
-<p>2017 年 Schulman 团队抛出了一个几乎让人想笑的极简方案 —— <strong>PPO</strong>: 既然要约束&quot;走多远&quot;, 那就直接看新旧策略对同一个动作的概率比 <span class="math inline">r = \pi_\theta / \pi_{\text{old}}</span>, 把它<strong>硬剪</strong>到 <span class="math inline">[1-\epsilon, 1+\epsilon]</span> 区间。再加一个 min 操作, 让&quot;过度乐观的更新&quot;被压回去, 但&quot;惩罚性的负 advantage&quot;该传多大就传多大。整个 PPO 的总目标其实就三项: clipped surrogate (策略提升) − value loss (critic 拟合 <span class="math inline">\hat A</span>) + entropy bonus (鼓励探索), 一行代码 30 个字符就能写完核心。它不带任何额外超参的二阶约束, 没有 line search、没有 Hessian, 只多了一个 <span class="math inline">\epsilon</span> 标量, 却拿到了和 TRPO 几乎一致的稳定性 —— 这正是工程师梦寐以求的&quot;砍掉数学优雅、换来工程鲁棒&quot;。</p>
+<p>§2 的 REINFORCE 给出了&quot;reward 不可导也能更新&quot;的钥匙, 但留了一个尾巴: 一旦学习率稍微大一点, 或者某条 trajectory 的 advantage 异常大, <span class="math inline">\(\nabla \log \pi_\theta\)</span> 就把策略推得过远 —— 新策略采样出来的轨迹分布跟旧策略相去甚远, 已经收集好的那批样本立刻&quot;过期&quot;, 训练曲线常常先升后崩。问题的本质是: 普通 policy gradient <strong>没有任何机制约束&quot;一步能走多远&quot;</strong>, 而 on-policy 算法的样本效率又逼着我们想在同一批 rollout 上做多次梯度更新, 矛盾立刻浮现。</p>
+<p>2015 年的 TRPO 给出了第一版严肃答案: 在每次更新时, 显式约束新旧策略的 KL 距离 <span class="math inline">\(\mathrm{KL}(\pi_{\text{old}} \| \pi_\theta) \le \delta\)</span>, 把更新限制在一个&quot;信赖域&quot;里。理论很漂亮 (单调改进保证), 但实现要做共轭梯度 + line search, 还得算 Fisher 矩阵向量积, 对 dropout、参数共享、RNN 都不友好, 拿到一个新框架往往要重写半套优化器, 在 PyTorch 这种动态图生态里水土不服。</p>
+<p>2017 年 Schulman 团队抛出了一个几乎让人想笑的极简方案 —— <strong>PPO</strong>: 既然要约束&quot;走多远&quot;, 那就直接看新旧策略对同一个动作的概率比 <span class="math inline">\(r = \pi_\theta / \pi_{\text{old}}\)</span>, 把它<strong>硬剪</strong>到 <span class="math inline">\([1-\epsilon, 1+\epsilon]\)</span> 区间。再加一个 min 操作, 让&quot;过度乐观的更新&quot;被压回去, 但&quot;惩罚性的负 advantage&quot;该传多大就传多大。整个 PPO 的总目标其实就三项: clipped surrogate (策略提升) − value loss (critic 拟合 <span class="math inline">\(\hat A\)</span>) + entropy bonus (鼓励探索), 一行代码 30 个字符就能写完核心。它不带任何额外超参的二阶约束, 没有 line search、没有 Hessian, 只多了一个 <span class="math inline">\(\epsilon\)</span> 标量, 却拿到了和 TRPO 几乎一致的稳定性 —— 这正是工程师梦寐以求的&quot;砍掉数学优雅、换来工程鲁棒&quot;。</p>
 <figure>
     <img class="zoomable" alt="PPO clipped surrogate L^CLIP 关于 ratio r 的两段折线形状" src="figures/sec3-ppo-clip-shape.png" style="max-width:80%;">
     <figcaption>图 3.1: PPO clipped surrogate $L^{CLIP}$ 关于 ratio $r$ 的形状。当 $\hat A \gt 0$ (左图) 时, $r$ 超过 $1+\epsilon$ 之后 surrogate 被压平 —— 即使比例继续涨, 也拿不到额外 reward, 抑制激进更新; 当 $\hat A \lt 0$ (右图) 时, $r$ 跌破 $1-\epsilon$ 之后才被夹住 —— 负样本仍能驱动梯度。这条"非对称剪裁"就是 PPO 名字里 "Proximal" 的由来。</figcaption>
@@ -362,30 +362,30 @@ for k in range(4):
     print(f&quot;step {k}  ratio[{ratio.min():.3f},{ratio.max():.3f}]  &quot;
           f&quot;clipfrac={clipfrac:.2f}  loss={pg_loss.item():+.4f}&quot;)
 </code></pre>
-<p>跑起来你会看到: 第 0 步 ratio 恰为 1.0 (新旧策略相同), clipfrac=0; 之后几步 ratio 逐渐偏离 1, 当超出 <span class="math inline">[0.8, 1.2]</span> 的样本越多, clipfrac 越大, loss 也开始&quot;卡住&quot;不再下降 —— 这正是 PPO 主动放弃&quot;贪婪的更新&quot;的瞬间。注意我们用的是 <code>min(surr1, surr2)</code> 而不是直接 <code>clip(ratio) * adv</code>: 前者在 <span class="math inline">\hat A \gt 0</span> 时压住乐观、在 <span class="math inline">\hat A \lt 0</span> 时仍允许大梯度修正; 后者会同时砍掉&quot;该走的负方向&quot;, 反而让坏样本无法被纠正。这就是 PPO 论文里反复强调的&quot;悲观下界&quot;——只在对自己有利的方向上保守, 在惩罚自己的方向上保留全部学习信号, 这种非对称设计是 PPO 区别于一切朴素 clip 方案的关键。</p>
+<p>跑起来你会看到: 第 0 步 ratio 恰为 1.0 (新旧策略相同), clipfrac=0; 之后几步 ratio 逐渐偏离 1, 当超出 <span class="math inline">\([0.8, 1.2]\)</span> 的样本越多, clipfrac 越大, loss 也开始&quot;卡住&quot;不再下降 —— 这正是 PPO 主动放弃&quot;贪婪的更新&quot;的瞬间。注意我们用的是 <code>min(surr1, surr2)</code> 而不是直接 <code>clip(ratio) * adv</code>: 前者在 <span class="math inline">\(\hat A \gt 0\)</span> 时压住乐观、在 <span class="math inline">\(\hat A \lt 0\)</span> 时仍允许大梯度修正; 后者会同时砍掉&quot;该走的负方向&quot;, 反而让坏样本无法被纠正。这就是 PPO 论文里反复强调的&quot;悲观下界&quot;——只在对自己有利的方向上保守, 在惩罚自己的方向上保留全部学习信号, 这种非对称设计是 PPO 区别于一切朴素 clip 方案的关键。</p>
 <h3 id="sec-3-3">3.3 正式化</h3>
 <p>把直觉翻译成公式, 整个 PPO 只需要四个对象: ratio、CPI surrogate、CLIP surrogate、total loss。先定义新旧策略对同一动作的概率比:</p>
 <div class="math block">
-r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{\text{old}}}(a_t \mid s_t)}
+\[r_t(\theta) = \frac{\pi_\theta(a_t \mid s_t)}{\pi_{\theta_{\text{old}}}(a_t \mid s_t)}\]
 </div>
 <p class="math-translation">—— 翻译: $r_t$ 等于 1 表示"新策略对这个动作的偏好和旧策略一样"; 大于 1 表示"更偏好"; 小于 1 表示"更不偏好"。</p>
 <p>TRPO 沿用的 surrogate (Schulman 称为 Conservative Policy Iteration 目标) 就是把 advantage 用这个 ratio 加权:</p>
 <div class="math block">
-L^{CPI}(\theta) = \mathbb{E}_t\!\left[ r_t(\theta) \,\hat A_t \right]
+\[L^{CPI}(\theta) = \mathbb{E}_t\!\left[ r_t(\theta) \,\hat A_t \right]\]
 </div>
 <p class="math-translation">—— 翻译: 想让总 advantage 越大越好, 就让那些 $\hat A_t \gt 0$ 的动作的 $r_t$ 涨上去、$\hat A_t \lt 0$ 的动作的 $r_t$ 压下来。</p>
-<p>问题是 <span class="math inline">L^{CPI}</span> 没有任何&quot;上限&quot; —— <span class="math inline">r_t</span> 可以飙到 10、100, 把单条样本的影响放大到崩盘。PPO 的核心改动只有一行: 用 min 和 clip 把 surrogate 夹成两段折线:</p>
+<p>问题是 <span class="math inline">\(L^{CPI}\)</span> 没有任何&quot;上限&quot; —— <span class="math inline">\(r_t\)</span> 可以飙到 10、100, 把单条样本的影响放大到崩盘。PPO 的核心改动只有一行: 用 min 和 clip 把 surrogate 夹成两段折线:</p>
 <div class="math block">
-L^{CLIP}(\theta) = \mathbb{E}_t\!\left[ \min\!\Big( r_t(\theta)\,\hat A_t,\; \mathrm{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\,\hat A_t \Big) \right]
+\[L^{CLIP}(\theta) = \mathbb{E}_t\!\left[ \min\!\Big( r_t(\theta)\,\hat A_t,\; \mathrm{clip}(r_t(\theta), 1-\epsilon, 1+\epsilon)\,\hat A_t \Big) \right]\]
 </div>
 <p class="math-translation">—— 翻译: 对每个时刻, 在"原始 surrogate"和"剪裁后 surrogate"中取较小的一个, 形成一个永远不会"过度乐观"的下界。</p>
-<p>这里 min 的不对称性是关键: 当 <span class="math inline">\hat A_t \gt 0</span> 时, ratio 越大 surrogate 越大, 一旦 <span class="math inline">r_t \gt 1+\epsilon</span> 第二项就把它压回 <span class="math inline">1+\epsilon</span>, min 取出这个被压住的值; 当 <span class="math inline">\hat A_t \lt 0</span> 时, ratio 越小 surrogate 越大 (因为乘了负数), 一旦 <span class="math inline">r_t \lt 1-\epsilon</span> 第二项把它夹回 <span class="math inline">1-\epsilon</span>, min 同样取出被夹的值。两侧效果合起来: <strong>新策略只在&quot;对自己有利&quot;的方向上被剪裁, 在&quot;惩罚自己&quot;的方向上仍能大步纠错</strong>。</p>
+<p>这里 min 的不对称性是关键: 当 <span class="math inline">\(\hat A_t \gt 0\)</span> 时, ratio 越大 surrogate 越大, 一旦 <span class="math inline">\(r_t \gt 1+\epsilon\)</span> 第二项就把它压回 <span class="math inline">\(1+\epsilon\)</span>, min 取出这个被压住的值; 当 <span class="math inline">\(\hat A_t \lt 0\)</span> 时, ratio 越小 surrogate 越大 (因为乘了负数), 一旦 <span class="math inline">\(r_t \lt 1-\epsilon\)</span> 第二项把它夹回 <span class="math inline">\(1-\epsilon\)</span>, min 同样取出被夹的值。两侧效果合起来: <strong>新策略只在&quot;对自己有利&quot;的方向上被剪裁, 在&quot;惩罚自己&quot;的方向上仍能大步纠错</strong>。</p>
 <p>把策略损失和 critic、entropy 拼起来就是 PPO 的完整目标:</p>
 <div class="math block">
-L(\theta) = L^{CLIP}(\theta) - c_1\, L^{VF}(\theta) + c_2\, S\!\left[\pi_\theta\right](s_t)
+\[L(\theta) = L^{CLIP}(\theta) - c_1\, L^{VF}(\theta) + c_2\, S\!\left[\pi_\theta\right](s_t)\]
 </div>
 <p class="math-translation">—— 翻译: 第一项推动策略改进, 第二项让 critic 拟合 $\hat A_t$ 所依赖的 value, 第三项是 entropy bonus, 阻止策略过早 collapse 成 one-hot。</p>
-<p>这里的 <span class="math inline">\hat A_t</span> 通常就用 §2.3 已经推过的 GAE 公式 <span class="math inline">\hat A_t = \sum_{l\ge 0}(\gamma\lambda)^l \delta_{t+l}</span> 计算, 因此 PPO 训练循环 = &quot;rollout → GAE → K 个 epoch 的 minibatch SGD on <span class="math inline">L</span>&quot;。</p>
+<p>这里的 <span class="math inline">\(\hat A_t\)</span> 通常就用 §2.3 已经推过的 GAE 公式 <span class="math inline">\(\hat A_t = \sum_{l\ge 0}(\gamma\lambda)^l \delta_{t+l}\)</span> 计算, 因此 PPO 训练循环 = &quot;rollout → GAE → K 个 epoch 的 minibatch SGD on <span class="math inline">\(L\)</span>&quot;。</p>
 <h3 id="sec-3-4">3.4 代码引用</h3>
 <p>HuggingFace TRL 的 PPOTrainer 把上面公式几乎一一对应地写成了 10 行代码, 这是工业界最常被 fork 的 LLM-PPO 实现:</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L849-L866 — PPO clipped surrogate: ratio + 双侧 surrogate + max</p>
@@ -407,8 +407,8 @@ L(\theta) = L^{CLIP}(\theta) - c_1\, L^{VF}(\theta) + c_2\, S\!\left[\pi_\theta\
                                 entropy = torch.logsumexp(logits, dim=-1) - torch.sum(prob_dist * logits, dim=-1)
                                 approxkl = 0.5 * (logprobs_diff**2).mean()
 </code></pre>
-<p>逐行对照公式: 第 1 行 <code>logprobs_diff = new_logprobs - mb_logprobs</code> 就是 <span class="math inline">\log r_t(\theta) = \log\pi_\theta - \log\pi_{\theta_{\text{old}}}</span>, 在 log 空间做差比直接除概率数值稳定得多。第 2 行 <code>ratio = torch.exp(...)</code> 还原 <span class="math inline">r_t</span>。第 3、4 行写出两个 surrogate, 但都带了负号 —— 这是因为 PyTorch 是<strong>最小化</strong> loss, 而我们想<strong>最大化</strong> <span class="math inline">L^{CLIP}</span>, 所以代码里 <code>pg_losses = -mb_advantage * ratio</code> 对应 <span class="math inline">-r_t \hat A_t</span>。第 5 行的 <code>torch.max(pg_losses, pg_losses2)</code> 看起来和公式 <span class="math inline">\min(\cdot,\cdot)</span> 反向, 但因为两个 surrogate 都取了负, max-of-negatives 恰好等于 -min-of-positives, 数学上完全等价。第 13 行的 <code>pg_clipfrac</code> 统计&quot;被 clip 那一支更小&quot;的比例 —— 这也是 PPO 训练日志里最关键的健康指标, 大致维持在 0.1–0.3 之间。最后 <code>approxkl = 0.5 * (logprobs_diff**2).mean()</code> 是新旧策略 KL 的二阶近似, 用来在 early stopping 时判断&quot;这一轮是不是走太远&quot;。</p>
-<p>而 <span class="math inline">\hat A_t</span> 的计算就是 §2.3 推过的 GAE 反向递推, 同一个文件再往上翻几十行:</p>
+<p>逐行对照公式: 第 1 行 <code>logprobs_diff = new_logprobs - mb_logprobs</code> 就是 <span class="math inline">\(\log r_t(\theta) = \log\pi_\theta - \log\pi_{\theta_{\text{old}}}\)</span>, 在 log 空间做差比直接除概率数值稳定得多。第 2 行 <code>ratio = torch.exp(...)</code> 还原 <span class="math inline">\(r_t\)</span>。第 3、4 行写出两个 surrogate, 但都带了负号 —— 这是因为 PyTorch 是<strong>最小化</strong> loss, 而我们想<strong>最大化</strong> <span class="math inline">\(L^{CLIP}\)</span>, 所以代码里 <code>pg_losses = -mb_advantage * ratio</code> 对应 <span class="math inline">\(-r_t \hat A_t\)</span>。第 5 行的 <code>torch.max(pg_losses, pg_losses2)</code> 看起来和公式 <span class="math inline">\(\min(\cdot,\cdot)\)</span> 反向, 但因为两个 surrogate 都取了负, max-of-negatives 恰好等于 -min-of-positives, 数学上完全等价。第 13 行的 <code>pg_clipfrac</code> 统计&quot;被 clip 那一支更小&quot;的比例 —— 这也是 PPO 训练日志里最关键的健康指标, 大致维持在 0.1–0.3 之间。最后 <code>approxkl = 0.5 * (logprobs_diff**2).mean()</code> 是新旧策略 KL 的二阶近似, 用来在 early stopping 时判断&quot;这一轮是不是走太远&quot;。</p>
+<p>而 <span class="math inline">\(\hat A_t\)</span> 的计算就是 §2.3 推过的 GAE 反向递推, 同一个文件再往上翻几十行:</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L794-L807 — GAE backward loop</p>
 <pre><code class="language-python">                # 6. compute advantages and returns
                 lastgaelam = 0
@@ -424,13 +424,13 @@ L(\theta) = L^{CLIP}(\theta) - c_1\, L^{VF}(\theta) + c_2\, S\!\left[\pi_\theta\
                 advantages = masked_whiten(advantages, ~padding_mask)
                 advantages = torch.masked_fill(advantages, padding_mask, 0)
 </code></pre>
-<p>对照公式: <code>delta = rewards[:, t] + gamma * nextvalues - values[:, t]</code> 是 TD residual <span class="math inline">\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)</span>; <code>lastgaelam = delta + gamma * lam * lastgaelam</code> 就是 GAE 的递推式 <span class="math inline">\hat A_t = \delta_t + \gamma\lambda\, \hat A_{t+1}</span>, 从右往左累加正好一遍 <span class="math inline">O(T)</span> 出全部 advantage。<code>returns = advantages + values</code> 给 critic 提供回归目标 (这就是上一段 <code>vf_loss</code> 的标签)。最后 <code>masked_whiten</code> 把 advantage 标准化到零均值单位方差, 这一步在 LLM 长序列上几乎是&quot;必开&quot;的 trick, 否则 ratio 会被极端 <span class="math inline">\hat A</span> 推到 clip 边界外。两段代码合在一起, 就是教科书 PPO 在 LLM 上的全部精华。</p>
+<p>对照公式: <code>delta = rewards[:, t] + gamma * nextvalues - values[:, t]</code> 是 TD residual <span class="math inline">\(\delta_t = r_t + \gamma V(s_{t+1}) - V(s_t)\)</span>; <code>lastgaelam = delta + gamma * lam * lastgaelam</code> 就是 GAE 的递推式 <span class="math inline">\(\hat A_t = \delta_t + \gamma\lambda\, \hat A_{t+1}\)</span>, 从右往左累加正好一遍 <span class="math inline">\(O(T)\)</span> 出全部 advantage。<code>returns = advantages + values</code> 给 critic 提供回归目标 (这就是上一段 <code>vf_loss</code> 的标签)。最后 <code>masked_whiten</code> 把 advantage 标准化到零均值单位方差, 这一步在 LLM 长序列上几乎是&quot;必开&quot;的 trick, 否则 ratio 会被极端 <span class="math inline">\(\hat A\)</span> 推到 clip 边界外。两段代码合在一起, 就是教科书 PPO 在 LLM 上的全部精华。</p>
 <h3 id="sec-3-5">3.5 洞察</h3>
 <ul>
-<li><strong>clip vs KL penalty</strong>: PPO 论文同时提出过&quot;自适应 KL 惩罚&quot;和&quot;clip&quot;两个版本, 实证上 clip <span class="math inline">\epsilon=0.2</span> 几乎对所有 Atari/MuJoCo 任务都开箱即用, 而 KL coefficient <span class="math inline">\beta</span> 需要随训练动态调节, 一旦 reward 量级变化就容易调炸 —— 这也是为什么 §4 RLHF 把 KL 单独放进 reward 而<em>不</em>放进 surrogate 系数, 把&quot;步长约束&quot;和&quot;分布距离约束&quot;两件事彻底解耦。</li>
+<li><strong>clip vs KL penalty</strong>: PPO 论文同时提出过&quot;自适应 KL 惩罚&quot;和&quot;clip&quot;两个版本, 实证上 clip <span class="math inline">\(\epsilon=0.2\)</span> 几乎对所有 Atari/MuJoCo 任务都开箱即用, 而 KL coefficient <span class="math inline">\(\beta\)</span> 需要随训练动态调节, 一旦 reward 量级变化就容易调炸 —— 这也是为什么 §4 RLHF 把 KL 单独放进 reward 而<em>不</em>放进 surrogate 系数, 把&quot;步长约束&quot;和&quot;分布距离约束&quot;两件事彻底解耦。</li>
 <li><strong>PPO 流行的真正原因不是性能, 是兼容性</strong>: 跟 TRPO 比起来, PPO 不需要二阶信息, 对参数共享、dropout、LayerNorm、RNN/Transformer 都&quot;插上就能跑&quot;, 这才是它在工业界全面取代 TRPO 的原因。把 LLM 接进 RL 流水线时, 这一点尤其重要 —— RLHF 阶段我们要在一个上百亿参数的 transformer 上做多次 SGD epoch, 任何 &quot;需要重新算 Fisher&quot; 的算法都直接出局。</li>
-<li><strong>value head 与 policy head 共享 backbone</strong>: 在 LLM 上, critic 几乎都是把 transformer body 复用, 只在最后一层接一个标量输出 head —— 比&quot;两份独立 7B 模型&quot;省一半显存。但代价是 policy loss 和 value loss 必须配 <span class="math inline">c_1</span> 调好相对幅度 (通常 <span class="math inline">c_1 \in [0.1, 1.0]</span>), 否则 critic 梯度会把 backbone 拖偏, 表现就是 reward 微涨、SFT 能力却快速退化。</li>
-<li><strong>entropy bonus 在 LLM 上常被关掉</strong>: 经典 PPO 的 <span class="math inline">c_2 \approx 0.01</span> 是因为离散控制空间太小、容易 collapse, 而 LLM 词表 <span class="math inline">\gt 5\!\times\!10^4</span>, sampling 温度 + nucleus 已经提供了足够探索, 所以 TRL 的默认 <span class="math inline">c_2 = 0</span>。一旦 entropy bonus 拿掉、KL 又是控住&quot;和 SFT 模型距离&quot;的关键, 就需要专门把 KL 拼回 reward 里 —— 这正是 §4 RLHF 三段式 reward 设计登场的位置: SFT 给初始策略、RM 给标量 reward、KL 项把 PPO 的步长约束&quot;翻译&quot;成对 SFT 分布的依恋, 三者合一才能让大模型在不忘本的前提下学会满足人类偏好。</li>
+<li><strong>value head 与 policy head 共享 backbone</strong>: 在 LLM 上, critic 几乎都是把 transformer body 复用, 只在最后一层接一个标量输出 head —— 比&quot;两份独立 7B 模型&quot;省一半显存。但代价是 policy loss 和 value loss 必须配 <span class="math inline">\(c_1\)</span> 调好相对幅度 (通常 <span class="math inline">\(c_1 \in [0.1, 1.0]\)</span>), 否则 critic 梯度会把 backbone 拖偏, 表现就是 reward 微涨、SFT 能力却快速退化。</li>
+<li><strong>entropy bonus 在 LLM 上常被关掉</strong>: 经典 PPO 的 <span class="math inline">\(c_2 \approx 0.01\)</span> 是因为离散控制空间太小、容易 collapse, 而 LLM 词表 <span class="math inline">\(\gt 5\!\times\!10^4\)</span>, sampling 温度 + nucleus 已经提供了足够探索, 所以 TRL 的默认 <span class="math inline">\(c_2 = 0\)</span>。一旦 entropy bonus 拿掉、KL 又是控住&quot;和 SFT 模型距离&quot;的关键, 就需要专门把 KL 拼回 reward 里 —— 这正是 §4 RLHF 三段式 reward 设计登场的位置: SFT 给初始策略、RM 给标量 reward、KL 项把 PPO 的步长约束&quot;翻译&quot;成对 SFT 分布的依恋, 三者合一才能让大模型在不忘本的前提下学会满足人类偏好。</li>
 </ul>
 <h2 id="sec-4">4. RLHF: 把 PPO 接到 LLM 上</h2>
 <h3 id="sec-4-1">4.1 直觉</h3>
@@ -478,24 +478,24 @@ rewards[-1] += r_scalar
 </code></pre>
 <p>注意两个工程细节. 一是 (b) 里 KL 不是真的算两个分布的 KL —— 它是用单样本 log-prob 之差作的<strong>无偏估计</strong> (§1 已铺垫). 二是 RM 给的是<strong>整段序列一个分数</strong>, 不是每个 token 一个, 所以它只能加在最后一个 token 上; 而 KL 罚项是 token-level 的, 每步都减. 这个&quot;前面只罚 KL、最后一步才发 RM 红包&quot;的形状, 是几乎所有 RLHF 实现的标准做法.</p>
 <h3 id="sec-4-3">4.3 正式化</h3>
-<p><strong>Bradley-Terry 偏好模型.</strong> 给定 prompt <span class="math inline">x</span> 和两条回答 <span class="math inline">y_w</span> (winner)、<span class="math inline">y_l</span> (loser), BT 假设人选 <span class="math inline">y_w</span> 的概率由两者 reward 之差经 sigmoid 决定:</p>
+<p><strong>Bradley-Terry 偏好模型.</strong> 给定 prompt <span class="math inline">\(x\)</span> 和两条回答 <span class="math inline">\(y_w\)</span> (winner)、<span class="math inline">\(y_l\)</span> (loser), BT 假设人选 <span class="math inline">\(y_w\)</span> 的概率由两者 reward 之差经 sigmoid 决定:</p>
 <div class="math block">
-P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big)
+\[P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big)\]
 </div>
 <p class="math-translation">—— 翻译: 哪条 reward 高就更可能被选; reward 差 0 时各 50%, 差距越大被选概率越接近 1.</p>
-<p><strong>RM 训练 loss.</strong> 给定偏好数据集 <span class="math inline">\mathcal{D}=\{(x, y_w, y_l)\}</span>, 做最大似然就是最小化:</p>
+<p><strong>RM 训练 loss.</strong> 给定偏好数据集 <span class="math inline">\(\mathcal{D}=\{(x, y_w, y_l)\}\)</span>, 做最大似然就是最小化:</p>
 <div class="math block">
-\mathcal{L}_{RM}(\phi) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}}\big[\log \sigma\big(r_\phi(x, y_w) - r_\phi(x, y_l)\big)\big]
+\[\mathcal{L}_{RM}(\phi) = -\mathbb{E}_{(x, y_w, y_l) \sim \mathcal{D}}\big[\log \sigma\big(r_\phi(x, y_w) - r_\phi(x, y_l)\big)\big]\]
 </div>
 <p class="math-translation">—— 翻译: 推高 chosen 的分数、压低 rejected 的分数, 直到两者 sigmoid 差能解释所有人类偏好.</p>
 <p><strong>RLHF objective.</strong> PPO 阶段要解的是一个 KL 约束下的最大化问题:</p>
 <div class="math block">
-\max_{\pi_\theta}\; \mathbb{E}_{x \sim \mathcal{D},\, y \sim \pi_\theta(\cdot \mid x)}\Big[r_\phi(x, y) - \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)}\Big]
+\[\max_{\pi_\theta}\; \mathbb{E}_{x \sim \mathcal{D},\, y \sim \pi_\theta(\cdot \mid x)}\Big[r_\phi(x, y) - \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)}\Big]\]
 </div>
 <p class="math-translation">—— 翻译: 在不偏离 SFT 副本 π_ref 太远 (β·KL 惩罚) 的前提下, 让 RM 给的 reward 越高越好.</p>
-<p><strong>token-level 实现.</strong> 上面这个目标看起来是&quot;序列级&quot;的, 但 PPO 需要的是<strong>每步一个 reward</strong> 才能算 advantage. 工程上的转法很关键: 把 <span class="math inline">\log\frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)} = \sum_t (\log \pi_\theta - \log \pi_{ref})_t</span> 这条 autoregressive 分解打开, 让第 <span class="math inline">t</span> 步的 reward 是:</p>
+<p><strong>token-level 实现.</strong> 上面这个目标看起来是&quot;序列级&quot;的, 但 PPO 需要的是<strong>每步一个 reward</strong> 才能算 advantage. 工程上的转法很关键: 把 <span class="math inline">\(\log\frac{\pi_\theta(y \mid x)}{\pi_{ref}(y \mid x)} = \sum_t (\log \pi_\theta - \log \pi_{ref})_t\)</span> 这条 autoregressive 分解打开, 让第 <span class="math inline">\(t\)</span> 步的 reward 是:</p>
 <div class="math block">
-\tilde r_t = -\beta\,\big(\log \pi_\theta(y_t \mid x, y_{\lt t}) - \log \pi_{ref}(y_t \mid x, y_{\lt t})\big) + r_\phi(x, y)\cdot \mathbb{1}[t = T]
+\[\tilde r_t = -\beta\,\big(\log \pi_\theta(y_t \mid x, y_{\lt t}) - \log \pi_{ref}(y_t \mid x, y_{\lt t})\big) + r_\phi(x, y)\cdot \mathbb{1}[t = T]\]
 </div>
 <p class="math-translation">—— 翻译: 每个 token 上都减一份 β·KL 罚分, 只有最后一个 token (t=T) 再加上 RM 给整段的 scalar 分数.</p>
 <p>很多人第一次读 RLHF 代码会卡在这一步: 怎么明明目标里只有一个 r_φ(x, y), 实现里却变成了每个 token 都有 reward? 答案就在这条等式 —— β·KL 的求和被劈成每步一份 token-level 罚项, 而 RM 那一笔只在最后一步出现. 这也解释了为什么实现里 KL 的&quot;距离&quot;从来不是真的算两个分布的 KL, 而是用一条采样轨迹上的 log-prob 之差代替: 既要拿到每个 token 一个 scalar 去喂 advantage 估计, 又不能为了一个标量真的去枚举词表算分布 KL.</p>
@@ -521,7 +521,7 @@ P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big)
         if self.args.center_rewards_coefficient is not None:
             loss += self.args.center_rewards_coefficient * torch.mean((rewards_chosen + rewards_rejected) ** 2)
 </code></pre>
-<p>核心就是 <code>loss = -logsigmoid(rewards_chosen - rewards_rejected).mean()</code> 这一行, 直接落到 §4.3 的 <span class="math inline">\mathcal{L}_{RM}</span>. 一个工程小细节: <code>torch.chunk(outputs.logits.squeeze(-1), chunks=2)</code> 是因为 trainer 把 chosen + rejected 拼成一个 batch 一起 forward (节省 KV cache、对齐 padding), 出来再沿 batch 维切两半. 最后那个 <code>center_rewards_coefficient</code> 是把 (r_chosen + r_rejected) 的均值压向 0, 防止 RM 整体偏移 —— BT loss 本身只看差值, 不约束绝对值, 长期训练会让 reward 数值漂走.</p>
+<p>核心就是 <code>loss = -logsigmoid(rewards_chosen - rewards_rejected).mean()</code> 这一行, 直接落到 §4.3 的 <span class="math inline">\(\mathcal{L}_{RM}\)</span>. 一个工程小细节: <code>torch.chunk(outputs.logits.squeeze(-1), chunks=2)</code> 是因为 trainer 把 chosen + rejected 拼成一个 batch 一起 forward (节省 KV cache、对齐 padding), 出来再沿 batch 维切两半. 最后那个 <code>center_rewards_coefficient</code> 是把 (r_chosen + r_rejected) 的均值压向 0, 防止 RM 整体偏移 —— BT loss 本身只看差值, 不约束绝对值, 长期训练会让 reward 数值漂走.</p>
 <p>再看 PPO 阶段把 KL 拼到 reward 上的那一段:</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/experimental/ppo/ppo_trainer.py:L780-L792 — RLHF 把 KL 当 token-level reward 减项: r' = -β·KL + r(x,y) at last token</p>
 <pre><code class="language-python">                # 4. compute rewards
@@ -539,7 +539,7 @@ P(y_w \succ y_l \mid x) = \sigma\big(r(x, y_w) - r(x, y_l)\big)
                     rewards = masked_whiten(rewards, mask=~padding_mask_p1, shift_mean=False)
                     rewards = torch.masked_fill(rewards, padding_mask_p1, 0)
 </code></pre>
-<p>这一段就是 §4.3 那条 token-level reward 公式的字面翻译. <code>logr = ref_logprobs - logprobs</code> 是 <span class="math inline">\log(\pi_{ref}/\pi_\theta)</span>; k1 估计直接取 <code>kl = -logr</code> 即 <span class="math inline">\log(\pi_\theta/\pi_{ref})</span> 的单样本估计, k3 用 Schulman 那个更低方差的 <span class="math inline">(e^{\log r} - 1) - \log r</span> 估计. <code>non_score_reward = -args.kl_coef * kl</code> 就是每步的 <span class="math inline">-\beta \cdot \mathrm{KL}_t</span>. 紧接着关键的一行 <code>rewards[actual_start, actual_end] += scores</code> —— <code>scores</code> 是 RM 给整段序列的 scalar, 只加在<strong>每条序列的最后一个有效 token 位</strong> (用 sequence_lengths 索引出来), 完美对上&quot;只在 t=T 时叠加 r_φ&quot;的公式. <code>whiten_rewards</code> 是为了把 reward 标准化到方差 1, 让 PPO 的 advantage 估计不被 KL 数量级带歪.</p>
+<p>这一段就是 §4.3 那条 token-level reward 公式的字面翻译. <code>logr = ref_logprobs - logprobs</code> 是 <span class="math inline">\(\log(\pi_{ref}/\pi_\theta)\)</span>; k1 估计直接取 <code>kl = -logr</code> 即 <span class="math inline">\(\log(\pi_\theta/\pi_{ref})\)</span> 的单样本估计, k3 用 Schulman 那个更低方差的 <span class="math inline">\((e^{\log r} - 1) - \log r\)</span> 估计. <code>non_score_reward = -args.kl_coef * kl</code> 就是每步的 <span class="math inline">\(-\beta \cdot \mathrm{KL}_t\)</span>. 紧接着关键的一行 <code>rewards[actual_start, actual_end] += scores</code> —— <code>scores</code> 是 RM 给整段序列的 scalar, 只加在<strong>每条序列的最后一个有效 token 位</strong> (用 sequence_lengths 索引出来), 完美对上&quot;只在 t=T 时叠加 r_φ&quot;的公式. <code>whiten_rewards</code> 是为了把 reward 标准化到方差 1, 让 PPO 的 advantage 估计不被 KL 数量级带歪.</p>
 <h3 id="sec-4-5">4.5 洞察</h3>
 <ul>
 <li><strong>RLHF 的&quot;3 步&quot;不是流水线, 是 3 个 loss.</strong> SFT loss、RM 的 BT loss、PPO 的 L^CLIP, 三者完全独立但环环相扣. 任何一步崩掉整条链路都报废: SFT 数据不够多样, π_ref 本身就偏, KL 把 π_θ 锁在偏的地方; RM 拟合人类偏好太弱, PPO 越优化 reward 越远离真实人类喜好; PPO 不稳, 前两步再好也白做.</li>
@@ -582,13 +582,13 @@ print(f&quot;d loss / d logp_l = {logp_l.grad.item():+.4f}&quot;)  # 正 -&gt; �
 <p>下面是 DPO 论文最关键的代数操作, 一步不省.</p>
 <p><strong>Step 1 — 起点</strong>. 沿用 §4 RLHF 的目标, KL 约束下最大化期望 reward:</p>
 <p class="math-translation">—— 翻译: 这就是 §4 RLHF 的目标 —— 一边追 reward, 一边被 β·KL 项拽回 reference.</p>
-<p><strong>Step 2 — 解最优 π</strong>*. 把 KL 展开成 <span class="math inline">\mathbb{E}[\log \pi - \log \pi_{ref}]</span>, 对 π 做 Lagrangian (受 <span class="math inline">\sum_y \pi = 1</span> 约束) 求导, 经典的结论是最优策略形如 Boltzmann 分布:</p>
+<p><strong>Step 2 — 解最优 π</strong>*. 把 KL 展开成 <span class="math inline">\(\mathbb{E}[\log \pi - \log \pi_{ref}]\)</span>, 对 π 做 Lagrangian (受 <span class="math inline">\(\sum_y \pi = 1\)</span> 约束) 求导, 经典的结论是最优策略形如 Boltzmann 分布:</p>
 <p class="math-translation">—— 翻译: 最优策略就是 reference 经 reward 加权后再 normalize, Z(x) 是只关于 prompt x 的 partition function.</p>
 <p><strong>Step 3 — 反解 r</strong>. 对上式两边取对数, 把 r 单独移到一侧:</p>
 <p class="math-translation">—— 翻译: 关键 insight —— 如果直接拿 π* 当未知数, 那 r 不过是 π* 与 π_ref 的对数比的 β 倍, 加一个只依赖 x 的 partition.</p>
-<p><strong>Step 4 — 代回 BT loss, log Z 抵消</strong>. RLHF 的 reward model 来自 Bradley–Terry: <span class="math inline">P(y_w \succ y_l \mid x) = \sigma(r(x, y_w) - r(x, y_l))</span>. 注意 BT 只用到 reward 的<strong>差</strong>, 而 log Z(x) 同时出现在 <span class="math inline">r(x, y_w)</span> 和 <span class="math inline">r(x, y_l)</span> 中, 相减时直接消掉:</p>
+<p><strong>Step 4 — 代回 BT loss, log Z 抵消</strong>. RLHF 的 reward model 来自 Bradley–Terry: <span class="math inline">\(P(y_w \succ y_l \mid x) = \sigma(r(x, y_w) - r(x, y_l))\)</span>. 注意 BT 只用到 reward 的<strong>差</strong>, 而 log Z(x) 同时出现在 <span class="math inline">\(r(x, y_w)\)</span> 和 <span class="math inline">\(r(x, y_l)\)</span> 中, 相减时直接消掉:</p>
 <p class="math-translation">—— 翻译: log Z(x) 在 chosen 减 rejected 时互相抵消. 这就是 DPO 能把 RM 整个消掉的根本机制.</p>
-<p><strong>Step 5 — DPO loss</strong>. 把 π* 换成可训练的 π_θ, 套上 BT 的 <span class="math inline">-\log\sigma</span> 负对数似然, 就得到了 DPO 的最终目标:</p>
+<p><strong>Step 5 — DPO loss</strong>. 把 π* 换成可训练的 π_θ, 套上 BT 的 <span class="math inline">\(-\log\sigma\)</span> 负对数似然, 就得到了 DPO 的最终目标:</p>
 <p class="math-translation">—— 翻译: 一个 sigmoid BCE —— 优化它 = 在隐式 reward $\hat r = \beta\log(\pi_\theta/\pi_{ref})$ 下做 BT 偏好拟合.</p>
 <p><strong>Step 6 — 变量名 ↔ 公式 ↔ 代码 三栏对照表</strong>. 接下来读 trl 实现时, 全部对应在这张表里:</p>
 <table class="symbol-table">
@@ -642,7 +642,7 @@ print(f&quot;d loss / d logp_l = {logp_l.grad.item():+.4f}&quot;)  # 正 -&gt; �
 
     return per_token_logps
 </code></pre>
-<p>这一段对应 §5.3 公式里每一处 <span class="math inline">\log \pi(y\mid x)</span> 的最底层实现: 输入 logits 形状 (B, T, V) 和 label index (B, T), 输出 (B, T) 的 per-token log-prob. DPOTrainer 上层在 chosen 和 rejected 各调一次, 再把 token 维 mask 求和, 就得到 sequence-level 的 <code>chosen_logps</code> / <code>rejected_logps</code>; 对 frozen reference 同样跑一遍, 得到 <code>ref_chosen_logps</code> / <code>ref_rejected_logps</code> —— 这四个量就是公式里的全部输入.</p>
+<p>这一段对应 §5.3 公式里每一处 <span class="math inline">\(\log \pi(y\mid x)\)</span> 的最底层实现: 输入 logits 形状 (B, T, V) 和 label index (B, T), 输出 (B, T) 的 per-token log-prob. DPOTrainer 上层在 chosen 和 rejected 各调一次, 再把 token 维 mask 求和, 就得到 sequence-level 的 <code>chosen_logps</code> / <code>rejected_logps</code>; 对 frozen reference 同样跑一遍, 得到 <code>ref_chosen_logps</code> / <code>ref_rejected_logps</code> —— 这四个量就是公式里的全部输入.</p>
 <p><strong>代码 2 — chosen / rejected logratios</strong>. 拿到 4 个 sequence log-prob 后, DPO 的中段就两行减法:</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/trainer/dpo_trainer.py:L1220-L1254 — chosen/rejected logratio computation</p>
 <pre><code class="language-python">        # Get the log ratios for the chosen and rejected responses
@@ -664,10 +664,10 @@ print(f&quot;d loss / d logp_l = {logp_l.grad.item():+.4f}&quot;)  # 正 -&gt; �
 </code></pre>
 <p>把它逐行对回 §5.3:</p>
 <ul>
-<li><code>chosen_logratios = chosen_logps - ref_chosen_logps</code> 就是 <span class="math inline">\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}</span>. 它本身就是 §5.3 Step 3 反解出来的 (除以 β 后的) &quot;隐式 reward&quot; <span class="math inline">\hat r_w / \beta</span>.</li>
-<li>同理 <code>rejected_logratios</code> 是 <span class="math inline">\hat r_l / \beta</span>.</li>
-<li>standard DPO 选 <code>reverse_kl</code> 分支, 直接把 logratios 当 score; 后面 trl 又给出了 forward-KL / JS / α-divergence 几个变体, 这些都是 f-DPO 系列 paper 的扩展, 数学上是把 §5.3 Step 5 里的 <span class="math inline">\log(\pi/\pi_{ref})</span> 换成 f' 的某个变形 —— 不是本节重点, 知道存在即可.</li>
-<li><code>delta_score = chosen_scores - rejected_scores</code> 就是公式中 sigmoid 内层那一坨括号 (不含 β). 数学上 <span class="math inline">(\log\pi_w - \log\pi_{ref,w}) - (\log\pi_l - \log\pi_{ref,l})</span> 与 <span class="math inline">(\log\pi_w - \log\pi_l) - (\log\pi_{ref,w} - \log\pi_{ref,l})</span> 完全等价, 加法交换律而已. 代码选前一种写法, 是因为 <code>chosen_logratios</code> / <code>rejected_logratios</code> 本身在 metrics 里要单独 log (后面会看到 <code>chosen_rewards</code> 就是 β 乘它), 复用变量比再算一次 cleaner.</li>
+<li><code>chosen_logratios = chosen_logps - ref_chosen_logps</code> 就是 <span class="math inline">\(\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}\)</span>. 它本身就是 §5.3 Step 3 反解出来的 (除以 β 后的) &quot;隐式 reward&quot; <span class="math inline">\(\hat r_w / \beta\)</span>.</li>
+<li>同理 <code>rejected_logratios</code> 是 <span class="math inline">\(\hat r_l / \beta\)</span>.</li>
+<li>standard DPO 选 <code>reverse_kl</code> 分支, 直接把 logratios 当 score; 后面 trl 又给出了 forward-KL / JS / α-divergence 几个变体, 这些都是 f-DPO 系列 paper 的扩展, 数学上是把 §5.3 Step 5 里的 <span class="math inline">\(\log(\pi/\pi_{ref})\)</span> 换成 f' 的某个变形 —— 不是本节重点, 知道存在即可.</li>
+<li><code>delta_score = chosen_scores - rejected_scores</code> 就是公式中 sigmoid 内层那一坨括号 (不含 β). 数学上 <span class="math inline">\((\log\pi_w - \log\pi_{ref,w}) - (\log\pi_l - \log\pi_{ref,l})\)</span> 与 <span class="math inline">\((\log\pi_w - \log\pi_l) - (\log\pi_{ref,w} - \log\pi_{ref,l})\)</span> 完全等价, 加法交换律而已. 代码选前一种写法, 是因为 <code>chosen_logratios</code> / <code>rejected_logratios</code> 本身在 metrics 里要单独 log (后面会看到 <code>chosen_rewards</code> 就是 β 乘它), 复用变量比再算一次 cleaner.</li>
 </ul>
 <p><strong>代码 3 — DPO sigmoid loss 与 implicit rewards</strong>. 最后一步, 把 delta_score 套 sigmoid, 顺手记录两个 implicit reward 用于训练监控:</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/trainer/dpo_trainer.py:L1256-L1266 and L1452-L1454 — DPO sigmoid loss and reward computation</p>
@@ -693,23 +693,23 @@ print(f&quot;d loss / d logp_l = {logp_l.grad.item():+.4f}&quot;)  # 正 -&gt; �
 </code></pre>
 <p>逐行对照:</p>
 <ul>
-<li><code>per_sequence_loss = -F.logsigmoid(self.beta * delta_score)</code> 几乎就是把 §5.3 Step 5 抄一遍 —— sigmoid 内层 <span class="math inline">\beta \cdot \Delta</span>, 外层 <span class="math inline">-\log\sigma</span>. 一个 token 都没多.</li>
+<li><code>per_sequence_loss = -F.logsigmoid(self.beta * delta_score)</code> 几乎就是把 §5.3 Step 5 抄一遍 —— sigmoid 内层 <span class="math inline">\(\beta \cdot \Delta\)</span>, 外层 <span class="math inline">\(-\log\sigma\)</span>. 一个 token 都没多.</li>
 <li><code>hinge</code> / <code>ipo</code> 分支不是 DPO 本体: hinge 把 BT 似然换成 max-margin, IPO 把 sigmoid 换成 squared-loss 并做 length normalization, 这两个之后 §5.5 会简单提及, 此处先跳过.</li>
-<li><code>chosen_rewards = self.beta * chosen_logratios.detach()</code> 就是 §5.3 Step 3 反解出来的<strong>隐式 reward</strong> <span class="math inline">\hat r(x, y_w) = \beta\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}</span> (Z(x) 在差里消掉了, 这里单看一边可视作 metric 用). <code>.detach()</code> 表示它不参与 loss, 只是被记到 <code>rewards/chosen</code> 这个 metric 里, 让你监控训练过程中 chosen / rejected 的 implicit reward gap 有没有拉开.</li>
+<li><code>chosen_rewards = self.beta * chosen_logratios.detach()</code> 就是 §5.3 Step 3 反解出来的<strong>隐式 reward</strong> <span class="math inline">\(\hat r(x, y_w) = \beta\log\frac{\pi_\theta(y_w\mid x)}{\pi_{ref}(y_w\mid x)}\)</span> (Z(x) 在差里消掉了, 这里单看一边可视作 metric 用). <code>.detach()</code> 表示它不参与 loss, 只是被记到 <code>rewards/chosen</code> 这个 metric 里, 让你监控训练过程中 chosen / rejected 的 implicit reward gap 有没有拉开.</li>
 <li><code>self.beta</code> 是工程上唯一真正在调的超参. β 太小 (~0.01) 模型偏移 reference 过大, 容易出现 reward hacking 式的 mode collapse; β 太大 (~1.0) 几乎学不到偏好信号; trl 默认 0.1, 也是绝大多数开源工作的实战起点.</li>
 </ul>
 <h3 id="sec-5-5">5.5 洞察</h3>
 <ul>
-<li><strong>DPO 不是 PPO 的 drop-in 替代品.</strong> 它彻底丢掉了 online sampling 的能力 —— 整个训练过程见到的 <span class="math inline">y_w, y_l</span> 全是 dataset 里 frozen 的样本, policy 自己生成的新 trajectory 一个都不会被用上. 数据分布与最终 policy 之间存在 off-policy gap, 这在 §6 GRPO 那里会被重新捡回来.</li>
+<li><strong>DPO 不是 PPO 的 drop-in 替代品.</strong> 它彻底丢掉了 online sampling 的能力 —— 整个训练过程见到的 <span class="math inline">\(y_w, y_l\)</span> 全是 dataset 里 frozen 的样本, policy 自己生成的新 trajectory 一个都不会被用上. 数据分布与最终 policy 之间存在 off-policy gap, 这在 §6 GRPO 那里会被重新捡回来.</li>
 <li><strong>工业落地是 DPO 流行的真正原因.</strong> 数据准备好就能跑, 单卡 7B 可行, 实现 200 行以内, 超参主要就一个 β. 这种 &quot;supervised fine-tuning 形态的偏好对齐&quot; 直接把对齐工作从 RL infra 团队的活降到了一个 fine-tuning intern 的活 —— 它的胜利更多是工程意义上的, 而非纯算法.</li>
 <li><strong>β 不是学习率也不是温度, 是 KL 约束强度.</strong> 推导上, β 控制了 §5.3 Step 1 那条 KL 项的权重, 直接对应允许 π_θ 偏离 π_ref 的&quot;预算&quot;. β=0.1 大致意味着 policy 在每个 token 上的 KL 漂移被限制在 ~10 nat 的量级 (粗略经验值); 实战观察是模型越大 β 可以越小, 7B 常用 0.1, 70B 有人用到 0.05.</li>
-<li><strong>已知弱点.</strong> 一是 sigmoid 饱和: 当 chosen 和 rejected 都已经接近 reference 时 delta 接近 0, 梯度同样接近 0, 学不动. 二是 reference 概率太低时, chosen 的绝对 log π_θ 反而被推得很负 —— DPO 减小 <span class="math inline">-\log\pi_\theta(y_w)</span> 是通过提升 logratio, 不直接保证 <span class="math inline">\pi_\theta(y_w)</span> 本身高; 这就是为什么有人观察到 DPO 训完 chosen 的概率不升反降. IPO (用 squared loss 防饱和)、KTO (单边 binary 反馈)、Online DPO / Iterative DPO (重新引入 on-policy sampling) 都是在补这些洞.</li>
+<li><strong>已知弱点.</strong> 一是 sigmoid 饱和: 当 chosen 和 rejected 都已经接近 reference 时 delta 接近 0, 梯度同样接近 0, 学不动. 二是 reference 概率太低时, chosen 的绝对 log π_θ 反而被推得很负 —— DPO 减小 <span class="math inline">\(-\log\pi_\theta(y_w)\)</span> 是通过提升 logratio, 不直接保证 <span class="math inline">\(\pi_\theta(y_w)\)</span> 本身高; 这就是为什么有人观察到 DPO 训完 chosen 的概率不升反降. IPO (用 squared loss 防饱和)、KTO (单边 binary 反馈)、Online DPO / Iterative DPO (重新引入 on-policy sampling) 都是在补这些洞.</li>
 <li><strong>DPO 之于 RLHF, 像 closed-form solution 之于 numerical optimization.</strong> 当问题结构允许你解析地化简, 就别再上 PPO 那一套迭代式的近似. 后面 §6 我们会看到 GRPO 走的是另一条路 —— 它接受 &quot;必须 online&quot; 的代价, 但把 PPO 里最贵的 critic 砍掉, 用 group baseline 替代 advantage. DPO 和 GRPO 是 RLHF 之后两个完全不同方向的简化.</li>
 </ul>
 <h2 id="sec-6">6. GRPO 与它的后辈: 把 critic 省掉之后</h2>
 <h3 id="sec-6-1">6.1 直觉</h3>
 <p>PPO 在 §3 里跑得挺漂亮, 但落到 7B/70B 量级的 LLM 上, 工程师立刻发现一个尴尬事实: <strong>每个 actor 还得配一个同样大的 critic</strong>. value head 不是一个小 MLP, 它通常就是把 actor 复制一份再换一个标量输出头, 训练时显存翻倍, 推理时还得多算一次 forward. 而且, RLHF 任务里 reward 只在序列末尾给一个标量 (答对/答错, 偏好胜负), 中间 token 的 value 学得本来就糙 —— 花一半显存去训一个糙的网络, 性价比不高.</p>
-<p>GRPO (Group Relative Policy Optimization, DeepSeek 2024) 的思路朴素到近乎赖皮: 既然你要 <em>baseline</em>, 我对同一个 prompt 一口气采 <span class="math inline">G</span> 个回答 (典型 <span class="math inline">G=64</span>), 直接用这 64 个 reward 的均值当 baseline, 标准差做归一化, advantage 就有了 —— 完全不需要 critic 网络. DeepSeek-R1 (2025) 用的就是这一套, 而且把它推到了&quot;无 SFT, 直接 RL on math/code&quot;的极致, 一夜捧火.</p>
+<p>GRPO (Group Relative Policy Optimization, DeepSeek 2024) 的思路朴素到近乎赖皮: 既然你要 <em>baseline</em>, 我对同一个 prompt 一口气采 <span class="math inline">\(G\)</span> 个回答 (典型 <span class="math inline">\(G=64\)</span>), 直接用这 64 个 reward 的均值当 baseline, 标准差做归一化, advantage 就有了 —— 完全不需要 critic 网络. DeepSeek-R1 (2025) 用的就是这一套, 而且把它推到了&quot;无 SFT, 直接 RL on math/code&quot;的极致, 一夜捧火.</p>
 <figure>
     <img class="zoomable" alt="PPO vs GRPO 结构对比" src="figures/sec6-grpo-vs-ppo.png">
     <figcaption>左: PPO 需要 actor + critic 两份 7B 模型. 右: GRPO 同 prompt 采 G 个回答, 组内归一化即得 advantage, critic 被省掉.</figcaption>
@@ -740,12 +740,12 @@ def grpo_step(logp, old_logp, ref_logp, adv, eps=0.2, beta=0.04):
 rewards = np.array([1.0, 0.0, 1.0, 0.0,   0.0, 0.0, 1.0, 0.0])
 adv = group_advantage(rewards, G=4)        # [+1, -1, +1, -1,  -0.58, -0.58, +1.73, -0.58]
 </code></pre>
-<p>对比 §3 的 PPO: 公式骨架 <span class="math inline">-\min(r\hat{A},\,\mathrm{clip}(r)\hat{A})</span> 一字未改, 只是 <span class="math inline">\hat{A}</span> 不再来自 GAE+critic, 而是来自组内 z-score; 而且 KL 从 §4 RLHF 的 &quot;塞进 token reward&quot; 移到了&quot;loss 里单独一项&quot;. 仅此两处.</p>
+<p>对比 §3 的 PPO: 公式骨架 <span class="math inline">\(-\min(r\hat{A},\,\mathrm{clip}(r)\hat{A})\)</span> 一字未改, 只是 <span class="math inline">\(\hat{A}\)</span> 不再来自 GAE+critic, 而是来自组内 z-score; 而且 KL 从 §4 RLHF 的 &quot;塞进 token reward&quot; 移到了&quot;loss 里单独一项&quot;. 仅此两处.</p>
 <h3 id="sec-6-3">6.3 正式化</h3>
-<p><strong>Step 1: GRPO 总目标.</strong> 对每个 prompt <span class="math inline">q</span>, 从旧策略 <span class="math inline">\pi_{\theta_{old}}</span> 采样 <span class="math inline">G</span> 个完整回答 <span class="math inline">\{o_i\}_{i=1}^G</span>, 对每个回答的每个 token 做 PPO 式裁剪, 然后所有回答平均:</p>
+<p><strong>Step 1: GRPO 总目标.</strong> 对每个 prompt <span class="math inline">\(q\)</span>, 从旧策略 <span class="math inline">\(\pi_{\theta_{old}}\)</span> 采样 <span class="math inline">\(G\)</span> 个完整回答 <span class="math inline">\(\{o_i\}_{i=1}^G\)</span>, 对每个回答的每个 token 做 PPO 式裁剪, 然后所有回答平均:</p>
 <p class="math-translation">—— 翻译: 外面对 prompt + G 个采样求期望; 里面对每个 sample 的每个 token 算"裁剪后的优势贡献"再减一项 KL, 然后平均.</p>
-<p><strong>Step 2: token-level ratio</strong>, 定义同 §3 PPO, 一字不差: <span class="math inline">r_{i,t} = \pi_\theta(o_{i,t} \mid q, o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,\lt t})</span>.</p>
-<p><strong>Step 3: group-relative advantage.</strong> 对 outcome-supervision (整段一个 reward <span class="math inline">R_i</span>) 的情形:</p>
+<p><strong>Step 2: token-level ratio</strong>, 定义同 §3 PPO, 一字不差: <span class="math inline">\(r_{i,t} = \pi_\theta(o_{i,t} \mid q, o_{i,\lt t}) / \pi_{\theta_{old}}(o_{i,t} \mid q, o_{i,\lt t})\)</span>.</p>
+<p><strong>Step 3: group-relative advantage.</strong> 对 outcome-supervision (整段一个 reward <span class="math inline">\(R_i\)</span>) 的情形:</p>
 <p class="math-translation">—— 翻译: 同组内 reward 做 z-score, 大于均值的样本得正优势, 小于的得负, 一个 prompt 的 G 个 token 都共用本组的归一化常数.</p>
 <p><strong>Step 4: 与 PPO 的两处差异</strong> (其它都一样):</p>
 <table class="cmp-table">
@@ -755,7 +755,7 @@ adv = group_advantage(rewards, G=4)        # [+1, -1, +1, -1,  -0.58, -0.58, +1.
       <tr><td>KL 放哪</td><td>塞进 token reward: $r_t - \beta \log\frac{\pi_\theta}{\pi_{ref}}$</td><td>直接做 loss 一项: $-\beta\,\mathbb{D}_{KL}$</td></tr>
     </tbody>
   </table>
-<p><strong>Step 5: k3 KL 估计.</strong> GRPO 用 Schulman blog 的 k3 估计 (而非 §4 RLHF 的 k1 估计 <span class="math inline">-\log r</span>):</p>
+<p><strong>Step 5: k3 KL 估计.</strong> GRPO 用 Schulman blog 的 k3 估计 (而非 §4 RLHF 的 k1 估计 <span class="math inline">\(-\log r\)</span>):</p>
 <p class="math-translation">—— 翻译: 形式是 $x - \log x - 1$, 永远非负, 且与朴素 $-\log r$ 同期望但方差小很多 —— 训练更稳.</p>
 <h3 id="sec-6-4">6.4 代码引用</h3>
 <p><strong>代码 1: group advantage</strong> —— 把 reshape / mean / std / 除以 std 这套流程做成 GRPO 的核心几行.</p>
@@ -786,7 +786,7 @@ if self.scale_rewards != &quot;none&quot;:
     advantages = advantages / (std_rewards + 1e-4)
 is_std_zero = torch.isclose(std_rewards, torch.zeros_like(std_rewards))  # for logging
 </code></pre>
-<p>这一段把 <span class="math inline">(B \cdot G,)</span> 的 reward 张量 <code>view(-1, num_generations)</code> 折成 <span class="math inline">(B, G)</span>, 沿 <code>dim=1</code> 取 mean/std 再 <code>repeat_interleave</code> 回 <span class="math inline">(B \cdot G,)</span>, 与 reward 对齐相减; 然后除以 <code>std_rewards + 1e-4</code> —— <code>1e-4</code> 不是为了&quot;数值稳定&quot;那么虚, 而是要防止&quot;整组 reward 全 0 或全 1&quot;时分母真的为零 (DeepSeek 论文里反复提到的 zero-variance group). <code>scale_rewards</code> 的 <code>&quot;group&quot; / &quot;batch&quot; / &quot;none&quot;</code> 三档恰好对应 GRPO / &quot;全 batch 归一&quot; / Dr.GRPO 的去归一变体.</p>
+<p>这一段把 <span class="math inline">\((B \cdot G,)\)</span> 的 reward 张量 <code>view(-1, num_generations)</code> 折成 <span class="math inline">\((B, G)\)</span>, 沿 <code>dim=1</code> 取 mean/std 再 <code>repeat_interleave</code> 回 <span class="math inline">\((B \cdot G,)\)</span>, 与 reward 对齐相减; 然后除以 <code>std_rewards + 1e-4</code> —— <code>1e-4</code> 不是为了&quot;数值稳定&quot;那么虚, 而是要防止&quot;整组 reward 全 0 或全 1&quot;时分母真的为零 (DeepSeek 论文里反复提到的 zero-variance group). <code>scale_rewards</code> 的 <code>&quot;group&quot; / &quot;batch&quot; / &quot;none&quot;</code> 三档恰好对应 GRPO / &quot;全 batch 归一&quot; / Dr.GRPO 的去归一变体.</p>
 <p><strong>代码 2: importance ratio + clip</strong> —— 跟 §3 PPO 的 ratio 一摸一样, 但 ε 已经在 trl 里被拆成 <code>epsilon_low / epsilon_high</code> 为 DAPO 预留接口.</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/trainer/grpo_trainer.py:L2497-L2535 — Importance ratio + clip loss</p>
 <pre><code class="language-python">log_ratio = per_token_logps - old_per_token_logps
@@ -828,7 +828,7 @@ elif self.loss_type in [&quot;grpo&quot;, &quot;bnpo&quot;, &quot;dr_grpo&quot;,
     per_token_loss2 = coef_2 * advantages
     per_token_loss = -torch.min(per_token_loss1, per_token_loss2)
 </code></pre>
-<p>第 1 行 <code>log_ratio = per_token_logps - old_per_token_logps</code> 就是公式里 <span class="math inline">\log r_{i,t}</span>; <code>coef_1 = exp(log_importance_weights)</code> 即 <span class="math inline">r_{i,t}</span>; <code>coef_2 = clamp(coef_1, 1 - ε_low, 1 + ε_high)</code> 即 <span class="math inline">\mathrm{clip}(r_{i,t}, 1-\epsilon, 1+\epsilon)</span>. <code>min(per_token_loss1, per_token_loss2)</code> 加负号即 §3 的 <span class="math inline">L^{CLIP}</span>. 注意 <code>epsilon_low</code> 与 <code>epsilon_high</code> 已经是<em>两个独立超参</em> —— 原版 GRPO 它俩相等, DAPO 故意拉开 (后面段 a 详谈). <code>loss_type</code> 枚举里 <code>grpo / dr_grpo / dapo / luspo</code> 共享同一段 clip 代码, 切换的只是其它环节.</p>
+<p>第 1 行 <code>log_ratio = per_token_logps - old_per_token_logps</code> 就是公式里 <span class="math inline">\(\log r_{i,t}\)</span>; <code>coef_1 = exp(log_importance_weights)</code> 即 <span class="math inline">\(r_{i,t}\)</span>; <code>coef_2 = clamp(coef_1, 1 - ε_low, 1 + ε_high)</code> 即 <span class="math inline">\(\mathrm{clip}(r_{i,t}, 1-\epsilon, 1+\epsilon)\)</span>. <code>min(per_token_loss1, per_token_loss2)</code> 加负号即 §3 的 <span class="math inline">\(L^{CLIP}\)</span>. 注意 <code>epsilon_low</code> 与 <code>epsilon_high</code> 已经是<em>两个独立超参</em> —— 原版 GRPO 它俩相等, DAPO 故意拉开 (后面段 a 详谈). <code>loss_type</code> 枚举里 <code>grpo / dr_grpo / dapo / luspo</code> 共享同一段 clip 代码, 切换的只是其它环节.</p>
 <p><strong>代码 3: k3 KL estimator</strong> —— 一字对应 Schulman 公式.</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/trainer/grpo_trainer.py:L2512-L2520 — k3 KL estimator (token-level KL in loss)</p>
 <pre><code class="language-python"># Compute the KL divergence between the model and the reference model
@@ -841,7 +841,7 @@ if self.beta != 0.0:
     if self.args.use_bias_correction_kl:
         per_token_kl = per_token_kl * coef_1
 </code></pre>
-<p>把 <code>r = exp(ref_logp - logp) = π_ref / π_θ</code> 代进去, 就是 <span class="math inline">r - \log r - 1</span>, 与 Step 5 公式一字对应. 与 §4 RLHF 用的 k1 估计 <span class="math inline">-\log r</span> 对比: k1 是 KL 的一阶无偏估计但方差大、且有时为负; k3 仍是无偏 (期望相等, 因为 <span class="math inline">\mathbb{E}[r-1]=0</span>), 但永远 ≥ 0 且方差小很多 —— GRPO 大批量并行场景下这点稳定性极其重要.</p>
+<p>把 <code>r = exp(ref_logp - logp) = π_ref / π_θ</code> 代进去, 就是 <span class="math inline">\(r - \log r - 1\)</span>, 与 Step 5 公式一字对应. 与 §4 RLHF 用的 k1 估计 <span class="math inline">\(-\log r\)</span> 对比: k1 是 KL 的一阶无偏估计但方差大、且有时为负; k3 仍是无偏 (期望相等, 因为 <span class="math inline">\(\mathbb{E}[r-1]=0\)</span>), 但永远 ≥ 0 且方差小很多 —— GRPO 大批量并行场景下这点稳定性极其重要.</p>
 <p><strong>代码 4: GSPO sequence-level ratio</strong> —— 后续 §6.5 段 c 的核心改动, 这里先把它的代码摆出来.</p>
 <p class="code-source">sources/repos/huggingface-trl/trl/experimental/gspo_token/grpo_trainer.py:L67-L82 — GSPO sequence-level importance ratio</p>
 <pre><code class="language-python">log_ratio = per_token_logps - old_per_token_logps
@@ -861,27 +861,27 @@ else:
         &quot;and 'sequence'.&quot;
     )
 </code></pre>
-<p>看 <code>elif &quot;sequence&quot;</code> 那支: <code>(log_ratio * completion_mask).sum(-1)</code> 把整条回答的 <span class="math inline">\log r_{i,t}</span> 加起来, 再除以 <code>completion_mask.sum(-1)</code> —— 这就是<strong>长度归一化的几何平均</strong>:</p>
+<p>看 <code>elif &quot;sequence&quot;</code> 那支: <code>(log_ratio * completion_mask).sum(-1)</code> 把整条回答的 <span class="math inline">\(\log r_{i,t}\)</span> 加起来, 再除以 <code>completion_mask.sum(-1)</code> —— 这就是<strong>长度归一化的几何平均</strong>:</p>
 <p class="math-translation">—— 翻译: 整条序列的 ratio 不直接累乘, 而是 token-level log-ratio 求平均再 exp, 得到一个"平均每 token 偏离程度", 然后整条序列共用这一个标量.</p>
-<p>为什么要这个 <code>1/|y_i|</code>? GRPO 的 token-level ratio 在一条 200-token 的长回答上, 哪怕每个 token 只偏 1.01 倍, 整条累乘也是 <span class="math inline">1.01^{200} \approx 7.3</span>, 远远超出 clip 范围; MoE 模型由于专家路由抖动, 单 token ratio 偶发 1.5 倍很常见, 不归一化必崩. GSPO 把它压平成一个标量 ratio, clip 才真正起作用. <code>sequence_token</code> 分支是 GSPO-token 变体: 序列级 ratio 提供尺度, token 级 logp 提供梯度方向, 二者用 stop-gradient 拼起来.</p>
+<p>为什么要这个 <code>1/|y_i|</code>? GRPO 的 token-level ratio 在一条 200-token 的长回答上, 哪怕每个 token 只偏 1.01 倍, 整条累乘也是 <span class="math inline">\(1.01^{200} \approx 7.3\)</span>, 远远超出 clip 范围; MoE 模型由于专家路由抖动, 单 token ratio 偶发 1.5 倍很常见, 不归一化必崩. GSPO 把它压平成一个标量 ratio, clip 才真正起作用. <code>sequence_token</code> 分支是 GSPO-token 变体: 序列级 ratio 提供尺度, token 级 logp 提供梯度方向, 二者用 stop-gradient 拼起来.</p>
 <h3 id="sec-6-5">6.5 洞察 + GRPO 的三个后辈</h3>
 <p><strong>GRPO 自己的两条洞察.</strong> (一) GRPO 隐含了一个很强的假设: <em>同一个 prompt 多次采样, 结果能拉开档次</em>. LLM 推理任务恰好满足 —— 64 个回答里自然有对有错, 对比信号充足; 但 robotics / 长任务规划 上这个假设直接破产, 一条完整 trajectory 可能要 30 秒, 你采不了 64 条, 而且最后 reward 高度相关. 所以 GRPO 是<em>LLM-tailored</em>, 别盲目搬到机器人. (二) DeepSeek-R1 把 GRPO 推到&quot;无 SFT, 直接 RL&quot;的极致, 前提是 reward 程序可验证 —— math 答案对错可判, code 跑测试可判. 一旦换成&quot;人类偏好打分&quot;这种主观 reward, 这套节奏不一定能复制, 仍然要 RM + KL 加持.</p>
-<p><strong>段 a) DAPO</strong> (ByteDance, 2025, arxiv:2503.14476). 它治两个具体毛病: (1) 对称 clip <span class="math inline">[1-\epsilon, 1+\epsilon]</span> 对&quot;低概率正确 token&quot;不公平 —— 一个原本 <span class="math inline">\pi_{old}=0.01</span> 的 token, 要涨到 <span class="math inline">0.05</span> ratio 就是 5, 早被 <span class="math inline">1+\epsilon = 1.2</span> 砍掉了; (2) 一个 batch 如果 G 个回答全对 (或全错), advantage 全部为 0, 这个 batch 浪费. DAPO 改两处: <strong>Clip-Higher</strong> 把 <span class="math inline">\epsilon_{high} \gt \epsilon_{low}</span> (典型 0.28 / 0.20), 给低概率正确 token 留涨空间; <strong>Dynamic Sampling</strong> 过滤掉 std=0 的 group. 在 trl 里就是 <code>GRPOConfig(epsilon=0.2, epsilon_high=0.28)</code>, 上面代码 2 的 <code>coef_2 = clamp(coef_1, 1 - epsilon_low, 1 + epsilon_high)</code> 直接 toggle; verl 仓库还有专门的 <code>dapo</code> reward manager 做动态过滤.</p>
-<p><strong>段 b) Dr.GRPO</strong> (Sea AI Lab / NUS, 2025, arxiv:2503.20783). 治的毛病是<em>长度偏差</em>: GRPO 在 advantage 上除以 <span class="math inline">\mathrm{std}(R)</span>, 又在每条样本内部除以 <span class="math inline">|o_i|</span>, 导致<em>答错时模型倾向把回答写长</em> —— 错误样本越长, 长度归一后的负 advantage 越小, 几乎没惩罚. Dr.GRPO 公式上回到无偏 advantage:</p>
+<p><strong>段 a) DAPO</strong> (ByteDance, 2025, arxiv:2503.14476). 它治两个具体毛病: (1) 对称 clip <span class="math inline">\([1-\epsilon, 1+\epsilon]\)</span> 对&quot;低概率正确 token&quot;不公平 —— 一个原本 <span class="math inline">\(\pi_{old}=0.01\)</span> 的 token, 要涨到 <span class="math inline">\(0.05\)</span> ratio 就是 5, 早被 <span class="math inline">\(1+\epsilon = 1.2\)</span> 砍掉了; (2) 一个 batch 如果 G 个回答全对 (或全错), advantage 全部为 0, 这个 batch 浪费. DAPO 改两处: <strong>Clip-Higher</strong> 把 <span class="math inline">\(\epsilon_{high} \gt \epsilon_{low}\)</span> (典型 0.28 / 0.20), 给低概率正确 token 留涨空间; <strong>Dynamic Sampling</strong> 过滤掉 std=0 的 group. 在 trl 里就是 <code>GRPOConfig(epsilon=0.2, epsilon_high=0.28)</code>, 上面代码 2 的 <code>coef_2 = clamp(coef_1, 1 - epsilon_low, 1 + epsilon_high)</code> 直接 toggle; verl 仓库还有专门的 <code>dapo</code> reward manager 做动态过滤.</p>
+<p><strong>段 b) Dr.GRPO</strong> (Sea AI Lab / NUS, 2025, arxiv:2503.20783). 治的毛病是<em>长度偏差</em>: GRPO 在 advantage 上除以 <span class="math inline">\(\mathrm{std}(R)\)</span>, 又在每条样本内部除以 <span class="math inline">\(|o_i|\)</span>, 导致<em>答错时模型倾向把回答写长</em> —— 错误样本越长, 长度归一后的负 advantage 越小, 几乎没惩罚. Dr.GRPO 公式上回到无偏 advantage:</p>
 <p class="math-translation">—— 翻译: 只减均值, 不除 std, 也不除 |o_i|, 跟 PPO 的无偏 advantage 形状一致.</p>
 <p>在 trl 里就是 <code>GRPOConfig(scale_rewards=&quot;none&quot;, loss_type=&quot;dr_grpo&quot;)</code>, 上面代码 1 的 <code>if self.scale_rewards != &quot;none&quot;: advantages = advantages / (std_rewards + 1e-4)</code> 就被跳过.</p>
-<p><strong>段 c) GSPO</strong> (Qwen Team, 2025, arxiv:2507.18071). 治的是<em>长序列 token-level ratio 累乘崩溃</em>, 这点上面代码 4 已经讲透: ratio 改 sequence-level 的几何平均 <span class="math inline">s_i(\theta) = (\pi_\theta(y_i|x)/\pi_{old}(y_i|x))^{1/|y_i|}</span>, MoE 模型上稳定性提升尤其明显 —— Qwen3-MoE 上线 RL 阶段就用了它. trl 的开关在 <code>trl/experimental/gspo_token/grpo_trainer.py</code>, 设 <code>importance_sampling_level=&quot;sequence&quot;</code> 或 <code>&quot;sequence_token&quot;</code> 即生效.</p>
+<p><strong>段 c) GSPO</strong> (Qwen Team, 2025, arxiv:2507.18071). 治的是<em>长序列 token-level ratio 累乘崩溃</em>, 这点上面代码 4 已经讲透: ratio 改 sequence-level 的几何平均 <span class="math inline">\(s_i(\theta) = (\pi_\theta(y_i|x)/\pi_{old}(y_i|x))^{1/|y_i|}\)</span>, MoE 模型上稳定性提升尤其明显 —— Qwen3-MoE 上线 RL 阶段就用了它. trl 的开关在 <code>trl/experimental/gspo_token/grpo_trainer.py</code>, 设 <code>importance_sampling_level=&quot;sequence&quot;</code> 或 <code>&quot;sequence_token&quot;</code> 即生效.</p>
 <p>一句话收尾: GRPO 是骨架 —— 省 critic、组内归一、KL 进 loss、k3 估计. DAPO / Dr.GRPO / GSPO 是三块肌肉, 各补一个具体的崩点. 工程上一般的次序是: 先 GRPO 跑通 → 看 batch 是否经常 zero-variance (上 DAPO Dynamic Sampling) → 看回答是否越训越长 (上 Dr.GRPO) → 看长序列 / MoE 是否崩 (上 GSPO). 不必一次全开.</p>
 <h2 id="sec-7">7. 跨域: Diffusion 的 RL —— DDPO 与 Diffusion-DPO</h2>
 <h3 id="sec-7-1">7.1 直觉</h3>
 <p>从 §3 到 §6 我们一直在 LLM 上打转, 现在换一个域: 文生图的 <strong>Diffusion 模型</strong> 也想吃 RLHF 的红利 —— 比如让生成的图更符合美学偏好, 或更好地对齐文本描述. 第一反应当然是&quot;照搬 PPO/DPO 过来&quot;; 但只要动笔写, 就立刻撞墙.</p>
-<p>先看相似的地方: Diffusion 采样一次 = 从 <span class="math inline">x_T</span> 纯噪声出发, 走 50 步去噪到 <span class="math inline">x_0</span> 干净图; LLM 采样一次 = 生成 100 个 token. 两者都是 <em>multi-step decision process</em>, 看起来 PPO 那套&quot;每步算 ratio, 累加 advantage&quot;应当能直接 work. <strong>DDPO</strong> (Black et al. 2023) 就是这个思路: 把每一步去噪当作一个 RL action, 整段去噪轨迹用 PPO 风格 update.</p>
+<p>先看相似的地方: Diffusion 采样一次 = 从 <span class="math inline">\(x_T\)</span> 纯噪声出发, 走 50 步去噪到 <span class="math inline">\(x_0\)</span> 干净图; LLM 采样一次 = 生成 100 个 token. 两者都是 <em>multi-step decision process</em>, 看起来 PPO 那套&quot;每步算 ratio, 累加 advantage&quot;应当能直接 work. <strong>DDPO</strong> (Black et al. 2023) 就是这个思路: 把每一步去噪当作一个 RL action, 整段去噪轨迹用 PPO 风格 update.</p>
 <figure>
     <img class="zoomable" alt="DDPO 训练前后的对比" src="figures/sec7-ddpo-progression.png">
     <figcaption>DDPO 把 50 步去噪当作 50 个 MDP action, 在 trajectory 末端拿 reward (美学评分 / CLIP 对齐 / 可压缩性 等), PPO 风格反向传播.</figcaption>
   </figure>
-<p>真正的麻烦在 <strong>log π 怎么算</strong>. LLM 的 <span class="math inline">\log \pi_\theta(y \mid x)</span> 是天然可解析的: logits 过 softmax 得 token 概率, 整句话就是 token log-prob 的累乘 —— §1 已经讲过. 而 Diffusion 的 <span class="math inline">\log p_\theta(x_0 \mid c)</span> 是 <em>intractable</em> 的, 因为要算它得 marginalize 掉整条 latent 链 <span class="math inline">x_1, x_2, \ldots, x_T</span>, 50 维高斯的积分根本写不出闭式. 离散 + 可解析 vs. 连续 + intractable —— 这一点差异看似只是技术细节, 实则决定了所有 LLM RL 方法搬到 Diffusion 都要变形: PPO 的 ratio 没法在 <span class="math inline">x_0</span> 这一终端样本上算, DPO 的隐式 reward <span class="math inline">\beta(\log\pi_\theta - \log\pi_{ref})</span> 直接写不出来.</p>
-<p>于是出现两条分支: <strong>(1) DDPO</strong> 干脆不算 <span class="math inline">\log p_\theta(x_0)</span>, 而是算每一步 <span class="math inline">\log \pi_\theta(x_{t-1} \mid x_t, c)</span> —— 这是单步高斯, 完全可解析, 然后把每步当 MDP transition, 整条 trajectory 用 PPO 公式; <strong>(2) Diffusion-DPO</strong> (Wallace et al. 2023) 不重新发明 RL, 而是用 <em>ELBO</em> 把 DPO 公式里的 <span class="math inline">\log \pi</span> 换成可计算的 surrogate (本质是 noise prediction MSE).</p>
+<p>真正的麻烦在 <strong>log π 怎么算</strong>. LLM 的 <span class="math inline">\(\log \pi_\theta(y \mid x)\)</span> 是天然可解析的: logits 过 softmax 得 token 概率, 整句话就是 token log-prob 的累乘 —— §1 已经讲过. 而 Diffusion 的 <span class="math inline">\(\log p_\theta(x_0 \mid c)\)</span> 是 <em>intractable</em> 的, 因为要算它得 marginalize 掉整条 latent 链 <span class="math inline">\(x_1, x_2, \ldots, x_T\)</span>, 50 维高斯的积分根本写不出闭式. 离散 + 可解析 vs. 连续 + intractable —— 这一点差异看似只是技术细节, 实则决定了所有 LLM RL 方法搬到 Diffusion 都要变形: PPO 的 ratio 没法在 <span class="math inline">\(x_0\)</span> 这一终端样本上算, DPO 的隐式 reward <span class="math inline">\(\beta(\log\pi_\theta - \log\pi_{ref})\)</span> 直接写不出来.</p>
+<p>于是出现两条分支: <strong>(1) DDPO</strong> 干脆不算 <span class="math inline">\(\log p_\theta(x_0)\)</span>, 而是算每一步 <span class="math inline">\(\log \pi_\theta(x_{t-1} \mid x_t, c)\)</span> —— 这是单步高斯, 完全可解析, 然后把每步当 MDP transition, 整条 trajectory 用 PPO 公式; <strong>(2) Diffusion-DPO</strong> (Wallace et al. 2023) 不重新发明 RL, 而是用 <em>ELBO</em> 把 DPO 公式里的 <span class="math inline">\(\log \pi\)</span> 换成可计算的 surrogate (本质是 noise prediction MSE).</p>
 <figure>
     <img class="zoomable" alt="Diffusion-DPO 论文 Fig 1 — SDXL 上的生成样例" src="figures/sec7-diffusion-dpo-concept.png">
     <figcaption>Diffusion-DPO 论文 Fig 1 — 在 SDXL 1.0 base 上做 Diffusion-DPO 微调后的生成样例。机制上, 它把 DPO 公式中 intractable 的 $\log p_\theta(x_0 \mid c)$ 用 ELBO 下界替换 (等价于 noise-prediction MSE 的负加权和), chosen / rejected 两边各套这个替身. §7.3 Step 4-5 给完整推导.</figcaption>
@@ -916,23 +916,23 @@ ratio   = np.exp(traj_logp - old_logp)         # 第一次 update 时 = 1
 clipped = np.clip(ratio, 1 - eps, 1 + eps)
 loss    = -min(ratio * adv, clipped * adv)
 </code></pre>
-<p>对照 §3 PPO: <code>ratio</code>, <code>clip</code>, <code>min</code> 三件套一字未改, 只是 <code>logp</code> 不再是 token log-prob 累加, 而是 <strong>去噪步的高斯 log-prob 累加</strong>; reward 只在 <span class="math inline">t{=}0</span> 给一次, 中间步全是 0, 所以 advantage 也是整条 trajectory 共享一个标量, 不像 LLM 那样还要做 GAE. 这就是 DDPO 把&quot;扩散采样轨迹&quot;塞进 PPO 框架的全部要点 —— 看似新方法, 实则就是把&quot;动作维度&quot;从离散 token 换成连续高斯采样, 其它配件一概不动.</p>
+<p>对照 §3 PPO: <code>ratio</code>, <code>clip</code>, <code>min</code> 三件套一字未改, 只是 <code>logp</code> 不再是 token log-prob 累加, 而是 <strong>去噪步的高斯 log-prob 累加</strong>; reward 只在 <span class="math inline">\(t{=}0\)</span> 给一次, 中间步全是 0, 所以 advantage 也是整条 trajectory 共享一个标量, 不像 LLM 那样还要做 GAE. 这就是 DDPO 把&quot;扩散采样轨迹&quot;塞进 PPO 框架的全部要点 —— 看似新方法, 实则就是把&quot;动作维度&quot;从离散 token 换成连续高斯采样, 其它配件一概不动.</p>
 <h3 id="sec-7-3">7.3 正式化</h3>
 <p><strong>Step 1: Diffusion 的 MDP 视角 (DDPO).</strong> 把去噪过程显式包装成 MDP:</p>
 <ul>
-<li>state: <span class="math inline">s_t = (c, t, x_t)</span> —— 文本条件 + 当前 timestep + 当前 latent</li>
-<li>action: <span class="math inline">a_t = x_{t-1}</span> —— 下一步去噪结果</li>
-<li>transition: deterministic (<span class="math inline">s_{t-1}</span> 完全由 <span class="math inline">a_t</span> 决定: <span class="math inline">x_{t-1} \leftarrow a_t</span>, <span class="math inline">t-1 \leftarrow t-1</span>)</li>
-<li>policy: <span class="math inline">\pi_\theta(a_t \mid s_t) = \mathcal{N}\!\big(x_{t-1};\, \mu_\theta(x_t, t, c),\, \sigma_t^2 I\big)</span> —— 高斯, log-prob 可解析</li>
-<li>reward: <span class="math inline">R(s_t, a_t) = 0</span> for <span class="math inline">t \gt 0</span>, <span class="math inline">R(s_0, \cdot) = r(x_0, c)</span> —— 只在末端拿到一个标量 reward</li>
+<li>state: <span class="math inline">\(s_t = (c, t, x_t)\)</span> —— 文本条件 + 当前 timestep + 当前 latent</li>
+<li>action: <span class="math inline">\(a_t = x_{t-1}\)</span> —— 下一步去噪结果</li>
+<li>transition: deterministic (<span class="math inline">\(s_{t-1}\)</span> 完全由 <span class="math inline">\(a_t\)</span> 决定: <span class="math inline">\(x_{t-1} \leftarrow a_t\)</span>, <span class="math inline">\(t-1 \leftarrow t-1\)</span>)</li>
+<li>policy: <span class="math inline">\(\pi_\theta(a_t \mid s_t) = \mathcal{N}\!\big(x_{t-1};\, \mu_\theta(x_t, t, c),\, \sigma_t^2 I\big)\)</span> —— 高斯, log-prob 可解析</li>
+<li>reward: <span class="math inline">\(R(s_t, a_t) = 0\)</span> for <span class="math inline">\(t \gt 0\)</span>, <span class="math inline">\(R(s_0, \cdot) = r(x_0, c)\)</span> —— 只在末端拿到一个标量 reward</li>
 </ul>
 <p><strong>Step 2: DDPO 期望目标.</strong> 同 §4 RLHF 的形式, 只是 expectation 变成在去噪轨迹上:</p>
 <p class="math-translation">—— 翻译: 期望意义下最大化末端 reward, 同时用 KL 把 policy 拴在预训练 diffusion (作为 reference) 附近, 防止 reward hacking.</p>
 <p><strong>Step 3: DDPO 的 PPO-style update.</strong> 关键变量是每一步的 importance sampling ratio:</p>
 <p class="math-translation">—— 翻译: 在 $T$ 步去噪上各算一次 PPO clip 项再求和; $\hat{A}$ 是整条轨迹共用的优势 (因为非零 reward 只在 $t{=}0$ 一次给出, 可用组内 z-score 或与 baseline 之差).</p>
-<p><strong>Step 4: Diffusion-DPO 的 ELBO 替代.</strong> 回到 DPO (§5) 公式: 它的 loss 依赖 <span class="math inline">\log \pi_\theta(y \mid x)</span>. 在 LLM 上直接可算, 在 Diffusion 上要换. Wallace et al. 的 trick 是用 ELBO 下界:</p>
+<p><strong>Step 4: Diffusion-DPO 的 ELBO 替代.</strong> 回到 DPO (§5) 公式: 它的 loss 依赖 <span class="math inline">\(\log \pi_\theta(y \mid x)\)</span>. 在 LLM 上直接可算, 在 Diffusion 上要换. Wallace et al. 的 trick 是用 ELBO 下界:</p>
 <p class="math-translation">—— 翻译: intractable 的对数似然换成可计算的"噪声预测 MSE 的负加权和". 训练 diffusion 用的就是右侧, 现在直接拿来当 $\log \pi$ 的替身.</p>
-<p><strong>Step 5: 代入 DPO loss.</strong> 把 §5 的 <span class="math inline">\beta(\log\pi_\theta - \log\pi_{ref})</span> 在 chosen 与 rejected 两边各替换一次, 整理后得到 Diffusion-DPO 的核心 loss:</p>
+<p><strong>Step 5: 代入 DPO loss.</strong> 把 §5 的 <span class="math inline">\(\beta(\log\pi_\theta - \log\pi_{ref})\)</span> 在 chosen 与 rejected 两边各替换一次, 整理后得到 Diffusion-DPO 的核心 loss:</p>
 <p class="math-translation">—— 翻译: 四个 MSE 项 (chosen / rejected × model / ref), 隐式 reward = $-$MSE 差, 外面套 sigmoid-BCE; 模型在 chosen 上的 MSE 要比 ref 小、在 rejected 上的 MSE 要比 ref 大, 才算"赢".</p>
 <h3 id="sec-7-4">7.4 代码引用</h3>
 <p><strong>代码 1: DDPO.</strong> 两段串起来, 第一段算每步的高斯 log-prob, 第二段把它喂进 PPO clip loss.</p>
@@ -978,7 +978,7 @@ loss    = -min(ratio * adv, clipped * adv)
                         )
                         info[&quot;loss&quot;].append(loss)
 </code></pre>
-<p>第一段就是 §7.3 Step 1 里 <span class="math inline">\log \mathcal{N}(x_{t-1}; \mu_\theta, \sigma_t^2 I)</span> 的逐项展开: 平方项 <span class="math inline">-(x_{t-1}-\mu)^2 / (2\sigma^2)</span> + 归一化 <span class="math inline">-\log\sigma - \tfrac{1}{2}\log 2\pi</span>. 注意 <code>prev_sample.detach()</code> —— 这是 PPO importance sampling 的标准操作, 把 sample 当成&quot;固定数据&quot;而非可微分张量, 否则梯度会经由 sample 路径回流, 与 ratio 路径双重计入, 训练直接发散. 第二段则是 §7.3 Step 3 公式的 PyTorch 直译: <code>ratio = exp(log_prob - old)</code> 对应 <span class="math inline">r_t(\theta)</span>; <code>torch.maximum(unclipped, clipped)</code> 之所以是 maximum 而非 minimum, 是因为外面取了负号 (loss = <span class="math inline">-\min(\cdot)</span> = <span class="math inline">\max(-\cdot)</span>), 一回事. <code>j</code> 这一维就是去噪 timestep <span class="math inline">t</span>, 表明 ratio 是 per-step 算的 —— 整段 trajectory 共 50 步, ratio 算 50 个, 与 LLM 在 token 维度算 ratio 完全对偶. <code>adv_clip_max</code> 是对 advantage 做的额外裁剪, 因为图像 reward (比如美学分数) 量纲不稳定, 不裁剪偶尔会出 outlier 把 loss 打飞.</p>
+<p>第一段就是 §7.3 Step 1 里 <span class="math inline">\(\log \mathcal{N}(x_{t-1}; \mu_\theta, \sigma_t^2 I)\)</span> 的逐项展开: 平方项 <span class="math inline">\(-(x_{t-1}-\mu)^2 / (2\sigma^2)\)</span> + 归一化 <span class="math inline">\(-\log\sigma - \tfrac{1}{2}\log 2\pi\)</span>. 注意 <code>prev_sample.detach()</code> —— 这是 PPO importance sampling 的标准操作, 把 sample 当成&quot;固定数据&quot;而非可微分张量, 否则梯度会经由 sample 路径回流, 与 ratio 路径双重计入, 训练直接发散. 第二段则是 §7.3 Step 3 公式的 PyTorch 直译: <code>ratio = exp(log_prob - old)</code> 对应 <span class="math inline">\(r_t(\theta)\)</span>; <code>torch.maximum(unclipped, clipped)</code> 之所以是 maximum 而非 minimum, 是因为外面取了负号 (loss = <span class="math inline">\(-\min(\cdot)\)</span> = <span class="math inline">\(\max(-\cdot)\)</span>), 一回事. <code>j</code> 这一维就是去噪 timestep <span class="math inline">\(t\)</span>, 表明 ratio 是 per-step 算的 —— 整段 trajectory 共 50 步, ratio 算 50 个, 与 LLM 在 token 维度算 ratio 完全对偶. <code>adv_clip_max</code> 是对 advantage 做的额外裁剪, 因为图像 reward (比如美学分数) 量纲不稳定, 不裁剪偶尔会出 outlier 把 loss 打飞.</p>
 <p><strong>代码 2: Diffusion-DPO.</strong> 公式长, 但代码出奇地短, 因为 4 个 MSE 项其实只算 2 次 forward (chosen+rejected 拼 batch, 然后 <code>chunk(2)</code>).</p>
 <p class="code-source">sources/repos/salesforce-DiffusionDPO/train.py:L1125-L1145 — Diffusion-DPO core loss: noise MSE difference + logsigmoid DPO loss</p>
 <pre><code class="language-python">                    model_losses = (model_pred - target).pow(2).mean(dim=[1,2,3])
@@ -1003,13 +1003,13 @@ loss    = -min(ratio * adv, clipped * adv)
                     implicit_acc = (inside_term &gt; 0).sum().float() / inside_term.size(0)
                     loss = -1 * F.logsigmoid(inside_term).mean()
 </code></pre>
-<p>一行行对照 §7.3 Step 5: <code>model_pred</code> 就是 <span class="math inline">\epsilon_\theta(x_t, t)</span>, <code>target</code> 是真实采样的 <span class="math inline">\epsilon</span>; <code>(model_pred - target).pow(2).mean(dim=[1,2,3])</code> 即 <span class="math inline">\|\epsilon - \epsilon_\theta\|^2</span> 在 <span class="math inline">C{\times}H{\times}W</span> 上的平均, 是 ELBO 替身的核心. <code>chunk(2)</code> 把 batch 切成 chosen / rejected 两半 —— 在数据加载时它们就被刻意拼在一起, 用同一个 timestep <span class="math inline">t</span> 和同一个噪声 <span class="math inline">\epsilon</span>, 这是为了让公式里的 <span class="math inline">w_t</span> 在两边可消, 抵消方差; 这是 Diffusion-DPO 实现里最容易被忽视的细节, 也是它训练稳定的关键之一. 接着 <code>model_diff = model_losses_w - model_losses_l</code> 是策略侧的&quot;chosen-rejected MSE 差&quot;, <code>ref_diff</code> 同理是 reference 侧的差, 两者相减得到双重 contrast —— 第一重比的是 chosen vs rejected, 第二重比的是 model vs ref, 与 §5 LLM DPO 中 <span class="math inline">\log\frac{\pi_\theta(y_w)}{\pi_{ref}(y_w)} - \log\frac{\pi_\theta(y_l)}{\pi_{ref}(y_l)}</span> 的双重对比完全同构. <code>scale_term = -0.5 * β</code> 里那个 <span class="math inline">1/2</span> 把噪声 prior 的方差吸进来 (公式里若把 <span class="math inline">w_t</span> 与 timestep 缩放整理干净就剩 <span class="math inline">\beta/2</span>). 最后 <code>-logsigmoid(inside_term).mean()</code> 一字不差对应 §5 DPO 的 <span class="math inline">-\log\sigma(\cdot)</span>. 整个公式那 4 个 MSE 项, 这里全在 <code>inside_term</code> 一行里隐式出现, 一行抵一个公式. 至于 <code>implicit_acc</code>, 它是 inside_term 大于 0 的比例 —— 即&quot;模型已经能正确分辨 chosen/rejected&quot;的样本占比, 相当于一个无需 reward model 的隐式准确率监控, 训练时可以拿它当 early-stopping 信号.</p>
+<p>一行行对照 §7.3 Step 5: <code>model_pred</code> 就是 <span class="math inline">\(\epsilon_\theta(x_t, t)\)</span>, <code>target</code> 是真实采样的 <span class="math inline">\(\epsilon\)</span>; <code>(model_pred - target).pow(2).mean(dim=[1,2,3])</code> 即 <span class="math inline">\(\|\epsilon - \epsilon_\theta\|^2\)</span> 在 <span class="math inline">\(C{\times}H{\times}W\)</span> 上的平均, 是 ELBO 替身的核心. <code>chunk(2)</code> 把 batch 切成 chosen / rejected 两半 —— 在数据加载时它们就被刻意拼在一起, 用同一个 timestep <span class="math inline">\(t\)</span> 和同一个噪声 <span class="math inline">\(\epsilon\)</span>, 这是为了让公式里的 <span class="math inline">\(w_t\)</span> 在两边可消, 抵消方差; 这是 Diffusion-DPO 实现里最容易被忽视的细节, 也是它训练稳定的关键之一. 接着 <code>model_diff = model_losses_w - model_losses_l</code> 是策略侧的&quot;chosen-rejected MSE 差&quot;, <code>ref_diff</code> 同理是 reference 侧的差, 两者相减得到双重 contrast —— 第一重比的是 chosen vs rejected, 第二重比的是 model vs ref, 与 §5 LLM DPO 中 <span class="math inline">\(\log\frac{\pi_\theta(y_w)}{\pi_{ref}(y_w)} - \log\frac{\pi_\theta(y_l)}{\pi_{ref}(y_l)}\)</span> 的双重对比完全同构. <code>scale_term = -0.5 * β</code> 里那个 <span class="math inline">\(1/2\)</span> 把噪声 prior 的方差吸进来 (公式里若把 <span class="math inline">\(w_t\)</span> 与 timestep 缩放整理干净就剩 <span class="math inline">\(\beta/2\)</span>). 最后 <code>-logsigmoid(inside_term).mean()</code> 一字不差对应 §5 DPO 的 <span class="math inline">\(-\log\sigma(\cdot)\)</span>. 整个公式那 4 个 MSE 项, 这里全在 <code>inside_term</code> 一行里隐式出现, 一行抵一个公式. 至于 <code>implicit_acc</code>, 它是 inside_term 大于 0 的比例 —— 即&quot;模型已经能正确分辨 chosen/rejected&quot;的样本占比, 相当于一个无需 reward model 的隐式准确率监控, 训练时可以拿它当 early-stopping 信号.</p>
 <h3 id="sec-7-5">7.5 洞察</h3>
 <ul>
-<li><strong>本质差异一行点透.</strong> LLM 的 <span class="math inline">\log \pi</span> 离散+可解析, Diffusion 的 <span class="math inline">\log \pi</span> 连续+intractable. 这一句话就决定了所有 LLM RL 方法 (PPO/DPO/GRPO/...) 搬到 Diffusion 都得变形 —— 要么 per-step Gaussian (DDPO 路线), 要么 ELBO surrogate (Diffusion-DPO 路线), 没有第三条捷径. 反过来说, 任何新的 LLM RL 方法 (例如未来某个改进版 PPO), 只要它依赖 <span class="math inline">\log\pi_\theta(y\mid x)</span> 这一原语, 就能立即按这两条路线之一移植到扩散域, 不需要重新发明轮子.</li>
+<li><strong>本质差异一行点透.</strong> LLM 的 <span class="math inline">\(\log \pi\)</span> 离散+可解析, Diffusion 的 <span class="math inline">\(\log \pi\)</span> 连续+intractable. 这一句话就决定了所有 LLM RL 方法 (PPO/DPO/GRPO/...) 搬到 Diffusion 都得变形 —— 要么 per-step Gaussian (DDPO 路线), 要么 ELBO surrogate (Diffusion-DPO 路线), 没有第三条捷径. 反过来说, 任何新的 LLM RL 方法 (例如未来某个改进版 PPO), 只要它依赖 <span class="math inline">\(\log\pi_\theta(y\mid x)\)</span> 这一原语, 就能立即按这两条路线之一移植到扩散域, 不需要重新发明轮子.</li>
 <li><strong>DDPO 强于 RWR 的关键在 ratio.</strong> Reward-weighted regression (RWR) 也能给扩散加 reward, 但它一旦更新就让旧 trajectory 失效, 必须每次重新 sample —— 而 sample 一张图要跑 50 步 UNet, 极其昂贵. DDPO 借 PPO 的 importance sampling ratio, 同一批 trajectory 能复用多个 epoch update, 这是把&quot;训练 RLHF 风扩散模型&quot;从天价计算降到可负担级别的关键. 这与 §3 PPO 相对 vanilla REINFORCE 的提升是同源动机: 都是用 ratio 把&quot;昂贵的环境交互&quot;变成&quot;廉价的多轮梯度更新&quot;.</li>
-<li><strong>Diffusion-DPO 的 trick 不是&quot;DPO 推广&quot;, 而是&quot;ELBO 当替身&quot;.</strong> 把 intractable log-likelihood 换成 ELBO, 这个手法在 VAE、energy-based model、normalizing flow 上都通用, 数理上根本不是扩散专属. Diffusion-DPO 只是把它接到 DPO 的 sigmoid-BCE 框架上, 没有重新发明 RL. 同样的替身原理也允许你把 Diffusion-IPO、Diffusion-KTO 等&quot;DPO 变种&quot;原样套过来 —— 只需把对应公式里的 <span class="math inline">\log\pi_\theta</span> 全替换成 <span class="math inline">-\sum_t w_t \|\epsilon-\epsilon_\theta\|^2</span>, 训练流程不动.</li>
-<li><strong>GRPO/DAPO 已经在向 Diffusion 迁移, 但 GSPO 不一定.</strong> GRPO 的&quot;同 prompt 采 G 张图、组内归一化 reward&quot;在扩散域完全成立, 2025 年已有若干 paper 在做 (省 critic 在 image 上甚至更划算, 因为 UNet 比 actor LM 更大, 一个 critic 头要重训一份相同规模 UNet 简直奢侈). DAPO 的 dynamic sampling (筛掉零方差组) 也能照搬, 对图像反而更重要, 因为美学 reward 在 prompt 之间方差悬殊. 但 GSPO 的 sequence-level ratio 在 diffusion 上没那么必要 —— LLM 序列长 1024 token 时 token-level ratio 累乘容易爆, 扩散 trajectory 只有 <span class="math inline">T{=}50</span> 步, 累乘问题轻得多, GSPO 的核心动机在这个域被削弱了; 强行套反而会丢掉 per-step ratio 提供的 fine-grained 信号.</li>
+<li><strong>Diffusion-DPO 的 trick 不是&quot;DPO 推广&quot;, 而是&quot;ELBO 当替身&quot;.</strong> 把 intractable log-likelihood 换成 ELBO, 这个手法在 VAE、energy-based model、normalizing flow 上都通用, 数理上根本不是扩散专属. Diffusion-DPO 只是把它接到 DPO 的 sigmoid-BCE 框架上, 没有重新发明 RL. 同样的替身原理也允许你把 Diffusion-IPO、Diffusion-KTO 等&quot;DPO 变种&quot;原样套过来 —— 只需把对应公式里的 <span class="math inline">\(\log\pi_\theta\)</span> 全替换成 <span class="math inline">\(-\sum_t w_t \|\epsilon-\epsilon_\theta\|^2\)</span>, 训练流程不动.</li>
+<li><strong>GRPO/DAPO 已经在向 Diffusion 迁移, 但 GSPO 不一定.</strong> GRPO 的&quot;同 prompt 采 G 张图、组内归一化 reward&quot;在扩散域完全成立, 2025 年已有若干 paper 在做 (省 critic 在 image 上甚至更划算, 因为 UNet 比 actor LM 更大, 一个 critic 头要重训一份相同规模 UNet 简直奢侈). DAPO 的 dynamic sampling (筛掉零方差组) 也能照搬, 对图像反而更重要, 因为美学 reward 在 prompt 之间方差悬殊. 但 GSPO 的 sequence-level ratio 在 diffusion 上没那么必要 —— LLM 序列长 1024 token 时 token-level ratio 累乘容易爆, 扩散 trajectory 只有 <span class="math inline">\(T{=}50\)</span> 步, 累乘问题轻得多, GSPO 的核心动机在这个域被削弱了; 强行套反而会丢掉 per-step ratio 提供的 fine-grained 信号.</li>
 </ul>
 <h2 id="sec-8">8. 从头实现一遍 + 怎么选</h2>
 <h3 id="sec-8-1">8.1 直觉</h3>

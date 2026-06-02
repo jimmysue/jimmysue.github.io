@@ -80,7 +80,7 @@
 <p>2026 年的 T2I 主战场是 <strong>step-distilled diffusion models</strong> — Z-Image-Turbo (6B, 8 步)、FLUX.2-klein (4B, 4 步) 这种&quot;少数几步出图&quot;的型号已经把多步模型(Stable Diffusion 3.5、FLUX-dev)挤下生产线。问题是:<em>怎么继续 fine-tune 这些模型?</em></p>
 <p>三条路全部不通:</p>
 <ul>
-<li><strong>Vanilla SFT (flow-matching loss):</strong> 把目标图 <span class="math inline">x_0</span> 加噪后喂给模型,用 flow-matching 速度场监督。多步模型扛得住,但 step-distilled 模型只有 4/8 步,训练状态<em>不在</em>模型自己采样路径上 — 一训就把蒸馏好的少步动态毁掉,Quality-S 从 3.50 掉到 2.42,生成图变模糊。</li>
+<li><strong>Vanilla SFT (flow-matching loss):</strong> 把目标图 <span class="math inline">\(x_0\)</span> 加噪后喂给模型,用 flow-matching 速度场监督。多步模型扛得住,但 step-distilled 模型只有 4/8 步,训练状态<em>不在</em>模型自己采样路径上 — 一训就把蒸馏好的少步动态毁掉,Quality-S 从 3.50 掉到 2.42,生成图变模糊。</li>
 <li><strong>Online RL (ReFL / Flow-GRPO):</strong> 这条路本来对 step-distilled 模型友好 (训练状态来自模型自己采样,跟推理对齐),但<em>需要 reward function</em>。社区二级开发者只有几张图加 prompt,设计不出 reward。</li>
 <li><strong>Offline preference RL (PSO / Diffusion-DPO):</strong> 折中,但优化状态仍由目标图诱导,不是模型自己访问的状态 — 实验里小数据上过拟合训练集,大数据上跟 SFT 一样塌掉。</li>
 </ul>
@@ -96,7 +96,7 @@
 <h3 id="sec-2-1">核心思想 (类比)</h3>
 <p>把 step-distilled 扩散模型想象成一个学了&quot;4 笔速写&quot;的画家,他原本能用 4 笔出一张高质量的猫。现在你要他学画&quot;你家具体那只英短&quot;。三种教法:</p>
 <ul>
-<li><strong>Vanilla SFT:</strong> 拿你家英短的照片 <span class="math inline">x_0</span>,加一点噪声做成 <span class="math inline">x_t</span>,让他从 <span class="math inline">x_t</span> 起步还原 <span class="math inline">x_0</span>。问题:这条路径上的中间状态他<em>4 笔速写时从来没见过</em> — 你逼他在&quot;陌生的纸张涂鸦上&quot;补线,他原本 4 笔出图的肌肉记忆就被你打乱了。</li>
+<li><strong>Vanilla SFT:</strong> 拿你家英短的照片 <span class="math inline">\(x_0\)</span>,加一点噪声做成 <span class="math inline">\(x_t\)</span>,让他从 <span class="math inline">\(x_t\)</span> 起步还原 <span class="math inline">\(x_0\)</span>。问题:这条路径上的中间状态他<em>4 笔速写时从来没见过</em> — 你逼他在&quot;陌生的纸张涂鸦上&quot;补线,他原本 4 笔出图的肌肉记忆就被你打乱了。</li>
 <li><strong>RL with reward:</strong> 让他自由发挥,你给每张图打分。问题:你得是评委,而很多人当不了评委。</li>
 <li><strong>D-OPSD:</strong>
 <ul>
@@ -119,15 +119,15 @@
 <p>Appendix A 在 FLUX.2-klein 上重复了这个实验,行为一致,说明这是一个 broadly applicable 性质,不限于 Z-Image。<em>没有这条性质,D-OPSD 就不成立</em> — Fig. 6 也说了,如果 teacher (即&quot;模型 + target image context&quot;)不能生成合理图,训练就会失败。</p>
 <h3 id="sec-2-3">2.2 OPSD 在扩散域的形式化</h3>
 <p><strong>从 LLM 的 OPSD 出发 (Eq. 1):</strong></p>
-<p><span class="math inline">q</span> 是 query,<span class="math inline">r</span> 是 stronger context (in-context example / ground-truth answer)。student 用弱 context <span class="math inline">q</span> 采样,teacher 用强 context <span class="math inline">(q, r)</span> 评估。</p>
-<p><strong>翻译到扩散:</strong> 把 <span class="math inline">q</span> 当 text prompt <span class="math inline">y</span>,<span class="math inline">r</span> 当 target image <span class="math inline">x_0</span>。两个 condition:</p>
-<p><span class="math inline">f_{\text{text}}</span> 只编 text,<span class="math inline">f_{\text{mm}}</span> 编 text + image。两者共享同一个 VLM encoder。</p>
+<p><span class="math inline">\(q\)</span> 是 query,<span class="math inline">\(r\)</span> 是 stronger context (in-context example / ground-truth answer)。student 用弱 context <span class="math inline">\(q\)</span> 采样,teacher 用强 context <span class="math inline">\((q, r)\)</span> 评估。</p>
+<p><strong>翻译到扩散:</strong> 把 <span class="math inline">\(q\)</span> 当 text prompt <span class="math inline">\(y\)</span>,<span class="math inline">\(r\)</span> 当 target image <span class="math inline">\(x_0\)</span>。两个 condition:</p>
+<p><span class="math inline">\(f_{\text{text}}\)</span> 只编 text,<span class="math inline">\(f_{\text{mm}}\)</span> 编 text + image。两者共享同一个 VLM encoder。</p>
 <p><strong>Student on-policy 采样轨迹 (Eq. 3):</strong></p>
-<p><span class="math inline">\Phi</span> 是与推理<em>完全相同</em>的少步 solver(Z-Image 是 8 步,FLUX.2-klein 是 4 步)。从 Gaussian 噪声 <span class="math inline">x_{t_K}^s \sim \mathcal{N}(0, I)</span> 出发,student 用自己的 text-only condition 走完整条少步链 — 这就是 on-policy 的物理含义。</p>
+<p><span class="math inline">\(\Phi\)</span> 是与推理<em>完全相同</em>的少步 solver(Z-Image 是 8 步,FLUX.2-klein 是 4 步)。从 Gaussian 噪声 <span class="math inline">\(x_{t_K}^s \sim \mathcal{N}(0, I)\)</span> 出发,student 用自己的 text-only condition 走完整条少步链 — 这就是 on-policy 的物理含义。</p>
 <p><strong>同一轨迹上的两套预测 (Eq. 5-6):</strong></p>
-<p><span class="math inline">\bar\theta</span> 是 teacher 参数 (EMA 副本)。<em>关键:teacher 评估的是 student 的状态 <span class="math inline">x_{t_k}^s</span>,不是 teacher 自己采样的状态</em> — 否则就退化成普通蒸馏。</p>
+<p><span class="math inline">\(\bar\theta\)</span> 是 teacher 参数 (EMA 副本)。<em>关键:teacher 评估的是 student 的状态 <span class="math inline">\(x_{t_k}^s\)</span>,不是 teacher 自己采样的状态</em> — 否则就退化成普通蒸馏。</p>
 <p><strong>D-OPSD 损失 (Eq. 7):</strong></p>
-<p><span class="math inline">\mathrm{sg}</span> 是 stop-gradient — teacher 不接受梯度,梯度只走 student。直觉:把 student 在自己轨迹上的速度场,拽向 teacher 在同一状态上的速度场;teacher 因 multimodal context 知道更多 target 信息,所以它的速度场指向&quot;target-aware&quot;方向。</p>
+<p><span class="math inline">\(\mathrm{sg}\)</span> 是 stop-gradient — teacher 不接受梯度,梯度只走 student。直觉:把 student 在自己轨迹上的速度场,拽向 teacher 在同一状态上的速度场;teacher 因 multimodal context 知道更多 target 信息,所以它的速度场指向&quot;target-aware&quot;方向。</p>
 <p><strong>为什么 D-OPSD 不破坏少步能力?</strong></p>
 <ol>
 <li><strong>训练状态 = 推理状态</strong> — student 用真正的少步 solver 采轨迹,优化全部发生在这些状态上,没有任何&quot;训练时见、推理时见不到&quot;的中间噪声状态。</li>
@@ -137,24 +137,24 @@
 <h3 id="sec-2-4">2.3 完整算法 + 直觉</h3>
 <p>论文 Algorithm 1 的简化版:</p>
 <ol>
-<li>采一个 batch 的 <span class="math inline">(x_0, y)</span>。</li>
-<li>编码两个 condition: <span class="math inline">c_s = f_{\text{text}}(y)</span>, <span class="math inline">c_t = f_{\text{mm}}(y, x_0)</span>。</li>
-<li>从噪声 <span class="math inline">x_{t_K}^s \sim \mathcal N(0, I)</span> 开始,用 student 跑完整条少步链 (with 与训练同条件 <span class="math inline">c_s</span>)。</li>
-<li>每一步 <span class="math inline">k = K, \ldots, 1</span>:
+<li>采一个 batch 的 <span class="math inline">\((x_0, y)\)</span>。</li>
+<li>编码两个 condition: <span class="math inline">\(c_s = f_{\text{text}}(y)\)</span>, <span class="math inline">\(c_t = f_{\text{mm}}(y, x_0)\)</span>。</li>
+<li>从噪声 <span class="math inline">\(x_{t_K}^s \sim \mathcal N(0, I)\)</span> 开始,用 student 跑完整条少步链 (with 与训练同条件 <span class="math inline">\(c_s\)</span>)。</li>
+<li>每一步 <span class="math inline">\(k = K, \ldots, 1\)</span>:
 <ul>
-<li><span class="math inline">u_k^s \leftarrow v_\theta(x_{t_k}^s, t_k, c_s)</span></li>
-<li><span class="math inline">u_k^t \leftarrow v_{\bar\theta}(x_{t_k}^s, t_k, c_t)</span> — <em>同一</em> <span class="math inline">x_{t_k}^s</span></li>
-<li>累加 <span class="math inline">\frac{1}{K}\|u_k^s - \mathrm{sg}(u_k^t)\|_2^2</span></li>
-<li>用 <span class="math inline">u_k^s</span> stepping 到 <span class="math inline">x_{t_{k-1}}^s</span> (并 detach 避免跨步 BPTT)</li>
+<li><span class="math inline">\(u_k^s \leftarrow v_\theta(x_{t_k}^s, t_k, c_s)\)</span></li>
+<li><span class="math inline">\(u_k^t \leftarrow v_{\bar\theta}(x_{t_k}^s, t_k, c_t)\)</span> — <em>同一</em> <span class="math inline">\(x_{t_k}^s\)</span></li>
+<li>累加 <span class="math inline">\(\frac{1}{K}\|u_k^s - \mathrm{sg}(u_k^t)\|_2^2\)</span></li>
+<li>用 <span class="math inline">\(u_k^s\)</span> stepping 到 <span class="math inline">\(x_{t_{k-1}}^s\)</span> (并 detach 避免跨步 BPTT)</li>
 </ul></li>
-<li>反向传播,更新 student <span class="math inline">\theta</span> (用 LoRA 时只更新 student LoRA adapter)。</li>
-<li>EMA 更新 teacher: <span class="math inline">\bar\theta \leftarrow 0.9999\,\bar\theta + 0.0001\,\theta</span> (Section 3.3 ablation 选的最优值)。</li>
+<li>反向传播,更新 student <span class="math inline">\(\theta\)</span> (用 LoRA 时只更新 student LoRA adapter)。</li>
+<li>EMA 更新 teacher: <span class="math inline">\(\bar\theta \leftarrow 0.9999\,\bar\theta + 0.0001\,\theta\)</span> (Section 3.3 ablation 选的最优值)。</li>
 </ol>
 <p><strong>三个会被错过的细节:</strong></p>
 <ol>
 <li><strong>跨步 detach.</strong> 代码 (<code>train_dopsd.py:L554</code>) 每步都 <code>latents_student.detach().requires_grad_(True)</code>,只让梯度在当前一步内流动。否则会 BPTT 整个少步链,显存爆。</li>
 <li><strong>Teacher 即 EMA student.</strong> Teacher 不是另一个模型,而是 student 的 EMA 副本 (实现为同一 transformer 上的第二个 LoRA adapter)。EMA decay = 0.9999 (paper §3.3) — 大动量意味着 teacher 比 student 落后约 10000 步,提供平滑稳定的对齐目标。</li>
-<li><strong>x_0 损失 vs v 损失 (paper-vs-code 不一致).</strong> 代码 <code>train_dopsd.py:L600</code> 用 <code>F.mse_loss(x_0_student, x_0_teacher.detach())</code> — 对照 <span class="math inline">x_0 = x_t + (1 - t)\, v</span>,这等价于<em>带时间权重的</em> velocity MSE(早 t 时刻权重大)。代码注释明说&quot;different as shown in our paper... leads to faster convergence&quot;。一个老实的 admission。</li>
+<li><strong>x_0 损失 vs v 损失 (paper-vs-code 不一致).</strong> 代码 <code>train_dopsd.py:L600</code> 用 <code>F.mse_loss(x_0_student, x_0_teacher.detach())</code> — 对照 <span class="math inline">\(x_0 = x_t + (1 - t)\, v\)</span>,这等价于<em>带时间权重的</em> velocity MSE(早 t 时刻权重大)。代码注释明说&quot;different as shown in our paper... leads to faster convergence&quot;。一个老实的 admission。</li>
 </ol>
 <h3 id="sec-2-5">2.4 与代码对照</h3>
 <p><strong>(a) 双 LoRA adapter 在同一 transformer 上</strong> — Student 训练,Teacher 冻结由 EMA 更新。这是 D-OPSD 最重要的工程优化 — 不复制 6B 模型,只多一份 LoRA。</p>
@@ -237,8 +237,8 @@
 </code></pre>
 <p>三个对照点:</p>
 <ul>
-<li><strong>L575 <code>latents_teacher_cur = latents_student</code></strong> — teacher 评估 student 的 latent (Eq. 6 的 <span class="math inline">x_{t_k}^s</span>),而不是它自己迭代出来的 latent。on-policy 的物理含义。</li>
-<li><strong>L570 vs L585: <code>prompt_embeds_list_vl</code> vs <code>prompt_embeds_list</code></strong> — Eq. 4 中 <span class="math inline">c_t</span> vs <span class="math inline">c_s</span> 的实现差异,前者带 target image,后者只有 prompt。</li>
+<li><strong>L575 <code>latents_teacher_cur = latents_student</code></strong> — teacher 评估 student 的 latent (Eq. 6 的 <span class="math inline">\(x_{t_k}^s\)</span>),而不是它自己迭代出来的 latent。on-policy 的物理含义。</li>
+<li><strong>L570 vs L585: <code>prompt_embeds_list_vl</code> vs <code>prompt_embeds_list</code></strong> — Eq. 4 中 <span class="math inline">\(c_t\)</span> vs <span class="math inline">\(c_s\)</span> 的实现差异,前者带 target image,后者只有 prompt。</li>
 <li><strong>L600-L602: x_0 loss</strong> — 代码与 paper Eq. 7 不一致 (paper 用 velocity MSE)。注释说这是因为 x_0 空间的 MSE 等价于带时间权重的 v MSE,且收敛更快。<u>第三方复刻时按 paper Eq. 7 实现会得到不一样的训练曲线。</u></li>
 </ul>
 <p><strong>(c) EMA 更新 teacher LoRA</strong> — 每个 sync step 后从 student LoRA 蒸馏到 teacher LoRA。</p>
@@ -262,7 +262,7 @@ ema_update_lora_adapter(gen_model, src_adapter=&quot;student&quot;,
                         dst_adapter=&quot;teacher&quot;, ema_decay=args.ema_decay)
 </code></pre>
 <p>论文 §3.3 ablation 显示 <code>ema_decay=0.9999</code> 最优 (而不是 default 的 0.999) — 直接用 student 副本 (decay=0) 会训练崩坏,需要&quot;极平滑&quot;才能让 alignment target 稳定。</p>
-<p><strong>(d) VLM multimodal feature 提取</strong> — Eq. 4 的 <span class="math inline">f_{\text{mm}}</span> 实现。用 Qwen3-VL 的倒数第 2 层 hidden states 当 condition。</p>
+<p><strong>(d) VLM multimodal feature 提取</strong> — Eq. 4 的 <span class="math inline">\(f_{\text{mm}}\)</span> 实现。用 Qwen3-VL 的倒数第 2 层 hidden states 当 condition。</p>
 <p class="code-source">repo/z-image-turbo_self-distill-vlm/vlm_utils.py:L38-L158 — get_qwen3vl_zimage_prompt_embeds</p>
 <pre><code class="language-python">@torch.no_grad()
 def get_qwen3vl_zimage_prompt_embeds(
@@ -291,7 +291,7 @@ def get_qwen3vl_zimage_prompt_embeds(
         split_hidden_states.append(sample_hidden[0][:max_sequence_length])
     return split_hidden_states
 </code></pre>
-<p><span class="math inline">c_t</span> 不是显式的 &quot;image embedding + text embedding 拼起来&quot; — 而是把 image 当作 <em>chat 消息里的一个 user_content item</em>,让 VLM 自己跑完 multimodal attention,取倒数第 2 层 hidden states。这种做法的<em>关键</em>是 VLM 已经训练过处理图文混合输入,扩散模型继承的就是这一能力 — 这也是 §2.1 强调的 emergent property 的来源。</p>
+<p><span class="math inline">\(c_t\)</span> 不是显式的 &quot;image embedding + text embedding 拼起来&quot; — 而是把 image 当作 <em>chat 消息里的一个 user_content item</em>,让 VLM 自己跑完 multimodal attention,取倒数第 2 层 hidden states。这种做法的<em>关键</em>是 VLM 已经训练过处理图文混合输入,扩散模型继承的就是这一能力 — 这也是 §2.1 强调的 emergent property 的来源。</p>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <p><strong>LoRA 自定义训练 (4 张图 + 一点风格图,DreamBooth 数据集):</strong></p>
 <figure>
@@ -334,7 +334,7 @@ def get_qwen3vl_zimage_prompt_embeds(
 <li><strong>VLM encoder 取倒数第 2 层 hidden states</strong> (<code>vlm_utils.py:L48 default hidden_state_layer=-2</code>),原因没说,但符合 Qwen3-VL 论文里 image-text alignment 通常用倒数 2-3 层。</li>
 <li><strong>Optimizer:</strong> AdamW (或 8bit AdamW),betas/weight_decay/eps 都是标准值 (<code>train_dopsd.py:L290-L297</code>)。gradient checkpointing on by default (<code>L274</code>),不开 OOM。</li>
 <li><strong>FlowMatchEulerDiscreteScheduler 8 步,与推理一致</strong> — 训练时少步采样的 timestep 调度与推理时完全相同。这是 D-OPSD 不破坏少步动态的根因之一。</li>
-<li><strong>x_0 loss vs v loss (paper-vs-code 不一致 — 最重要的一条):</strong> Paper Eq. 7 用 <span class="math inline">\|u_k^s - u_k^t\|_2^2</span> (velocity MSE),代码 <code>train_dopsd.py:L600-L602</code> 实际用 <span class="math inline">\|x_0^{\text{student}} - x_0^{\text{teacher}}\|_2^2</span> (x_0 MSE)。代码注释:&quot;this leads to faster convergence... can be regarded as a weighted sum of v loss with greater weight in early steps&quot;。第三方按 paper 公式实现会得到不一致的曲线。</li>
+<li><strong>x_0 loss vs v loss (paper-vs-code 不一致 — 最重要的一条):</strong> Paper Eq. 7 用 <span class="math inline">\(\|u_k^s - u_k^t\|_2^2\)</span> (velocity MSE),代码 <code>train_dopsd.py:L600-L602</code> 实际用 <span class="math inline">\(\|x_0^{\text{student}} - x_0^{\text{teacher}}\|_2^2\)</span> (x_0 MSE)。代码注释:&quot;this leads to faster convergence... can be regarded as a weighted sum of v loss with greater weight in early steps&quot;。第三方按 paper 公式实现会得到不一致的曲线。</li>
 <li><strong>FLUX 版本未发布:</strong> README &quot;Todo List&quot; 第二项 &quot;D-OPSD FLUX2-klein LoRA training with self-distilled editing branch context for scenario of high id accuracy requirement: Will be released soon&quot;。high-id-accuracy (e.g. 真人) 场景用的是 editing branch 而非 VLM context — 这两个 context 来源是 D-OPSD 的两个变体,只发布了 VLM 版。</li>
 <li><strong>Full fine-tune 未实现:</strong> 代码 <code>train_dopsd.py:L255-L257</code> 显式 <code>raise NotImplementedError(&quot;Full finetuning is not implemented here, please set --use-lora&quot;)</code> — 论文 Tab 2 的 full-FT 结果没法用这份代码复现 (只能复现 LoRA 部分)。</li>
 <li><strong>评估指标实现路径模糊:</strong> VLM-J (VLM 主观评分)、Quality-S、Aesthetic-S 都用 reward model 测,但论文 Appendix D 没具体到 prompts/checkpoints。复刻这些数字会有变数。</li>
@@ -351,13 +351,13 @@ def get_qwen3vl_zimage_prompt_embeds(
 </ul>
 <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
 <ul>
-<li><strong>Paper-vs-code 不一致 (x_0 vs v loss) 影响所有数字。</strong> 代码用 x_0 MSE,paper Eq. 7 用 v MSE。&quot;等价于带时间权重的 v MSE&quot;是<em>近似</em>陈述 — 严格说 x_0 MSE 在早 t 时权重大 (<span class="math inline">(1-t)^2</span>),与 paper 的 uniform 1/K 平均不同。所有 Tab 1/2 数字都是 x_0 版本的结果,paper 公式从未被实证过。第三方按 paper 公式复刻会得到不同曲线。</li>
+<li><strong>Paper-vs-code 不一致 (x_0 vs v loss) 影响所有数字。</strong> 代码用 x_0 MSE,paper Eq. 7 用 v MSE。&quot;等价于带时间权重的 v MSE&quot;是<em>近似</em>陈述 — 严格说 x_0 MSE 在早 t 时权重大 (<span class="math inline">\((1-t)^2\)</span>),与 paper 的 uniform 1/K 平均不同。所有 Tab 1/2 数字都是 x_0 版本的结果,paper 公式从未被实证过。第三方按 paper 公式复刻会得到不同曲线。</li>
 <li><strong>Full fine-tune 代码未发布,Tab 2 不可复现。</strong> README &quot;Will be released soon&quot;,代码里 <code>raise NotImplementedError</code>。Tab 2 是论文最强结果 (FID 从 82 降到 40),但读者复现不了。</li>
 <li><strong>&quot;D-OPSD 不需要 reward&quot; 这条 claim 有 fine print。</strong> Paper 多次强调&quot;不需要外部 reward&quot;,但 §3.1 evaluation 里 Quality-S / Aesthetic-S / VLM-J 全是 reward model 的输出 — <em>evaluation</em> 仍依赖 reward model,只有 <em>training</em> 不依赖。这个区别在标题和摘要里被弱化了。</li>
 <li><strong>Emergent in-context 能力的局限性论文自己也承认 (Fig. 6):</strong> teacher 在某些 ID/concept 上无法生成合理图,训练直接失败。这是个 critical failure mode,但 paper 只给一段 disclaimer 和一张图,没量化&quot;对什么样的 concept 会失败&quot;。实操里发现 D-OPSD 不工作时,debug 路径不清。</li>
 <li><strong>Z-Image-Turbo 是论文作者所在团队的模型 (阿里 Z-Image Team)。</strong> 多个作者来自 Z-Image,实验主要在自家模型上做,FLUX.2-klein 上的数字相对略少。可能存在隐式的&quot;用自己最熟悉的模型 cherry-pick&quot;风险 — 在第三方模型 (e.g., SDXL Turbo, SD3 Turbo) 上是否同样有效,未知。</li>
 <li><strong>&quot;4 张图&quot;的 LoRA 设置太理想化。</strong> 实操里很多 customization 场景图像超过 4 张但远未达到 anime 大数据集规模,中间地带 (50-500 张) 没测。这条曲线上 D-OPSD 是否还是最优,论文没回答。</li>
-<li><strong>&quot;On-policy&quot; 严格性:</strong> Student 用 stop_gradient detach 跨步 BPTT,所以每一步的&quot;on-policy&quot;实际只看当前一步;前面 <span class="math inline">K-1</span> 步的轨迹是用<em>当前优化器还没更新的</em> student 生成的。严格意义上这是 &quot;K-step lagged on-policy&quot; 而非 full on-policy。RL's Razor (arxiv 2509.04259) 那种严格 on-policy KL bias 的论证在这里不完全适用,论文没明确这一点。</li>
+<li><strong>&quot;On-policy&quot; 严格性:</strong> Student 用 stop_gradient detach 跨步 BPTT,所以每一步的&quot;on-policy&quot;实际只看当前一步;前面 <span class="math inline">\(K-1\)</span> 步的轨迹是用<em>当前优化器还没更新的</em> student 生成的。严格意义上这是 &quot;K-step lagged on-policy&quot; 而非 full on-policy。RL's Razor (arxiv 2509.04259) 那种严格 on-policy KL bias 的论证在这里不完全适用,论文没明确这一点。</li>
 <li><strong>Teacher EMA decay = 0.9999 = 极度滞后。</strong> 在 K 步 × 几千 iteration 的训练里,teacher 实际跟 student 落后 10000 步以上,几乎是 frozen base + 慢慢偏移。这意味着 teacher 的&quot;stronger context&quot; 优势主要来自 multimodal feature,而不是来自训练动态。这跟 paper 的&quot;self-distillation&quot;叙事略冲突 — 实际更像&quot;frozen base with VLM context 当 teacher&quot;。</li>
 <li><strong>2× wall time / 4× FLOPs 成本。</strong> Paper §4 自己承认。虽然论证&quot;考虑到 SFT 之后需要重新蒸馏的话总成本更低&quot;,但这隐含&quot;重新蒸馏一定要做&quot;的前提 — 如果只是社区玩家 LoRA 调一下,他们多半不会做完整 re-distillation,所以总成本对比不一定成立。</li>
 <li><strong>&quot;Continually learning&quot; 一词被滥用。</strong> 论文只测了 single-task adaptation (anime 域 or 4 张图)。<em>真正的 continual learning</em> 意味着多个 task 顺序适应,task k+1 时不忘 task k。这论文没测。GenEval / DPG 测的是&quot;原域知识保留&quot;,不是&quot;先前 fine-tune 任务的知识&quot;。</li>

@@ -10,6 +10,8 @@ Returns: (body_html, toc_html, warnings)
 """
 from __future__ import annotations
 
+import re
+
 from markdown_it import MarkdownIt
 from mdit_py_plugins.dollarmath import dollarmath_plugin
 from mdit_py_plugins.front_matter import front_matter_plugin
@@ -17,6 +19,25 @@ from mdit_py_plugins.front_matter import front_matter_plugin
 from build_lib.figures import tag_for_lightbox
 from build_lib.headings import build_toc_html, inject_ids
 from build_lib.wiki_links import preprocess as preprocess_wiki, resolve as resolve_wiki
+
+
+# dollarmath_plugin strips the $$/$ delimiters when converting to HTML. MathJax
+# only renders content wrapped in \(..\) / \[..\] / $..$ / $$..$$. We re-wrap
+# the math content in \(..\) (inline) and \[..\] (block) so MathJax picks it up.
+_MATH_BLOCK_RE = re.compile(
+    r'(<div class="math block">)(\s*)(.*?)(\s*)(</div>)', re.DOTALL
+)
+_MATH_INLINE_RE = re.compile(
+    r'(<span class="math inline">)(.*?)(</span>)', re.DOTALL
+)
+
+
+def _add_math_delimiters(html: str) -> str:
+    """Wrap dollarmath plugin's <div class='math block'> / <span class='math inline'>
+    content in MathJax-recognized delimiters (\\[...\\] / \\(...\\))."""
+    html = _MATH_BLOCK_RE.sub(r'\1\2\\[\3\\]\4\5', html)
+    html = _MATH_INLINE_RE.sub(r'\1\\(\2\\)\3', html)
+    return html
 
 
 def _make_parser() -> MarkdownIt:
@@ -68,6 +89,9 @@ def render_post_body(
 
     # 3c. Tag figures for lightbox
     body_html = tag_for_lightbox(body_html)
+
+    # 3d. Add MathJax delimiters to dollarmath-stripped equations
+    body_html = _add_math_delimiters(body_html)
 
     # 4. Build TOC from injected IDs
     toc_html = build_toc_html(body_html)

@@ -137,11 +137,11 @@ def training_target(self, sample, noise, timestep):
     target = noise - sample
     return target
 </code></pre>
-<p>这就是 <strong>flow matching 的核心两行</strong>: <span class="math inline">\mathbf{x}_t = (1-\sigma)\mathbf{x}_0 + \sigma \boldsymbol{\epsilon}</span>, 速度目标是 <span class="math inline">\boldsymbol{\epsilon} - \mathbf{x}_0</span> — 即从干净指向噪声的方向。模型预测这个速度。</p>
+<p>这就是 <strong>flow matching 的核心两行</strong>: <span class="math inline">\(\mathbf{x}_t = (1-\sigma)\mathbf{x}_0 + \sigma \boldsymbol{\epsilon}\)</span>, 速度目标是 <span class="math inline">\(\boldsymbol{\epsilon} - \mathbf{x}_0\)</span> — 即从干净指向噪声的方向。模型预测这个速度。</p>
 <h3 id="sec-2-3">2.2 大 patch 替代 VAE</h3>
 <p>这是 L2P 最干净也最有冲击力的一步。</p>
-<p>原来 LDM 的流程是: 像素图 <span class="math inline">\mathbf{I} \in \mathbb{R}^{3 \times 1024 \times 1024}</span> → VAE 编码 → latent <span class="math inline">\mathbf{z} \in \mathbb{R}^{16 \times 64 \times 64}</span> → 16-channel × (64/2)² = 16×32×32 token (DiT 内部还有 2×2 patchify) → DiT 处理 → reverse 回 latent → VAE 解码回像素。共有<strong>两次</strong>有损压缩 (VAE encode/decode), 还有 VAE 的训练成本和内存爆炸问题。</p>
-<p>L2P 直接把 VAE 干掉, 改成: 像素图 → <strong>16×16 patch 切割</strong> → 序列长度 = <span class="math inline">1024/16 \times 1024/16 = 64 \times 64 = 4096</span> token, 每个 token 是 <span class="math inline">16 \times 16 \times 3 = 768</span> 维。这个序列长度跟原来 LDM 的 token 序列长度一致, 所以 DiT 不用改 attention 结构。代码里的 patch 切割是一行 reshape:</p>
+<p>原来 LDM 的流程是: 像素图 <span class="math inline">\(\mathbf{I} \in \mathbb{R}^{3 \times 1024 \times 1024}\)</span> → VAE 编码 → latent <span class="math inline">\(\mathbf{z} \in \mathbb{R}^{16 \times 64 \times 64}\)</span> → 16-channel × (64/2)² = 16×32×32 token (DiT 内部还有 2×2 patchify) → DiT 处理 → reverse 回 latent → VAE 解码回像素。共有<strong>两次</strong>有损压缩 (VAE encode/decode), 还有 VAE 的训练成本和内存爆炸问题。</p>
+<p>L2P 直接把 VAE 干掉, 改成: 像素图 → <strong>16×16 patch 切割</strong> → 序列长度 = <span class="math inline">\(1024/16 \times 1024/16 = 64 \times 64 = 4096\)</span> token, 每个 token 是 <span class="math inline">\(16 \times 16 \times 3 = 768\)</span> 维。这个序列长度跟原来 LDM 的 token 序列长度一致, 所以 DiT 不用改 attention 结构。代码里的 patch 切割是一行 reshape:</p>
 <p class="code-source">repo/diffsynth/models/z_image_dit_L2P.py:L608-L615 — 像素直接打 patch</p>
 <pre><code class="language-python">### Process Image
 C, F, H, W = image.size()

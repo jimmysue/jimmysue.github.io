@@ -121,11 +121,11 @@
 </ol>
 <p>关键洞察: <strong>音画错误是会互相传染的。</strong> 现场即兴时, 弦乐走音 → 通过指挥的耳朵 (cross-attention) 影响铜管 → 铜管乱了又传回弦乐 → 整个崩盘。所以&quot;防止任一边崩&quot;比&quot;把任一边做到极致&quot;更重要 — 这也是为什么 paper 说&quot;视觉感知质量更高的 ODE 轨迹反而蒸馏不出更稳的 rollout&quot;。</p>
 <h3 id="sec-2-2">2.1 问题形式化</h3>
-<p>把&quot;下一状态预测&quot;从纯视觉扩展到联合音视频。在时刻 <span class="math inline">t</span>, 状态是</p>
-<p>其中 <span class="math inline">v_t</span> 是视觉 latent frames 的一个 chunk, <span class="math inline">\omega_t</span> 是音频 latent frames 的一个 chunk。注意两个 chunk 的&quot;长度&quot;是不同的: 因为采样率不同, 视频 chunk 用 15 latent frames, 音频 chunk 用 75 latent frames, 但它们覆盖 <em>同样的物理时间</em> (≈2.5s @ 24fps)。</p>
-<p>action <span class="math inline">a_t</span> 是统一的 text 表示, 覆盖视觉控制信号 / 语音内容 / 环境音 / 音乐描述 (用类似 <code>&lt;S&gt;...&lt;/S&gt;</code>、<code>&lt;AUDCAP&gt;...&lt;/ENDAUDCAP&gt;</code> 这种 tag 切分)。world model 是:</p>
-<p>—— 翻译: 给定上一个 action, 初始视觉状态 <span class="math inline">v_0</span> (整个 rollout 的&quot;起点帧&quot;), 以及过去 <span class="math inline">L</span> 个 chunk 的历史 <span class="math inline">O_{t-1} = \{o_i\}_{i=t-L}^{t-1}</span>, 预测下一个 chunk 的 (视觉 latent, 音频 latent)。<span class="math inline">L</span> 是上下文窗口长度。</p>
-<p>实际实现里, &quot;history <span class="math inline">O_{t-1}</span>&quot; 不是把过去 chunk 重新喂一遍, 而是以 <strong>KV-cache</strong> 的形式存在: 视频自注意力 KV-cache + 视频跨注意力 KV-cache + 音频自注意力 KV-cache + 音频跨注意力 KV-cache, 一共四组 cache。这是为什么 paper 反复强调 &quot;cache 设计&quot; 是核心 — 因为它就是 world state 的实际载体。</p>
+<p>把&quot;下一状态预测&quot;从纯视觉扩展到联合音视频。在时刻 <span class="math inline">\(t\)</span>, 状态是</p>
+<p>其中 <span class="math inline">\(v_t\)</span> 是视觉 latent frames 的一个 chunk, <span class="math inline">\(\omega_t\)</span> 是音频 latent frames 的一个 chunk。注意两个 chunk 的&quot;长度&quot;是不同的: 因为采样率不同, 视频 chunk 用 15 latent frames, 音频 chunk 用 75 latent frames, 但它们覆盖 <em>同样的物理时间</em> (≈2.5s @ 24fps)。</p>
+<p>action <span class="math inline">\(a_t\)</span> 是统一的 text 表示, 覆盖视觉控制信号 / 语音内容 / 环境音 / 音乐描述 (用类似 <code>&lt;S&gt;...&lt;/S&gt;</code>、<code>&lt;AUDCAP&gt;...&lt;/ENDAUDCAP&gt;</code> 这种 tag 切分)。world model 是:</p>
+<p>—— 翻译: 给定上一个 action, 初始视觉状态 <span class="math inline">\(v_0\)</span> (整个 rollout 的&quot;起点帧&quot;), 以及过去 <span class="math inline">\(L\)</span> 个 chunk 的历史 <span class="math inline">\(O_{t-1} = \{o_i\}_{i=t-L}^{t-1}\)</span>, 预测下一个 chunk 的 (视觉 latent, 音频 latent)。<span class="math inline">\(L\)</span> 是上下文窗口长度。</p>
+<p>实际实现里, &quot;history <span class="math inline">\(O_{t-1}\)</span>&quot; 不是把过去 chunk 重新喂一遍, 而是以 <strong>KV-cache</strong> 的形式存在: 视频自注意力 KV-cache + 视频跨注意力 KV-cache + 音频自注意力 KV-cache + 音频跨注意力 KV-cache, 一共四组 cache。这是为什么 paper 反复强调 &quot;cache 设计&quot; 是核心 — 因为它就是 world state 的实际载体。</p>
 <h3 id="sec-2-3">2.2 基础: Ovi 双塔架构</h3>
 <p>Starchild-1 的 base model 是 Ovi (Low et al. 2025), 一个 <strong>对称双塔扩散 transformer</strong>: 音频塔和视频塔各一个 WanModel 实例 (Wan2.2 video DiT 改的), 每一层之间通过 <em>双向 cross-attention</em> 连接。Cross-attention 还专门为 fusion 注入了独立的 K/V projection。</p>
 <p class="code-source">repo/ovi/modules/fusion.py:L9-L53 — FusionModel 构造: 两个 WanModel 实例 + 每个 block 注入 fusion 用的 K/V projection</p>

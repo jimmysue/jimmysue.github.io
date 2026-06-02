@@ -110,8 +110,8 @@
     </figure>
 <p>三个组件:</p>
 <ol>
-<li><strong>MLLM (Qwen3-VL):</strong> condition encoder。处理 text + 参考图,输出 modality-aware 表示 <span class="math inline">h_y</span>。<u>冻结的</u>,不参与训练 — 复用 Qwen3-VL 的 in-context 能力 (这条跟 D-OPSD 同思路)。</li>
-<li><strong>VAE (f16c64,79M enc / 259M dec):</strong> 把 input image 编码到隐空间 <span class="math inline">E_x</span>,在隐空间里 diffuse,再解码回图像。Section 2.2 详细。</li>
+<li><strong>MLLM (Qwen3-VL):</strong> condition encoder。处理 text + 参考图,输出 modality-aware 表示 <span class="math inline">\(h_y\)</span>。<u>冻结的</u>,不参与训练 — 复用 Qwen3-VL 的 in-context 能力 (这条跟 D-OPSD 同思路)。</li>
+<li><strong>VAE (f16c64,79M enc / 259M dec):</strong> 把 input image 编码到隐空间 <span class="math inline">\(E_x\)</span>,在隐空间里 diffuse,再解码回图像。Section 2.2 详细。</li>
 <li><strong>MMDiT:</strong> 共享 transformer backbone 同时处理 text 和 image token。Section 2.3 详细。</li>
 </ol>
 <p>跟 Qwen-Image 1.0 (Wu et al. 2025) 的关键区别 — 这是一个<em>纯升级</em>论文,没改 paradigm:</p>
@@ -121,8 +121,8 @@
 <li>2.0 加了 PE 模块 + RLHF + DMD 蒸馏 + 数据飞轮。</li>
 </ul>
 <h3 id="sec-2-3">2.2 高压缩 VAE — 这是 2.0 最大的工程胜利 (§3.1)</h3>
-<p>原生 2K 分辨率训练 = 计算成本爆炸。常见做法 <span class="math inline">f=8</span> 压缩 (8× 空间下采样 + 16 channel) 让 2K 图变成 256×256×16 的潜变量,但 256² latent 还是大。<strong>Qwen 把压缩率推到 <span class="math inline">f=16</span>、channel 推到 64</strong>,latent 体积砍到 128² × 64 — 像素数比 f8c16 少 4×,DiT 训练 FLOPs 也省 4×。</p>
-<p>但 <span class="math inline">f=16</span> 经典 trade-off:</p>
+<p>原生 2K 分辨率训练 = 计算成本爆炸。常见做法 <span class="math inline">\(f=8\)</span> 压缩 (8× 空间下采样 + 16 channel) 让 2K 图变成 256×256×16 的潜变量,但 256² latent 还是大。<strong>Qwen 把压缩率推到 <span class="math inline">\(f=16\)</span>、channel 推到 64</strong>,latent 体积砍到 128² × 64 — 像素数比 f8c16 少 4×,DiT 训练 FLOPs 也省 4×。</p>
+<p>但 <span class="math inline">\(f=16\)</span> 经典 trade-off:</p>
 <ul>
 <li>压得太狠 → 信息瓶颈,重建掉精度。</li>
 <li>提通道数补信息 → 高维 latent manifold 难 diffuse (慢收敛、生成质量差)。</li>
@@ -143,26 +143,26 @@
 <h3 id="sec-2-4">2.3 MMDiT 的几个几何细节 (§3.2)</h3>
 <p>架构沿用 MMDiT (Esser et al. 2024) 范式,text 和 image token 在共享 transformer backbone 里联合处理。Qwen-Image-2.0 的<em>具体几何选择</em>:</p>
 <p><strong>多模态 token 序列构造 (Eq. 1):</strong></p>
-<p><span class="math inline">E_x</span> 来自 VAE encoder,<span class="math inline">h_y</span> 来自 Qwen3-VL — 替换掉了 Qwen3-VL 输出的视觉部分 <span class="math inline">h_x</span>。这一替换是因为 MLLM 的视觉 token 是为<em>识别</em>训的,VAE latent 才适合<em>生成</em>。</p>
+<p><span class="math inline">\(E_x\)</span> 来自 VAE encoder,<span class="math inline">\(h_y\)</span> 来自 Qwen3-VL — 替换掉了 Qwen3-VL 输出的视觉部分 <span class="math inline">\(h_x\)</span>。这一替换是因为 MLLM 的视觉 token 是为<em>识别</em>训的,VAE latent 才适合<em>生成</em>。</p>
 <p><strong>位置编码:</strong> 用 Qwen-Image (Wu et al. 2025) 的 MSRoPE — 把 text token 和 image token 在同一套 ROPE 系数下编码,跨模态可以正确计算相对位置。</p>
 <p><strong>归一化:</strong> RMSNorm (Zhang &amp; Sennrich, 2019) 用于 QK-norm,其他都用 LayerNorm。</p>
 <p><strong>Modulation:纯乘性,不带 bias (Eq. 2)</strong></p>
-<p>而不是常规的 <span class="math inline">h' = \alpha h + \beta</span>。<u>没解释为什么</u>,但 Qwen team 经验上观察&quot;乘性 modulation 在大规模 MMDiT 上更稳&quot;。</p>
+<p>而不是常规的 <span class="math inline">\(h' = \alpha h + \beta\)</span>。<u>没解释为什么</u>,但 Qwen team 经验上观察&quot;乘性 modulation 在大规模 MMDiT 上更稳&quot;。</p>
 <p><strong>SwiGLU MLP (Eq. 3):</strong></p>
-<p><span class="math inline">\sigma</span> 是 SiLU,<span class="math inline">\Phi_1, \Phi_2</span> 是两个线性投影,<span class="math inline">\otimes</span> 是 element-wise product。这是 LLaMA / Qwen-LLM 的标准 FFN。论文给的动机:<em>&quot;joint text-image training 容易让某些 neuron 激活值过大、premature saturation&quot;</em>,SwiGLU 比 SiLU 缓解了这个问题。</p>
+<p><span class="math inline">\(\sigma\)</span> 是 SiLU,<span class="math inline">\(\Phi_1, \Phi_2\)</span> 是两个线性投影,<span class="math inline">\(\otimes\)</span> 是 element-wise product。这是 LLaMA / Qwen-LLM 的标准 FFN。论文给的动机:<em>&quot;joint text-image training 容易让某些 neuron 激活值过大、premature saturation&quot;</em>,SwiGLU 比 SiLU 缓解了这个问题。</p>
 <h3 id="sec-2-5">2.4 Prompt Enhancer — 把用户随手写的 prompt 自动扩成 1k token 设计稿 (§3.3)</h3>
 <p>真实用户 prompt 跟训练数据的&quot;详尽设计稿&quot;之间有 distribution gap。PE 模块用 Qwen3.5-9B 初始化,把用户的&quot;画只猫&quot; 扩成几百到 1000 token 的详细描述。</p>
 <p><strong>数据构造的妙处 — Reverse engineering:</strong></p>
 <ol>
-<li>拿一个 fine-grained 标注 <span class="math inline">P_{\text{fine}}</span>。</li>
+<li>拿一个 fine-grained 标注 <span class="math inline">\(P_{\text{fine}}\)</span>。</li>
 <li>用 LLM 把它分类成 General / Portrait / Text / Complex Text 四类。</li>
-<li>从&quot;降级策略池&quot;<span class="math inline">S</span> 里采样一组策略 (stylistic simplification、colloquialization、删除 lighting / texture / layout 等细节)。</li>
-<li>应用这些策略产生<em>退化的</em>口语化 prompt <span class="math inline">P_{\text{short}}</span>。</li>
-<li>每个降级操作的<em>逆</em>定义了&quot;如何把短 prompt 还原成长 prompt&quot;的 CoT — 形成 <span class="math inline">(P_{\text{short}}, \text{CoT}, P_{\text{fine}})</span> 三元组训练 PE。</li>
+<li>从&quot;降级策略池&quot;<span class="math inline">\(S\)</span> 里采样一组策略 (stylistic simplification、colloquialization、删除 lighting / texture / layout 等细节)。</li>
+<li>应用这些策略产生<em>退化的</em>口语化 prompt <span class="math inline">\(P_{\text{short}}\)</span>。</li>
+<li>每个降级操作的<em>逆</em>定义了&quot;如何把短 prompt 还原成长 prompt&quot;的 CoT — 形成 <span class="math inline">\((P_{\text{short}}, \text{CoT}, P_{\text{fine}})\)</span> 三元组训练 PE。</li>
 </ol>
 <p>PE 训练分两段:</p>
 <ul>
-<li><strong>SFT:</strong> 标准 next-token prediction on <span class="math inline">(P_{\text{short}}, \text{CoT}, P_{\text{fine}})</span> 三元组。</li>
+<li><strong>SFT:</strong> 标准 next-token prediction on <span class="math inline">\((P_{\text{short}}, \text{CoT}, P_{\text{fine}})\)</span> 三元组。</li>
 <li><strong>RL (GRPO,Shao et al. 2024):</strong> PE 生成候选 enhanced prompt → 喂给冻结的图像生成器 → reward = MLLM 视觉一致性 + MLLM 审美评分 + rule-based textual constraint。GRPO 优化 PE,使得它输出的 prompt 真的能改善下游生成质量。</li>
 </ul>
 <p>编辑任务的 PE 反过来:用 MLLM 把长 annotation 总结成简短 editing prompt,避免不必要的 stochastic degradation。</p>
@@ -197,7 +197,7 @@
 <p>所有 reward 校准到可比尺度,权重<em>训练过程中动态调整</em>避免过度优化某一维。</p>
 <p><strong>关键 RL 设计 — CFG 混合策略:</strong> Rollout 时用 CFG (Ho &amp; Salimans 2022) 生成高质量样本评 reward,但<em>policy 优化目标里排除 unconditional branch</em>。这条比同期 Flow-GRPO / Flow-OPD 都精细 — 保 fidelity + 省算力。Adapted GRPO framework (Liu et al. 2026; Wang et al. 2025; Zheng et al. 2025) — 注意这跟 RL's Razor 等用的同一个 GRPO 家族。</p>
 <p><strong>Few-step 蒸馏 — DMD (§4.3):</strong> 用 <em>Distribution Matching Distillation</em> (Yin et al. 2024) 从 40-step teacher 蒸馏到 4-NFE student。DMD gradient 形式 (Eq. 4):</p>
-<p>其中 <span class="math inline">s_{\text{fake}}</span> 是辅助 score 模型 (基于 student-generated 样本 + flow-matching 目标训练),<span class="math inline">s_{\text{real}}</span> 是冻结的 teacher diffusion score。<span class="math inline">x_t = (1-t) x_\theta + t \xi</span> 是 student 的 clean 预测和独立 Gaussian noise 的线性插值。</p>
+<p>其中 <span class="math inline">\(s_{\text{fake}}\)</span> 是辅助 score 模型 (基于 student-generated 样本 + flow-matching 目标训练),<span class="math inline">\(s_{\text{real}}\)</span> 是冻结的 teacher diffusion score。<span class="math inline">\(x_t = (1-t) x_\theta + t \xi\)</span> 是 student 的 clean 预测和独立 Gaussian noise 的线性插值。</p>
 <p>论文 motivation:DMD 在异构生成架构上 (SD、PixArt、各种 DiT) 都稳,所以选它而非 Consistency Models 或 trajectory-based 方法。</p>
 <figure>
       <img class="zoomable" alt="Distillation comparison" src="figures/fig11-distillation.png">
@@ -257,9 +257,9 @@ def build_multimodal_sequence(input_image, input_text, qwen3_vl, vae_encoder):
 </code></pre>
 <p>注意几个关键点:</p>
 <ul>
-<li><strong>L21:</strong> Eq. 2 的纯乘性 modulation — 没有 bias 项 <span class="math inline">\beta</span>。这是 Qwen team 的非平凡选择,缺乏对照实验解释为什么。</li>
+<li><strong>L21:</strong> Eq. 2 的纯乘性 modulation — 没有 bias 项 <span class="math inline">\(\beta\)</span>。这是 Qwen team 的非平凡选择,缺乏对照实验解释为什么。</li>
 <li><strong>L29-30:</strong> Qwen3-VL 整个 frozen,只用其 forward,梯度不流入。</li>
-<li><strong>L32:</strong> VLM 的视觉 token <span class="math inline">h_x</span> 被丢弃,换成 VAE latent <span class="math inline">E_x</span> — 因为前者是 recognition 用的,后者是 generation 用的。这是 D-OPSD 同一时期也观察到的设计选择。</li>
+<li><strong>L32:</strong> VLM 的视觉 token <span class="math inline">\(h_x\)</span> 被丢弃,换成 VAE latent <span class="math inline">\(E_x\)</span> — 因为前者是 recognition 用的,后者是 generation 用的。这是 D-OPSD 同一时期也观察到的设计选择。</li>
 </ul>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <p><strong>LMArena T2I (real user blind preference,2026-04-22 snapshot):</strong></p>
@@ -286,12 +286,12 @@ def build_multimodal_sequence(input_image, input_text, qwen3_vl, vae_encoder):
 <ul>
 <li><strong>MLLM:</strong> Qwen3-VL (Bai et al. 2025a),冻结,只作 condition encoder。论文没说哪个规模 (Qwen3-VL 有多个 size)。</li>
 <li><strong>VAE:</strong> f16c64,79M encoder / 259M decoder。Residual autoencoder + semantic alignment loss + 砍 adversarial loss。</li>
-<li><strong>MMDiT 规模:</strong> 论文完全没披露 — block 数 <span class="math inline">L</span>、隐藏维度、attention head 数、总参数量都不知道。这是<em>商业敏感信息</em>缺失。</li>
+<li><strong>MMDiT 规模:</strong> 论文完全没披露 — block 数 <span class="math inline">\(L\)</span>、隐藏维度、attention head 数、总参数量都不知道。这是<em>商业敏感信息</em>缺失。</li>
 <li><strong>Prompt Enhancer:</strong> 初始化自 Qwen3.5-9B (Team 2026),SFT + GRPO 二阶段训练。</li>
 <li><strong>训练:</strong> Pre-training 700K steps,Continual pre-training 250K steps,SFT 10K steps。lr 1e-4 → 2e-5 → 1e-5。Adam + WD 0.001 + grad clip 1.0 + unconditional dropout 0.1 (for CFG)。</li>
 <li><strong>分辨率 schedule:</strong> 256P → 256P + edit → 512P + synthetic → 512/1024P + 4 个 quality 过滤器 → 多分辨率 to 2048P → SFT distribution filter。</li>
 <li><strong>RLHF GPRO:</strong> CFG 用于 rollout sampling,不用于 policy optimization (混合策略)。5 个 reward model:Aesthetic / Image-text alignment / Portrait / Instruction-following / Visual consistency。reward weight 动态调整。</li>
-<li><strong>DMD 蒸馏:</strong> 40-step teacher → 4-NFE student。<span class="math inline">x_t = (1-t)x_\theta + t\xi</span>,<span class="math inline">t</span> 从 logit-normal 分布采。Fake score 用 flow-matching 目标训练。</li>
+<li><strong>DMD 蒸馏:</strong> 40-step teacher → 4-NFE student。<span class="math inline">\(x_t = (1-t)x_\theta + t\xi\)</span>,<span class="math inline">\(t\)</span> 从 logit-normal 分布采。Fake score 用 flow-matching 目标训练。</li>
 <li><strong>数据飞轮:</strong> Error attribution → 3 track 自动路由 (RL / pretraining / PE)。人审只在 pretraining track 的 augmentation+filtering 阶段介入。</li>
 <li>**训练资源:**完全没披露。同期 Flow-OPD 用 32 H800,LeapAlign 用 16 GPU — Qwen 这个规模 + 700K + 250K + 多阶段必然是 1000+ GPU。</li>
 <li>**代码 vs 论文 gap:**无法对照 — 没代码 / 没权重 / 没 model card。所有细节都是论文文字描述。这是最大的可重现性短板。</li>
@@ -316,7 +316,7 @@ def build_multimodal_sequence(input_image, input_text, qwen3_vl, vae_encoder):
 <li><strong>RL reward 设计没消融。</strong> 5 个 reward model + 动态权重调整 + CFG 混合策略 — 任何一个组件砍掉会怎样?论文没做。</li>
 <li><strong>数据飞轮的&quot;error attribution&quot;机制是黑盒。</strong> 怎么自动判断一个 bad case 属于 RL/data/PE 哪一类?Fig 7 只画了 box 没解释 attribution algorithm。这是飞轮的核心,paper 应该详细描述。</li>
 <li><strong>&quot;无对抗损失&quot;的 VAE 训练 claim 在大规模上没有数字支撑。</strong> 论文说 &quot;consistent with Wu et al. 2025&quot; 但没单独做&quot;有 adv loss vs 无&quot;的消融。</li>
-<li><strong>Modulation 用纯乘性 (<span class="math inline">h' = \alpha h</span>) 没解释。</strong> 这是个非 trivial 的设计偏离 — 业界默认都是 affine modulation。Qwen 的选择可能有性能/稳定性数据支撑,但论文没给。</li>
+<li><strong>Modulation 用纯乘性 (<span class="math inline">\(h' = \alpha h\)</span>) 没解释。</strong> 这是个非 trivial 的设计偏离 — 业界默认都是 affine modulation。Qwen 的选择可能有性能/稳定性数据支撑,但论文没给。</li>
 <li><strong>多语种支持的<em>边界</em>没标。</strong> 文中说 &quot;diverse languages&quot;,Fig 18 展示了多语种,但具体哪些语言被训过、哪些是 zero-shot 泛化、哪些性能差,没列。商业上很重要。</li>
 <li><strong>没有 ELO 之外的 user study。</strong> LMArena 是公开 user blind preference,但 sample size、用户分布、prompt 选择是否对 Qwen 有偏向都不可控。配套人工评估可以加强可信度。</li>
 <li><strong>蒸馏只在 portrait/landscape/natural scenes 上对比 (Fig 11)。</strong> 4-NFE student 在<em>超长文本渲染</em>(论文核心卖点) 上表现如何没单独评估 — text 渲染对每步质量要求特别高,蒸馏可能在这里掉得最严重。</li>
