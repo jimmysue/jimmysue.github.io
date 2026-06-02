@@ -77,6 +77,11 @@
 </nav>
 <main>
 <h1>Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-13</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a> <a class="concept-chip" href="../../concepts/theory.html">theory</a></div>
+</aside>
+
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
 <p>2024 年的 <strong>REPA</strong> (Yu et al.) 给业内一个意外发现:flow / diffusion 模型如果把内部 feature 跟<em>外部冻结</em>的 image encoder (例如 86M 的 DINOv2-B) 对齐,生成质量能大幅提升。这意味着 flow 模型<em>自己不会学</em>强语义表征 — 必须借。整个 2025 年一票工作 (REPA, REPA-E, SRA 等) 都在这条路上。</p>
 <p>但这条路有<strong>三个根本毛病</strong>:</p>

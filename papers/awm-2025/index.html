@@ -78,6 +78,11 @@
 </nav>
 <main>
 <h1>Advantage Weighted Matching:</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-15</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/rl.html">rl</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/awm.html">awm</a> <a class="concept-chip" href="../../concepts/theory.html">theory</a></div>
+</aside>
+
 <p>把扩散模型 RL 拽回到预训练目标</p>
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
 <p>用一句&quot;LLM 哲学&quot;开篇: 在 LLM 里, <strong>pretraining 和 RL 用的是同一个 likelihood</strong>。SFT 是 <span class="math inline">\(\log p_\theta(y|x)\)</span>, PPO/GRPO 也是 <span class="math inline">\(\log p_\theta(y|x)\)</span> 乘上 advantage; 只是权重不同。两个阶段共享同一个 surrogate, 所以彼此之间过渡很自然。</p>

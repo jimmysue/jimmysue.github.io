@@ -80,6 +80,11 @@
 </nav>
 <main>
 <h1>Flow-OPD: On-Policy Distillation for Flow Matching Models</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-12</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/distillation.html">distillation</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a> <a class="concept-chip" href="../../concepts/sd3.html">sd3</a></div>
+</aside>
+
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
 <p>T2I 模型 (Stable Diffusion 3.5 等 flow-matching backbone) 想要做&quot;一个模型干很多事&quot; — 同时擅长组合性 (GenEval)、文字渲染 (OCR)、美学 (PickScore)、整体质量 (DeQA)。RLHF 思路移植到这里就是 <strong>Flow-GRPO</strong>:把 reverse SDE 解释成 Markov 决策过程,reward 上 GRPO。</p>
 <p>问题:单 reward 训练可以把一个指标拉满,但**&quot;seesaw effect&quot;** 立刻显现。Tab 1 是论文里那张让人脸疼的数据 — 一步一步叠加 reward,前面拉满的指标就一步一步往下掉:</p>

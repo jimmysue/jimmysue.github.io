@@ -116,6 +116,11 @@
 <header class="paper-header">
     <p class="badge tutorial-badge">教程 · Tutorial</p>
     <h1>RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-05-14</span> · <span class="post-meta__extra">12k 字</span> · <span class="post-meta__extra">90–120 分钟</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/rl.html">rl</a> <a class="concept-chip" href="../../concepts/llm.html">llm</a> <a class="concept-chip" href="../../concepts/ppo.html">ppo</a> <a class="concept-chip" href="../../concepts/dpo.html">dpo</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/rlhf.html">rlhf</a></div>
+</aside>
+
     <p class="subtitle">从 log π 是什么到 50 行能跑的 DPO trainer —— 一篇把公式、代码、跨域差异讲到底的深度教程</p>
   </header>
 <p>这篇教程的全部主线只有一句话: <strong>所有 RL 方法都在最大化 <code>reward − β·KL</code></strong>. PPO / RLHF / DPO / GRPO / DAPO / Dr.GRPO / GSPO / DDPO / Diffusion-DPO 的差异, 全部可以归结到三个旋钮: <em>怎么估 reward</em> (RM / 规则 / 偏好对 / 美学分)、<em>怎么估 KL</em> (token-level approx / 闭式 sigmoid / k1 / k3)、<em>怎么估 advantage</em> (GAE / group baseline / 无). 把任何新论文按这三件事对号入座, 你都能 1 分钟读懂它在变量空间的哪个角落里改了一刀.</p>

@@ -82,6 +82,11 @@
 </nav>
 <main>
 <h1>DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-12</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/llm.html">llm</a> <a class="concept-chip" href="../../concepts/attention.html">attention</a> <a class="concept-chip" href="../../concepts/mixture-of-experts.html">mixture-of-experts</a> <a class="concept-chip" href="../../concepts/system-paper.html">system-paper</a></div>
+</aside>
+
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
 <p>对长上下文 (1M token) 推理来说,attention 的计算量和 KV cache 都随 sequence length 线性甚至二次膨胀,这是当今大模型 routine 化超长上下文场景 (代码 agent、长文档分析、test-time 多轮思考) 的最大阻力。DeepSeek-V3.2 已经引入了稀疏注意力 DSA 作为单一手段,但 KV cache 占用仍然吃紧。</p>
 <p>DeepSeek-V4 系列试图解决三个互相耦合的问题:</p>

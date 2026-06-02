@@ -30,7 +30,7 @@
 <a class="post-card post-card--tutorial" href="tutorials/vlm-industrial-2024/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-20</span> · <span class="post-card__extra">10k+ 字</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10k+ 字</span></span>
   </div>
   <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
   <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
@@ -44,7 +44,7 @@
 <a class="post-card post-card--tutorial" href="tutorials/rlhf-evolution-2024/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-14</span> · <span class="post-card__extra">12k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">12k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
   </div>
   <h3 class="post-card__title">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</h3>
   <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
@@ -58,7 +58,7 @@
 <a class="post-card post-card--tutorial" href="tutorials/rl-for-diffusion-2023/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span><span class="post-card__paper-date"> · 论文 2026-05-17</span> · <span class="post-card__extra">10.8k 字</span> · <span class="post-card__extra">80–110 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10.8k 字</span> · <span class="post-card__extra">80–110 分钟</span></span>
   </div>
   <h3 class="post-card__title">扩散模型强化学习: 从 DDPO 到 AWM 的方法演进与代码实现</h3>
   <p class="post-card__tldr">8 节螺旋结构系统讲透扩散模型 RL fine-tuning 的完整发展脉络 (2023.05 - 2025.09)。覆盖 RWR/ReFL → DDPO → DPOK → GRPO → Flow-GRPO → Dance-GRPO → AWM,每个方法的&quot;修了什么/为什么修/代码怎么落&quot;全部讲清。代码 verbatim 引自 kvablack/ddpo-pytorch、yifan123/flow_grpo、XueZeyue/DanceGRPO、scxue/AWM 四个 repo。AWM 那章包含 Theorem 1+2 的完整推导和 paper-vs-code gap 警告。</p>

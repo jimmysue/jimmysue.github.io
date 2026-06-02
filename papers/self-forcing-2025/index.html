@@ -77,6 +77,11 @@
 </nav>
 <main>
 <h1>Self Forcing:</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-22</span></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/video.html">video</a> <a class="concept-chip" href="../../concepts/autoregressive.html">autoregressive</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/distillation.html">distillation</a></div>
+</aside>
+
 <p>用自展开训练弥合 AR 视频扩散的 train-test 鸿沟</p>
 <h2 id="sec-1">1. 出发点 (Motivation)</h2>
 <p>视频扩散模型现在能生成质量惊人的短视频, 但有一个共同的&quot;原罪&quot;: <strong>它们要等所有帧一起 denoise 完, 才能给用户看第一帧</strong>。这跟实时流式、交互式应用 (live streaming、游戏、机器人) 的本质需求 — &quot;下一帧就要立刻显示&quot; — 是矛盾的。Sora、HunyuanVideo、Wan2.1 这些 SOTA 都是 bidirectional DiT, 一次生成所有帧, 用户要等几分钟。</p>

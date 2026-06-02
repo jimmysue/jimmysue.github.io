@@ -210,11 +210,7 @@ def render_card(post: dict, depth: int) -> str:
 
     # date + tutorial-meta extras
     added = post.get("_added_date") or post["date"]
-    paper_date = post["date"]
-    date_html = (
-        f'<span class="post-card__added">📅 {esc(added)}</span>'
-        f'<span class="post-card__paper-date"> · 论文 {esc(paper_date)}</span>'
-    )
+    date_html = f'<span class="post-card__added">📅 {esc(added)}</span>'
     if is_tut and post.get("tutorial_meta"):
         tm = post["tutorial_meta"]
         wc = tm.get("word_count")
@@ -356,6 +352,85 @@ def build_tags_cloud(posts: list[dict], nav_tmpl: str) -> str:
 # per-post HTML rendering
 
 
+_H1_END_RE = re.compile(r"(</h1>)", re.IGNORECASE)
+
+
+def render_post_meta_block(post: dict) -> str:
+    """Per-post header card shown between <h1> and the body content.
+
+    Surfaces frontmatter fields the reader wants at a glance: dates, authors,
+    arxiv/project/code/weights links, concept chips, tutorial reading-meta.
+    Tutorials skip arxiv/authors fields (paper-only metadata).
+    """
+    added = esc(post.get("_added_date") or post["date"])
+    paper_date = esc(post["date"])
+    is_tut = post["type"] == "tutorial"
+
+    rows: list[str] = []
+
+    # Row 1: dates
+    date_bits = [f'<span class="post-meta__date">📅 加入: <strong>{added}</strong></span>']
+    label = "教程日期" if is_tut else "论文日期"
+    date_bits.append(f'<span class="post-meta__paper-date">{label}: {paper_date}</span>')
+    if is_tut and post.get("tutorial_meta"):
+        tm = post["tutorial_meta"]
+        if tm.get("word_count"):
+            date_bits.append(f'<span class="post-meta__extra">{esc(str(tm["word_count"]))} 字</span>')
+        if tm.get("reading_minutes"):
+            rm = str(tm["reading_minutes"]).replace("-", "–")
+            date_bits.append(f'<span class="post-meta__extra">{esc(rm)} 分钟</span>')
+    rows.append('<div class="post-meta__row">' + " · ".join(date_bits) + "</div>")
+
+    # Row 2: authors + venue (paper only)
+    paper_info = post.get("paper") or {}
+    if not is_tut:
+        author_bits: list[str] = []
+        if paper_info.get("authors"):
+            author_bits.append(f'<span class="post-meta__authors">{esc(str(paper_info["authors"]))}</span>')
+        if paper_info.get("venue"):
+            author_bits.append(f'<span class="post-meta__venue">{esc(str(paper_info["venue"]))}</span>')
+        if author_bits:
+            rows.append('<div class="post-meta__row">' + " · ".join(author_bits) + "</div>")
+
+    # Row 3: external links
+    link_bits: list[str] = []
+    if not is_tut and paper_info.get("arxiv_id"):
+        arxiv = str(paper_info["arxiv_id"])
+        link_bits.append(f'<a class="post-meta__link" href="https://arxiv.org/abs/{esc(arxiv)}">arXiv:{esc(arxiv)}</a>')
+    if not is_tut and paper_info.get("project_page"):
+        link_bits.append(f'<a class="post-meta__link" href="{esc(str(paper_info["project_page"]))}">项目页</a>')
+    for url in post.get("repos") or []:
+        if not url:
+            continue
+        link_bits.append(f'<a class="post-meta__link" href="{esc(str(url))}">代码</a>')
+    if not is_tut and paper_info.get("weights_url"):
+        link_bits.append(f'<a class="post-meta__link" href="{esc(str(paper_info["weights_url"]))}">权重</a>')
+    if link_bits:
+        rows.append('<div class="post-meta__row post-meta__links">' + " · ".join(link_bits) + "</div>")
+
+    # Row 4: concept chips (link to the concept's aggregation page)
+    concepts = post.get("concepts") or post.get("tags") or []
+    if concepts:
+        chips = " ".join(
+            f'<a class="concept-chip" href="../../concepts/{esc(slugify_tag(c))}.html">{esc(c)}</a>'
+            for c in concepts
+        )
+        rows.append(f'<div class="post-meta__row post-meta__concepts">{chips}</div>')
+
+    return '<aside class="post-meta">\n' + "\n".join("  " + r for r in rows) + "\n</aside>\n"
+
+
+def _inject_post_meta_block(body_html: str, post: dict) -> str:
+    """Insert post-meta block immediately after the first </h1>. If no h1
+    is found, prepend at the very top of the body."""
+    block = render_post_meta_block(post)
+    m = _H1_END_RE.search(body_html)
+    if m is None:
+        return block + body_html
+    insert_at = m.end()
+    return body_html[:insert_at] + "\n" + block + body_html[insert_at:]
+
+
 def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = None) -> int:
     """Render each post's index.md to index.html. Returns len(posts) on success;
     raises on any I/O error (no partial-progress reporting).
@@ -378,6 +453,7 @@ def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = No
             body_md, slug_set, current_post_dir=current_dir,
         )
         total_warnings.extend(warnings)
+        body_html = _inject_post_meta_block(body_html, p)
         nav_html = render_nav(nav_tmpl, active="papers" if p["type"] == "paper" else "tutorials",
                               depth=2)
         html_out = assemble_post_page(
@@ -498,9 +574,6 @@ def run_smoke_test() -> int:
         return 1
     if "post-card__added" not in idx:
         print("FAIL: index.html missing post-card__added class", file=sys.stderr)
-        return 1
-    if "post-card__paper-date" not in idx:
-        print("FAIL: index.html missing post-card__paper-date class", file=sys.stderr)
         return 1
 
     cloud = (out / "concepts.html").read_text(encoding="utf-8")

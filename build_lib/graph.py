@@ -213,11 +213,7 @@ def _render_post_card(post: dict, depth: int = 1) -> str:
     title = _html.escape(post["title"], quote=True)
     tldr = _html.escape(post.get("tldr") or "", quote=True)
     added = _html.escape(post.get("_added_date") or post["date"], quote=True)
-    paper_date = _html.escape(post["date"], quote=True)
-    date_html = (
-        f'<span class="post-card__added">📅 {added}</span>'
-        f'<span class="post-card__paper-date"> · 论文 {paper_date}</span>'
-    )
+    date_html = f'<span class="post-card__added">📅 {added}</span>'
     return (
         f'<a class="post-card {cls}" href="{_html.escape(href, quote=True)}">\n'
         f'  <div class="post-card__head">\n'
