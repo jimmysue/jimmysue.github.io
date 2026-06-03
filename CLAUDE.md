@@ -280,3 +280,38 @@ The CSS in `assets/style.css` was originally copied from the skill templates. Th
 - Headless Chrome `--screenshot --window-size=W,H` on very tall windows (>16000 px) silently captures only the bottom half. For full-page screenshots use `agent-browser screenshot --full` with a clean session, and crop afterwards if needed.
 - The local proxy at `http://127.0.0.1:7897` (Clash) intercepts even `localhost` requests for `curl` — use `--noproxy '*'` for smoke tests against `./serve.sh`.
 - `pdftoppm` output filename pads page numbers as `page-01.png`, `page-02.png` ... (zero-padded) when there are ≥10 pages but as `page-1.png` for ≤9-page documents. Glob both forms.
+
+## Comments (Giscus) — first-time setup
+
+The blog uses [Giscus](https://giscus.app) for per-post comments, backed by
+GitHub Discussions on the same repo (`jimmysue/jimmysue.github.io`). Comments
+are rendered on paper / tutorial detail pages but not on listing, concept, or
+graph pages. Per-post opt-out via frontmatter `comments: false`.
+
+If Discussions are disabled or the Giscus App is uninstalled, comments stop
+working but builds still succeed (`build.py` prints a WARN and skips
+injection).
+
+To re-enable from scratch:
+
+1. <https://github.com/jimmysue/jimmysue.github.io/settings> → **Features** →
+   tick **Discussions**.
+2. Install the Giscus App at <https://github.com/apps/giscus> on
+   `jimmysue.github.io` (Only select repositories).
+3. Either use the default `Announcements` category, or create a new
+   Announcement-type category named `Comments`.
+4. Visit <https://giscus.app/zh-CN>, enter the repo, choose Mapping=Pathname,
+   enable reactions, theme=light, lang=zh-CN. Copy the `data-repo-id` and
+   `data-category-id` from the generated `<script>` block.
+5. Paste them into `assets/giscus-config.json` (the file is checked into the
+   repo; just overwrite the placeholder values).
+6. `python3 build.py && ./publish.sh`.
+
+Notes:
+- `data-mapping="pathname"` ties each Discussion thread to a paper's URL
+  path. Don't rename a paper's slug after readers have commented — the
+  thread would orphan. (Discussion stays in the repo, just unlinked from
+  the new URL.)
+- Comments use `data-lang="zh-CN"`; switch to `en` if the audience shifts.
+- To rotate IDs (e.g., transferred repo, new category): edit
+  `assets/giscus-config.json`, rebuild, push. No code change needed.
