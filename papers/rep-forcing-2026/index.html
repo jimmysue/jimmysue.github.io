@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Representation Forcing: 让 UMM 自己长出 VAE 替代品——把 understanding encoder 的特征蒸成离散 token, 当作 pixel diffusion 的 in-context structural scaffold</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 Representation token 怎么来:online vector quantization 在 understanding encoder 上</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 训练:三个 head 三个 loss, 一根 sequence</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 关键点:rep token 怎么 condition pixel patch?</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 架构:MoT (BAGEL 的 mixture-of-transformers)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 训练分三阶段</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 推理:两阶段,先 AR rep, 再 diffusion pixel</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 生成:匹配 VAE-based SOTA UMM</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 理解:Pixel+RF 比 VAE+RF 更好</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 最有意思的消融:RF vs REPA (Table 3b)</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 定性:RF 把&quot;垮掉的 pixel-space&quot; 救活</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>Representation Forcing: 让 UMM 自己长出 VAE 替代品</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-05-29</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-29</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Yuqing Wang, Zhijie Lin, Ceyuan Yang, Yang Zhao, Fei Xiao, Hao He, Qi Zhao, Zihan Ding, Fuyun Wang, Shuai Wang, Youliang Zhang, Haoqi Fan, Xihui Liu (HKU + ByteDance Seed + CUHK + Nanjing + Tsinghua)</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2605.31604">arXiv:2605.31604</a> · <a class="post-meta__link" href="https://yuqingwang1029.github.io/RepresentationForcing">项目页</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a> <a class="concept-chip" href="../../concepts/unified-model.html">unified-model</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a> <a class="concept-chip" href="../../concepts/representation-learning.html">representation-learning</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/vector-quantization.html">vector-quantization</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig2-t2i-results.png" alt="Fig 2: RF-Pixel 1024×1024 T2I 生成样本">
+  <figcaption>
+    Fig. 2 — RF-Pixel 在 1024×1024 分辨率下的文生图样本(没有 VAE)。注意人脸、毛皮、织物等高频纹理保真度——这是 pixel-space 路线相比 VAE-based 的标志性优势(VAE 的 8× 下采样会糊掉这些)。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>Unified Multimodal Models (UMMs) 想用<strong>同一个 transformer</strong> 处理 (a) 图像理解(&quot;describe this image&quot;),(b) 图像生成(&quot;draw me a cat&quot;)。现状是这条路被一个不起眼的 component 卡住了——<strong>frozen VAE</strong>。</p>
+<p>主流的 UMM 架构(BAGEL / Janus / Show-o / Transfusion / JanusFlow)都长这样:</p>
+<ul>
+<li>图像理解:image → understanding encoder (SigLIP / DINO) → transformer → text head</li>
+<li>图像生成:text → transformer → diffusion in <strong>frozen VAE latent</strong> → VAE decoder → pixel</li>
+</ul>
+<p>VAE 在这个 pipeline 里有两个根本问题:</p>
+<ol>
+<li><strong>它是 separately pretrained 的</strong>,目标是&quot;latent → pixel 的重建无损&quot;,<strong>不是</strong> UMM 的 understanding+generation 联合目标。</li>
+<li><strong>它的 latent space 有损压缩</strong>(SD3 VAE 是 8× 下采样 + 16 通道),意味着生成质量有一个<strong>模型再怎么训也突破不了的上限</strong>。</li>
+</ol>
+<p>那能不能直接 pixel-space 生成,把 VAE 拿掉?最近确实有这条路的工作(<a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a> L2P / JiT / PixNerd / PixelFlow / SimpleDiffusion v2 等),但 paper 实验发现:<strong>在 UMM 这个 broader distribution + richer text conditioning 的场景下,naive pixel-space 直接掉链子</strong>——GenEval 从 VAE 的 0.52 跌到 0.25(Table 3a)。失败模式 Fig 4 上半行可见:扭曲的物体形状 + 不连贯的构图。</p>
+<p>诊断:<strong>模型同时学&quot;高层语义结构&quot;和&quot;低层像素细节&quot;两件事太难了</strong>, 它需要一个 intermediate representation 把这两层分开。VAE 实际上就在扮演这个角色——只不过是 separately 训的、固定的。</p>
+<p>Paper 的主张:<strong>让 UMM 自己长出这个 intermediate representation, 而不是借外部 VAE</strong>。Representation Forcing (RF) 的关键观察:</p>
+<blockquote>
+<p>UMM 已经有一个 understanding encoder 在那儿(给图像理解用),它产生的 features 已经包含 object identity、spatial layout、scene composition 这些高层结构。<strong>为什么不直接复用呢?</strong></p>
+</blockquote>
+<p>具体做法:让 decoder 在生成 pixel 之前,<strong>先 autoregressive 地生成一串 &quot;representation tokens&quot;</strong>(这些 tokens 是 understanding encoder 输出特征的量化版本),然后 pixel diffusion 在 <strong>同一个 backbone</strong> 内通过 in-context 看到这些 rep tokens 做条件生成。</p>
+<figure>
+  <img class="zoomable" src="figures/fig1-arch-compare.png" alt="Fig 1: 三种架构对比">
+  <figcaption>
+    Fig. 1 — 三种 UMM 架构对比。
+    <strong>(a) VAE-based UMM (主流)</strong>: 依赖 frozen VAE encoder/decoder,structural bottleneck;
+    <strong>(b) Naive pixel-space</strong>: 拿掉 VAE 但没有任何结构指引, 质量塌方;
+    <strong>(c) Representation Forcing (本文)</strong>: 在 text head 和 pixel head 之间插一个 <strong>Rep head</strong>, decoder 先 AR 预测 rep tokens, 这些 tokens 留在 in-context 喂给 pixel diffusion——所有都在同一个 transformer 里,完全 end-to-end,无外部 VAE。
+  </figcaption>
+</figure>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 Representation token 怎么来:online vector quantization 在 understanding encoder 上</h3>
+<p>UMM 已有一个 understanding encoder(本文用 <strong>DINOv3 ViT-H+/16</strong>, jointly trained),它把图像编成连续 features。但 decoder 要在 text 之后<strong>自回归地预测</strong>这些 features,<strong>连续值不适合 AR cross-entropy</strong>——所以要离散化成 token。</p>
+<p>具体流程(§3.1):</p>
+<ol>
+<li>维护一个 <strong>EMA copy 的 encoder</strong>(慢更新),用它对 GT image 抽特征(只在训练时用)。</li>
+<li>准备一个 <strong>K=16384</strong> 的可学习 prototype 码本 <span class="math inline">\(\{e_k\}\)</span>。</li>
+<li>对 EMA encoder 的 last-layer patch feature(pre-norm)<span class="math inline">\(f_p\)</span>,跟所有 prototype 算 cosine similarity, 取 argmax → 离散 token index。</li>
+<li>码本通过 <strong>SwAV-style momentum update</strong> 更新, 配 <strong>Sinkhorn-Knopp balancing</strong> 防 codebook collapse。</li>
+</ol>
+<p>这一步的关键不是&quot;我们发明了什么新 quantization&quot;, 而是 quantizer <strong>不是 separately pretrained</strong>——它和整个 UMM <strong>一起从头训</strong>(以 EMA + Sinkhorn 维持稳定)。这点很重要, 后面 §5 会说为什么。</p>
+<h3 id="sec-2-2">2.2 训练:三个 head 三个 loss, 一根 sequence</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-pipeline.png" alt="Fig 3: 训练 pipeline">
+  <figcaption>
+    Fig. 3 — Training pipeline。
+    <strong>Left</strong>: 一根 sequence 同时包含 Text token (T) + Rep token (R) + Pixel patch (P)。T 和 R 走 causal autoregressive (跟 LLM 一样, 一次预测一个), P 走 bidirectional diffusion (一次denoise 整张图)。三个 head 各自算自己的 loss。
+    <strong>Right</strong>: 训练时 R 的 GT 来自 EMA encoder 编码 GT image, 再 online quantization 量化成离散 token。<strong>推理时整个 Right panel 都被绕过</strong>——decoder 自己从 text prompt 生成 R, 再 condition 在 R 上做 pixel diffusion。
+  </figcaption>
+</figure>
+<p>Sequence 结构:<code>[text tokens, representation tokens, pixel patches]</code></p>
+<ul>
+<li><strong>Text tokens</strong>: standard autoregressive next-token, causal attention,loss = <span class="math inline">\(\mathcal{L}_{LM}\)</span> (cross-entropy)</li>
+<li><strong>Representation tokens</strong>: 也是 autoregressive next-token,causal attention,loss = <span class="math inline">\(\mathcal{L}_{Rep}\)</span> (cross-entropy)</li>
+<li><strong>Pixel patches</strong>: bidirectional attention 内部 + causal 看前面的 text+rep,做 flow matching,loss = <span class="math inline">\(\mathcal{L}_{FM}\)</span></li>
+</ul>
+<p><strong>Flow matching 用 x-prediction + velocity loss</strong> (沿用 JiT [27]):</p>
+<div class="math block">
+\[z_t = t \cdot x + (1-t) \cdot \epsilon\]
+</div>
+<p class="math-translation">—— 翻译: 时刻 $t \in [0, 1]$ 时,带噪 patch $z_t$ = 干净 patch $x$ 和噪声 $\epsilon$ 的线性插值。当 t=0 时 $z_t = \epsilon$ (纯噪声),当 t=1 时 $z_t = x$ (干净)。</p>
+<p>模型预测 <span class="math inline">\(x_\theta\)</span>,velocity 重参 <span class="math inline">\(v_\theta = (x_\theta - z_t)/(1-t)\)</span>, GT velocity <span class="math inline">\(v = x - \epsilon\)</span>, loss:</p>
+<div class="math block">
+\[\mathcal{L}_{FM} = \mathbb{E}\big[\|v_\theta - v\|^2\big]\]
+</div>
+<p>总训练目标:</p>
+<div class="math block">
+\[\mathcal{L} = \mathcal{L}_{LM} + \mathcal{L}_{FM} + \mathcal{L}_{Rep}\]
+</div>
+<p><strong>Classifier-free guidance</strong>: 训练时以 0.1 的概率分别 drop 文本条件和 rep token 序列。推理时两个 condition 都做 CFG。</p>
+<h3 id="sec-2-3">2.3 关键点:rep token 怎么 condition pixel patch?</h3>
+<p>这是 paper 最干净也最容易被忽略的设计——<strong>没有 cross-attention, 没有 adapter 模块</strong>, 就是 <strong>shared self-attention</strong>。</p>
+<p>Sequence 里 pixel patch (P) 的 attention 模式:</p>
+<ul>
+<li>对其他 P:bidirectional (整张图一起 denoise)</li>
+<li>对前面所有 T 和 R:causal (能看到, 但 T/R 看不到 P)</li>
+</ul>
+<p>所以 rep tokens 通过普通 self-attention 流入 pixel generation。<strong>没有任何额外注入机制</strong>——纯粹靠 sequence 结构 + attention mask。</p>
+<h3 id="sec-2-4">2.4 架构:MoT (BAGEL 的 mixture-of-transformers)</h3>
+<p>承袭 [BAGEL] 的设计——所有 token 共享 self-attention,但 routed 到 <strong>modality-specific FFN expert</strong>:</p>
+<ul>
+<li>Expert 1: multimodal understanding (输入是 T 或 input image 的 patch)</li>
+<li>Expert 2: representation token prediction (R 位置走这个)</li>
+<li>Expert 3: pixel generation (P 位置走这个)</li>
+</ul>
+<p>模型初始化:<strong>Qwen3-A3B</strong> (Qwen3 的 MoE 版, 3B active params per token)。Image encoder:<strong>DINOv3 ViT-H+/16</strong> + <strong>NaViT</strong> 风格 variable-resolution。Pooling factor:<strong>2×2</strong> (每 4 个 pixel patch 对应 1 个 rep token,空间布局对齐)。</p>
+<h3 id="sec-2-5">2.5 训练分三阶段</h3>
+<p>按 BAGEL 配方:</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>iters</th>
+<th>resolution</th>
+<th>what's trained</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>(i) Alignment</td>
+<td>10K</td>
+<td>≤256</td>
+<td>只训 MLP connector, backbone + encoder 冻结</td>
+</tr>
+<tr>
+<td>(ii) Joint pre-train</td>
+<td>50K</td>
+<td>≤256</td>
+<td>全部解冻, text + text-image pairs 联合</td>
+</tr>
+<tr>
+<td>(iii) Continued</td>
+<td>20K</td>
+<td>≤1024</td>
+<td>拉分辨率到 1024,fine-tune</td>
+</tr>
+</tbody>
+</table>
+<p>数据:跟 BAGEL 同一个 pipeline——纯文本 + 大规模图文对(VQA、文档、空间推理 + T2I 生成)。</p>
+<h3 id="sec-2-6">2.6 推理:两阶段,先 AR rep, 再 diffusion pixel</h3>
+<p><strong>Stage 1 (AR)</strong>: 给文本 prompt → decoder 一个一个 token 地生成 representation token, 直到生成完整的 rep sequence。</p>
+<p><strong>Stage 2 (Diffusion)</strong>: 把生成好的 text + rep 全部留在 sequence 里, 加一段 noise pixel patch, 跑标准的 flow matching 迭代去噪 (~25-50 step), 生成最终图像。</p>
+<p><strong>EMA encoder 和 quantizer 在推理时完全不用</strong>——它们只是训练期间提供 rep token GT 的 helper。推理时 decoder 是自给自足的。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<h3 id="sec-3-1">3.1 生成:匹配 VAE-based SOTA UMM</h3>
+<figure>
+  <img class="zoomable" src="figures/tab1-t2i.png" alt="Table 1: 文生图基准对比">
+  <figcaption>
+    Table 1 — RF-Pixel 在 GenEval (compositional) 和 DPG-Bench (dense prompt) 上跟 SOTA 比。<strong>关键比较</strong>(不带 LLM rewriter): RF-Pixel <strong>0.84</strong> vs BAGEL (同 backbone, VAE-based) <strong>0.82</strong>,vs Janus-Pro-7B 0.80,vs BLIP3-o 0.84(打平)。带 rewriter † 时 RF-Pixel 到 <strong>0.88</strong>, 跟 BAGEL† 0.88 持平。DPG-Bench 84.15 跟 BAGEL 85.07 接近。
+  </figcaption>
+</figure>
+<p><strong>核心信息</strong>: RF-Pixel 是<strong>第一个不依赖任何 pretrained VAE 的 unified 多模态生成模型</strong>(BAGEL/Janus/Show-o/BLIP3-o 全都用 VAE 或 VQVAE), 且性能匹配 VAE-based 同行。</p>
+<h3 id="sec-3-2">3.2 理解:Pixel+RF 比 VAE+RF 更好</h3>
+<figure>
+  <img class="zoomable" src="figures/tab2-understanding.png" alt="Table 2: 理解任务对比">
+  <figcaption>
+    Table 2 — 同一个 architecture / data 下, 比较四种变体的理解性能。
+    <strong>关键观察</strong>: (i) RF 对两种 generation pathway 都涨 (VAE+RF 5/8 win,Pixel+RF 6/8 win); (ii) <strong>Pixel+RF 在 6/8 benchmark 上压过 VAE+RF</strong>——MMMU 54.2 vs 49.6, BLINK 53.0 vs 52.9, MME* 80.2 vs 79.3。
+    Pixel+RF vs Pixel: MMMU +4.3, MME +3.6, BLINK +3.6, AI2D +4.5, RealWorldQA +2.7。
+    <strong>但</strong> DocVQA / ChartQA 这种需要精细文字识别的任务上 Pixel+RF 反而略掉(-2.0 / -0.4)——rep token 编码的是 high-level structure, 不擅长 fine-grained text。
+  </figcaption>
+</figure>
+<p><strong>意外发现</strong>:去掉 VAE 不仅没伤理解, 反而<strong>帮助</strong>理解性能。Paper 解释: VAE 把 understanding 和 generation 强行分到两个 representation space 上, 互相对齐不上;Pixel-space + RF 让两者共享同一个 representation space(rep tokens 来自 understanding encoder), 互相 reinforce。这点支持论文的核心论断&quot;bottleneck-free 不只是生成的事,也是理解的事&quot;。</p>
+<h3 id="sec-3-3">3.3 最有意思的消融:RF vs REPA (Table 3b)</h3>
+<figure>
+  <img class="zoomable" src="figures/tab3-ablation.png" alt="Table 3: 消融研究">
+  <figcaption>
+    Table 3 — 关键消融。
+    <strong>(a)</strong> RF 对 pixel-space 是 critical: <strong>0.25 → 0.76</strong> (3×); 对 VAE-space 也帮: 0.52 → 0.77。
+    <strong>(b)</strong> 同样用 DINOv3 当 rep 源: <strong>REPA</strong> (auxiliary alignment loss) 只到 <strong>0.43</strong>, <strong>RF</strong> (in-context 放进 sequence) 到 <strong>0.76</strong>。
+    <strong>(c)</strong> Discrete (cross-entropy) <strong>0.76</strong> vs Continuous (regression) <strong>0.26</strong>——连续目标完全失败。
+    <strong>(d)</strong> K=16384 vs 32768: 0.76 vs 0.77, 不敏感。
+    <strong>(e)</strong> DINOv3 比 SigLIP2 在 4/5 理解 benchmark 上更好(DINOv3 自监督, 编码更多空间结构)。
+  </figcaption>
+</figure>
+<p><strong>(b) RF vs REPA 这条最值得讲</strong>: REPA [55] 是个 sibling idea——也是用 frozen DINO features 当生成的&quot;语义指引&quot;, 但它的做法是 <strong>加一个 auxiliary loss 让 diffusion 中间层 features 对齐 DINO features</strong>(feature alignment), DINO features 本身<strong>不进 sequence、不参与推理</strong>。</p>
+<p>RF 的不同:把 representations <strong>直接作为 token 放进 sequence</strong>, 让 pixel patch <strong>通过 attention 显式看到它们做 conditioning</strong>。同样的 rep 源, 同样的训练 budget,<strong>0.43 vs 0.76</strong>——结构性差距来自&quot;in-context &gt; implicit alignment&quot;。</p>
+<p><strong>(c) Discrete vs Continuous 也很关键</strong>: 把 rep token 改成连续向量 + AR regression (diffusion head at each rep position), GenEval 只到 0.26——基本等于没 RF。两个原因:</p>
+<ul>
+<li>连续 AR 误差累积(早期一个小偏差,后面层层放大)</li>
+<li>离散化天然 &quot;丢掉细节、留下结构&quot;, 正是 RF 想要的 factorization——连续目标保留了太多 low-level 信息, 反而破坏分工</li>
+</ul>
+<h3 id="sec-3-4">3.4 定性:RF 把&quot;垮掉的 pixel-space&quot; 救活</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-qualitative.png" alt="Fig 4: with/without RF 定性对比">
+  <figcaption>
+    Fig. 4 — 同一组 prompt 下, <strong>without RF (上)</strong> vs <strong>with RF (下)</strong>。上排能看到 distorted 物体形状(那只"猫"几乎是个色块)、不连贯构图;下排明显恢复出物体身份和空间关系。视觉验证 Table 3(a) 的数字。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>⚠️ <strong>代码尚未发布</strong>: 论文 2026/05/29 上线, 截至本文撰写时(2026/06/03), 没有 GitHub repo、没有 HuggingFace 权重。PDF 引用里唯一的 GitHub URL 是 <code>github.com/black-forest-labs/flux</code>(只是比较对象, 不是 RF 代码)。所以本节没有 <code>repo/file.py:Lnn</code> 引用, 全部是论文条款 + 跨论文交叉确认。</p>
+<ul>
+<li><strong>Init from Qwen3-A3B</strong>: A3B 是 Qwen3 系列的 MoE 模型, 3B activate / per-token, 全模型大约 30B+。Paper 没明确给总参数, 但跟 BAGEL 一致(BAGEL 也用 MoT + similar scale)。</li>
+<li><strong>Image encoder</strong>: DINOv3 ViT-H+/16, <strong>不是 frozen</strong>——和整个模型 end-to-end 联合训。论文专门说这点是跟 [42, 59] (RAE-style &quot;frozen DINO 当 latent&quot;) 的关键差别——RAE 还是 frozen, RF 是 jointly trained。</li>
+<li><strong>NaViT variable resolution</strong>: 训练时按 per-stage max resolution 动态 sample 图像尺寸 + packing。这是 BAGEL/Pix2Struct 等同类工作的标准做法, 不是 RF 创新。</li>
+<li><strong>Patch &amp; pooling</strong>: 16×16 pixel patch (跟 ViT 标准一致); rep token 用 2×2 pooling →每 4 个 pixel patch 对应 1 个 rep token。所以 1024×1024 图 → 64×64 = 4096 pixel patches → 32×32 = 1024 rep tokens。<strong>rep token 序列比 pixel 序列短 4 倍</strong>。</li>
+<li><strong>EMA encoder + Sinkhorn balancing 的细节</strong>: 论文没给 EMA decay rate 或 Sinkhorn 迭代步数。复现时这些是 vector quantization 训练稳定性的关键 knob, 没有数值会很难调。</li>
+<li><strong>Loss 三项是否等权</strong>: Eq. 3 把三项简单相加, 没有权重系数。但 <span class="math inline">\(\mathcal{L}_{LM}\)</span> 和 <span class="math inline">\(\mathcal{L}_{Rep}\)</span> 是 cross-entropy (per-token scale O(0.1-10)),<span class="math inline">\(\mathcal{L}_{FM}\)</span> 是 MSE (scale 完全不同)。<strong>没看到论文讨论权重平衡或 gradient norm</strong>——是个 reproducibility 隐患。</li>
+<li><strong>CFG drop probability 0.1 是 text + rep 独立 drop</strong>: 这意味着训练时存在 (a) 两者都有, (b) 只 drop text, (c) 只 drop rep, (d) 都 drop 四种情况。推理时两个条件都做 CFG (论文没说权重)。</li>
+<li><strong>三阶段训练总 iter 80K</strong>: 这是相对短的 budget(对比 BAGEL 主版本几百 K iter)。论文明说是&quot;computational constraints&quot;下的小规模复现 + 控制变量, 不是 production-scale 训练。Table 1 跟 BAGEL 同行的比较其实是 &quot;same compute&quot; 比较, 不是 BAGEL full scale。</li>
+<li><strong><code>paper.code_url</code> / weights</strong>: 目前都没有。Project page 只有论文链接和样张, 无 code / model / demo。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>问题 framing 极清晰</strong>: &quot;UMM 用 frozen VAE 是 bottleneck&quot;——这个观察其实大家都知道, 但 RF 是第一篇<strong>给出可行替代方案 + 数据匹配</strong>的工作。Fig 1 三柱图 (a)(b)(c) 是教学级 framing。</li>
+<li><strong>RF vs REPA 的对比 (Table 3b)</strong> 是 paper 最有教育意义的发现。同样用 DINO features, 同样的训练 budget,<strong>架构选择</strong>(in-context conditioning vs auxiliary alignment) 决定了 0.43 → 0.76 的 gap。这给后续工作一个很硬的指导:<strong>让 representations 真正进入生成 sequence, 而不是隔靴搔痒地做 feature similarity</strong>。</li>
+<li><strong>意外发现:Pixel+RF 比 VAE+RF 理解更好</strong> (Table 2)。这反直觉但合理——VAE 强行把 understanding 和 generation 分到两个表示空间, 互相对不齐; RF 让两者共享 representation space (都来自 DINOv3 encoder), 互相 reinforce。这是 unified model 路线的关键论据之一。</li>
+<li><strong>架构简洁</strong>: 不引入任何新模块——就是在 sequence 里多塞一类 token, 让 attention 自己处理。MoT expert routing 是借用的(BAGEL), discrete VQ 是借用的(SwAV/VQ-VAE), DINO 是借用的——RF 的真正贡献是&quot;<strong>怎么把这些已知组件拼在一起去掉 VAE</strong>&quot;。</li>
+<li><strong>Quantization 是 online / co-trained 的</strong>, 而不是借用外部 VQ-VAE/VQGAN。这避免了&quot;换一个外部 tokenizer 就要重新对齐&quot;的工程问题, 也是论文哲学(end-to-end native)的一致体现。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>没有 code/weights/demo release</strong>(截至 2026/06/03)。Project page 只放论文和样张。<strong>对一个有&quot;反传统&quot;主张的论文, 这严重影响信服力</strong>——读者只能信任 Canva 内部跑出的 Table 1 数字。</li>
+<li><strong>小规模训练 budget</strong>: 三阶段 80K iter, 跟 BAGEL 主版本动辄几百 K iter 不在一个量级。Paper 自己在 Limitations 里也说&quot;computational constraints&quot;下用 pretrained LLM init 而非从零。<strong>RF 能不能在 large-scale (Qwen-Image / GPT-4o 级别) 还成立, 是 open question</strong>。</li>
+<li><strong>跟 <a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> / <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a> 没有对比</strong>: MRT 也是 pixel-space + Qwen-Image 20B backbone(用大 patch + regional latents 而非 RF 的 rep token), L2P 是 latent-to-pixel transfer。三者解决&quot;如何 pixel-space 不掉质量&quot;的角度完全不同, 但 RF 论文里完全没引用——可能是同期工作来不及, 但读者会困惑这条 RF 跟其他 pixel-space 方法的相对位置。</li>
+<li><strong>Rep tokens 的 codebook 在 inference 时是 black box</strong>: 训练时码本 K=16384 个 prototype 是怎么&quot;语义化&quot;的?paper 没做 codebook visualization。如果某个 codeword 对应&quot;猫的轮廓&quot;, 这是可解释的; 如果是混杂的, 那 RF 就是个 black-box trick。<strong>期待后续工作做 codebook interpretation</strong>。</li>
+<li><strong>Loss 权重缺失</strong>: Eq. 3 把 <span class="math inline">\(\mathcal{L}_{LM} + \mathcal{L}_{Rep} + \mathcal{L}_{FM}\)</span> 简单相加, 但三者 scale 不同。这通常需要权重平衡 / GradNorm / multi-task balancing。Paper 不讨论, 复现风险高。</li>
+<li><strong>DocVQA / ChartQA 退化</strong> (Table 2): Pixel+RF 在这两个&quot;需要精细文字 + 布局&quot;的 benchmark 上分别掉 -2.0 / -0.4。论文归因为&quot;rep token 是 high-level structure 不擅长 fine-grained text&quot;, 但实际意味着 <strong>RF 当前形态不适合 OCR/文档场景</strong>——这是真实的能力局限。</li>
+<li><strong>RF 的离散化是有损的</strong>: §4.4 (c) 说连续 regression 失败是因为&quot;早期 AR 误差累积 + 保留过多 low-level info&quot;。但离散化 K=16384 同时也丢掉了细节——所以 RF 仍然有 representation 损失, 只是被 attention + diffusion 弥补回来了。<strong>这是个 trade-off, 不是 free lunch</strong>。</li>
+<li><strong>MoT 三 expert</strong> 比单一 dense 更复杂工程, paper 没给 expert capacity / routing 实现细节。复现时可能踩坑。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 想做 unified multimodal model + 想去掉 frozen VAE 依赖的研究 / 工业团队。RF 给了一个验证过的 recipe。</li>
+<li>✅ <strong>适用</strong>: 理解 &quot;representation conditioning&quot; 在生成中的作用——RF vs REPA (Table 3b) 是该领域的经典对照实验。</li>
+<li>❌ <strong>不适用</strong>: 想要立刻复现的小团队——code 没开, EMA / Sinkhorn / loss weight / MoT routing 等关键细节缺失, 自己摸需要很大代价。</li>
+<li>❌ <strong>不适用</strong>: 文档理解 / OCR 重型场景——Pixel+RF 在 DocVQA/ChartQA 上掉点(Table 2)。</li>
+<li>⚠️ <strong>谨慎</strong>: 高分辨率 inference 时, AR 生成 1024 个 rep token 然后再 25-50 步 diffusion——延迟应该不低, 论文没报具体 inference time 数字。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>同期 pixel-space 工作</strong>:
+<ul>
+<li><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a> (L2P) — 把 frozen LDM 整体迁移到 pixel space, 通过&quot;大 patch + Detailer Head&quot;代替 VAE。跟 RF 是不同思路(L2P 不依赖 understanding encoder)</li>
+<li><a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> (Canva MRT) — pixel-space + 20B Qwen-Image + regional latents, 用 RoPE 把 layout 信息编进 token 位置。跟 RF 的&quot;用 rep token 当中介&quot;哲学上互补</li>
+<li>JiT [27] (Li &amp; He 2025) — paper 在 pixel head 上沿用了 JiT 的 x-prediction + velocity loss</li>
+<li>PixNerd / PixelFlow / SiD2 — standalone pixel diffusion 系列</li>
+</ul>
+</li>
+<li><strong>REPA</strong>: 直接前辈, 同样的 DINO source 但用 auxiliary alignment, RF 比它涨 +0.33</li>
+<li><strong>RAE</strong> [42] (Tong et al. 2026): 把 VAE 整个换成 frozen DINO/SigLIP, 但仍是 frozen——RF 的 &quot;jointly trained&quot; 是关键差别</li>
+<li><strong>BAGEL</strong> [10] (ByteDance Seed, 2025): RF 直接继承的架构 (MoT + 三 expert), 是 RF 的 VAE-based baseline</li>
+<li><strong>DINOv3</strong> [40]: rep 源的来源, jointly trained 的 vision backbone</li>
+<li><strong>SwAV</strong> [3]: online VQ 的 momentum update 借用对象</li>
+</ul>
+</main>
+</body>
+</html>

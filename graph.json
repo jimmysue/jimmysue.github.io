@@ -111,6 +111,15 @@
       "url": "papers/qwen-image-2-2026/index.html"
     },
     {
+      "id": "papers/rep-forcing-2026",
+      "type": "paper",
+      "slug": "rep-forcing-2026",
+      "title": "Representation Forcing: 让 UMM 自己长出 VAE 替代品——把 understanding encoder 的特征蒸成离散 token, 当作 pixel diffusion 的 in-context structural scaffold",
+      "date": "2026-05-29",
+      "tldr": "HKU + ByteDance Seed + CUHK + 南大 + 清华 (arXiv 2026/05/29)。Unified Multimodal Model (UMM) 的\"用 frozen VAE 当 latent 空间\"是 bottleneck —— VAE 是为 reconstruction 训的, 不是为 UMM 的 understanding+generation 联合目标训的;但如果直接拿掉 VAE 在 pixel 空间生成, 又会缺\"高层结构指引\",GenEval 从 0.52 直接掉到 0.25。Representation Forcing (RF) 的解法:让 decoder **先 autoregressive 地生成一串 \"representation tokens\"**(来自模型自己的 understanding encoder DINOv3 的特征, 经在线 vector quantization 量化), 这些 rep tokens 留在 context 里, **pixel patches 通过共享 self-attention 看到它们做 diffusion**——同一个 backbone 内完成\"先决定语义结构、再渲染像素\"。架构基于 BAGEL 的 MoT (三组 expert: understanding / rep / pixel),从 Qwen3-A3B (3B activate) 初始化。结果:RF-Pixel GenEval 0.84 / DPG 84.15,匹配 VAE-based BAGEL (0.82 / 85.07);理解任务上 Pixel+RF 比 VAE+RF 在 6/8 benchmark 上更好。最有意思的消融是 §4.4 的 RF vs REPA:同样用 DINOv3 当 rep 源,REPA 的 auxiliary alignment 只到 0.43, RF 的\"放到 sequence 里做 in-context conditioning\"到 0.76——**direct in-context > implicit feature alignment**。\n",
+      "url": "papers/rep-forcing-2026/index.html"
+    },
+    {
       "id": "papers/rls-razor-2025",
       "type": "paper",
       "slug": "rls-razor-2025",
@@ -443,6 +452,30 @@
       "url": "concepts/multimodal.html"
     },
     {
+      "id": "concepts/unified-model",
+      "type": "concept",
+      "slug": "unified-model",
+      "name": "unified-model",
+      "has_file": false,
+      "url": "concepts/unified-model.html"
+    },
+    {
+      "id": "concepts/representation-learning",
+      "type": "concept",
+      "slug": "representation-learning",
+      "name": "representation-learning",
+      "has_file": false,
+      "url": "concepts/representation-learning.html"
+    },
+    {
+      "id": "concepts/vector-quantization",
+      "type": "concept",
+      "slug": "vector-quantization",
+      "name": "vector-quantization",
+      "has_file": false,
+      "url": "concepts/vector-quantization.html"
+    },
+    {
       "id": "concepts/video",
       "type": "concept",
       "slug": "video",
@@ -726,12 +759,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -741,7 +774,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -933,6 +966,51 @@
       "from": "papers/qwen-image-2-2026",
       "to": "concepts/production",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/multimodal",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/unified-model",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/image-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/representation-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "concepts/vector-quantization",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "papers/latent-to-pixel-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
+      "kind": "cites"
     },
     {
       "from": "papers/rls-razor-2025",
