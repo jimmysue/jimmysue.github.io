@@ -155,6 +155,40 @@ def esc(s: str) -> str:
     return html.escape(s, quote=True)
 
 
+def _giscus_block(cfg: dict) -> str:
+    """Render the Giscus comments section HTML.
+
+    `cfg` keys: repo, repo_id, category, category_id, mapping, strict, theme,
+    reactions_enabled, emit_metadata, loading, lang, input_position.
+    """
+    def a(key: str) -> str:
+        return esc(str(cfg.get(key, "")))
+
+    return (
+        '<section class="comments">\n'
+        '  <h2>讨论 / Comments</h2>\n'
+        '  <p class="comments__note">评论托管在本仓库的 '
+        '<a href="https://github.com/jimmysue/jimmysue.github.io/discussions">'
+        'GitHub Discussions</a>, 需 GitHub 账号。</p>\n'
+        '  <script src="https://giscus.app/client.js"\n'
+        f'    data-repo="{a("repo")}"\n'
+        f'    data-repo-id="{a("repo_id")}"\n'
+        f'    data-category="{a("category")}"\n'
+        f'    data-category-id="{a("category_id")}"\n'
+        f'    data-mapping="{a("mapping")}"\n'
+        f'    data-strict="{a("strict")}"\n'
+        f'    data-reactions-enabled="{a("reactions_enabled")}"\n'
+        f'    data-emit-metadata="{a("emit_metadata")}"\n'
+        f'    data-input-position="{a("input_position")}"\n'
+        f'    data-theme="{a("theme")}"\n'
+        f'    data-lang="{a("lang")}"\n'
+        f'    data-loading="{a("loading")}"\n'
+        '    crossorigin="anonymous"\n'
+        '    async></script>\n'
+        '</section>\n'
+    )
+
+
 def render_head(page_title: str, css_path: str) -> str:
     return HEAD_TMPL.format(page_title=esc(page_title), css_path=css_path)
 
