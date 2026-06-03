@@ -27,6 +27,21 @@
 <h1>论文</h1>
 <p class="page__intro">共 22 篇论文精读。</p>
 <div class="post-grid">
+<a class="post-card post-card--paper" href="papers/rep-forcing-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-03</span></span>
+  </div>
+  <h3 class="post-card__title">Representation Forcing: 让 UMM 自己长出 VAE 替代品——把 understanding encoder 的特征蒸成离散 token, 当作 pixel diffusion 的 in-context structural scaffold</h3>
+  <p class="post-card__tldr">HKU + ByteDance Seed + CUHK + 南大 + 清华 (arXiv 2026/05/29)。Unified Multimodal Model (UMM) 的&quot;用 frozen VAE 当 latent 空间&quot;是 bottleneck —— VAE 是为 reconstruction 训的, 不是为 UMM 的 understanding+generation 联合目标训的;但如果直接拿掉 VAE 在 pixel 空间生成, 又会缺&quot;高层结构指引&quot;,GenEval 从 0.52 直接掉到 0.25。Representation Forcing (RF) 的解法:让 decoder **先 autoregressive 地生成一串 &quot;representation tokens&quot;**(来自模型自己的 understanding encoder DINOv3 的特征, 经在线 vector quantization 量化), 这些 rep tokens 留在 context 里, **pixel patches 通过共享 self-attention 看到它们做 diffusion**——同一个 backbone 内完成&quot;先决定语义结构、再渲染像素&quot;。架构基于 BAGEL 的 MoT (三组 expert: understanding / rep / pixel),从 Qwen3-A3B (3B activate) 初始化。结果:RF-Pixel GenEval 0.84 / DPG 84.15,匹配 VAE-based BAGEL (0.82 / 85.07);理解任务上 Pixel+RF 比 VAE+RF 在 6/8 benchmark 上更好。最有意思的消融是 §4.4 的 RF vs REPA:同样用 DINOv3 当 rep 源,REPA 的 auxiliary alignment 只到 0.43, RF 的&quot;放到 sequence 里做 in-context conditioning&quot;到 0.76——**direct in-context &gt; implicit feature alignment**。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/unified-model.html">unified-model</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</a>
 <a class="post-card post-card--paper" href="papers/mrt-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -319,21 +334,6 @@
       <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
       <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</a>
-<a class="post-card post-card--paper" href="papers/rep-forcing-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-05-29</span></span>
-  </div>
-  <h3 class="post-card__title">Representation Forcing: 让 UMM 自己长出 VAE 替代品——把 understanding encoder 的特征蒸成离散 token, 当作 pixel diffusion 的 in-context structural scaffold</h3>
-  <p class="post-card__tldr">HKU + ByteDance Seed + CUHK + 南大 + 清华 (arXiv 2026/05/29)。Unified Multimodal Model (UMM) 的&quot;用 frozen VAE 当 latent 空间&quot;是 bottleneck —— VAE 是为 reconstruction 训的, 不是为 UMM 的 understanding+generation 联合目标训的;但如果直接拿掉 VAE 在 pixel 空间生成, 又会缺&quot;高层结构指引&quot;,GenEval 从 0.52 直接掉到 0.25。Representation Forcing (RF) 的解法:让 decoder **先 autoregressive 地生成一串 &quot;representation tokens&quot;**(来自模型自己的 understanding encoder DINOv3 的特征, 经在线 vector quantization 量化), 这些 rep tokens 留在 context 里, **pixel patches 通过共享 self-attention 看到它们做 diffusion**——同一个 backbone 内完成&quot;先决定语义结构、再渲染像素&quot;。架构基于 BAGEL 的 MoT (三组 expert: understanding / rep / pixel),从 Qwen3-A3B (3B activate) 初始化。结果:RF-Pixel GenEval 0.84 / DPG 84.15,匹配 VAE-based BAGEL (0.82 / 85.07);理解任务上 Pixel+RF 比 VAE+RF 在 6/8 benchmark 上更好。最有意思的消融是 §4.4 的 RF vs REPA:同样用 DINOv3 当 rep 源,REPA 的 auxiliary alignment 只到 0.43, RF 的&quot;放到 sequence 里做 in-context conditioning&quot;到 0.76——**direct in-context &gt; implicit feature alignment**。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="concepts/unified-model.html">unified-model</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </a>
 </div>
