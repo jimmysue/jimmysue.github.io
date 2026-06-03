@@ -1,0 +1,14 @@
+{
+  "repo": "jimmysue/jimmysue.github.io",
+  "repo_id": "MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU=",
+  "category": "Announcements",
+  "category_id": "DIC_kwDODxLnjc4C-anB",
+  "mapping": "pathname",
+  "strict": "0",
+  "theme": "light",
+  "reactions_enabled": "1",
+  "emit_metadata": "0",
+  "loading": "lazy",
+  "lang": "zh-CN",
+  "input_position": "bottom"
+}
