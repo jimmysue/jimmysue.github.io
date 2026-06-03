@@ -189,6 +189,31 @@ def _giscus_block(cfg: dict) -> str:
     )
 
 
+def _load_giscus_config(root: Path) -> dict | None:
+    """Read assets/giscus-config.json. Returns None if missing or invalid.
+
+    Caller is responsible for printing a WARN if None is returned so that
+    builds continue without comments rather than crashing.
+    """
+    path = root / "assets" / "giscus-config.json"
+    if not path.is_file():
+        return None
+    try:
+        cfg = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    required = (
+        "repo", "repo_id", "category", "category_id", "mapping",
+        "strict", "theme", "reactions_enabled", "emit_metadata",
+        "loading", "lang", "input_position",
+    )
+    if not isinstance(cfg, dict):
+        return None
+    if any(not cfg.get(k) for k in required):
+        return None
+    return cfg
+
+
 def render_head(page_title: str, css_path: str) -> str:
     return HEAD_TMPL.format(page_title=esc(page_title), css_path=css_path)
 
@@ -465,7 +490,8 @@ def _inject_post_meta_block(body_html: str, post: dict) -> str:
     return body_html[:insert_at] + "\n" + block + body_html[insert_at:]
 
 
-def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = None) -> int:
+def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = None,
+                giscus_cfg: dict | None = None) -> int:
     """Render each post's index.md to index.html. Returns len(posts) on success;
     raises on any I/O error (no partial-progress reporting).
 
@@ -473,6 +499,9 @@ def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = No
     defaults to the slugs found in *posts* (correct for full-site builds).
     Pass the site-wide set explicitly when rendering a single-post subset so
     that cross-references to other papers resolve correctly.
+
+    giscus_cfg: parsed giscus-config.json dict, or None to skip comments.
+    Individual posts can opt out by setting `comments: false` in frontmatter.
     """
     if slug_set is None:
         slug_set = {p["slug"] for p in posts}
@@ -488,6 +517,9 @@ def build_posts(posts: list[dict], nav_tmpl: str, slug_set: set[str] | None = No
         )
         total_warnings.extend(warnings)
         body_html = _inject_post_meta_block(body_html, p)
+        # Append Giscus comments section (default on; opt-out per-post via `comments: false`)
+        if p.get("comments", True) and giscus_cfg is not None:
+            body_html = body_html + _giscus_block(giscus_cfg)
         nav_html = render_nav(nav_tmpl, active="papers" if p["type"] == "paper" else "tutorials",
                               depth=2)
         html_out = assemble_post_page(
@@ -676,6 +708,11 @@ def main(argv: list[str] | None = None) -> int:
     if not posts:
         print("WARN: no posts discovered — generated pages will be empty", file=sys.stderr)
 
+    giscus_cfg = _load_giscus_config(root)
+    if giscus_cfg is None:
+        print("WARN: assets/giscus-config.json missing or incomplete; "
+              "comments section will not be rendered.", file=sys.stderr)
+
     if args.post:
         all_slug_set = {p["slug"] for p in posts}
         posts = [p for p in posts if p["slug"] == args.post]
@@ -685,7 +722,7 @@ def main(argv: list[str] | None = None) -> int:
         # Build only this post, skip site-level pages.
         # Pass the site-wide slug_set so wiki-links to other posts resolve.
         nav_tmpl = load_nav_header(root)
-        n = build_posts(posts, nav_tmpl, slug_set=all_slug_set)
+        n = build_posts(posts, nav_tmpl, slug_set=all_slug_set, giscus_cfg=giscus_cfg)
         print(f"Rendered {n} post(s).")
         return 0
 
@@ -721,7 +758,7 @@ def main(argv: list[str] | None = None) -> int:
         f"{summary['papers']} papers + {summary['tutorials']} tutorials, "
         f"with {summary['tags']} unique tags"
     )
-    n_posts = build_posts(posts, nav_tmpl)
+    n_posts = build_posts(posts, nav_tmpl, giscus_cfg=giscus_cfg)
     print(f"Rendered {n_posts} per-post HTML pages from markdown.")
 
     # Pass 4: knowledge graph extraction
