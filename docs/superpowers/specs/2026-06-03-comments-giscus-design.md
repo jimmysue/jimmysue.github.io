@@ -120,17 +120,21 @@ build.py → build_posts() loop:
 ```json
 {
   "repo": "jimmysue/jimmysue.github.io",
-  "repo_id": "R_kgDOXXXXXX",
-  "category": "Comments",
-  "category_id": "DIC_kwDOXXXXXX",
+  "repo_id": "MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU=",
+  "category": "Announcements",
+  "category_id": "DIC_kwDODxLnjc4C-anB",
   "mapping": "pathname",
+  "strict": "0",
   "theme": "light",
   "reactions_enabled": "1",
+  "emit_metadata": "0",
   "loading": "lazy",
   "lang": "zh-CN",
   "input_position": "bottom"
 }
 ```
+
+(`Announcements` 是 GitHub 默认创建的分类,类型已经是 Announcement,Giscus 自动开 thread。)
 
 所有 key 必需。`build.py` 在 config 缺失或字段缺失时退到"不注入评论 + 打 WARN",不要让 build 崩溃。
 
@@ -161,8 +165,8 @@ comments: false  # 单篇关闭 (可选, 默认 true)
 
 1. Repo settings → **Features → Discussions** 打钩
 2. 装 Giscus App: <https://github.com/apps/giscus> → Install → 选 `jimmysue.github.io` repo
-3. 进 repo Discussions → **New category** → 名 `Comments`,类型选 `Announcement` (防止陌生人乱开 thread,Giscus 自动创建)
-4. 去 [giscus.app](https://giscus.app),输入 repo 名,选 Category=Comments,Mapping=Pathname,Reactions=enabled
+3. 用 GitHub 默认的 `Announcements` 分类 (本来就是 Announcement 类型),或者新建一个名为 `Comments` 的 Announcement-type 分类 — 二选一
+4. 去 [giscus.app](https://giscus.app/zh-CN),输入 repo 名,选 Category=Announcements (或 Comments),Mapping=Pathname,Reactions=enabled
 5. 复制页面给出的 `data-repo-id` 和 `data-category-id`
 6. 填入 `assets/giscus-config.json`
 7. `python3 build.py && ./publish.sh`
