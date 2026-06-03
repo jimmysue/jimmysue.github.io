@@ -950,3 +950,26 @@ body > main {
 .post-meta__concepts a.concept-chip:hover {
   background: #fce7c8;
 }
+
+/* Comments section (Giscus) */
+.comments {
+  margin-top: 3.5rem;
+  padding-top: 2rem;
+  border-top: 2px solid #eee;
+}
+.comments h2 {
+  font-size: 1.4rem;
+  margin-bottom: 0.4rem;
+}
+.comments__note {
+  color: #666;
+  font-size: 0.9rem;
+  margin: 0 0 1.2rem 0;
+}
+.comments__note a {
+  color: #0969da;
+}
+.giscus,
+.giscus-frame {
+  min-height: 200px;
+}
