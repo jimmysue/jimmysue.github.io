@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 总体管线 (docs/pipeline.md)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 Single-stream DiT vs MMDiT (设计选择)</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Text encoder: Qwen3-VL-8B + 13 层拼接</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 MRoPE: 让 text 和 image 共享 3D 位置空间</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 Flow matching + Logit-normal schedule + Asymmetric CFG</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 VAE + Patchification</a></li>
+    <li class="h3"><a href="#sec-2-7">2.7 结构化 JSON Prompting (Ideogram 4 的独特训练数据)</a></li>
+    <li class="h3"><a href="#sec-2-8">2.8 模型规格一览</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings — 来自 README benchmark)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 Design Arena (open-weight 部分)</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 ContraLabs 排版评估</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 LMArena</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 学术 benchmark</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 内部 benchmark</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>Ideogram 4: 9.3B 单流 DiT + Qwen3-VL 多层拼接 + 结构化 JSON prompt</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-03</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-03</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Ideogram AI (no individual authors disclosed)</span> · <span class="post-meta__venue">Blog post + GitHub release</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://ideogram.ai/blog/ideogram-4.0/">项目页</a> · <a class="post-meta__link" href="https://github.com/ideogram-oss/ideogram4">代码</a> · <a class="post-meta__link" href="https://huggingface.co/collections/ideogram-ai/ideogram-4">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/dit.html">dit</a> <a class="concept-chip" href="../../concepts/mrope.html">mrope</a> <a class="concept-chip" href="../../concepts/qwen.html">qwen</a> <a class="concept-chip" href="../../concepts/typography.html">typography</a> <a class="concept-chip" href="../../concepts/design.html">design</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.jpg" alt="Ideogram 4 样本拼图">
+  <figcaption>
+    <strong>Fig. 1</strong> — Ideogram 4 样本(摘自 repo `assets/samples/collage_landscape.jpg`),涵盖摄影、插画、排版、海报四个域。原图分辨率最高 2048×2048,这里压缩展示。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>Ideogram 在 2024-2025 一直是闭源 SaaS,以<strong>文字渲染</strong>和<strong>设计感</strong>两个长板出名。Ideogram 4 是他们<strong>第一次开源权重</strong>(9.3B 全参可下,fp8 / nf4 两个量化),时间点选在 2026/06/03 同步放代码 + weights + blog,<strong>没有 arxiv paper</strong>——只有 <a href="https://ideogram.ai/blog/ideogram-4.0/">blog 文章</a> 和 <a href="https://github.com/ideogram-oss/ideogram4">GitHub repo</a> 里的 5 篇 docs。</p>
+<p>定位:跟同期开源的 <a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a> / FLUX.2 [max] / Wan-Image 抢&quot;中等参数(7-20B)、强排版、可商用-or-not 不一&quot;这个区间。差异点声称是:</p>
+<ul>
+<li>文字渲染保留 1-3 时代的强项(多语言)</li>
+<li><strong>结构化 JSON prompt</strong> 作为唯一训练 caption 格式 — 用户既可以发普通文本,也可以发 JSON 指定 layout / 颜色 / 风格</li>
+<li>9.3B 比 FLUX.1-dev (12B) / Qwen-Image (20B) / SD3.5-Large (8B) 都更小一点,<strong>但每个 token 拿到的 text feature 更厚</strong>(13 层 Qwen3-VL hidden state 拼接)</li>
+</ul>
+<p>不打算硬刚 Gemini 3 / GPT-Image-1 这种闭源旗舰(它们在 Design Arena 总榜上仍领先),目标是&quot;open-weight 里的设计最优&quot;。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 总体管线 (<code>docs/pipeline.md</code>)</h3>
+<pre><code>prompt
+  │
+  ├─► Qwen3-VL-8B-Instruct (FROZEN, text-only mode)
+  │      ↓ extract hidden states from layers (0, 3, 6, …, 33, 35) → concat
+  │      text_feat: (B, L_text, 4096×13 = 53248)
+  │
+  ├─► noise z_1 ~ N(0, I)
+  │      ↓ shape (B, grid_h × grid_w, 128)
+  │      ↓ where grid = image_size / 8 / 2 (8× VAE + 2× patching)
+  │      ↓ 1024×1024 → 64×64 grid → 4096 image tokens
+  │      ↓ each token = 32 (latent ch) × 2² (patch) = 128 dim
+  │
+  ▼
+[ Ideogram4Transformer  (TRAINABLE, 9.3B params) ]
+  ├─ 34 × Ideogram4TransformerBlock:
+  │     ├─ Self-attention (QK-RMSNorm, MRoPE 3D)
+  │     ├─ SwiGLU MLP
+  │     └─ AdaLN scale/gate from timestep t-embedding
+  ├─ FinalLayer (AdaLN + Linear)
+  │
+  ▼ velocity prediction v(z_t, t) on image tokens only
+[ Euler flow-matching sampler ]
+  ├─ logit-normal noise schedule (resolution-adaptive mu)
+  └─ asymmetric CFG (uncond pass = image tokens only, no text padding)
+  │
+  ▼ z_0 (denoised image latent)
+[ KL VAE Decoder (FROZEN) ]
+  │
+  ▼
+PIL.Image
+</code></pre>
+<h3 id="sec-2-2">2.2 Single-stream DiT vs MMDiT (设计选择)</h3>
+<p><strong>这是 Ideogram 4 跟 SD3 / FLUX 体系的关键架构差异。</strong></p>
+<ul>
+<li><strong>MMDiT</strong> (SD3 / FLUX): 两个独立的 transformer stream 处理 text 和 image,通过 attention 跨流交互。需要专门的 &quot;text DiT block&quot; 和 &quot;image DiT block&quot; 设计。</li>
+<li><strong>Single-stream DiT</strong> (Ideogram 4, 也是 <a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> / <a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> 等近期工作走的路): text token 和 image latent token 拼成<strong>一根 sequence</strong>,过<strong>同一个 transformer</strong>。无需双流。代码体现:</li>
+</ul>
+<p class="code-source">repo/src/ideogram4/modeling_ideogram4.py:L317-L375 — Ideogram4Transformer.forward 主干</p>
+<pre><code class="language-python">def forward(self, *, llm_features, x, t, position_ids, segment_ids, indicator):
+    # x: (B, L, 128) noise tokens (only meaningful where indicator==IMAGE)
+    # llm_features: (B, L, 53248) Qwen3-VL features (only meaningful where indicator==LLM)
+    # indicator: (B, L) per-token role mask
+
+    llm_token_mask = (indicator == LLM_TOKEN_INDICATOR).to(x.dtype).unsqueeze(-1)
+    output_image_mask = (indicator == OUTPUT_IMAGE_INDICATOR).to(x.dtype).unsqueeze(-1)
+
+    llm_features = llm_features * llm_token_mask
+    x = x * output_image_mask
+    x = self.input_proj(x) * output_image_mask           # 128 → 4608
+
+    # Timestep → AdaLN params (shared by every block)
+    t_cond = self.t_embedding(t)
+    adaln_input = F.silu(self.adaln_proj(t_cond))
+
+    # Project Qwen3-VL features to model dim
+    llm_features = self.llm_cond_norm(llm_features)
+    llm_features = self.llm_cond_proj(llm_features) * llm_token_mask   # 53248 → 4608
+
+    # Merge: at LLM positions add text features, at IMAGE positions add image latents
+    h = x + llm_features
+
+    # A learnable &quot;I'm an image token&quot; / &quot;I'm a text token&quot; embedding
+    image_indicator_embedding = self.embed_image_indicator(
+        (indicator == OUTPUT_IMAGE_INDICATOR).to(torch.long))
+    h = h + image_indicator_embedding
+
+    cos, sin = self.rotary_emb(position_ids)   # MRoPE 3D
+    for layer in self.layers:                  # 34 blocks
+        h = layer(h, segment_ids, cos, sin, adaln_input)
+    return self.final_layer(h, c=adaln_input).to(torch.float32)
+</code></pre>
+<p>注意 <code>h = x + llm_features</code> — 因为 mask 互斥(同一个 position 不可能既是 LLM 又是 IMAGE),这其实是 sequence 内分段填充,不是同位置叠加。<code>segment_ids</code> 用于 packed batch 的 block-diagonal attention mask(防止跨 sample 串话)。</p>
+<h3 id="sec-2-3">2.3 Text encoder: Qwen3-VL-8B + 13 层拼接</h3>
+<p>普通做法(SD3 / FLUX): 取 text encoder 最后一层 hidden state。</p>
+<p>Ideogram 4 的做法: 从 Qwen3-VL-8B 的第 0/3/6/9/12/15/18/21/24/27/30/33/35 层(共 13 层)<strong>沿 feature 维拼接</strong>,得到 <code>4096 × 13 = 53248</code> 维 per-token。然后用 <code>llm_cond_proj</code> 一个 Linear 投到 4608 维(模型 emb_dim)。</p>
+<p>文档解释: &quot;early layers encode surface-level token information, while later layers encode deeper semantic meaning. Concatenating them gives the DiT access to the full spectrum.&quot; 即&quot;多尺度语义&quot;。</p>
+<p>代码佐证:</p>
+<p class="code-source">repo/src/ideogram4/modeling_ideogram4.py:L24-L42 — Ideogram4Config llm_features_dim 的计算</p>
+<pre><code class="language-python">@dataclass
+class Ideogram4Config:
+  emb_dim: int = 4608
+  num_layers: int = 34
+  num_heads: int = 18
+  intermediate_size: int = 12288
+  adanln_dim: int = 512
+
+  # Latent dimension after patchification: ae_channels (32) * patch_size**2 (4) = 128.
+  in_channels: int = 128
+
+  # Hidden size of Qwen3-VL-8B-Instruct multiplied by the number of layers we extract
+  # Qwen3-VL hidden size = 4096
+  llm_features_dim: int = 4096 * len(QWEN3_VL_ACTIVATION_LAYERS)
+  # → 4096 × 13 = 53248
+
+  rope_theta: int = 5_000_000
+  mrope_section: tuple[int, ...] = (24, 20, 20)
+</code></pre>
+<p><strong>Text encoder 是冻结的</strong>,只跑前向。13 层 feature 提取一次后缓存,不影响推理 cost(VLM 一次过的成本相对 DiT 34 层 × 50 步小)。</p>
+<p><strong>对比</strong> <a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a>: RF 是把 understanding encoder 的特征量化成离散 token、放进 sequence 自回归预测; Ideogram 4 是把 text encoder 的连续 hidden state <strong>直接</strong> 当 condition feature 跟 noise token 一起进 transformer。两者都&quot;复用 understanding 路径&quot;,但 RF 解耦 + 离散化,Ideogram 4 连续 + 即插即用。</p>
+<h3 id="sec-2-4">2.4 MRoPE: 让 text 和 image 共享 3D 位置空间</h3>
+<p>普通 RoPE 是 1D 位置编码(适合纯 text)。SD3 的 MMDiT 给 image 用 2D RoPE,给 text 用 1D RoPE,但因为是双流不冲突。</p>
+<p>单流 DiT 里 text + image token 混在一起,如何编码位置?Ideogram 4 用 <strong>MRoPE (Multimodal RoPE)</strong>: 每个 token 拿到一个 <strong>3D position <code>(t, h, w)</code></strong>:</p>
+<ul>
+<li><strong>Text token</strong>: 1D 位置广播到 3 轴 → <code>(pos, pos, pos)</code></li>
+<li><strong>Image token</strong>: <code>(0, h_grid_idx, w_grid_idx)</code> (静态图 t=0)</li>
+</ul>
+<p>head_dim 是 256,<strong>按 <code>mrope_section = (24, 20, 20)</code> 切成 3 段</strong> 分别编码 (t, h, w) 三个轴。视频或多帧场景用 t 维度,这里恒为 0。</p>
+<p class="code-source">repo/src/ideogram4/modeling_ideogram4.py:L67-L106 — Ideogram4MRoPE 3 轴交错频率</p>
+<pre><code class="language-python">class Ideogram4MRoPE(nn.Module):
+  def __init__(self, head_dim, base, mrope_section):
+    super().__init__()
+    inv_freq = 1.0 / (base ** (torch.arange(0, head_dim, 2, dtype=torch.float32) / head_dim))
+    self.register_buffer(&quot;inv_freq&quot;, inv_freq, persistent=False)
+    self.mrope_section = tuple(mrope_section)   # (24, 20, 20)
+    self.head_dim = head_dim
+</code></pre>
+<p><code>mrope_section</code> 的三个数加起来 = head_dim/2 (即 24+20+20 = 64,head_dim = 128 — 注意这里是 head_dim=256, 256/2=128 不等于 64;真实代码里 <code>(24,20,20)</code> 应该是按某种 stride 解读, 具体实现见 forward)。</p>
+<p><strong>关键性质</strong>: text token 用 1D 位置广播到 3 轴 → 它们能&quot;被 image token 看到&quot;也能&quot;看到 image token&quot;,通过 attention 互动。没有额外 cross-attention 模块,纯靠位置编码 + full attention 就让两类 token 共享一个统一空间。这是单流 DiT 能 work 的原因。</p>
+<h3 id="sec-2-5">2.5 Flow matching + Logit-normal schedule + Asymmetric CFG</h3>
+<p><strong>Flow matching 训练目标</strong>: 模型预测速度场 <span class="math inline">\(v(z_t, t)\)</span>,定义反向 ODE: <span class="math inline">\(dz/dt = v(z_t, t)\)</span>。推理时从 <span class="math inline">\(z_1 \sim \mathcal{N}(0, I)\)</span> 出发,Euler 积分回 <span class="math inline">\(z_0\)</span>:</p>
+<div class="math block">
+\[z_{t - \Delta t} = z_t + v(z_t, t) \cdot \Delta t\]
+</div>
+<p class="math-translation">—— 翻译: 这是 rectified flow / flow matching 的标准范式 (<a class="wiki-link" data-slug="diffusion-opd-2026" href="../diffusion-opd-2026/index.html">diffusion-opd-2026</a> / <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> / SD3 / FLUX 一脉相承)。Ideogram 4 没在数学上发明新东西,沿用主流。</p>
+<p><strong>Logit-normal schedule</strong> 控制采样步在哪些噪声水平上密集:</p>
+<div class="math block">
+\[t = \text{sigmoid}(\mu + \sigma \cdot z),\ z \sim \mathcal{N}(0, 1)\]
+</div>
+<p><span class="math inline">\(\mu\)</span> 越大,采样在大噪声端越密。Paper 关键 trick: <strong>按分辨率自适应</strong> μ:</p>
+<div class="math block">
+\[\mu_{\text{adjusted}} = \mu_{\text{base}} + 0.5 \cdot \log\left(\frac{\text{num\_pixels}}{512^2}\right)\]
+</div>
+<p class="math-translation">—— 翻译: 大分辨率图含更多低频信息,需要在大噪声水平多花步数才能压住全局结构;512×512 base,1024×1024 时 μ 增加 ~0.7。这跟 SD3 的 timestep shift 思路一致, 但用了 logit-normal 而非 shifted linear。</p>
+<p>代码实现极简洁:</p>
+<p class="code-source">repo/src/ideogram4/scheduler.py:L13-L40 — LogitNormalSchedule + 分辨率自适应</p>
+<pre><code class="language-python">@dataclass(frozen=True)
+class LogitNormalSchedule:
+  mean: float
+  std: float = 1.0
+  logsnr_min: float = -15.0
+  logsnr_max: float = 18.0
+
+  def __call__(self, t: torch.Tensor) -&gt; torch.Tensor:
+    t = t.to(torch.float64)
+    z = torch.special.ndtri(t)        # inverse normal CDF
+    y = self.mean + self.std * z
+    t_ = torch.special.expit(y)        # sigmoid
+    t_ = 1 - t_
+    t_min = 1.0 / (1 + math.exp(0.5 * self.logsnr_max))
+    t_max = 1.0 / (1 + math.exp(0.5 * self.logsnr_min))
+    return t_.clamp(t_min, t_max).to(torch.float32)
+
+
+def get_schedule_for_resolution(image_resolution, known_resolution=(512, 512),
+                                 known_mean=1.0, std=1.0):
+  num_pixels = image_resolution[0] * image_resolution[1]
+  known_pixels = known_resolution[0] * known_resolution[1]
+  mean = known_mean + 0.5 * math.log(num_pixels / known_pixels)
+  return LogitNormalSchedule(mean=mean, std=std)
+</code></pre>
+<p><strong>Asymmetric CFG</strong>: 每步两次 forward — conditional pass 全 sequence (text + image),unconditional pass <strong>只走 image token,把 text 部分 zero out 跳过</strong>。这省下 conditional/unconditional 之间 text token 的重复计算(对长 JSON prompt 节省可观)。Guided velocity:</p>
+<div class="math block">
+\[v_{\text{guided}} = \text{gw} \cdot v_{\text{cond}} + (1 - \text{gw}) \cdot v_{\text{uncond}}\]
+</div>
+<p><strong>Per-step CFG schedule</strong>: 不是恒定的 gw。<code>V4_QUALITY_48</code> preset 用 gw=7 跑前 45 步,然后 gw=3 跑最后 3 步 &quot;polish&quot;(降低 guidance,避免 over-saturation):</p>
+<p class="code-source">repo/src/ideogram4/sampler_configs.py:L7-L29 — 3 个 preset</p>
+<pre><code class="language-python">PRESETS: dict[str, SamplerParameters] = {
+  &quot;V4_QUALITY_48&quot;: SamplerParameters(
+    num_steps=48,
+    guidance_schedule=(3.0,) * 3 + (7.0,) * 45,  # 索引 0 = 最后一步; 倒序!
+    mu=0.0, std=1.5,
+  ),
+  &quot;V4_DEFAULT_20&quot;: SamplerParameters(
+    num_steps=20,
+    guidance_schedule=(3.0,) * 2 + (7.0,) * 18,
+    mu=0.0, std=1.75,
+  ),
+  &quot;V4_TURBO_12&quot;: SamplerParameters(
+    num_steps=12,
+    guidance_schedule=(3.0,) * 1 + (7.0,) * 11,
+    mu=0.5, std=1.75,
+  ),
+}
+</code></pre>
+<p>(注意: <code>guidance_schedule</code> 是<strong>倒序索引</strong> — index 0 是最后一步 &quot;polish&quot;,index N-1 是第一步。这点 docstring 强调过, 但很容易踩。)</p>
+<h3 id="sec-2-6">2.6 VAE + Patchification</h3>
+<p>普通 KL VAE: <code>(B, 3, H, W) → (B, 32, H/8, W/8)</code> (8× 空间压缩,32 通道 latent)。</p>
+<p>Ideogram 4 在 DiT 输入前<strong>再做 2×2 patchify</strong>: 32 通道 latent grid → 每 2×2 像素合并成 1 个 128 维 token。</p>
+<p><strong>总压缩比 16×</strong>: 1024×1024 image → 64×64 token grid,每 token 128 维。Sequence 长度 = 4096 image tokens + ≤2048 text tokens (max)。</p>
+<h3 id="sec-2-7">2.7 结构化 JSON Prompting (Ideogram 4 的独特训练数据)</h3>
+<p><strong>所有训练数据的 caption 都是 JSON</strong>(不是自然语言文本):</p>
+<pre><code class="language-json">{
+  &quot;high_level_description&quot;: &quot;A golden retriever riding a skateboard down a sunny sidewalk.&quot;,
+  &quot;style_description&quot;: {
+    &quot;aesthetics&quot;: &quot;warm, playful, vibrant&quot;,
+    &quot;lighting&quot;: &quot;bright afternoon sunlight, long soft shadows&quot;,
+    &quot;photo&quot;: &quot;shallow depth of field, eye-level, 85mm lens&quot;,
+    &quot;medium&quot;: &quot;photograph&quot;,
+    &quot;color_palette&quot;: [&quot;#F5C542&quot;, &quot;#87CEEB&quot;, &quot;#4A4A4A&quot;, &quot;#FFFFFF&quot;, &quot;#2E8B57&quot;]
+  },
+  &quot;compositional_deconstruction&quot;: {
+    &quot;background&quot;: &quot;A sun-drenched suburban sidewalk lined with green hedges...&quot;,
+    &quot;elements&quot;: [
+      {&quot;type&quot;: &quot;obj&quot;, &quot;bbox&quot;: [200, 300, 800, 900],
+       &quot;desc&quot;: &quot;A golden retriever with a fluffy coat...&quot;},
+      {&quot;type&quot;: &quot;obj&quot;, &quot;bbox&quot;: [250, 750, 750, 950],
+       &quot;desc&quot;: &quot;A worn red skateboard with black wheels...&quot;}
+    ]
+  }
+}
+</code></pre>
+<p>字段含义:</p>
+<ul>
+<li><code>high_level_description</code>: 一句话总结</li>
+<li><code>style_description</code>: 美学、光照、媒介、色板 (hex)</li>
+<li><code>compositional_deconstruction</code>: 背景 + 一个 elements 数组,每个 element 带 <code>bbox</code> (4 个 0-1000 归一化坐标) 和 <code>desc</code></li>
+</ul>
+<p><strong>用户可发普通文本</strong> (model 仍 work),<strong>也可发 JSON</strong> (官方说&quot;显著更好,尤其是 controllability / spatial layout / style fidelity&quot;)。配套 <code>magic_prompt</code> 功能调 Ideogram API 把自然语言扩展成 JSON。</p>
+<p>这跟 <a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> 把 layout 用 bbox + RoPE 编进 token 不同 — Ideogram 4 把 bbox 信息<strong>字面</strong>写进 caption 字符串,让 Qwen3-VL 编码 (Qwen3-VL 在视觉理解中本来就见过 bbox 字面量,有处理能力)。<strong>没有额外架构改动</strong>承担 layout 信息。</p>
+<h3 id="sec-2-8">2.8 模型规格一览</h3>
+<table>
+<thead>
+<tr>
+<th>field</th>
+<th>value</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>总参数</td>
+<td><strong>9.3B</strong></td>
+<td>仅 DiT;text encoder 8B 不算在内</td>
+</tr>
+<tr>
+<td>Transformer 层数</td>
+<td>34</td>
+<td></td>
+</tr>
+<tr>
+<td><code>emb_dim</code></td>
+<td>4608</td>
+<td></td>
+</tr>
+<tr>
+<td><code>num_heads</code></td>
+<td>18</td>
+<td>head_dim = 4608/18 = 256</td>
+</tr>
+<tr>
+<td><code>intermediate_size</code></td>
+<td>12288</td>
+<td>SwiGLU MLP,内部 3 个 Linear</td>
+</tr>
+<tr>
+<td><code>adanln_dim</code></td>
+<td>512</td>
+<td>timestep embedding 经过这个 bottleneck 后投出 modulation</td>
+</tr>
+<tr>
+<td><code>in_channels</code></td>
+<td>128</td>
+<td>32 VAE channels × 2² patch</td>
+</tr>
+<tr>
+<td><code>llm_features_dim</code></td>
+<td>53248</td>
+<td>4096 × 13 layers</td>
+</tr>
+<tr>
+<td><code>rope_theta</code></td>
+<td>5,000,000</td>
+<td>大 base 利于长序列</td>
+</tr>
+<tr>
+<td><code>mrope_section</code></td>
+<td>(24, 20, 20)</td>
+<td>t/h/w 三轴维度分配</td>
+</tr>
+<tr>
+<td>max text tokens</td>
+<td>2048</td>
+<td></td>
+</tr>
+<tr>
+<td>分辨率范围</td>
+<td>256 - 2048 (16 的倍数)</td>
+<td>长宽比最高 6:1</td>
+</tr>
+<tr>
+<td>Sampler</td>
+<td>Euler flow-matching</td>
+<td></td>
+</tr>
+<tr>
+<td>Schedule</td>
+<td>Logit-normal, μ 按分辨率自适应</td>
+<td></td>
+</tr>
+<tr>
+<td>CFG</td>
+<td>Asymmetric (uncond 只 image), per-step schedule</td>
+<td></td>
+</tr>
+<tr>
+<td>Quantization release</td>
+<td>fp8 (all hw), nf4 (CUDA)</td>
+<td></td>
+</tr>
+<tr>
+<td>License</td>
+<td>Ideogram 4 Non-Commercial</td>
+<td>⚠️ 不能商用</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sec-3">3. 结论 (Key Findings — 来自 README benchmark)</h2>
+<p>⚠️ Ideogram 4 <strong>没有 arxiv paper</strong>,所有性能数字来自 <a href="https://github.com/ideogram-oss/ideogram4#performance">README benchmark section</a> + blog (我没拿到 blog 全文,blog URL 403)。<strong>没有同行评审</strong>,Self-reported,需要打折看。</p>
+<h3 id="sec-3-1">3.1 Design Arena (open-weight 部分)</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-design-arena-open.png" alt="Design Arena 开源权重榜">
+  <figcaption>
+    Fig. 2 — Design Arena open-weight 榜单,Ideogram 4 第一,显著领先第二名。注意这是只过滤开源模型后的榜;总榜上 GPT-Image-1 / Gemini 3 系列仍领先。
+  </figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 ContraLabs 排版评估</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-contralabs-typo.png" alt="ContraLabs 排版第一胜率">
+  <figcaption>
+    Fig. 3 — ContraLabs 10 个职业设计师 blind 评估,Ideogram 4 的 first-place win rate <strong>47.9%</strong>,超过 Nano Banana 2 (30.0%) / FLUX.2 [max] (15.5%) / Grok Imagine 1.0 (15.0%)。同一组评委 "Would you use this in real client work?" 评分 3.55/5 (vs Nano Banana 2 2.84)。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 LMArena</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-lmarena.png" alt="LMArena 排名">
+  <figcaption>
+    Fig. 4 — LMArena 图像生成 Elo,Ideogram 4 在 open-weight 实验室里排第一。
+  </figcaption>
+</figure>
+<h3 id="sec-3-4">3.4 学术 benchmark</h3>
+<figure>
+  <img class="zoomable" src="figures/fig5-opensource-bench.png" alt="开源 benchmark 对比">
+  <figcaption>
+    Fig. 5 — 标准 open-source benchmark 上 Ideogram 4 跟闭源模型对比:<strong>7Bench (layout control) 全面胜出闭源</strong>; SpatialGenEval 跟闭源持平; <strong>X-Omni OCR (文字渲染) 是 9.3B 级最强</strong>; Prism (prompt alignment) 跟闭源相当。
+  </figcaption>
+</figure>
+<h3 id="sec-3-5">3.5 内部 benchmark</h3>
+<figure>
+  <img class="zoomable" src="figures/fig6-internal-bench.png" alt="Ideogram 内部 benchmark">
+  <figcaption>
+    Fig. 6 — Ideogram 内部人类偏好评测。本来就是 Ideogram 自己出的题,有利益冲突,看趋势就好。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>代码 release 完整,关键点:</p>
+<ul>
+<li><strong>没有 <code>__init__</code> 显式调用 nn.Module super</strong>: 看 <code>Ideogram4MRoPE.__init__</code> 调用了 <code>super().__init__()</code> — OK,这只是我读代码顺手注意的格式细节,无问题。</li>
+<li><strong><code>segment_ids</code> 用于 packed batch</strong>: <code>attn_mask = (segment_ids.unsqueeze(2) == segment_ids.unsqueeze(1)).unsqueeze(1)</code> — 一个 (B, 1, L, L) 的 block-diagonal mask,允许把多个不等长 sample 拼成一个 packed batch 训练/推理,不同 sample 之间不互相 attend。推理时单 batch 用不上,但训练时省 padding。</li>
+<li><strong><code>embed_image_indicator</code> (2-entry)</strong>: 一个<strong>学习</strong>的 2-entry embedding,加在 image token 上(&quot;我是 image token&quot;)vs LLM token (0)。这是单流 DiT 区分两类 token 的&quot;类型 embedding&quot;,不依赖 RoPE。</li>
+<li><strong>AdaLN modulation</strong>: 每个 block 4 个参数 (scale_msa, gate_msa, scale_mlp, gate_mlp),由 timestep 通过 <code>adaln_proj</code> (4608→512) 再扩张到 4 × hidden_size 得到。gate 用 <code>tanh</code> 不是 sigmoid。<code>scale = 1 + raw_scale</code> 让初始化 t→0 时 modulation 近似单位元。</li>
+<li><strong>VAE 解耦</strong>: VAE 跟主 DiT 完全分离 — 训练时 freeze, 推理时一次性 decode。代码 (<code>autoencoder.py</code>) 410 行实现了一个标准 KL autoencoder,VAE 通道 32,8× 压缩。</li>
+<li><strong>Latent normalization</strong>: <code>latent_norm.py</code> 272 行做 per-channel shift/scale 校准 — VAE 输出的 latent 不是均匀分布的,先归一化再给 DiT。Decoder 端反归一化。</li>
+<li><strong>Caption verifier</strong>: <code>caption_verifier.py</code> 362 行 — 一个独立 LLM 校验 JSON caption 格式是否对。推理时跑一遍,如果用户的 JSON 不合规,fallback 到原始字符串。</li>
+<li><strong>Magic prompt 调 API</strong>: <code>magic_prompt.py</code> 362 行调 ideogram.ai 的 endpoint 把短文本扩展成 JSON。需要 <code>IDEOGRAM_API_KEY</code>。本地推理时可选,不用也行,只是 quality 会差。</li>
+<li><strong>量化</strong>: <code>quantized_loading.py</code> 278 行 — 支持 fp8 (e4m3) 和 bnb-4bit (nf4) 两种 weight-only 量化。fp8 全平台,nf4 只能 CUDA。量化只 swap Linear 层,attention/norm 不动。</li>
+<li><strong><code>run_inference.py</code></strong> CLI 是入口脚本。最简调用: <code>python run_inference.py --prompt &quot;...&quot; --output out.png --quantization nf4</code>。</li>
+</ul>
+<p><strong>Paper-vs-code 一致性</strong>: 没 paper, 但 README + docs 跟代码细节自洽。一致性 = &quot;代码本身就是论文&quot;,<strong>没有 train-time vs release 的 mismatch 风险</strong>(因为只 release 了 inference)。</p>
+<p>⚠️ <strong>没有 release 训练代码</strong> — 只 release inference。所以无法验证:</p>
+<ul>
+<li>训练 loss 形式(应该是 flow matching MSE,但没代码确认)</li>
+<li>训练数据规模(blog 没透露)</li>
+<li>训练算力(blog 没透露)</li>
+<li>蒸馏与否(<code>V4_TURBO_12</code> 只 12 步出图,推测有蒸馏,但 release 里看不到 teacher model 或 distillation loss)</li>
+</ul>
+<p><strong>License 警示</strong>: Ideogram 4 Non-Commercial 协议 — 不能商用、不能用 output 训其他模型、不能 redistribute。<strong>仅供研究</strong>。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>第一次开源,且开得相当完整</strong>: 9.3B DiT 权重 + 完整 inference 代码 + 5 篇 docs + 3 个 sampler preset + 量化版本。Ideogram 之前是 SaaS-only,这一步对社区是显著贡献。</li>
+<li><strong>架构选择有内部一致性</strong>: 单流 DiT + MRoPE + Qwen3-VL 多层拼接是同一套&quot;减少模态特化模块&quot;的哲学。代码 379 行 modeling_ideogram4.py 干净简洁,适合做 baseline。</li>
+<li><strong><code>mu</code> 按分辨率自适应</strong>(<code>get_schedule_for_resolution</code>): 一个朴素但有效的工程 trick,SD3 的 timestep shift 一脉。代码两行,跨分辨率部署不用每个 size 重训。</li>
+<li><strong>结构化 JSON caption 是真的有差异化</strong>: 多数 T2I 模型只在自然语言上训,Ideogram 4 强制 JSON → 用户可以精确给 bbox、color palette、style 字段,而不是把这些塞进一句话指望模型理解。配套 magic_prompt 让普通用户也能用。</li>
+<li><strong>Asymmetric CFG</strong> 是个小但聪明的优化 — 长 JSON prompt 时 uncond pass 不用过 text 部分,真省 compute (~2× sequence length 一半计算)。</li>
+<li><strong>排版 + 多语言</strong>: ContraLabs 47.9% 一胜率是个硬数字。9.3B 在文字渲染上击败 12B FLUX.2 / Gemini Nano Banana 2,工程上很扎实。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>完全没有 arxiv paper, 没有 peer review</strong>: 所有 benchmark 数字都是 Ideogram 自报,Design Arena / LMArena / ContraLabs 是第三方但样本量小 (ContraLabs 才 10 个评委),X-Omni / 7Bench 自动指标可靠性也存疑。Blog 文章 (URL 403 拿不到全文) 也只是营销稿。</li>
+<li><strong>训练数据完全黑盒</strong>: blog 不公开训练数据来源、规模、license。&quot;trained from scratch&quot; 这个说法在开源社区有意义,但用了什么数据没说,版权风险无法评估。</li>
+<li><strong>训练代码 + 蒸馏代码不开源</strong>: V4_TURBO_12 (12 步) 几乎肯定有蒸馏(教师 → 学生),但代码里看不到。学术研究无法复现训练流程。</li>
+<li><strong>License 限商</strong>: Non-Commercial 意味着任何商业产品(包括服务、玩具、demo with revenue)都不能用 — 比 FLUX.1-dev (non-commercial) 一样限制,但比 Qwen-Image (Apache 2.0 据说) / SDXL (CreativeML Open RAIL++) 严。</li>
+<li><strong>Magic prompt API 依赖</strong>: 用户体验最佳路径是发 JSON。但 JSON 太麻烦,默认 fallback 是调 Ideogram API 让远程 model 扩展 — 这等于免费版必须联网 + 给 Ideogram 看你的 prompt。隐私+离线场景不可用。</li>
+<li><strong>没有 image-to-image / inpainting / editing</strong>: 当前 release 只有 text-to-image。Ideogram SaaS 上有 magic prompt / edit / upscale 等,开源只放了 base。</li>
+<li><strong>9.3B + Qwen3-VL-8B = 17.3B 总载入显存</strong>: 即使 fp8 量化也至少 30 GB+ 显存,nf4 也得 20 GB+。<strong>消费级单卡(24GB 4090)勉强,16GB 卡跑不起</strong>。</li>
+<li><strong>VAE 用 SD3.5 / FLUX 同款 KL VAE 系族 (32 channels)</strong>: 没说是否是自训的,也没引用上游。如果是借用别人的 VAE,跟 <a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> 论证 &quot;VAE bottleneck-free&quot; 的方向反着走 — 但 Ideogram 4 也没说 VAE 是不是 bottleneck。</li>
+<li><strong>没有跟 <a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a> 直接对比</strong>: 两者都 9-20B 区间 + 用 Qwen 系 text encoder + 主打中英文文字渲染,是直接对手。Ideogram benchmark 里没列 Qwen-Image 2.0,可能 Qwen-Image-2.0 同期没 release 完整数据。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 研究者想拿一个 modern single-stream DiT 实现来读 + fine-tune (前提是合 non-commercial 协议)。Ideogram 4 代码极简洁,适合做实验底座。</li>
+<li>✅ <strong>适用</strong>: 个人 / 学术用户做设计原型 / 排版 / 多语言文字渲染 — Ideogram 4 在这些场景上确实是 open-weight 最强之一。</li>
+<li>✅ <strong>适用</strong>: 学习 MRoPE / 单流 DiT / 多层 text encoder 拼接 / asymmetric CFG / per-step CFG schedule 等具体 trick 的实现细节。</li>
+<li>❌ <strong>不适用</strong>: 商业产品 / SaaS / 给客户的 demo。Non-Commercial 协议禁止。</li>
+<li>❌ <strong>不适用</strong>: 消费级硬件 (&lt; 20 GB VRAM)。即使 nf4 也吃力。</li>
+<li>❌ <strong>不适用</strong>: 离线场景 + 想要最高质量。最佳路径需要联网调 magic_prompt API。</li>
+<li>⚠️ <strong>谨慎</strong>: 信任 benchmark 数字时打折看,尤其是 Ideogram 内部 benchmark。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>单流 DiT 同期同类</strong>:
+<ul>
+<li><a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> (Canva MRT) — 也是 Qwen-Image 单流, regional latents + MRoPE 编 layout</li>
+<li><a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> (Representation Forcing) — pixel-space + MoT 三 expert,通过 rep token 解耦语义</li>
+<li><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a> (Qwen-Image 2.0) — Qwen 自家的 T2I,同样 Qwen3-VL 系列 text encoder</li>
+</ul>
+</li>
+<li><strong>MRoPE 的来源</strong>: Qwen2-VL paper (2024) 提出 — Ideogram 4 沿用同一套。</li>
+<li><strong>Logit-normal schedule</strong>: SD3 (Stable Diffusion 3, 2024) paper 提出, FLUX 沿用。</li>
+<li><strong>Asymmetric CFG</strong>: 不是 Ideogram 首创,SD3 / FLUX 也都这么做。</li>
+<li><strong>Flow matching</strong>: Lipman et al. 2023 / Liu et al. 2022 (rectified flow);Ideogram 4 没在数学上发明新东西。</li>
+<li><strong>单流 vs 双流 DiT 的讨论</strong>: 单流的优势在简洁、易扩展到多模态(因为不需要再加新的 stream);双流(MMDiT)的优势在 text / image 可以用不同 norm / FFN 容量。Ideogram 4 选单流,跟近期工作潮流一致 (BAGEL / Janus 也是)。</li>
+</ul>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

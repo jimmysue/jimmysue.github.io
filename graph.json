@@ -66,6 +66,15 @@
       "url": "papers/flow-opd-2026/index.html"
     },
     {
+      "id": "papers/ideogram-4-2026",
+      "type": "paper",
+      "slug": "ideogram-4-2026",
+      "title": "Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间",
+      "date": "2026-06-03",
+      "tldr": "Ideogram 首个开源权重 (2026-06-03 同日 release 代码 + weights, **9.3B 参数, 非任何已有模型微调**)。技术报告无 arxiv,只有 blog (ideogram.ai/blog/ideogram-4.0) + GitHub repo (ideogram-oss/ideogram4) 里的 docs。架构亮点:**单流 DiT** (跟 SD3/FLUX 的 MMDiT 双流相反),34 层 transformer 把\"text token + image latent token\"拼成一根 sequence,共享 self-attention; text encoder 用 **frozen Qwen3-VL-8B-Instruct**,从第 0/3/6/9/12/15/18/21/24/27/30/33/35 层共 13 层 hidden state **沿 feature 维拼接** (得到 4096×13 = 53248 维 text feature);**MRoPE 3D 位置编码** (section 24/20/20: 时间/高/宽,text token 用 1D position 广播到 3 轴) 让两类 token 处于统一空间,无需 cross-attention; flow matching + Euler sampler + logit-normal noise schedule (按分辨率自适应 mu = mu_base + 0.5·log(N_pixels / 512²));**asymmetric CFG** (unconditional pass 只走 image token, 省计算)。训练数据完全是**结构化 JSON caption** (high_level / style / compositional_deconstruction with bbox)。基准: Design Arena open-weight 第一,ContraLabs 排版 47.9% 一胜率超过 Nano Banana 2 / FLUX.2 [max] / Grok Imagine 1.0,7Bench layout / X-Omni OCR 上是 9.3B 级最强。**License**: Ideogram 4 Non-Commercial (不能商用)。\n",
+      "url": "papers/ideogram-4-2026/index.html"
+    },
+    {
       "id": "papers/l2p-2026",
       "type": "paper",
       "slug": "l2p-2026",
@@ -404,6 +413,62 @@
       "url": "concepts/sd3.html"
     },
     {
+      "id": "concepts/text-to-image",
+      "type": "concept",
+      "slug": "text-to-image",
+      "name": "text-to-image",
+      "has_file": false,
+      "url": "concepts/text-to-image.html"
+    },
+    {
+      "id": "concepts/dit",
+      "type": "concept",
+      "slug": "dit",
+      "name": "dit",
+      "has_file": false,
+      "url": "concepts/dit.html"
+    },
+    {
+      "id": "concepts/mrope",
+      "type": "concept",
+      "slug": "mrope",
+      "name": "mrope",
+      "has_file": false,
+      "url": "concepts/mrope.html"
+    },
+    {
+      "id": "concepts/qwen",
+      "type": "concept",
+      "slug": "qwen",
+      "name": "qwen",
+      "has_file": false,
+      "url": "concepts/qwen.html"
+    },
+    {
+      "id": "concepts/typography",
+      "type": "concept",
+      "slug": "typography",
+      "name": "typography",
+      "has_file": false,
+      "url": "concepts/typography.html"
+    },
+    {
+      "id": "concepts/design",
+      "type": "concept",
+      "slug": "design",
+      "name": "design",
+      "has_file": false,
+      "url": "concepts/design.html"
+    },
+    {
+      "id": "repos/ideogram-oss/ideogram4",
+      "type": "repo",
+      "url": "https://github.com/ideogram-oss/ideogram4",
+      "host": "github.com",
+      "owner": "ideogram-oss",
+      "name": "ideogram4"
+    },
+    {
       "id": "concepts/comparison",
       "type": "concept",
       "slug": "comparison",
@@ -426,22 +491,6 @@
       "name": "image-editing",
       "has_file": false,
       "url": "concepts/image-editing.html"
-    },
-    {
-      "id": "concepts/design",
-      "type": "concept",
-      "slug": "design",
-      "name": "design",
-      "has_file": false,
-      "url": "concepts/design.html"
-    },
-    {
-      "id": "concepts/qwen",
-      "type": "concept",
-      "slug": "qwen",
-      "name": "qwen",
-      "has_file": false,
-      "url": "concepts/qwen.html"
     },
     {
       "id": "concepts/multimodal",
@@ -764,7 +813,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
@@ -774,7 +823,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -806,6 +855,81 @@
       "from": "papers/flow-opd-2026",
       "to": "concepts/sd3",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/image-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/dit",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/mrope",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/qwen",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/typography",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "concepts/design",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "repos/ideogram-oss/ideogram4",
+      "kind": "implements"
     },
     {
       "from": "papers/l2p-2026",
@@ -929,12 +1053,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1004,12 +1128,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {

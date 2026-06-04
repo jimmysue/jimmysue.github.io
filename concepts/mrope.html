@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>qwen — paper-reading</title>
+  <title>mrope — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
 <!-- NAV-END -->
 
 <main class="page page--concept">
-  <h1>qwen</h1>
+  <h1>mrope</h1>
   
   <div class="concept__body">
 
@@ -40,14 +40,6 @@
   <h3 class="post-card__title">Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间</h3>
   <p class="post-card__tldr">Ideogram 首个开源权重 (2026-06-03 同日 release 代码 + weights, **9.3B 参数, 非任何已有模型微调**)。技术报告无 arxiv,只有 blog (ideogram.ai/blog/ideogram-4.0) + GitHub repo (ideogram-oss/ideogram4) 里的 docs。架构亮点:**单流 DiT** (跟 SD3/FLUX 的 MMDiT 双流相反),34 层 transformer 把&quot;text token + image latent token&quot;拼成一根 sequence,共享 self-attention; text encoder 用 **frozen Qwen3-VL-8B-Instruct**,从第 0/3/6/9/12/15/18/21/24/27/30/33/35 层共 13 层 hidden state **沿 feature 维拼接** (得到 4096×13 = 53248 维 text feature);**MRoPE 3D 位置编码** (section 24/20/20: 时间/高/宽,text token 用 1D position 广播到 3 轴) 让两类 token 处于统一空间,无需 cross-attention; flow matching + Euler sampler + logit-normal noise schedule (按分辨率自适应 mu = mu_base + 0.5·log(N_pixels / 512²));**asymmetric CFG** (unconditional pass 只走 image token, 省计算)。训练数据完全是**结构化 JSON caption** (high_level / style / compositional_deconstruction with bbox)。基准: Design Arena open-weight 第一,ContraLabs 排版 47.9% 一胜率超过 Nano Banana 2 / FLUX.2 [max] / Grok Imagine 1.0,7Bench layout / X-Omni OCR 上是 9.3B 级最强。**License**: Ideogram 4 Non-Commercial (不能商用)。
 </p>
-</a>
-<a class="post-card post-card--paper" href="../papers/qwen-image-2-2026/index.html">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
-  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
 </a>
 </div>
 
