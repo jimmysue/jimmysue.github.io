@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>speculative-decoding — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+
+<main class="page page--concept">
+  <h1>speculative-decoding</h1>
+  
+  <div class="concept__body">
+
+  </div>
+  <h2>提到此概念的论文 / 教程</h2>
+  <div class="post-grid">
+<a class="post-card post-card--paper" href="../papers/locate-anything-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-05-27</span></span>
+  </div>
+  <h3 class="post-card__title">LocateAnything: 把 VLM 的 bbox 输出当作不可分割原子,一次 forward 出 4 个坐标,12.7 BPS 跑赢 NTP 5×</h3>
+  <p class="post-card__tldr">NVIDIA + HK PolyU + Princeton + Nanjing + UIUC (arXiv 2026/05/27)。指出主流 VLM (Qwen3-VL / DeepSeek-VL2 / Rex-Omni) 输出 bbox 都把 4 个坐标当 token 序列 (x1, y1, x2, y2) 串行 next-token-predict——这是几何上耦合的 4-tuple 被人为序列化,既损精度又限吞吐。**Parallel Box Decoding (PBD)**: 把整个 bbox (4 坐标 + 2 个 &lt;box&gt;/&lt;/box&gt; 结构 token = 长度 L=6 的 atomic block) 一次性并行预测,而非逐 token 输出。block 内 bidirectional attention 让 4 个坐标互相看到,block 间 causal attention 保持自回归语义。**关键 trick**: 训练时把同一 GT 同时塞两种格式 (`x_ntp` + `x_blk`) 让模型 joint 学 NTP + MTP,**通过 attention mask 让两条 stream 互不串话**(都看 shared context 但 MTP block 看不到 NTP token 反之亦然)。推理三模式: Fast (纯 MTP),Slow (纯 NTP),Hybrid (默认 MTP,format 异常或 top-1 prob &lt; 0.7 时回退 NTP 重 decode 该 block)。LocateAnything-Data 138M queries / 12M images / 785M bbox 涵盖 detection + UI + referring + OCR + layout + pointing 6 大任务。结果: LocateAnything-3B 在 LVIS F1@0.95 上 31.1 (vs Qwen3-VL-8B 的 20.2 / Rex-Omni-3B 的 20.7),Throughput 12.7 BPS = **比 Qwen3-VL-8B 快 12.7×、比 Rex-Omni 快 2.5×**。
+</p>
+</a>
+</div>
+
+  <p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
+</main>
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thinking with Visual Primitives: 让 MLLM 在思考时 &quot;用手指点&quot;——points/bboxes 作为最小思维单元穿插进 CoT 推理链</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 架构 + 视觉 token 极致压缩</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 Visual Primitives 的定义</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Pretraining 数据构建 (技术报告最有 hands-on 价值的一节)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 4 个 Cold-Start 任务</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 Post-Training: 4 阶段 + 3 类 Reward Model</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>Thinking with Visual Primitives: 推理时一边思考一边 &quot;用手指点&quot;</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-04-30</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-04-30</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Ruijie Lu, Yiyang Ma, Xiaokang Chen, Lingxiao Luo, Zhiyu Wu, Zizheng Pan, Xingchao Liu, Yutong Lin, Hao Li, Wen Liu, Zhewen Hao, Xi Gao, Shaoheng Nie, Yixuan Wei, Zhenda Xie, Ting Chen, Gang Zeng (DeepSeek-AI + Peking University + Tsinghua University)</span> · <span class="post-meta__venue">Technical Report (PDF in repo)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/deepseek-ai/Thinking-with-Visual-Primitives">项目页</a> · <a class="post-meta__link" href="https://huggingface.co/deepseek-ai">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/mllm.html">mllm</a> <a class="concept-chip" href="../../concepts/reasoning.html">reasoning</a> <a class="concept-chip" href="../../concepts/chain-of-thought.html">chain-of-thought</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/moe.html">moe</a> <a class="concept-chip" href="../../concepts/kv-cache.html">kv-cache</a> <a class="concept-chip" href="../../concepts/rl.html">rl</a> <a class="concept-chip" href="../../concepts/deepseek.html">deepseek</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig0-teaser.png" alt="Teaser: 用 box / point 边推理边指">
+  <figcaption>
+    Fig. 0 — Repo 主页 teaser。左边咖啡杯任务展示 grounded task reasoning,右边迷宫展示 topological reasoning。两个任务都把 box / point 作为推理链中间产物,而不是最终输出。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>MLLM 的 Chain-of-Thought (CoT) 在 LLM 那一侧已经成熟,但<strong>纯语言空间</strong>的推理对视觉问题有个根本缺陷。</p>
+<p>近几年研究让 MLLM &quot;看更清&quot;——高分辨率 cropping、Thinking with Images——这是在补 <strong>Perception Gap</strong>。但 paper 指出: 即使感知完美,模型在密集计数 / 拓扑推理 / 多步空间推断时仍然 &quot;逻辑塌方&quot;。</p>
+<p>诊断 = <strong>Reference Gap</strong>: 自然语言天生不擅指代连续视觉空间中的精确位置。&quot;the third dog from the left&quot; 这种表述在密集场景下不可靠,语言&quot;思想&quot;会跟它指代的视觉实体 desync,导致 cascading hallucinations。</p>
+<p>类比: 人类做这类任务时<strong>用手指</strong>辅助 — 数密集物体时一个个指着数,走迷宫时手指跟着路径划。这种 <strong>deictic pointer</strong> 是低成本的认知工具,把抽象思路锚到具体物理坐标。</p>
+<p><strong>Thinking with Visual Primitives 的主张</strong>: 让 MLLM 也能这么做。具体: 把 <strong>points 和 bounding boxes</strong> 提升为&quot;<strong>最小思维单元 (minimal units of thought)</strong>&quot;,穿插进 CoT 推理链。模型一边推理一边 &quot;点&quot;:</p>
+<pre><code>The user wants me to count men. Looking at the group, I see:
+&lt;|ref|&gt;the men&lt;|/ref|&gt;&lt;|box|&gt;[[13,228,116,714], [106,226,202,707], ...]&lt;|/box|&gt;
+This covers ... 25 in total.
+</code></pre>
+<p>与早前 &quot;grounding 作为后验验证&quot; 的工作不同 (如 RepFormer / VR-FORM 把 bbox 用作 perception 增强的辅助):</p>
+<ul>
+<li><strong>它们</strong>: bbox 是 final output 旁边的附属 evidence</li>
+<li><strong>本文</strong>: bbox / point 是 thinking 过程的<strong>主干</strong> — 模型在思考时不断 emit visual primitives,而不是事后补一个</li>
+</ul>
+<p>这条路解决拓扑推理(迷宫,路径跟踪)和密集计数 — 这些场景里语言根本无法精确指代。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 架构 + 视觉 token 极致压缩</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-arch-pipeline.png" alt="Fig 2: 架构 + 训练 pipeline">
+  <figcaption>
+    Fig. 2 — (a) 架构标准 LLaVA-style: 图像经 DeepSeek-ViT → 跟语言 instruction concat → DeepSeek-V4-Flash LLM → response (含 visual primitives) → de-tokenizer。(b) 训练 4 阶段: Pretraining → Specialized SFT → Specialized RL → Unified RFT → On-Policy Distillation。
+  </figcaption>
+</figure>
+<p><strong>核心是 DeepSeek-V4-Flash</strong> (该团队同期发布的另一个工作 <a class="wiki-link" data-slug="deepseek-v4-2026" href="../deepseek-v4-2026/index.html">deepseek-v4-2026</a>):</p>
+<ul>
+<li>总参 284B,激活 13B,MoE 架构</li>
+<li>关键能力 = <strong>Compressed Sparse Attention (CSA)</strong>: 把每 <span class="math inline">\(m\)</span> 个 visual token 的 KV cache 压缩成 1 entry</li>
+</ul>
+<p><strong>Visual Encoder = DeepSeek-ViT</strong>: 内部自研,支持任意分辨率。流程:</p>
+<ol>
+<li>14×14 patch tokenizer → patch tokens</li>
+<li>ViT 输出后 <strong>3×3 spatial pooling</strong> (9 个相邻 patch token 沿 channel 维拼成 1 个)</li>
+<li>LLM 内部 <strong>CSA 把每 4 个 visual token 的 KV 压成 1 entry</strong></li>
+</ol>
+<p><strong>端到端举例 — 756×756 输入图</strong>:</p>
+<ul>
+<li>pixel 数: 571,536</li>
+<li>ViT patch token (14×14 grid): <strong>2,916</strong></li>
+<li>3×3 pooling 后送给 LLM: <strong>324</strong> (实际限制 81-384 区间,所以这里是 324)</li>
+<li>CSA 压缩 4×: 最终 KV cache <strong>81 entries</strong></li>
+<li><strong>总压缩比 = 571,536 / 81 ≈ 7,056×</strong></li>
+</ul>
+<p>这种激进压缩是这个范式能 work 的关键 — 否则把 bbox/point 穿插进 CoT 会让 sequence 爆炸,反而更慢。</p>
+<figure>
+  <img class="zoomable" src="figures/fig1-token-efficiency.png" alt="Fig 1: token 效率 + benchmark">
+  <figcaption>
+    Fig. 1 — 800×800 输入下,各模型实际 KV cache entries 数:
+    Gemma-4-31B ≈ 289, <strong>本文 ≈ 361 (实际 ~90 entries 在 KV cache)</strong>,
+    Qwen3-VL-235B-A22B ≈ 660, GPT-5.4 ≈ 740, Claude-Sonnet-4.6 ≈ 870, Gemini-3-Flash ≈ 1100。
+    右边: 7 个 benchmark (counting + spatial reasoning) 平均分,本文 77.2% 跟前沿模型持平甚至略超。
+  </figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 Visual Primitives 的定义</h3>
+<p>两种原子: <strong>bounding box</strong> + <strong>point</strong></p>
+<ul>
+<li><strong>Bounding box</strong> <code>&lt;|box|&gt;[[x1, y1, x2, y2], ...]&lt;|/box|&gt;</code>: 坐标归一化到 0-999 整数。配 <code>&lt;|ref|&gt;</code> <code>&lt;|/ref|&gt;</code> 包对象名</li>
+<li><strong>Point</strong> <code>&lt;|point|&gt;[[x1, y1], ...]&lt;|/point|&gt;</code>: 不带对象名,用于抽象引用 (轨迹 / 拓扑 / 中心点)</li>
+</ul>
+<p>为什么选 bbox 为主而非 point ?</p>
+<ol>
+<li><strong>Determinism</strong>: bbox 紧贴物体边界,annotation 相对确定; point 在物体内部哪都行,无 strict GT</li>
+<li><strong>Generalizability</strong>: bbox = 2 个 point,训出 bbox 模型可零成本退化到 point;反过来不行</li>
+<li><strong>Information</strong>: bbox 携带几何信息 (宽高比例),point 只有位置</li>
+</ol>
+<h3 id="sec-2-3">2.3 Pretraining 数据构建 (技术报告最有 hands-on 价值的一节)</h3>
+<p><strong>40M 高质量 box-grounding</strong> 数据,自建。流程:</p>
+<pre><code>HF + 多网站爬虫
+   ↓
+97,984 box-grounding 数据源
+   ↓ Step I: Semantic Review (MLLM-judge)
+   ↓   • 丢掉 &quot;0/1&quot; 这种无语义机器码 label
+   ↓   • 丢掉 &quot;MyRoommate&quot; 这种私有 entity
+   ↓   • 丢掉 &quot;OK&quot;/&quot;NG&quot; 这种主观抽象 label
+   ↓ → 43,141 source 留下
+   ↓ Step II: Visual-Geometric Review
+   ↓   • Severe miss recall &gt;50% → 丢
+   ↓   • 严重截断 bbox → 丢
+   ↓   • &gt;90% area mega box → 丢
+   ↓ → 31,701 source
+   ↓ Per-category 采样 (N=1000) + 全局 dedup
+   ↓
+40M 高质量样本
+</code></pre>
+<p>两阶段 LLM-judge 过滤是这篇 paper 工程上最 hands-on 的贡献 — 公开 OD 数据噪音大,自建一套 standard pipeline 把&quot;语义对齐度 + 几何质量&quot;两个维度都管起来。</p>
+<p><strong>统一格式</strong>:</p>
+<ul>
+<li>Box query: <code>Locate TARGET in this image and report its bounding box coordinates.</code></li>
+<li>Box response: <code>&lt;|ref|&gt;TARGET&lt;|/ref|&gt;&lt;|box|&gt;[[x1,y1,x2,y2],...]&lt;|/box|&gt;</code></li>
+<li>Point query: <code>Help me find TARGET. Give me the center point for each instance.</code></li>
+<li>Point response: <code>&lt;|point|&gt;[[x1,y1],...]&lt;|/point|&gt;</code> (不带 ref)</li>
+</ul>
+<p>Pretraining 全程消耗 trillions of multimodal tokens (与 base LLM 同尺度)。</p>
+<h3 id="sec-2-4">2.4 4 个 Cold-Start 任务</h3>
+<p>Post-training 之前需要 cold-start 数据 bootstrap <strong>visual primitives 推理风格</strong>。4 个任务:</p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th style="text-align:right">样本数</th>
+<th>难点</th>
+<th>关键数据来源</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Counting (coarse + fine)</strong></td>
+<td style="text-align:right">10k</td>
+<td>密集物体计数易丢漏</td>
+<td>多个 dense detection 数据集 + GQA</td>
+</tr>
+<tr>
+<td><strong>Spatial Reasoning + VQA</strong></td>
+<td style="text-align:right">9k</td>
+<td>多 hop 关系推断</td>
+<td>GQA 自然场景 + CLEVR 合成场景</td>
+</tr>
+<tr>
+<td><strong>Maze Navigation</strong></td>
+<td style="text-align:right">460k</td>
+<td>拓扑可达性,需 DFS + 回溯</td>
+<td>程序合成 3 种拓扑迷宫</td>
+</tr>
+<tr>
+<td><strong>Path Tracing</strong></td>
+<td style="text-align:right">125k</td>
+<td>交叉曲线 disambiguation</td>
+<td>Bézier 曲线合成</td>
+</tr>
+</tbody>
+</table>
+<p><strong>每个 cold-start 样本的 thinking content 都包含可验证的 visual primitive 序列</strong>, 不是普通自由文本。Counting 例子 (Fig 3):</p>
+<pre><code>1. Deconstructing the query: count men.
+2. Sweeping the photo:
+   &lt;|ref|&gt;the men&lt;|/ref|&gt;&lt;|box|&gt;[[13,228,116,714], [106,226,202,707], ...]&lt;|/box|&gt;
+3. Tallying: 4+9+8+2+2 = 25
+Response: 25 men.
+</code></pre>
+<p>迷宫例子 (Fig 5) — 用 point 标 DFS 探索轨迹:</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-maze.png" alt="Fig 5: 迷宫导航 cold-start">
+  <figcaption>
+    Fig. 5 — 迷宫 cold-start 数据示例。模型从起点 (lime label) 探索到终点 (tangerine circle),沿途 emit `<|point|>` 标记每一步位置。遇到 dead end 时显式 backtrack,这跟人脑做 DFS 一样。最终输出 `[\boxed{True}]` + 可验证路径。
+  </figcaption>
+</figure>
+<h3 id="sec-2-5">2.5 Post-Training: 4 阶段 + 3 类 Reward Model</h3>
+<p><strong>Stage 1: Specialized SFT</strong> —— 70% general MM + 30% specialized data。<strong>分开训</strong> box (FTwG) 和 point (FTwP) 两个 specialized model — 数据少时混训会 mode conflict。</p>
+<p><strong>Stage 2: Specialized RL (GRPO)</strong> —— 各自 RL fine-tune,<strong>3 类 reward model</strong>:</p>
+<ul>
+<li><strong>Format RM</strong> (rule-based 0-1): bbox 语法 / 去重</li>
+<li><strong>Quality RM</strong> (LLM-judge 0/0.5/1): 内容是否冗余 / 思考是否前后矛盾 / 是否 reward hack</li>
+<li><strong>Accuracy RM</strong> (task-specific):
+<ul>
+<li><strong>Counting</strong>: 平滑指数衰减 <span class="math inline">\(R = \alpha \exp(-\beta |\hat y - y| / (|y| + 1))\)</span> (<span class="math inline">\(\alpha=0.7, \beta=3\)</span>)</li>
+<li><strong>Spatial / VQA</strong>: LLM-GRM 同时判 thinking 内容 + 最终回答, 取平均</li>
+<li><strong>Maze</strong>: 5 项加权组合 — 因果探索进度 / 完整性 / 墙违规惩罚 / 最终路径有效性 / solvability 正确性</li>
+<li><strong>Path tracing</strong>: 轨迹准确性 + 终点 hit + ...</li>
+</ul>
+</li>
+</ul>
+<p><strong>关键 trick</strong>: cold-start 中的 visual primitives <strong>已 ground-truth-verified</strong>,所以 RL 阶段<strong>不对 primitives 本身做监督</strong> — 只看最终答案和质量。这让 RL 数据要求大幅放宽 (图+问题+答案就够,不需要 box 标注),数据规模可大幅扩张。</p>
+<p><strong>Stage 3: Unified RFT</strong> —— 把 FTwG 和 FTwP <strong>合并成一个统一模型</strong>。</p>
+<p><strong>Stage 4: On-Policy Distillation</strong> —— 进一步 distill 统一模型 (推测,paper 没展开)。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<p>⚠️ <strong>没有 detailed benchmark 表</strong> — README 和 PDF 都是定性 + Fig 1 单张柱状图。具体数字只能看 Fig 1。</p>
+<p><strong>Fig 1 右边</strong>:</p>
+<ul>
+<li><strong>Ours (~361 token / 90 KV cache entries) 平均 77.2%</strong> — 7 个 (counting + spatial reasoning) benchmark 平均</li>
+<li>Gemma-4-31B (289 entries) 69.7%</li>
+<li>Qwen3-VL-235B-A22B (660 entries) 68.1%</li>
+<li>GPT-5.4 (740 entries) 71.1%</li>
+<li>Claude-Sonnet-4.6 (870 entries) 65.3%</li>
+<li>Gemini-3-Flash (1100 entries) 76.5%</li>
+</ul>
+<p><strong>核心信息</strong>:</p>
+<ol>
+<li>选定 benchmark subset 上 (paper 自报子集,不是 overall capability) 跟 frontier models <strong>持平或反超</strong></li>
+<li><strong>Token efficiency 是 GPT-5.4 的 ~1/8</strong>, Claude-Sonnet-4.6 的 ~1/10</li>
+<li>README 明确说 &quot;scores cover only a subset of evaluation dimensions that are directly relevant to the research focus&quot; — <strong>不是 overall capability claim</strong></li>
+</ol>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>⚠️ <strong>代码 + 权重 + 数据 0 release</strong> (截至 2026/06/04)。Repo 只有 PDF + README + Makefile,没有 src/。News 说&quot;模型权重将集成进 foundation model 未来释出&quot;,benchmark 子集 + cold-start 数据子集 &quot;近期&quot; release。</p>
+<ul>
+<li><strong>Visual token range 81-384</strong>: 限制 ViT 输出最低 81、最高 384。低于的 resize 上去,高于的 resize 下来。<strong>保持纵横比</strong>。这套约束让 KV cache 可控。</li>
+<li><strong>CSA 每 4 个 visual token 压成 1 entry</strong>: 这是 base LLM (DeepSeek-V4-Flash) 提供的能力,不是这篇 paper 设计。Paper 把这个能力<strong>用对了</strong> — 不再用大量 visual token 撑出 perception 质量,而是用 primitives 主动 ground。</li>
+<li><strong>未提及 token budget 上限</strong>: 推理时 visual primitive 输出 (thinking 阶段 emit 多个 box) 占多少 token?paper 没给统计。这跟 efficiency claim 直接相关,缺失。</li>
+<li><strong>3 类 RM 缺梯度细节</strong>: Quality RM 是 LLM-judge,LLM 用哪个?GPT-4 还是自家?Reward 怎么聚合 (sum / mean / hierarchical)?Paper 没说。</li>
+<li><strong>Cold-start 数据规模 460k maze 是 4 个任务里最大</strong>: 因为 maze 推理需要长 DFS chain,需要 dense supervision。Path tracing 125k 次之。Counting 和 spatial 反而只有 10k 和 9k — 这俩任务的 visual primitives 用法相对简单 (一次 grounding 就够),不需要多步规划。</li>
+<li><strong>数据&quot;两阶段 LLM-judge 过滤&quot; 是 reproducible 的</strong>: paper §2.3 写得很细,可以拿同样思路套用到任何 OD 数据上。这是这篇 paper 工程上<strong>最可复用</strong>的部分。</li>
+<li><strong>paper 用 <code>&lt;|ref|&gt;</code> <code>&lt;|/ref|&gt;</code> <code>&lt;|box|&gt;</code> <code>&lt;|/box|&gt;</code> <code>&lt;|point|&gt;</code> <code>&lt;|/point|&gt;</code></strong> 几个 special token: 跟 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> (<code>&lt;box&gt;</code> <code>&lt;/box&gt;</code> <code>&lt;ref&gt;</code> <code>&lt;/ref&gt;</code>) 几乎一模一样的约定,但 LocateAnything 是 box 当 output,Thinking-VP 是 box 当 thinking。两者不冲突,实际可以同一模型同时支持。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>Reference Gap framing 是真的有洞见</strong>: &quot;MLLM 拓扑推理 / 密集计数失败的根因不是 perception 而是 reference&quot; 这点跟同期&quot;提高分辨率&quot;主流方向完全反向。一旦你看见这个 framing, 很多失败案例都能用它解释。</li>
+<li><strong>把 visual primitive 提升为 first-class thought</strong>: 跟此前&quot;bbox 是 verification&quot; 截然不同,更像人类用手指辅助思考。这个范式 shift 是这篇 paper 的核心贡献。</li>
+<li><strong>极致 KV cache 压缩 (7056×)</strong>: 解决了&quot;加更多 visual content 进 thinking 反而更慢&quot;的 paradox。这个 trick + base LLM 的 CSA 能力对接得很巧妙。</li>
+<li><strong>数据过滤 pipeline 工程价值高</strong>: §2.3 的两阶段 LLM-judge (semantic + geometric) 是这篇 paper 最 actionable 的部分。任何想做 grounding/detection 数据集的人都能直接抄。</li>
+<li><strong>4 个 cold-start 任务覆盖代表性场景</strong>: counting + spatial + maze + path tracing 覆盖了 &quot;需要 visual primitives 才解得了&quot; 的几乎所有典型问题。</li>
+<li><strong>GRPO RL 阶段不监督 thinking 中的 primitives</strong>: 这个设计很聪明 — 让 RL 数据规模化的关键。</li>
+<li><strong>token efficiency claim 有硬数字 (Fig 1)</strong>: 跟 frontier models 横比,数字可信度高 (虽然 benchmark subset 选取本身有 bias 风险)。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>代码 + 权重 + 数据 0 release</strong> (截至 2026/06/04): 跟 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 一样的问题。Repo 实际只有 PDF + README。News 说&quot;近期&quot; release 数据子集 + benchmark 子集,但没具体时间。<strong>研究价值现在主要是 framing + ideas, 工业可用还远</strong>。</li>
+<li><strong>Benchmark <strong>subset</strong> 这个 caveat 不能忽略</strong>: README 和 paper 都明说 &quot;scores cover only a subset of evaluation dimensions&quot;. 也就是说: 在 visual primitives 不能帮助的任务上,本模型很可能远低于 GPT-5.4 / Claude / Gemini 这种通用模型。<strong>只是某个垂直能力的反超,不是整体反超</strong>。</li>
+<li><strong>DeepSeek-V4-Flash 的 CSA 是 prerequisite</strong>: 没有 CSA, 这套范式 (大量穿插 visual primitives) 立刻 token 爆炸。这意味着该范式<strong>强依赖</strong> base model 的特殊 attention 能力。其他 LLM (Qwen, LLaMA, GPT 系) 不一定有同等能力,可移植性受限。</li>
+<li><strong>Specialized vs Unified 训练阶段细节缺失</strong>: Stage 3 Unified RFT 怎么 merge FTwG 和 FTwP?是简单 weight average 还是 KL-distill?Paper 一句话带过。</li>
+<li><strong>缺 ablation</strong>: 不带 visual primitives 的 baseline (同 backbone + 同 RL 但 thinking 是纯文本) 性能是多少?Paper 没给。<strong>Visual primitives 帶来的 lift 到底多大</strong>, 没有量化证据。</li>
+<li><strong>Maze 460k cold-start 是真的需要这么多吗</strong>: 460k 比 counting (10k) 多 46×。这说明拓扑推理对大量 supervision 很饥饿,可能意味着模型并没&quot;理解&quot; topology,只是大量 memorize。</li>
+<li><strong>没跟 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 直接比</strong>: Thinking-VP 输出 box 和 LocateAnything 输出 box 是不同 framing (thinking vs final output),但底层格式接近 (<code>&lt;|box|&gt;</code> token)。两者实际可以同模型支持,但没有 head-to-head 对比。</li>
+<li><strong>token 数 vs KV cache 数概念</strong>: README Fig 1 把这两个混着用 (左轴 &quot;Token Efficiency&quot; 然而柱子用 KV cache entries 数)。这点容易误导读者。</li>
+<li><strong>paper 4 阶段后训练流程很重</strong>: SFT → RL → Unified → On-policy distill。每阶段细节都有,但<strong>总训练成本 + 各阶段 contribution 比例</strong>没给 ablation。</li>
+<li><strong>Author list 17 人,DeepSeek 12 人 PKU/THU 5 人</strong>: 这是 DeepSeek 的内部项目,跟 V4-Flash 强绑定。<strong>不是社区可参与的开放研究</strong>,更像产品预热。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 想理解&quot;MLLM 推理范式转变&quot;的研究者。Reference Gap framing + visual primitives as thought 是有教育意义的 conceptual move,即使代码没 release。</li>
+<li>✅ <strong>适用</strong>: 做计数 / 拓扑 / 密集空间推理任务的 product/research,即使没法用本模型,<strong>可以借用思路</strong> — 让自己的 MLLM 在 thinking 阶段穿插 bbox 输出。</li>
+<li>✅ <strong>适用</strong>: 做 grounding/detection 数据集清洗的工程团队 — §2.3 的 LLM-judge pipeline 是个完整 recipe。</li>
+<li>❌ <strong>不适用</strong>: 想立刻拿来用的人 — 代码权重 0 release。</li>
+<li>❌ <strong>不适用</strong>: 非 DeepSeek-V4 系列的 base model 移植 — CSA 是 prereq,Qwen/LLaMA 没有同等能力。</li>
+<li>⚠️ <strong>谨慎</strong>: 看 benchmark 时记住是 selected subset,不是 overall capability。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>同期 structured-output VLM</strong>:
+<ul>
+<li><a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> (LocateAnything) — bbox 作为 final output 一次 forward 出,跟 Thinking-VP 互补 (一个是 output 路径,一个是 thinking 路径)</li>
+<li><a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> (Representation Forcing) — UMM 里用 representation token 解耦 understanding/generation</li>
+<li><a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> (Canva MRT) — layout via RoPE positional encoding</li>
+</ul>
+</li>
+<li><strong>Thinking with images 系列</strong> (paper §1 提到的&quot;Perception Gap&quot;代表): GPT-4o &quot;vision tool calling&quot;, Anthropic &quot;computer use&quot;, Google &quot;Gemini multimodal CoT&quot;</li>
+<li><strong>Base model</strong>: <a class="wiki-link" data-slug="deepseek-v4-2026" href="../deepseek-v4-2026/index.html">deepseek-v4-2026</a> (DeepSeek-V4) — 提供 CSA 能力的 base LLM。Thinking-VP 是 V4-Flash 系列的应用之一</li>
+<li><strong>Grounding 作为 verification 的早期工作</strong> (paper §1 引用作为对比): RepFormer, VR-FORM 等 — Thinking-VP 跟这些的本质区别是 primitives 是 thought 不是 evidence</li>
+<li><strong>GRPO</strong>: DeepSeek-R1 系列的 RL 算法,跟 Thinking-VP 用同一套</li>
+</ul>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

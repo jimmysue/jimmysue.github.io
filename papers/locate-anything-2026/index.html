@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LocateAnything: 把 VLM 的 bbox 输出当作不可分割原子,一次 forward 出 4 个坐标,12.7 BPS 跑赢 NTP 5×</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 Block-Based 输出格式</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 训练: 同一 GT 双格式 + 两条流互不串话</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 推理: Fast / Slow / Hybrid 三模式</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 LocateAnything-Data: 138M queries 多任务大数据</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>LocateAnything: 把 bbox 当原子单元一次性并行输出</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-05-27</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-27</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Shihao Wang, Shilong Liu, Yuanguo Kuang, Xinyu Wei, Yangzhou Liu, Zhiqi Li, Yunze Man, Guo Chen, Andrew Tao, Guilin Liu, Jan Kautz, Lei Zhang, Zhiding Yu (NVIDIA + HK PolyU + Princeton + Nanjing + UIUC)</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2605.27365">arXiv:2605.27365</a> · <a class="post-meta__link" href="https://github.com/locate-anything">项目页</a> · <a class="post-meta__link" href="https://huggingface.co/LocateAnything">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/detection.html">detection</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/multi-token-prediction.html">multi-token-prediction</a> <a class="concept-chip" href="../../concepts/parallel-decoding.html">parallel-decoding</a> <a class="concept-chip" href="../../concepts/speculative-decoding.html">speculative-decoding</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="LocateAnything 总览">
+  <figcaption>
+    Fig. 1 — 上半: LocateAnything 在统一 VLM 下支持多任务定位 (multi-obj 检测、refer、UI grounding、layout grounding、detection、OCR)。下半: 三种 decoding 范式对比 — <strong>Textual Digit Decoding</strong> 把 "647" 当作字符串 "6", "4", "7" 一位位预测;<strong>Quantized Coordinate Decoding</strong> 用量化的整体 token (`<647>`) 但仍按 $(x_1, y_1, x_2, y_2)$ 顺序逐 token 出;<strong>Parallel Box Decoding (本文)</strong> 把整个 box 当一个 atomic block 一次 forward 全部预测。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>主流 VLM 做 detection / grounding 走 next-token prediction (NTP) 路线:把 bbox 序列化成 token 流让 LM 一个个生成。两类常见编码:</p>
+<ul>
+<li><strong>Textual Digit</strong>: bbox = &quot;1024, 647, 911, 832&quot; → tokenizer 切成数字字符 + 逗号 + 空格,平均一个 bbox 25+ token</li>
+<li><strong>Quantized Coordinate</strong>: 把坐标量化到 1000 桶,每个坐标变 1 个 token,1 个 bbox = 4 坐标 token + 2 结构 token = 6 token</li>
+</ul>
+<p>两者<strong>共同病灶</strong>:<strong>2D 几何对象被强行 1D 化</strong>。<span class="math inline">\(x_1, y_1, x_2, y_2\)</span> 这 4 个数有强结构耦合 (必须 <span class="math inline">\(x_1 &lt; x_2\)</span>、必须围住同一物体),但模型逐 token 出时<strong>每一步独立决策</strong>,只能靠预训练分布慢慢学这个耦合。结果:<strong>精度受损 + 吞吐被卡</strong> (每个 box 串行 6 步)。</p>
+<p>直观的&quot;修法&quot; — <strong>Multi-Token Prediction (MTP)</strong>: 一次预测多个 token。但通用 MTP (随机选 span、随机 mask) 与 bbox 的耦合结构<strong>对不齐</strong>:</p>
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="NTP vs MTP vs PBD" style="display:none;">
+</figure>
+<p>举例 (Fig 2 in paper): 训练 MTP 时,如果随机 chunk 把跨 box 的 token 划进同一 chunk (比如 <code>&lt;/box&gt; &lt;box&gt; &lt;122&gt;</code> 跨两个 bbox), 模型被迫学&quot;跨 bbox 边界的 token 协同分布&quot;,这是一种<strong>虚假相关</strong>——真实任务里没有&quot;上一个 box 的 <code>&lt;/box&gt;</code> 决定下一个 box 的 <code>x1</code>&quot;这种关联。MTP 学得越好,虚假关联越强,反而伤精度。</p>
+<p><strong>LocateAnything 的主张</strong>: <strong>MTP 必须按结构对齐</strong>。一个 bbox 就是一个 atomic unit,长度 L=6 (<code>&lt;box&gt;</code> + 4 坐标 + <code>&lt;/box&gt;</code>),一次性并行预测,不许跨 box chunk。这就是 <strong>Parallel Box Decoding (PBD)</strong>。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 Block-Based 输出格式</h3>
+<p>bbox 不再是 6-token 流,而是一个<strong>定长 L=6 的 block</strong>。整个生成过程变成一串 block 序列 <span class="math inline">\(\mathcal{B} = (b_1, b_2, \ldots, b_N)\)</span>。每个 block 是<strong>4 类</strong>之一:</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-arch.png" alt="Fig 3: 架构 + 4 类 block">
+  <figcaption>
+    Fig. 3 — LocateAnything 架构 (Moon-ViT vision encoder + Qwen2.5 language decoder + MLP projector) + 4 类 atomic block:
+    <strong>Semantic Block</strong> (语义/类别名,长查询占多个 block);
+    <strong>Box Block</strong> (`<box>` + 4 量化坐标 + `</box>`);
+    <strong>Negative Block</strong> (查询的物体不存在);
+    <strong>End Block</strong> (生成终止)。
+    所有 block 长度统一 L=6,不足的位用 `<null>` 占位——保证 tensor shape 整齐,便于并行 decode。
+  </figcaption>
+</figure>
+<p>联合分布:</p>
+<div class="math block">
+\[P(\mathcal{B} \mid Z, \mathcal{E}) = \prod_{i=1}^N P(b_i \mid b_{&lt;i}, Z, \mathcal{E})\]
+</div>
+<p class="math-translation">—— 翻译: 当前 block $b_i$ 条件依赖前面所有 block + 视觉 token $Z$ + 文本 query $\mathcal{E}$。**block 间 causal**(下一 block 看前面所有),**block 内 6 个 token 并行**。</p>
+<h3 id="sec-2-2">2.2 训练: 同一 GT 双格式 + 两条流互不串话</h3>
+<p>直接训 MTP (一次性预测整个 block) 风险:<strong>破坏模型原本的因果 (NTP) 推理能力</strong>——因为预训练 LLM 是 NTP 的,直接换 objective 会 catastrophic forget。</p>
+<p>解法:<strong>同一 GT 同时塞两种格式</strong>,构造一根超长拼接序列:</p>
+<div class="math block">
+\[x_{\text{all}} = x_{\text{vis}} \oplus x_q \oplus x_{\text{ntp}} \oplus x_{\text{blk}}\]
+</div>
+<ul>
+<li><span class="math inline">\(x_{\text{vis}}\)</span>, <span class="math inline">\(x_q\)</span>: 共享视觉 + query 上下文</li>
+<li><span class="math inline">\(x_{\text{ntp}}\)</span>: 标准 NTP 序列 (训练目标 <span class="math inline">\(\mathcal{L}_{\text{ntp}}\)</span>)</li>
+<li><span class="math inline">\(x_{\text{blk}}\)</span>: block-wise MTP 序列, 块内首 token 保留作 anchor, 其余替换为 <code>[mask]</code> (训练目标 <span class="math inline">\(\mathcal{L}_{\text{mtp}}\)</span>)</li>
+</ul>
+<p><strong>Attention mask 的关键设计</strong> (这是 paper 最巧妙的部分):</p>
+<ol>
+<li><strong>NTP stream 看 shared context + 自身 (causal)</strong>, 看不到 MTP block (防止 NTP 从 MTP 偷答案)</li>
+<li><strong>MTP stream 看 shared context + 自身 block-causal</strong>, 看不到 NTP (防止反向)</li>
+<li><strong>MTP block 内部 bidirectional</strong> (4 个坐标互相看,让模型捕捉几何耦合)</li>
+<li><strong>MTP block 之间 causal</strong> (后面 block 看前面已生成 block, 防止重复或漏标)</li>
+</ol>
+<p>总 loss: <span class="math inline">\(\mathcal{L} = \mathcal{L}_{\text{ntp}} + \mathcal{L}_{\text{mtp}}\)</span></p>
+<p><strong>注意</strong>: 推理时这个 mask 一致 — KV cache 兼容标准 causal,只是当前 block 内部 bidirectional + future masked。</p>
+<h3 id="sec-2-3">2.3 推理: Fast / Slow / Hybrid 三模式</h3>
+<p>PBD 并不是免费午餐,有两类失败模式:</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-fallback.png" alt="Fig 5: NTP 回退机制">
+  <figcaption>
+    Fig. 5 — 两种 MTP 失败模式: <strong>Format Irregularity</strong> (block 内部结构错乱,如 `<box><211></ref><911><887></box>` 把 `</ref>` 插进了 box 里) 和 <strong>Spatial Ambiguity</strong> (密集物体下,MTP 预测的坐标处在两个物体中间,IoU 低)。<strong>Hybrid mode</strong>: 监测 (1) top-1 坐标 token prob &lt; 0.7,或 (2) top-5 坐标 max-min 差 &gt; 80 (在 0-1000 归一化空间) → 触发回退,丢弃该 block,改用 NTP 串行重 decode 这一个 block,完成后切回 MTP。
+  </figcaption>
+</figure>
+<p><strong>三模式权衡</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>机制</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Slow</strong></td>
+<td>纯 NTP 串行</td>
+<td>离线高精度标注、最终评测</td>
+</tr>
+<tr>
+<td><strong>Fast</strong></td>
+<td>纯 MTP block 并行</td>
+<td>端侧机器人 / embodied agent (latency 紧)</td>
+</tr>
+<tr>
+<td><strong>Hybrid</strong></td>
+<td>默认 MTP,异常时回退 NTP</td>
+<td>生产 — 保留大部分加速 + 不会崩</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-2-4">2.4 LocateAnything-Data: 138M queries 多任务大数据</h3>
+<figure>
+  <img class="zoomable" src="figures/fig6-data.png" alt="Fig 6: LocateAnything-Data 组成">
+  <figcaption>
+    Fig. 6 — 12M unique image,138M queries,785M bbox。任务分布: Detection 66.9% (Object365 / OpenImages / V3Det 等),UI grounding 16.5% (OSAtlas / GroundCUA / ScaleCUA),Referring 7.3% (RefCOCO 系列 + Flickr30kEntities),OCR 3.6%,Layout 3.5%,Pointing 2.2% (PixmoPoints)。**单一统一格式喂模型同时学这 6 个任务**。
+  </figcaption>
+</figure>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<figure>
+  <img class="zoomable" src="figures/tab1-lvis-coco.png" alt="Table 1: LVIS + COCO 结果">
+  <figcaption>
+    Table 1 — LVIS / COCO zero-shot 结果。LocateAnything-3B 关键数字:
+    <strong>LVIS F1@0.95 = 31.1</strong> (vs Qwen3-VL-8B 20.2, Rex-Omni-3B 20.7 — 涨 ~50% 相对)。
+    <strong>Throughput = 12.7 BPS</strong> (vs Qwen3-VL-8B 的 1.0, Rex-Omni-3B 的 5.0 — 比通用 VLM 快 12.7×, 比 SOTA detection VLM 快 2.5×)。
+    Mean F1@IoU LVIS = 50.7, COCO = 54.7,**全场最高**(open-set 设定下)。
+  </figcaption>
+</figure>
+<p><strong>关键数字</strong> (从 Table 1 摘):</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th style="text-align:right">Throughput</th>
+<th style="text-align:right">LVIS F1@0.95</th>
+<th style="text-align:right">LVIS Mean</th>
+<th style="text-align:right">COCO Mean</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Qwen3-VL-8B</td>
+<td style="text-align:right">1.0×</td>
+<td style="text-align:right">20.2</td>
+<td style="text-align:right">44.8</td>
+<td style="text-align:right">45.7</td>
+</tr>
+<tr>
+<td>Rex-Omni-3B</td>
+<td style="text-align:right">5.0×</td>
+<td style="text-align:right">20.7</td>
+<td style="text-align:right">46.9</td>
+<td style="text-align:right">52.9</td>
+</tr>
+<tr>
+<td>SEED1.5-VL</td>
+<td style="text-align:right">n/a</td>
+<td style="text-align:right">19.5</td>
+<td style="text-align:right">46.7</td>
+<td style="text-align:right">51.4</td>
+</tr>
+<tr>
+<td><strong>LocateAnything-3B</strong></td>
+<td style="text-align:right"><strong>12.7×</strong></td>
+<td style="text-align:right"><strong>31.1</strong></td>
+<td style="text-align:right"><strong>50.7</strong></td>
+<td style="text-align:right"><strong>54.7</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心发现</strong>: PBD <strong>同时</strong> 提升精度和吞吐。一般 trick 都是 trade-off,这里两个都涨。原因是 PBD 让模型<strong>用 attention 显式建模 box 内部几何耦合</strong>,而 NTP 只能靠位置依赖间接学。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>⚠️ <strong>代码 + 模型未公开</strong> (截至 2026/06/04)。论文给的链接 GitHub / HF Model / HF Demo 都是 placeholder,实际仓库无法访问。复现门槛极高,只能等 release。</p>
+<ul>
+<li><strong>基础架构</strong>: Moon-ViT (Kimi Team 2025) + Qwen2.5 + MLP projector,3B 参数。Moon-ViT 是 native-resolution VLM,不需要 resize 输入图。</li>
+<li><strong>Block 长度 L=6</strong>: 4 坐标 + 2 结构 token (<code>&lt;box&gt;</code> <code>&lt;/box&gt;</code>)。不足的位用 <code>&lt;null&gt;</code> padding 保证 tensor shape 统一。这是简化设计 — 实际可以变长,但变长 block 不利并行 batch。</li>
+<li><strong>量化坐标到 0-1000</strong>: 标准做法 (Pix2Seq / Shikra / Qwen-VL 都用),1000 个量化 token 加 vocab。</li>
+<li><strong>Stage-1 138M general + Stage-2 dense focus</strong>: 第二阶段降低通用数据比例到 20%, 提高高密度场景数据 (MOT20Det / SKU110K) 比例。学到密集场景的 PBD 不崩。</li>
+<li><strong>Hybrid threshold</strong>: top-1 prob &lt; 0.7 且 top-5 max-min &gt; 80 → 回退 NTP。两个条件<strong>同时</strong>满足才回退 (避免误判)。这两个 threshold 是 paper 经验值,在 supplementary 提到敏感度分析。</li>
+<li><strong>训练时 NTP 和 MTP loss 等权相加</strong>: 没有 weight tuning。考虑到 NTP 和 MTP 都是 cross-entropy 同 scale,合理。</li>
+<li><strong><code>x_blk</code> 构造</strong>: 把 <code>x_ntp</code> 左到右扫,按 block 边界切+pad,每个 block 保留第 1 个 token 作为 prediction context,其余替换为 <code>[mask]</code>。block 大小 = 1 时退化为标准 NTP。</li>
+<li><strong>paper-vs-code gap 风险</strong>: 因为代码没开,只能信任 paper claim。Throughput 数字 (12.7 BPS) 需要看清是哪种硬件 + batch size + decoding mode (Fast / Hybrid)。Hybrid 在密集场景会变慢但 paper Table 1 没分开列。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>问题 framing 清晰</strong>: &quot;2D 几何对象被强行 1D 化是结构性 mismatch&quot; 这个观察很对,paper Fig 2 用 NTP / Generic MTP / PBD 三栏对比把这点视觉化讲透了。</li>
+<li><strong>PBD 跟通用 MTP 的对比 (Table 3 — 不在我抠出的图里,但 §3 提了)</strong>: 同样的 MTP backbone, generic chunking 加 box-aligned chunking 涨 ~3-5 个 F1@0.95 点。这是 PBD 设计选择的硬证据,不是&quot;我们改了一堆都涨&quot;。</li>
+<li><strong>Joint NTP + MTP 训练保留双轨能力</strong>: 通过 attention mask 隔离两条 stream — 这是从 LLM block diffusion / fast-dLLM 来的思路 (paper 引了),但<strong>应用到 detection 是新的</strong>。</li>
+<li><strong>Hybrid mode 是工程上很有价值的设计</strong>: format 异常 + 空间 ambiguity 两个 trigger 是经验观察出来的真实失败模式,fallback 到 NTP 重 decode 单个 block 是最低成本修法 (保留前面已 commit 的 KV cache)。</li>
+<li><strong>数据规模 138M 是当前 grounding/detection VLM 里最大的</strong>: 6 大任务覆盖足够广,统一格式喂同一模型,效仿 Florence / Grounding-DINO 的 multi-task unification 但规模更大。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>代码 + 数据 + 权重 0 release</strong> (截至 2026/06/04): 没有任何东西可复现。GitHub / HF 链接 placeholder。<strong>对工业 / 学术应用价值打折</strong>。</li>
+<li><strong>Throughput 比较的硬件 / batch size 不透明</strong>: 12.7 BPS vs Qwen3-VL-8B 的 1.0 — 是同一硬件吗?BPS 是 box-per-second 还是 batch-per-second?Hybrid mode 在密集场景的实际加速比 Fast mode 低多少?Paper 没充分披露。</li>
+<li><strong><code>mtp</code> block 内 4 坐标的&quot;耦合&quot;实际有多强</strong>: paper claim PBD 利用了 <span class="math inline">\(x_1, y_1, x_2, y_2\)</span> 的几何耦合,但 attention 在 4 个位置间的 query/key/value 学习强度没有 visualization (比如 attention map)。&quot;耦合好&quot; 是定性 claim, 不是定量证据。</li>
+<li><strong>Hybrid mode threshold (0.7 / 80) 怎么调出来的</strong>: paper 说 supplementary 有敏感度分析,但 main paper 没给。这两个阈值是 task-specific 还是普适?</li>
+<li><strong>没跟 NTP 用 speculative decoding 比</strong>: 加速 NTP 的另一条路是 speculative decoding (像 EAGLE / Medusa),这能不能在 detection VLM 上达到类似 throughput?Paper 没比。</li>
+<li><strong>只在 grounding/detection 用 PBD</strong>: 没说能不能扩展到 segmentation (mask token)、3D box、其他几何原语。&quot;atomic unit&quot; 概念是否泛化?未验证。</li>
+<li><strong>MTP block 长度 L=6 写死</strong>: 如果某个任务的 atom 需要 8 个 token (例如带置信度的 box),怎么改?Paper 没讨论。</li>
+<li><strong>跟 <a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> / <a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> 的 multi-token 哲学没比较</strong>: MRT 用 regional latent + RoPE 让 bbox 信息进 model,Rep Forcing 用 representation token 自回归。这三种 &quot;structured generation&quot; 路线值得对比 (虽然不同任务)。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>: 需要 VLM 同时具备开放词表检测 / refer / UI / OCR / layout 能力 + 在线推理时延敏感的产品 (机器人 / GUI agent)。等代码 release 后是个有力 baseline。</li>
+<li>✅ <strong>适用</strong>: 研究&quot;如何把结构化输出引入自回归生成&quot;的工作。PBD + attention mask 设计是个干净的 case study。</li>
+<li>❌ <strong>不适用</strong>: 现在想立刻复现的人 — 代码 + 数据都没有。</li>
+<li>❌ <strong>不适用</strong>: segmentation mask / 多边形 / 3D box 等更复杂几何对象 — PBD 当前只覆盖 axis-aligned bbox 和 point。</li>
+<li>⚠️ <strong>谨慎</strong>: 信任 throughput 数字时要追问硬件 / batch / mode,Hybrid 在密集场景的真实加速可能远低于 12.7×。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>同期 structured generation in VLM</strong>:
+<ul>
+<li><a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> (Canva MRT) — 用 regional latent + RoPE 编 bbox 位置,任务是多层透明图分解</li>
+<li><a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> (Representation Forcing) — 用 understanding encoder 的 representation token 做 in-context conditioning</li>
+</ul>
+</li>
+<li><strong>MTP / Block diffusion</strong>: Cai et al. 2024 Medusa, Liu et al. 2025 SDLM, Arriola et al. 2025 Block Diffusion, Wu et al. 2025 Fast-dLLM v2 — paper 大量引用。Block Diffusion 的 block-causal + intra-block bidirectional 设计直接被 LocateAnything 借鉴。</li>
+<li><strong>VLM grounding 直接前辈</strong>: Shikra (Chen 2023), Qwen-VL series (Bai 2025), Rex-Omni (Jiang 2025), Patch-as-Decodable-Token (Su 2026), Groma (Ma 2024)</li>
+<li><strong>Speculative decoding 加速 alternative</strong>: EAGLE / Medusa / SpecDec — 同样降 NTP 延迟,但走 draft+verify 路线,跟 PBD 完全正交,可能可以叠加</li>
+</ul>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
