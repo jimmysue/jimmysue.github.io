@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>camera-pose — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+
+<main class="page page--concept">
+  <h1>camera-pose</h1>
+  
+  <div class="concept__body">
+
+  </div>
+  <h2>提到此概念的论文 / 教程</h2>
+  <div class="post-grid">
+<a class="post-card post-card--paper" href="../papers/d4rt-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span></span>
+  </div>
+  <h3 class="post-card__title">Efficiently Reconstructing Dynamic Scenes One D4RT at a Time</h3>
+  <p class="post-card__tldr">CVPR 2026 最佳论文 (Google DeepMind)。把&quot;重建动态 4D 场景&quot;这件事从&quot;逐帧稠密解码&quot;改成&quot;按需点查询&quot;:一个 encoder 把视频压成固定的 Global Scene Representation,一个轻量 cross-attention decoder 接收查询 q=(u,v,t_src,t_tgt,t_cam) 独立吐出该点的 3D 坐标。改一改查询就能统一拿到深度、点云、点轨迹、相机内外参 —— 速度比 VGGT 快 9×、比 MegaSaM 快 100×,且是唯一能稠密重建动态像素的方法。
+</p>
+</a>
+</div>
+
+  <p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
+</main>
+</body>
+</html>

@@ -30,6 +30,15 @@
       "url": "papers/d-opsd-2026/index.html"
     },
     {
+      "id": "papers/d4rt-2025",
+      "type": "paper",
+      "slug": "d4rt-2025",
+      "title": "Efficiently Reconstructing Dynamic Scenes One D4RT at a Time",
+      "date": "2026-06-06",
+      "tldr": "CVPR 2026 最佳论文 (Google DeepMind)。把\"重建动态 4D 场景\"这件事从\"逐帧稠密解码\"改成\"按需点查询\":一个 encoder 把视频压成固定的 Global Scene Representation,一个轻量 cross-attention decoder 接收查询 q=(u,v,t_src,t_tgt,t_cam) 独立吐出该点的 3D 坐标。改一改查询就能统一拿到深度、点云、点轨迹、相机内外参 —— 速度比 VGGT 快 9×、比 MegaSaM 快 100×,且是唯一能稠密重建动态像素的方法。\n",
+      "url": "papers/d4rt-2025/index.html"
+    },
+    {
       "id": "papers/dapo-2025",
       "type": "paper",
       "slug": "dapo-2025",
@@ -341,6 +350,78 @@
       "name": "flux",
       "has_file": false,
       "url": "concepts/flux.html"
+    },
+    {
+      "id": "concepts/3d-reconstruction",
+      "type": "concept",
+      "slug": "3d-reconstruction",
+      "name": "3d-reconstruction",
+      "has_file": false,
+      "url": "concepts/3d-reconstruction.html"
+    },
+    {
+      "id": "concepts/4d-reconstruction",
+      "type": "concept",
+      "slug": "4d-reconstruction",
+      "name": "4d-reconstruction",
+      "has_file": false,
+      "url": "concepts/4d-reconstruction.html"
+    },
+    {
+      "id": "concepts/point-tracking",
+      "type": "concept",
+      "slug": "point-tracking",
+      "name": "point-tracking",
+      "has_file": false,
+      "url": "concepts/point-tracking.html"
+    },
+    {
+      "id": "concepts/transformer",
+      "type": "concept",
+      "slug": "transformer",
+      "name": "transformer",
+      "has_file": false,
+      "url": "concepts/transformer.html"
+    },
+    {
+      "id": "concepts/cross-attention",
+      "type": "concept",
+      "slug": "cross-attention",
+      "name": "cross-attention",
+      "has_file": false,
+      "url": "concepts/cross-attention.html"
+    },
+    {
+      "id": "concepts/camera-pose",
+      "type": "concept",
+      "slug": "camera-pose",
+      "name": "camera-pose",
+      "has_file": false,
+      "url": "concepts/camera-pose.html"
+    },
+    {
+      "id": "concepts/depth-estimation",
+      "type": "concept",
+      "slug": "depth-estimation",
+      "name": "depth-estimation",
+      "has_file": false,
+      "url": "concepts/depth-estimation.html"
+    },
+    {
+      "id": "concepts/feedforward",
+      "type": "concept",
+      "slug": "feedforward",
+      "name": "feedforward",
+      "has_file": false,
+      "url": "concepts/feedforward.html"
+    },
+    {
+      "id": "repos/WangXueyang-uestc/D4RT",
+      "type": "repo",
+      "url": "https://github.com/WangXueyang-uestc/D4RT",
+      "host": "github.com",
+      "owner": "WangXueyang-uestc",
+      "name": "D4RT"
     },
     {
       "id": "concepts/llm",
@@ -825,6 +906,51 @@
       "kind": "mentions"
     },
     {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/3d-reconstruction",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/4d-reconstruction",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/point-tracking",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/cross-attention",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/camera-pose",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/depth-estimation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "concepts/feedforward",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/d4rt-2025",
+      "to": "repos/WangXueyang-uestc/D4RT",
+      "kind": "implements"
+    },
+    {
       "from": "papers/dapo-2025",
       "to": "concepts/rl",
       "kind": "mentions"
@@ -906,11 +1032,6 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
       "to": "papers/awm-2025",
       "kind": "cites"
     },
@@ -922,6 +1043,11 @@
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -1001,12 +1127,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1017,11 +1148,6 @@
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -1136,12 +1262,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -1186,12 +1312,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1266,12 +1392,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -1436,17 +1562,17 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
