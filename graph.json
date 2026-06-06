@@ -255,6 +255,15 @@
       "url": "tutorials/rlhf-evolution-2024/index.html"
     },
     {
+      "id": "tutorials/vlm-grounding-2025",
+      "type": "tutorial",
+      "slug": "vlm-grounding-2025",
+      "title": "VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」",
+      "date": "2026-06-06",
+      "tldr": "9 节螺旋结构系统综述 2025–2026 视觉语言模型(VLM)的 grounding(视觉定位)浪潮:从「坐标如何变成 token」(三大编码流派)到「框作为输出」(检测/referring/Pointing/GUI/并行框解码)再到「框作为思维」(grounded reasoning)。覆盖 Kosmos-2/Shikra/Ferret/Grounding-DINO/Florence-2/PaliGemma/Qwen2.5-VL/Molmo/Rex-Omni/LocateAnything/Thinking-with-Visual-Primitives 等模型与技术报告,以及 RefCOCO/LVIS/ScreenSpot-Pro/PixMo-Points 等 18+ benchmark 的大盘点。代码 verbatim 引自 IDEA-Research/Rex-Omni 与 QwenLM/Qwen2.5-VL。两篇 anchor:Thinking with Visual Primitives 与 LocateAnything。文末附分类参考文献与技术报告全集。\n",
+      "url": "tutorials/vlm-grounding-2025/index.html"
+    },
+    {
       "id": "tutorials/vlm-industrial-2024",
       "type": "tutorial",
       "slug": "vlm-industrial-2024",
@@ -792,6 +801,62 @@
       "url": "concepts/rlhf.html"
     },
     {
+      "id": "concepts/pointing",
+      "type": "concept",
+      "slug": "pointing",
+      "name": "pointing",
+      "has_file": false,
+      "url": "concepts/pointing.html"
+    },
+    {
+      "id": "concepts/referring-expression",
+      "type": "concept",
+      "slug": "referring-expression",
+      "name": "referring-expression",
+      "has_file": false,
+      "url": "concepts/referring-expression.html"
+    },
+    {
+      "id": "concepts/gui-grounding",
+      "type": "concept",
+      "slug": "gui-grounding",
+      "name": "gui-grounding",
+      "has_file": false,
+      "url": "concepts/gui-grounding.html"
+    },
+    {
+      "id": "concepts/grounded-reasoning",
+      "type": "concept",
+      "slug": "grounded-reasoning",
+      "name": "grounded-reasoning",
+      "has_file": false,
+      "url": "concepts/grounded-reasoning.html"
+    },
+    {
+      "id": "repos/IDEA-Research/Rex-Omni",
+      "type": "repo",
+      "url": "https://github.com/IDEA-Research/Rex-Omni",
+      "host": "github.com",
+      "owner": "IDEA-Research",
+      "name": "Rex-Omni"
+    },
+    {
+      "id": "repos/QwenLM/Qwen2.5-VL",
+      "type": "repo",
+      "url": "https://github.com/QwenLM/Qwen2.5-VL",
+      "host": "github.com",
+      "owner": "QwenLM",
+      "name": "Qwen2.5-VL"
+    },
+    {
+      "id": "repos/allenai/molmo",
+      "type": "repo",
+      "url": "https://github.com/allenai/molmo",
+      "host": "github.com",
+      "owner": "allenai",
+      "name": "molmo"
+    },
+    {
       "id": "concepts/anomaly-detection",
       "type": "concept",
       "slug": "anomaly-detection",
@@ -1037,7 +1102,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -1047,7 +1112,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
@@ -1127,16 +1192,6 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
       "kind": "cites"
     },
@@ -1148,6 +1203,16 @@
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1312,17 +1377,17 @@
     },
     {
       "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1392,12 +1457,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1562,7 +1627,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -1572,12 +1637,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -1714,6 +1779,76 @@
       "from": "tutorials/rlhf-evolution-2024",
       "to": "concepts/rlhf",
       "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/vlm",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/detection",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/pointing",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/referring-expression",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/gui-grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/grounded-reasoning",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/multimodal",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "concepts/benchmark",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "papers/locate-anything-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "repos/IDEA-Research/Rex-Omni",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "repos/QwenLM/Qwen2.5-VL",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/vlm-grounding-2025",
+      "to": "repos/allenai/molmo",
+      "kind": "implements"
     },
     {
       "from": "tutorials/vlm-industrial-2024",

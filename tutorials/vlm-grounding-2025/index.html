@@ -1,0 +1,1284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 全景:什么是 VLM grounding,以及两道 gap</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 坐标如何变成 token:三大流派</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. Grounding 作为输出(一):检测、referring 与并行框解码</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+    <li class="h2"><a href="#sec-4">4. Pointing 与计数:点不只是退化的框</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 直觉</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 正式化</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 洞察</a></li>
+    <li class="h2"><a href="#sec-5">5. GUI / 智能体屏幕 grounding</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 直觉</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 正式化</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-5-5">5.5 洞察</a></li>
+    <li class="h2"><a href="#sec-6">6. Grounding 作为思维:grounded reasoning</a></li>
+    <li class="h3"><a href="#sec-6-1">6.1 直觉</a></li>
+    <li class="h3"><a href="#sec-6-2">6.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-6-3">6.3 正式化</a></li>
+    <li class="h3"><a href="#sec-6-4">6.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-6-5">6.5 洞察</a></li>
+    <li class="h2"><a href="#sec-7">7. 高分辨率感知与视觉 token 压缩</a></li>
+    <li class="h3"><a href="#sec-7-1">7.1 直觉</a></li>
+    <li class="h3"><a href="#sec-7-2">7.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-7-3">7.3 正式化</a></li>
+    <li class="h3"><a href="#sec-7-4">7.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-7-5">7.5 洞察</a></li>
+    <li class="h2"><a href="#sec-8">8. 怎么评测:benchmark 与指标大盘点</a></li>
+    <li class="h3"><a href="#sec-8-1">8.1 直觉</a></li>
+    <li class="h3"><a href="#sec-8-2">8.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-8-3">8.3 正式化</a></li>
+    <li class="h3"><a href="#sec-8-4">8.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-8-5">8.5 洞察</a></li>
+    <li class="h2"><a href="#sec-9">9. 数据工程、综合与开放问题</a></li>
+    <li class="h3"><a href="#sec-9-1">9.1 直觉</a></li>
+    <li class="h3"><a href="#sec-9-2">9.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-9-3">9.3 正式化</a></li>
+    <li class="h3"><a href="#sec-9-4">9.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-9-5">9.5 洞察</a></li>
+    <li class="h2"><a href="#sec-10">参考文献与技术报告全集</a></li>
+    <li class="h3"><a href="#sec-10-1">A. 综述(Surveys)</a></li>
+    <li class="h3"><a href="#sec-10-2">B. Grounding-capable VLM 模型家族与技术报告</a></li>
+    <li class="h3"><a href="#sec-10-3">C. Grounded reasoning / 视觉思维链</a></li>
+    <li class="h3"><a href="#sec-10-4">D. GUI / Agent grounding</a></li>
+    <li class="h3"><a href="#sec-10-5">E. Benchmark &amp; 数据集</a></li>
+    <li class="h3"><a href="#sec-10-6">F. 代码仓库</a></li>
+  </ul>
+</nav>
+<main>
+<h1>VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-06</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-06-06</span> · <span class="post-meta__extra">18k 字</span> · <span class="post-meta__extra">110–140 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/IDEA-Research/Rex-Omni">代码</a> · <a class="post-meta__link" href="https://github.com/QwenLM/Qwen2.5-VL">代码</a> · <a class="post-meta__link" href="https://github.com/allenai/molmo">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/detection.html">detection</a> <a class="concept-chip" href="../../concepts/pointing.html">pointing</a> <a class="concept-chip" href="../../concepts/referring-expression.html">referring-expression</a> <a class="concept-chip" href="../../concepts/gui-grounding.html">gui-grounding</a> <a class="concept-chip" href="../../concepts/grounded-reasoning.html">grounded-reasoning</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a> <a class="concept-chip" href="../../concepts/benchmark.html">benchmark</a></div>
+</aside>
+
+<p><strong>Grounding(视觉定位)</strong>——让一个能看图、能读字的模型把语言里的指代精确锚到图像里的具体位置(框 / 点 / 掩码 / 多边形)——是 2025–2026 多模态大模型最热的战场之一。它既是 computer-use agent、机器人、GUI 自动化的底层原语,也是 thinking-with-images 这条新推理范式的关键支点。</p>
+<p>本教程从你已经熟悉的两篇工作出发——<a href="../../papers/thinking-visual-primitives-2026/index.html">Thinking with Visual Primitives</a>(把 bbox 当作&quot;思维原语&quot;穿插进推理链)与 <a href="../../papers/locate-anything-2026/index.html">LocateAnything</a>(把 bbox 当作&quot;原子输出&quot;并行解码)——横向铺开整个领域:9 个螺旋结构章节,每节走「直觉 → 最小 demo → 正式化 → 真实代码引用 → 洞察」五步。主线是一条清晰的范式迁移:<strong>从「框是输出」(§3–§5)到「框是思维」(§6)</strong>,中间穿插坐标 token 化(§2)、高分辨率感知(§7)、评测盘点(§8)与数据工程(§9)。代码 verbatim 引自 <code>IDEA-Research/Rex-Omni</code>(坐标量化的教科书级实现)与 <code>QwenLM/Qwen2.5-VL</code>(production 级 grounding)。文末附<strong>分类参考文献与技术报告全集</strong>。</p>
+<blockquote>
+<p>阅读提示:每节可独立跳读;关键符号在每节首次出现都会带一句话解释。带 ★ 的 §2(坐标 token 化)与 §8(benchmark 盘点)是全篇的两根支柱。</p>
+</blockquote>
+<h2 id="sec-1">1. 全景:什么是 VLM grounding,以及两道 gap</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>想象你和朋友站在超市货架前,你说&quot;帮我拿那个红色的&quot;,同时<strong>用手指指着</strong>最上层那一罐。你的话(&quot;红色的&quot;)是模糊的——货架上红色东西不止一个——但你的手指把这句话<strong>钉到了</strong>一个确切的位置。VLM grounding(视觉定位)做的就是这件事:让一个能看图、能读字的模型(Vision-Language Model,视觉语言模型),在收到一张图片和一句自然语言后,<strong>指出</strong>图里到底是哪个东西、在哪个位置。区别只在于,模型的&quot;手指&quot;不是肉做的,而是一个<strong>框</strong>、一个<strong>点</strong>、或一片<strong>轮廓</strong>。</p>
+<p>所以一句话:grounding = 把&quot;语言里的指代&quot;映射到&quot;图像里的具体位置&quot;。它是&quot;看懂&quot;之外多走的一步——不仅知道图里有什么,还能精确说出&quot;就是那儿&quot;。下面的 teaser 图(图 1)展示了一个更进阶的版本:模型在推理过程中,把点和框<strong>穿插进自己的思考链</strong>里,边想边指。</p>
+<figure>
+<img class="zoomable" src="figures/sec1-teaser.png" alt="Thinking with Visual Primitives 的 teaser:模型在推理链中交错地画出点与框,把视觉定位当作思考的中间步骤">
+<figcaption>图 1:anchor 论文 <em>Thinking with Visual Primitives</em> 的 teaser。模型不再把"框"当作最终答案吐出,而是在推理过程中把点 / 框等视觉原语穿插进思维链——"指"本身成了思考的一部分。本教程 §6 会回到这张图。</figcaption>
+</figure>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<p>不需要任何深度学习,我们就能体会&quot;指&quot;的本质:给一张 4×4 的格子图和短语 &quot;the red cell&quot;,返回它指向的格子坐标与归一化中心点。</p>
+<pre class="teaching-demo"><code class="language-python">grid = [
+    ["white", "blue",  "white", "green"],
+    ["white", "white", "red",   "white"],
+    ["green", "white", "white", "blue"],
+    ["white", "white", "white", "white"],
+]
+query = "the red cell"
+color = query.split()[1]            # "red" —— 从语言里抽出指代线索
+
+for r, row in enumerate(grid):       # 在 4x4 空间里搜这个指代
+    for c, cell in enumerate(row):
+        if cell == color:
+            cx = (c + 0.5) / 4       # 归一化中心 x in [0,1]
+            cy = (r + 0.5) / 4       # 归一化中心 y in [0,1]
+            print(f"(row,col)=({r},{c})  center=({cx:.3f},{cy:.3f})")
+# 输出: (row,col)=(1,2)  center=(0.625,0.375)
+</code></pre>
+<p>这十几行就是 grounding 的骨架:<strong>从文本里解析出指代 → 在图像空间里定位 → 输出归一化坐标</strong>。真实 VLM 只是把&quot;按颜色匹配&quot;换成了上亿参数的视觉-语言对齐,把&quot;4×4 网格&quot;换成了连续图像,但接口是一样的:进去 (图, 文),出来 (位置)。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p>把上面的玩具接口写成一个映射。设 <span class="math inline">\(I\)</span> 为输入图像,<span class="math inline">\(t\)</span> 为文本查询,grounding 是函数</p>
+<div class="math block">
+\[g:\;(I,\,t)\;\longmapsto\;\{r_1,\dots,r_k\}\]
+</div>
+<p class="math-translation">—— 翻译: grounding 接收"一张图 + 一句话",吐出一组**指代物**(referent)$r_i$;$k$ 可以是 0(没找到)、1(单目标)或多个(同类多实例)。</p>
+<p>每个 referent <span class="math inline">\(r\)</span> 的<strong>形态</strong>因任务而异,但都活在归一化坐标系 <span class="math inline">\([0,1]\)</span> 里(与图像分辨率解耦):</p>
+<div class="math block">
+\[r \in \{\underbrace{(x_1,y_1,x_2,y_2)}_{\text{box}},\ \underbrace{(x,y)}_{\text{point}},\ \underbrace{M\in\{0,1\}^{H\times W}}_{\text{mask}},\ \underbrace{\langle(x_1,y_1),\dots\rangle}_{\text{polygon}}\}\]
+</div>
+<p class="math-translation">—— 翻译: 同一个"指"的动作,输出可以是矩形框、单点、像素掩码或多边形顶点序列——这就是"grounding 输出谱系"。坐标一律归一化到 $0$ 到 $1$,$x_2\gt x_1$ 且 $y_2\gt y_1$。</p>
+<svg viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg" style="max-width:100%;height:auto">
+  <g fill="none" stroke="#333" stroke-width="2">
+    <rect x="45" y="50" width="70" height="50"/>
+    <circle cx="230" cy="75" r="6" fill="#333"/>
+    <path d="M360 50 q20 -15 40 5 q25 20 5 45 q-30 18 -55 -5 q-10 -25 10 -45 z" fill="#ddd"/>
+    <polygon points="510,45 560,60 555,105 500,100 485,65" fill="none"/>
+  </g>
+  <g fill="#333" font-size="15" text-anchor="middle">
+    <text x="80" y="130">box</text>
+    <text x="230" y="130">point</text>
+    <text x="380" y="130">mask</text>
+    <text x="525" y="130">polygon</text>
+  </g>
+  <text x="300" y="165" fill="#888" font-size="13" text-anchor="middle">grounding 输出谱系:同一个 g,四种 r 形态</text>
+</svg>
+<p>许多看似不同的任务,其实都是 <span class="math inline">\(g\)</span> 的特例,只是 <span class="math inline">\((t, r)\)</span> 的形态不同:</p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>文本 <span class="math inline">\(t\)</span></th>
+<th>指代 <span class="math inline">\(r\)</span> 形态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REC(指代表达理解)</td>
+<td>一句指代短语,如 &quot;穿红衣的人&quot;</td>
+<td>单个 box</td>
+</tr>
+<tr>
+<td>OVD(开放词表检测)</td>
+<td>任意类别名 / 词表</td>
+<td>多个同类 box</td>
+</tr>
+<tr>
+<td>Pointing</td>
+<td>物体名或属性短语</td>
+<td>单 point(或多点)</td>
+</tr>
+<tr>
+<td>GUI grounding</td>
+<td>界面指令,如 &quot;点击提交按钮&quot;</td>
+<td>控件 box 或点击 point</td>
+</tr>
+</tbody>
+</table>
+<p>坐标如何喂进语言模型?现代做法是把 <span class="math inline">\([0,1]\)</span> 的连续坐标量化成整数 bin,<span class="math inline">\(b_\text{bin}=\lfloor b_\text{norm}\cdot 999\rceil\)</span>,当作离散 token 生成(§2 展开)。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>Rex-Omni(arXiv:2510.12798, CVPR 2026)用一行枚举,把上面表格里的所有能力统一在一个 <code>TaskType</code> 下——这正是 <span class="math inline">\(g\)</span> 的&quot;特例集&quot;在工程上的样子:</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/tasks.py:L13-L23 — Rex-Omni 把所有 grounding 能力收敛成一个 TaskType 枚举</p>
+<pre><code class="language-python">class TaskType(Enum):
+    &quot;&quot;&quot;Supported task types&quot;&quot;&quot;
+
+    DETECTION = &quot;detection&quot;
+    POINTING = &quot;pointing&quot;
+    VISUAL_PROMPTING = &quot;visual_prompting&quot;
+    KEYPOINT = &quot;keypoint&quot;
+    OCR_BOX = &quot;ocr_box&quot;
+    OCR_POLYGON = &quot;ocr_polygon&quot;
+    GUI_DETECTION = &quot;gui_grounding&quot;
+    GUI_POINTING = &quot;gui_pointing&quot;
+</code></pre>
+<p><strong>对照</strong> §1.3 的 referent 形态:<code>DETECTION</code>/<code>GUI_DETECTION</code>/<code>OCR_BOX</code> 输出的是 box <span class="math inline">\((x_1,y_1,x_2,y_2)\)</span>;<code>POINTING</code>/<code>GUI_POINTING</code>/<code>KEYPOINT</code> 输出 point <span class="math inline">\((x,y)\)</span>;<code>OCR_POLYGON</code> 输出 polygon 顶点序列;<code>VISUAL_PROMPTING</code> 则是把&quot;指代线索&quot;从文本换成框/点(用图当 <span class="math inline">\(t\)</span>)。一份模型权重、一套坐标 token,撑起整张谱系——这就是 grounding 走向统一接口的标志。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>grounding 是 agent / robot / computer-use 时代的关键原语。</strong> 机械臂要抓取、Agent 要点击,都必须先&quot;指准&quot;——没有精确的 <span class="math inline">\(r\)</span>,后面的动作无从落地。&quot;看懂&quot;只是输入,&quot;指准&quot;才是能驱动世界的输出。</li>
+<li><strong>瓶颈正从 Perception Gap 转向 Reference Gap。</strong> 早期模型&quot;看不清&quot;(小目标、密集场景),这道 Perception Gap 已被高清切图、thinking-with-images 等手段大幅缓解;真正卡住的是 Reference Gap——自然语言对密集空间布局的指代天然模糊(&quot;左边第二个&quot;到底是哪个)。这正是 anchor 论文 <em>Thinking with Visual Primitives</em> 的核心论点。</li>
+<li><strong>本教程主线:从&quot;框是输出&quot;到&quot;框是思维&quot;。</strong> §3–§5 把框当作模型最终吐出的答案(LocateAnything 式的 bbox-as-output);§6 翻转视角,让点 / 框成为推理链里的中间步骤(图 1),用&quot;指&quot;来思考,而非只在结尾&quot;指&quot;。</li>
+</ul>
+<h2 id="sec-2">2. 坐标如何变成 token:三大流派</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>VLM 的&quot;嘴&quot;里只会吐 token——它不会拿起笔在图上画一个框。可它偏偏要告诉你&quot;狗在这儿&quot;。怎么办?把&quot;框&quot;翻译成一串它会说的&quot;词&quot;。</p>
+<p>办法是把整张图片想象成一张 <strong>1000×1000 的方格纸</strong>:横竖各 1000 格,左上角是 (0,0),右下角是 (999,999)。不管原图是 480 还是 4000 像素宽,都先压扁到这张统一的方格纸上。这样一来,一个框就退化成 <strong>四个格子编号</strong>:左上角落在第几列、第几行,右下角落在第几列、第几行。比如下面 图 2 里那只框,就是 <code>x0=131, y0=270, x1=879, y1=949</code> 这四个数。</p>
+<p>模型要做的,就从&quot;画框&quot;变成了&quot;按顺序报四个 [0,999] 之间的整数&quot;——而报整数,正是语言模型最擅长的事。坐标就这样被驯化成了 token。</p>
+<figure>
+<svg viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect x="60" y="20" width="200" height="200" fill="#fafafa" stroke="#bbb" stroke-width="1.5"/>
+  <g stroke="#ddd" stroke-width="1">
+    <line x1="80" y1="20" x2="80" y2="220"/>
+    <line x1="100" y1="20" x2="100" y2="220"/>
+    <line x1="120" y1="20" x2="120" y2="220"/>
+    <line x1="140" y1="20" x2="140" y2="220"/>
+    <line x1="160" y1="20" x2="160" y2="220"/>
+    <line x1="180" y1="20" x2="180" y2="220"/>
+    <line x1="200" y1="20" x2="200" y2="220"/>
+    <line x1="220" y1="20" x2="220" y2="220"/>
+    <line x1="240" y1="20" x2="240" y2="220"/>
+    <line x1="60" y1="40" x2="260" y2="40"/>
+    <line x1="60" y1="60" x2="260" y2="60"/>
+    <line x1="60" y1="80" x2="260" y2="80"/>
+    <line x1="60" y1="100" x2="260" y2="100"/>
+    <line x1="60" y1="120" x2="260" y2="120"/>
+    <line x1="60" y1="140" x2="260" y2="140"/>
+    <line x1="60" y1="160" x2="260" y2="160"/>
+    <line x1="60" y1="180" x2="260" y2="180"/>
+    <line x1="60" y1="200" x2="260" y2="200"/>
+  </g>
+  <rect x="86" y="74" width="150" height="136" fill="#4f8cff" fill-opacity="0.18" stroke="#1f5fe0" stroke-width="2"/>
+  <circle cx="86" cy="74" r="3" fill="#1f5fe0"/>
+  <circle cx="236" cy="210" r="3" fill="#1f5fe0"/>
+  <text x="2" y="18" font-size="10" fill="#666">(0,0)</text>
+  <text x="262" y="232" font-size="10" fill="#666">(999,999)</text>
+  <text x="90" y="68" font-size="11" fill="#1f5fe0">x0=131, y0=270</text>
+  <text x="150" y="226" font-size="11" fill="#1f5fe0">x1=879, y1=949</text>
+  <line x1="300" y1="120" x2="360" y2="120" stroke="#888" stroke-width="1.5" marker-end="url(#arr)"/>
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#888"/>
+    </marker>
+  </defs>
+  <rect x="370" y="100" width="250" height="44" rx="6" fill="#1e1e2e"/>
+  <text x="382" y="120" font-size="13" fill="#9ece6a" font-family="monospace">&lt;131&gt;&lt;270&gt;</text>
+  <text x="382" y="138" font-size="13" fill="#9ece6a" font-family="monospace">&lt;879&gt;&lt;949&gt;</text>
+  <text x="370" y="170" font-size="11" fill="#666">四个 [0,999] 整数 → 四个 token</text>
+  <text x="60" y="246" font-size="11" fill="#666">1000×1000 方格纸:坐标先归一化再量化成格子编号</text>
+</svg>
+<figcaption>图 2 — 把图像当方格纸:一个框 = 四个 [0,999] 区间编号。</figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">def quantize(box_norm, bins=999):
+    # 归一化框 -> 四个 [0,999] 整数 -> token 串
+    ids = [max(0, min(bins, round(v * bins))) for v in box_norm]
+    return "".join(f"&lt;{i}&gt;" for i in ids), ids
+
+def dequantize(ids, bins=999):
+    # token 整数 -> 还原回 [0,1] 归一化框
+    return [i / bins for i in ids]
+
+box = [0.13, 0.27, 0.88, 0.95]          # 原始归一化框
+tok, ids = quantize(box)
+back = dequantize(ids)
+err = [abs(a - b) for a, b in zip(box, back)]
+
+print("token 串 :", tok)                # &lt;130&gt;&lt;270&gt;&lt;880&gt;&lt;950&gt;
+print("bin 整数 :", ids)
+print("还原归一 :", [round(b, 4) for b in back])
+print("量化误差 :", [round(e, 5) for e in err])  # 都 < 1/(2*999) ≈ 0.0005
+</code></pre>
+<p>跑一遍可以看到:四个坐标各自被压进最近的格子,再还原时每个分量的误差都不超过半格(约 0.0005 归一化单位)。这就是离散化坐标的全部代价——一个被半格上界牢牢锁住的误差。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p>设图像宽为 <span class="math inline">\(W\)</span>(高同理用 <span class="math inline">\(H\)</span>),绝对像素坐标 <span class="math inline">\(b_\text{abs}\)</span>。先归一化到 <span class="math inline">\([0,1]\)</span>:</p>
+<div class="math block">
+\[b_\text{norm} = b_\text{abs} / W\]
+</div>
+<p class="math-translation">—— 翻译:把"第几个像素"换算成"占整幅图的百分之几",抹掉原图分辨率差异。</p>
+<p>再量化成 <span class="math inline">\([0,999]\)</span> 的整数 bin(<span class="math inline">\(\lfloor\cdot\rceil\)</span> 表示四舍五入):</p>
+<div class="math block">
+\[b_\text{bin} = \mathrm{clip}\big(\lfloor b_\text{norm}\cdot 999\rceil,\, 0,\, 999\big)\]
+</div>
+<p class="math-translation">—— 翻译:把百分比乘到 0–999 这把"千格尺"上取整,落在哪一格就报哪个编号,越界的钳回端点。</p>
+<p>反量化(模型输出 bin 后还原绝对坐标):</p>
+<div class="math block">
+\[\hat b_\text{abs} = (b_\text{bin} / 999)\cdot W\]
+</div>
+<p class="math-translation">—— 翻译:把格子编号当成百分比读回去,再乘回真实宽度,得到预测的像素位置。</p>
+<p>量化只丢&quot;半格&quot;信息,误差上界为:</p>
+<div class="math block">
+\[|\hat b_\text{abs} - b_\text{abs}| \le \frac{W}{2\cdot 999}\]
+</div>
+<p class="math-translation">—— 翻译:任何坐标的还原误差都不超过半格对应的像素数;图越大、bin 越少,这个天花板越高。</p>
+<p>同一套&quot;框 → token&quot;的翻译,业界长出了 <strong>三大流派</strong>:</p>
+<p>① <strong>纯文本数字串</strong>——坐标就是普通数字 token,不新增任何词表。Shikra 直接在自然语言里写出 <code>0.131,0.270,0.879,0.949</code> 这样的数字,模型像背电话号码一样背坐标。</p>
+<p>② <strong>特殊定位 token</strong>——给坐标专门造词。Kosmos-2 用 markdown-link 形式 <code>[text span](&lt;loc&gt;)</code> 把文字跨度和框绑定;Florence-2 / PaliGemma 则引入 <code>&lt;loc0000&gt;</code>–<code>&lt;loc1023&gt;</code> 这类专用 location token,坐标从此有了独立的 embedding。</p>
+<p>③ <strong>量化 bin token vs 绝对坐标 JSON</strong>——Rex-Omni 把框量化到 bins 0–999,用整数 token <code>&lt;0&gt;</code>..<code>&lt;999&gt;</code> 表示(正是上面那套公式);而 Qwen2.5-VL 反其道行之,直接在 JSON 里吐 <strong>真实像素值</strong> 而非 bin,坐标系交给动态分辨率(§7 展开)。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>先看 <strong>解码</strong>(模型已吐出四个 bin,还原成绝对坐标):</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/parser.py:L88-L105 — 解码:把 &lt;x0&gt;&lt;y0&gt;&lt;x1&gt;&lt;y1&gt; 四个 [0,999] bin token 还原成绝对坐标</p>
+<pre><code class="language-python">            elif len(coord_nums) == 4:
+                # Bounding box: &lt;{x0}&gt;&lt;{y0}&gt;&lt;{x1}&gt;&lt;{y1}&gt;
+                try:
+                    x0_bin = int(coord_nums[0])
+                    y0_bin = int(coord_nums[1])
+                    x1_bin = int(coord_nums[2])
+                    y1_bin = int(coord_nums[3])
+
+                    # Convert from bins [0, 999] to absolute coordinates
+                    x0 = (x0_bin / 999.0) * w
+                    y0 = (y0_bin / 999.0) * h
+                    x1 = (x1_bin / 999.0) * w
+                    y1 = (y1_bin / 999.0) * h
+
+                    annotations.append({&quot;type&quot;: &quot;box&quot;, &quot;coords&quot;: [x0, y0, x1, y1]})
+                except (ValueError, IndexError) as e:
+                    print(f&quot;Error parsing box coordinates: {e}&quot;)
+                    continue
+</code></pre>
+<p>再看 <strong>编码</strong>(把绝对坐标喂给模型前,先量化成 bin token 串):</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/parser.py:L269-L300 — 编码:绝对坐标 → 归一化 → 量化到 [0,999] bin → 拼成 &lt;bin&gt; token 串</p>
+<pre><code class="language-python">def convert_boxes_to_normalized_bins(
+    boxes: List[List[float]], ori_width: int, ori_height: int
+) -&gt; List[str]:
+    &quot;&quot;&quot;Convert boxes from absolute coordinates to normalized bins (0-999) and map to words.&quot;&quot;&quot;
+    word_mapped_boxes = []
+    for box in boxes:
+        x0, y0, x1, y1 = box
+
+        # Normalize coordinates to [0, 1] range
+        x0_norm = max(0.0, min(1.0, x0 / ori_width))
+        x1_norm = max(0.0, min(1.0, x1 / ori_width))
+        y0_norm = max(0.0, min(1.0, y0 / ori_height))
+        y1_norm = max(0.0, min(1.0, y1 / ori_height))
+
+        # Convert to bins [0, 999]
+        x0_bin = max(0, min(999, int(x0_norm * 999)))
+        y0_bin = max(0, min(999, int(y0_norm * 999)))
+        x1_bin = max(0, min(999, int(x1_norm * 999)))
+        y1_bin = max(0, min(999, int(y1_norm * 999)))
+
+        # Map to words
+        word_mapped_box = &quot;&quot;.join(
+            [
+                f&quot;&lt;{x0_bin}&gt;&quot;,
+                f&quot;&lt;{y0_bin}&gt;&quot;,
+                f&quot;&lt;{x1_bin}&gt;&quot;,
+                f&quot;&lt;{y1_bin}&gt;&quot;,
+            ]
+        )
+        word_mapped_boxes.append(word_mapped_box)
+
+    return word_mapped_boxes
+</code></pre>
+<p><strong>对照</strong>:编码里的 <code>x0 / ori_width</code> 就是 §2.3 的归一化 <span class="math inline">\(b_\text{norm}=b_\text{abs}/W\)</span>;<code>int(x0_norm * 999)</code> 配上 <code>max(0, min(999, ·))</code> 正是量化式 <span class="math inline">\(b_\text{bin}=\mathrm{clip}(\lfloor b_\text{norm}\cdot 999\rceil,0,999)\)</span>(代码用 <code>int()</code> 截断,论文用四舍五入,差半格量级)。解码侧 <code>(x0_bin / 999.0) * w</code> 一字不差地对应反量化 <span class="math inline">\(\hat b_\text{abs}=(b_\text{bin}/999)\cdot W\)</span>。编码/解码两段把同一组公式做成了对称的一来一回。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li>
+<p><strong>Rex-Omni 为什么用&quot;复用已有词表的整数 token&quot;<code>&lt;0&gt;..&lt;999&gt;</code>?</strong> 它并没有真去新增 1000 个全新 embedding,而是把 <code>&lt;131&gt;</code> 这种整数串当成已有词表里的普通 token 来用——省去扩词表、初始化新 embedding 的成本,坐标 token 直接搭语言模型的便车,训练时无需冷启动新参数。代价是坐标和普通数字共享语义空间,得靠 SFT(22M)+GRPO 的几何感知 reward 把&quot;离散框框得准&quot;这件事硬训出来。</p>
+</li>
+<li>
+<p><strong>Qwen2.5-VL 的绝对像素坐标:尺度换精度。</strong> 直接输出真实像素值,保留了原图的真实尺度和长宽比,不被 1000 格强行压扁——但代价是坐标系死死绑在 <code>smart_resize</code> 之后的几何上(§7 详谈)。反观 1000 bins 方案有个精度天花板:<span class="math inline">\(W/(2\cdot 999)\)</span> 的上界意味着高分辨率图里两个挨得很近的小目标,可能被量化进同一格而无法区分。</p>
+</li>
+<li>
+<p><strong>离散 token vs 连续回归头,是这条线的根本张力。</strong> 离散方案(bin token)好训、和 LLM 自回归天然统一,但带着抹不掉的量化误差;连续方案(如 Ferret 用 spatial-aware visual sampler 直接采区域特征)坐标精确,却难和 LLM 的离散词表对齐、解码也更别扭。LocateAnything 的 Parallel Box Decoding(§3)正是在离散框架内做文章——既保留 token 化的训练友好,又把精度和速度抢回来。</p>
+</li>
+</ul>
+<h2 id="sec-3">3. Grounding 作为输出(一):检测、referring 与并行框解码</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>回到 §1 的 grounding 定义 <span class="math inline">\(g:(I,t)\to\{r_i\}\)</span>:模型要把每个 referent <span class="math inline">\(r\)</span> 落成一个归一化框 <span class="math inline">\((x_1,y_1,x_2,y_2)\)</span>。§2 已经讲过坐标怎么 token 化——把 <span class="math inline">\([0,1]\)</span> 量化成 bin,于是&quot;报一个框&quot;就变成&quot;念四个数&quot;,比如 <code>&lt;131&gt;&lt;270&gt;&lt;879&gt;&lt;949&gt;</code>。</p>
+<p>问题来了:VLM 默认是自回归(autoregressive)的,它一个 token 一个 token 地往外吐,念完 <span class="math inline">\(x_1\)</span> 才念 <span class="math inline">\(y_1\)</span>,念完 <span class="math inline">\(y_1\)</span> 才念 <span class="math inline">\(x_2\)</span>……四个数被强行排成一条串行队列。可这四个数本来是一个几何整体:左上角和右下角互相约束,知道了 <span class="math inline">\(x_1,x_2\)</span> 几乎就锁死了框的横向位置。它们更像一张牌的四个角,而不是一句话的四个词——为什么不一口气并行念出来?</p>
+<p>这正是 LocateAnything 的 <strong>Parallel Box Decoding(PBD,并行框解码)</strong>:把一个 bbox 当成一个原子块,块内四个坐标互相可见、一步并行解出。下图(图 3.1)是它的架构总览。</p>
+<figure>
+<img class="zoomable" src="figures/sec3-pbd-arch.png" alt="LocateAnything PBD 架构图">
+<figcaption>图 3.1:LocateAnything 的并行框解码(PBD)。框被当作长度 $L=6$ 的原子块,块内四个坐标双向可见、一步并行解出;块与块之间仍保持因果(causal)注意力,以维持自回归语义。</figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<p>下面这段手写小程序对比两种解码方式的&quot;步数&quot;:自回归逐 token 念(步数 = 坐标 token 数),vs 块并行(整框一步)。把它放进脑子里跑一遍,就能感受到加速来自哪里。</p>
+<pre class="teaching-demo"><code class="language-python">TOKENS_PER_BOX = 6  # box_start + x1 y1 x2 y2 + box_end
+
+def ar_steps(n_boxes):          # 自回归:每个 token 一步
+    return n_boxes * TOKENS_PER_BOX
+
+def pbd_steps(n_boxes):         # 并行框解码:整块一步出
+    return n_boxes * 1          # block 内 4 坐标并行,只算 1 步
+
+for n in [1, 5, 20]:
+    a, p = ar_steps(n), pbd_steps(n)
+    print(f"{n:>2} 框: 串行 {a:>3} 步, 并行 {p:>2} 步, 加速 {a/p:.0f}x")
+# 输出:
+#  1 框: 串行   6 步, 并行  1 步, 加速 6x
+#  5 框: 串行  30 步, 并行  5 步, 加速 6x
+# 20 框: 串行 120 步, 并行 20 步, 加速 6x
+</code></pre>
+<p>直觉是:每框省下的不是&quot;算得更快&quot;,而是&quot;少排了几趟队&quot;——把块内人造的顺序依赖压成一步。真实系统里加速比没有这么理想(块边界、回退机制等开销),但量级是对的。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p><strong>(1)NTP 串行基线。</strong> 标准 next-token-prediction(NTP)把一个框写成长度 <span class="math inline">\(L=6\)</span> 的 token 块 <span class="math inline">\(c_1,\dots,c_6\)</span>(<code>&lt;box_start&gt;</code>、4 个坐标、<code>&lt;box_end&gt;</code>),其联合概率严格自回归分解:</p>
+<div class="math block">
+\[p(\text{box}) = \prod_{i=1}^{L} p\bigl(c_i \mid c_{\lt i}, I, t\bigr)\]
+</div>
+<p class="math-translation">—— 翻译:每个 token 都条件在它前面所有 token 上($c_{\lt i}$ 即第 $i$ 个之前的全部),$L=6$ 个 token 必须排成一条因果链逐个生成,这就是串行 6 步的来源。</p>
+<p><strong>(2)Parallel Box Decoding。</strong> PBD 改造注意力掩码:<strong>块内双向</strong>(block-internal bidirectional)——一个框的 4 个坐标互相可见,联合一步解出;<strong>块间因果</strong>(cross-block causal)——框与框之间仍保自回归,后面的框看得到前面的框。形式上,块 <span class="math inline">\(k\)</span> 的整块分布只条件在前序块上:</p>
+<div class="math block">
+\[p(\text{box}_k) = p\bigl(c_1^{(k)},\dots,c_L^{(k)} \mid \text{box}_{\lt k}, I, t\bigr)\]
+</div>
+<p class="math-translation">—— 翻译:整个框 $\text{box}_k$ 作为一个整体被预测,内部 4 坐标不再互相条件、而是并行联合解码;只有"框与框"之间还保留 $\text{box}_{\lt k}$ 的因果依赖,自回归语义没丢。</p>
+<p><strong>训练怎么两全。</strong> LocateAnything 把同一个 GT 同时塞成两种格式:NTP 序列 <span class="math inline">\(x_\text{ntp}\)</span> 和 block 序列 <span class="math inline">\(x_\text{blk}\)</span>,靠 attention mask 让两条 stream 互不串话,联合学 NTP + MTP(multi-token-prediction)两个目标。<strong>推理三模式</strong>:Fast(纯 MTP,最快)、Slow(纯 NTP,最稳)、Hybrid(默认走 MTP,一旦输出 format 异常或 top-1 概率 <span class="math inline">\(\lt 0.7\)</span> 就回退 NTP)。这样并行解码出问题时有兜底,精度不塌。</p>
+<p><strong>Rex-Omni 的另一条路。</strong> 它把检测整个重铸为 next-point-prediction:坐标量化成离散 token(§2),用 SFT(22M)打底,再用 <strong>GRPO + geometry-aware reward</strong>(几何感知奖励)做 RL 微调——离散 token 化天然把连续坐标切成格子,SFT 难以补回这个&quot;离散→连续&quot;的精度 gap,而 RL 直接用 IoU 一类几何奖励去优化,顺带还压住了重复框(duplicate predictions)。两条路一个改解码并行度、一个改训练目标,但都在跟同一个对手较劲:把序列化的坐标生成做得又快又准。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>序列化的 grounding 输出最终要被解析回结构化的 <span class="math inline">\(\{r_i\}\)</span>。下面是 Rex-Omni 解析器的核心正则,把模型吐出的文本切回&quot;referent + 坐标块&quot;。</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/parser.py:L55-L68 — 检测/referring 输出用正则切出每个 object_ref + 其 box_start..box_end 块,再按逗号切多框</p>
+<pre><code class="language-python">    # Use regex to find all object references and coordinate pairs
+    pattern = r&quot;&lt;\|object_ref_start\|&gt;\s*([^&lt;]+?)\s*&lt;\|object_ref_end\|&gt;\s*&lt;\|box_start\|&gt;(.*?)&lt;\|box_end\|&gt;&quot;
+    matches = re.findall(pattern, text)
+
+    for category, coords_text in matches:
+        category = category.strip()
+
+        # Find all coordinate tokens in the format &lt;{number}&gt;
+        coord_pattern = r&quot;&lt;(\d+)&gt;&quot;
+        coord_matches = re.findall(coord_pattern, coords_text)
+
+        annotations = []
+        # Split by comma to handle multiple coordinates for the same phrase
+        coord_strings = coords_text.split(&quot;,&quot;)
+</code></pre>
+<p>对照看:正则 <code>&lt;\|object_ref_start\|&gt;...([^&lt;]+?)...&lt;\|object_ref_end\|&gt;...&lt;\|box_start\|&gt;(.*?)&lt;\|box_end\|&gt;</code> 的两个捕获组,第一组抓出 referent 文本(如 <code>cat</code>),第二组抓出它对应的整段坐标块——正好对应 §2 给的 Rex-Omni 输出格式。<code>re.findall</code> 一次性拿到图里所有&quot;referent + 坐标块&quot;配对。而 <code>coords_text.split(&quot;,&quot;)</code> 再把同一个 referent 下的<strong>多个同类框</strong>(比如三只猫)用逗号切开,逐个还原成一个 <span class="math inline">\(r_i\)</span>。这就是序列化 grounding 输出被解析回结构化结果的完整链路:正则定位语义边界 → 逗号切分多框 → 每个 <code>&lt;数字&gt;</code> token 反量化回归一化坐标。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>几何耦合该并行,而非串行。</strong> 一个框的 4 个角点服从一个联合分布,横纵坐标互相约束;NTP 的 <span class="math inline">\(c_{\lt i}\)</span> 链却给它们强加了一条人造的顺序依赖(先念 <span class="math inline">\(x_1\)</span> 才能念 <span class="math inline">\(y_1\)</span>)。PBD 把块内改成双向注意力,等于承认&quot;这四个数是一个整体&quot;,顺序本就不该存在——这是建模假设的修正,不只是工程提速。</li>
+<li><strong>离散→连续 gap 靠 RL 补。</strong> 坐标 token 化把连续位置切成 1000 个 bin,SFT 只能学到&quot;落在哪个格子&quot;,难以微调到亚像素精度。Rex-Omni 用 GRPO + geometry-aware reward 直接拿几何指标(IoU)当奖励信号,把 SFT 学不到的连续精度从 RL 里捞回来,同时缓解重复预测。</li>
+<li><strong>并行不是拿精度换速度,而是两者兼得。</strong> LocateAnything-3B 实测:LVIS F1@0.95 达 <strong>31.1</strong>(Qwen3-VL-8B 仅 20.2,Rex-Omni-3B 20.7),用更小的模型反超;吞吐 <strong>12.7 BPS</strong>,比 Qwen3-VL-8B 快 12.7×、比 Rex-Omni 快 2.5×。下图(图 3.2)的 teaser 直观传达了这一点:把 bbox 当原子,一次出 4 坐标。</li>
+</ul>
+<figure>
+<img class="zoomable" src="figures/sec3-teaser.png" alt="LocateAnything teaser">
+<figcaption>图 3.2:LocateAnything teaser——把 bbox 当作原子单元,块内 4 个坐标一次并行解出,在更小模型上同时拿到更高 F1 与更高吞吐。</figcaption>
+</figure>
+<h2 id="sec-4">4. Pointing 与计数:点不只是退化的框</h2>
+<h3 id="sec-4-1">4.1 直觉</h3>
+<p>想象你要数草地上的一群羊。与其给每只羊画一个框,不如<strong>用手指着一只一只点过去</strong>——点完几下,就是几只。这就是 pointing 的精神:grounding 的输出不一定是框,也可以是一个<strong>点</strong> <span class="math inline">\((x,y)\)</span>。</p>
+<p>点对两类任务格外自然。一是<strong>计数</strong>:框容易在密集、重叠的小目标上互相纠缠,而&quot;点一下算一个&quot;几乎不会数错。二是<strong>指向可操作目标</strong>:机器人要抓的那个把手、agent 要按的那个按钮、导航要去的那个 waypoint——它们本质上是一个位置,而不是一个范围。AllenAI 的 <strong>Molmo</strong> 用 native pointing 把这件事做到了开源 VLM 的第一梯队,证明了&quot;点&quot;是一种独立、强大的 grounding 形态,而非&quot;退化的框&quot;。</p>
+<figure>
+<img class="zoomable" src="figures/sec4-molmo-pointing.png" alt="Molmo 与 PixMo 概览:左侧 PixMo 数据引擎以人工/语音指点采集 PixMo-Points,右侧 Molmo 展现 pointing 与 counting-by-pointing 能力">
+<figcaption>图 4:Molmo 与 PixMo 概览。左侧 PixMo 数据引擎以人工/语音"指点"采集 PixMo-Points,右侧 Molmo 展现 pointing 与 counting-by-pointing 能力。图出自 Molmo 论文(arXiv:2409.17146)。</figcaption>
+</figure>
+<h3 id="sec-4-2">4.2 最小 demo</h3>
+<p>判定一个预测点是否&quot;命中&quot;目标,最直接的方式是看它是否落进 GT mask 里;计数则只是数一数点的个数:</p>
+<pre class="teaching-demo"><code class="language-python">def point_in_mask(point, mask):
+    """point=(x,y) 归一化 [0,1];mask 为 H×W 的 0/1 二维列表。"""
+    H, W = len(mask), len(mask[0])
+    px = min(int(point[0] * W), W - 1)   # 反归一化到列索引
+    py = min(int(point[1] * H), H - 1)   # 反归一化到行索引
+    return mask[py][px] == 1             # 落在前景=命中
+
+mask = [[0, 0, 0],
+        [0, 1, 1],
+        [0, 1, 1]]
+print(point_in_mask((0.8, 0.8), mask))   # True  命中
+print(point_in_mask((0.1, 0.1), mask))   # False 脱靶
+
+points = [(0.8, 0.8), (0.5, 0.6), (0.9, 0.7)]
+print("count =", len(points))            # count = 3,计数即点数
+</code></pre>
+<h3 id="sec-4-3">4.3 正式化</h3>
+<p><strong>(1) Pointing 输出。</strong> 给定图像 <span class="math inline">\(I\)</span> 与文本 <span class="math inline">\(t\)</span>,pointing 模型输出一个或多个归一化点</p>
+<div class="math block">
+\[r = (x, y) \in [0,1]^2\]
+</div>
+<p class="math-translation">—— 翻译:输出不是 $(x_1,y_1,x_2,y_2)$ 四元组的框,而是一个二维点,坐标已归一化到 $[0,1]$,与 §1 的 bin 量化 $b_\text{bin}=\lfloor b_\text{norm}\cdot999\rceil$ 共用同一坐标约定。</p>
+<p><strong>(2) Point-in-mask 评测。</strong> 设 GT 二值 mask 为 <span class="math inline">\(M\in\{0,1\}^{H\times W}\)</span>,预测点 <span class="math inline">\(\hat p=(\hat x,\hat y)\)</span>。命中当且仅当其落入前景:</p>
+<div class="math block">
+\[\text{hit}(\hat p) = \mathbb{1}\!\left[\, M\big[\lfloor \hat y\cdot H\rfloor,\ \lfloor \hat x\cdot W\rfloor\big] = 1 \,\right]\]
+</div>
+<p class="math-translation">—— 翻译:把归一化点缩放回像素行列索引,查这个像素是不是目标前景;是就算命中($\mathbb{1}[\cdot]$ 取 1)。</p>
+<p>当没有 mask、只有标注点 <span class="math inline">\(p^\ast\)</span> 时,改用距离阈值:</p>
+<div class="math block">
+\[\text{hit}(\hat p) = \mathbb{1}\!\left[\, \lVert \hat p - p^\ast \rVert \lt \tau \,\right]\]
+</div>
+<p class="math-translation">—— 翻译:预测点与真值点的欧氏距离小于阈值 $\tau$ 即判命中;阈值越小评测越严。</p>
+<p><strong>(3) Counting via pointing。</strong> 把&quot;数数&quot;归约为&quot;数点&quot;:</p>
+<div class="math block">
+\[\hat n = \big|\{\hat p_i\}\big|\]
+</div>
+<p class="math-translation">—— 翻译:模型先逐个点出每个实例,预测数量就等于点集的基数;Molmo 正是靠这种"点着数"显著提升了计数准确率。</p>
+<h3 id="sec-4-4">4.4 代码引用</h3>
+<p>Rex-Omni 把 pointing 与 keypoint 都登记为独立任务:pointing 直接输出 <span class="math inline">\((x,y)\)</span> 点,keypoint 则先框后逐关节点(如 17 关节人体/动物骨架)。</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/tasks.py:L48-L72 — Pointing 与 Keypoint 任务:point 输出 (x,y),keypoint 先框后逐关节点</p>
+<pre><code class="language-python">    TaskType.POINTING: TaskConfig(
+        name=&quot;Pointing&quot;,
+        prompt_template=&quot;Point to {categories}.&quot;,
+        description=&quot;Point to objects and return in point format&quot;,
+        output_format=&quot;points&quot;,
+        requires_categories=True,
+    ),
+    TaskType.VISUAL_PROMPTING: TaskConfig(
+        name=&quot;Visual Prompting&quot;,
+        prompt_template=&quot;Given reference boxes {visual_prompt} indicating one or more objects, find all similar objects in the image and output their bounding boxes.&quot;,
+        description=&quot;Ground visual prompts to image regions&quot;,
+        output_format=&quot;boxes&quot;,
+        requires_categories=False,
+        requires_visual_prompt=True,
+    ),
+    TaskType.KEYPOINT: TaskConfig(
+        name=&quot;Keypoint&quot;,
+        prompt_template=&quot;Can you detect each {categories} in the image using a [x0, y0, x1, y1] box format, and then provide the coordinates of its {keypoints} as [x0, y0]? Output the answer in JSON format.&quot;,
+        description=&quot;Detect keypoints for specific object types&quot;,
+        output_format=&quot;keypoints&quot;,
+        requires_categories=True,
+        requires_keypoint_type=True,
+    ),
+</code></pre>
+<p>解析端如何把模型吐出的 bin token 还原成一个点:</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/parser.py:L73-L86 — 解析:两个 bin token = 一个点,还原成像素坐标</p>
+<pre><code class="language-python">            if len(coord_nums) == 2:
+                # Point: &lt;{x}&gt;&lt;{y}&gt;
+                try:
+                    x_bin = int(coord_nums[0])
+                    y_bin = int(coord_nums[1])
+
+                    # Convert from bins [0, 999] to absolute coordinates
+                    x = (x_bin / 999.0) * w
+                    y = (y_bin / 999.0) * h
+
+                    annotations.append({&quot;type&quot;: &quot;point&quot;, &quot;coords&quot;: [x, y]})
+                except (ValueError, IndexError) as e:
+                    print(f&quot;Error parsing point coordinates: {e}&quot;)
+                    continue
+</code></pre>
+<p>对照上一节的形式化:判据 <code>len(coord_nums) == 2</code> 正是&quot;两个 bin token 拼成一个点&quot;——区别于框需要 4 个 token,从而把这段输出识别为 <span class="math inline">\(r=(x,y)\)</span> 而非框。随后的 <code>(x_bin / 999.0) * w</code> 与 <code>(y_bin / 999.0) * h</code> 是 §2 量化 <span class="math inline">\(b_\text{bin}=\lfloor b_\text{norm}\cdot999\rceil\)</span> 的<strong>逆运算</strong>:先把 bin 归一回 <span class="math inline">\([0,1]\)</span>,再乘图像宽高 <span class="math inline">\(w,h\)</span> 还原成像素坐标。两个 token、两步反量化,一个点就落回了图上。</p>
+<h3 id="sec-4-5">4.5 洞察</h3>
+<ul>
+<li><strong>点 vs 框:信息与监督的取舍。</strong> 点只标一个位置,标注成本远低于画框,对小目标、密集场景与&quot;可操作性&quot;(抓哪、按哪)更友好;代价是它<strong>不携带尺寸与范围信息</strong>——你知道目标在哪,却不知道它有多大。所以 pointing 不是框的替代,而是面向&quot;定位即行动&quot;场景的另一种表达。</li>
+<li><strong>PixMo-Points 不靠外部 VLM 标注。</strong> Molmo 的关键不只在模型,更在数据:PixMo-Points 由<strong>人工/语音&quot;指点&quot;采集</strong>,而非蒸馏现成大模型的输出。这避免了把其他 VLM 的偏差与幻觉一并继承进来,数据质量因此更干净——这一点直接呼应 §9 对&quot;数据引擎&quot;的讨论,也是 72B 模型能与闭源模型掰手腕的底气。</li>
+<li><strong>Pointing 是 agent/robot &quot;按点行动&quot;的天然接口。</strong> 导航 waypoint、要抓的物体、要点的 UI 按钮,本质都是一个点。pointing 让 VLM 把&quot;我看到了什么&quot;直接变成&quot;我该动作在哪&quot;,这正是 §5 GUI grounding 把屏幕坐标当成可执行指令的起点;后续工作如 MolmoPoint(arXiv:2603.28069,以 grounding token 改进 pointing)与 Molmo 2(2026,在 pointing 基础上加入视频理解与 tracking)进一步把这条接口推向时序与具身场景。</li>
+</ul>
+<h2 id="sec-5">5. GUI / 智能体屏幕 grounding</h2>
+<h3 id="sec-5-1">5.1 直觉</h3>
+<p>想象一块 4K 分辨率的工程软件截图:Photoshop、Premiere、CAD,工具栏密密麻麻挤着上百个图标。现在你对模型说&quot;点击导出按钮&quot;,它得在这片像素汪洋里,精确找到那个只有 12×12 像素的小图标,并把鼠标点上去。这就是 GUI grounding:把一条界面指令 <span class="math inline">\(t\)</span>(比如 <span class="math inline">\(t=\)</span>&quot;点击提交按钮&quot;)映射到屏幕坐标 —— 一个点 <span class="math inline">\((x,y)\)</span> 或一个控件框。</p>
+<p>它是 computer-use agent(会自己操作软件的智能体)的命门。和自然图像 grounding 不同,GUI 场景有三重残酷:目标极小(一个图标),界面极密(成百上千个可点元素挤在一起),分辨率极高(专业软件动辄 3840×2160)。如下图所示,一旦目标控件相对屏幕变小,各家模型的命中率就齐刷刷往下掉。点错一个像素,agent 的整条操作链就断了。</p>
+<figure>
+<img class="zoomable" src="figures/sec5-screenspot-pro.png" alt="ScreenSpot-Pro:GUI grounding 准确率随目标框相对面积变小而普遍下降">
+<figcaption>图 5:ScreenSpot-Pro(arXiv:2504.07981)Figure 2 —— SeeClick / OS-Atlas / UGround / Qwen2-VL 等模型的 GUI grounding 准确率,随目标控件相对面积减小而普遍下滑;专业高分辨率界面中目标平均仅占画面 0.07%,是 grounding 最难的赛道。</figcaption>
+</figure>
+<h3 id="sec-5-2">5.2 最小 demo</h3>
+<p>把&quot;点击提交按钮&quot;这条指令交给模型,它吐回一个归一化点 <span class="math inline">\((x,y)\in[0,1]^2\)</span>;我们要判定这个点是否落在目标控件的 bbox 内(point-in-box)。</p>
+<pre class="teaching-demo"><code class="language-python"># GUI grounding 命中判定:预测点是否落在目标控件框内
+def predict_click(instruction, H, W):
+    # 真实模型在此输出归一化点;demo 里硬编码一次预测
+    return (0.62, 0.91)          # 模型说:提交按钮在这
+
+def hit(point, bbox):            # bbox = (x1, y1, x2, y2),归一化坐标
+    x, y = point
+    x1, y1, x2, y2 = bbox
+    return (x1 &lt;= x &lt;= x2) and (y1 &lt;= y &lt;= y2)
+
+submit_bbox = (0.55, 0.88, 0.70, 0.95)   # GT 提交按钮框
+p = predict_click("点击提交按钮", H=2160, W=3840)
+area = (0.70 - 0.55) * (0.95 - 0.88)      # 相对面积 ≈ 1.05%
+print(hit(p, submit_bbox), f"{area:.4%}")  # True 1.0500%
+</code></pre>
+<p>判定逻辑只有一行:点在框内就算对。但真实难点藏在 <code>area</code> 里 —— 当它小到 0.07% 时,模型几乎没有容错空间。</p>
+<h3 id="sec-5-3">5.3 正式化</h3>
+<p>沿用 §1 的 grounding 定义 <span class="math inline">\(g:(I,t)\to\{r_i\}\)</span>。GUI grounding 把输出退化为单个点或单个框:给定截图 <span class="math inline">\(I\)</span>(尺寸 <span class="math inline">\(H\times W\)</span>)和界面指令 <span class="math inline">\(t\)</span>,模型预测一个归一化点 <span class="math inline">\(p=(x,y)\in[0,1]^2\)</span>。评测用 click / grounding accuracy:预测点落入 GT 控件框内即算命中:</p>
+<div class="math block">
+\[\text{hit}=\mathbb{1}\!\left[\,p\in \text{bbox}_\text{gt}\,\right],\qquad p\in[0,1]^2\]
+</div>
+<p class="math-translation">—— 翻译:命中是个 0/1 判定,预测点 $p$ 只要落在真值控件框 $\text{bbox}_\text{gt}$ 内就记 1 分,否则记 0,与框的大小无关。</p>
+<p>难度则由目标控件相对屏幕的面积刻画。设控件框面积为 <span class="math inline">\(\text{area}(\text{bbox})\)</span>,定义相对面积:</p>
+<div class="math block">
+\[a=\frac{\text{area}(\text{bbox}_\text{gt})}{H\cdot W},\qquad a\to 0 \ \Rightarrow\ \text{越难}\]
+</div>
+<p class="math-translation">—— 翻译:把控件框面积除以整张截图的像素总数得到相对面积 $a$;$a$ 越接近 0,目标在屏幕上越小,模型越难点中。ScreenSpot-Pro 里 $a$ 平均仅约 $0.07\%$。</p>
+<p>整套数据集级指标就是 <span class="math inline">\(\text{Acc}=\frac{1}{N}\sum_i \text{hit}_i\)</span>:在 <span class="math inline">\(N\)</span> 条指令上,命中点数占比。早期 ScreenSpot 上 <span class="math inline">\(a\)</span> 较大(约 2%),专业场景 ScreenSpot-Pro 把 <span class="math inline">\(a\)</span> 压到 <span class="math inline">\(0.07\%\)</span>,准确率随之断崖。</p>
+<h3 id="sec-5-4">5.4 代码引用</h3>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/rex_omni/tasks.py:L86-L100 — GUI grounding:同一套坐标接口,prompt 改成 'Point to element / Detect element'</p>
+<pre><code class="language-python">        name=&quot;GUI Detection&quot;,
+        prompt_template='Detect element &quot;{categories}&quot;&quot; in the image.',
+        description=&quot;Detect GUI elements and return in bounding box format&quot;,
+        output_format=&quot;boxes&quot;,
+        requires_categories=True,
+    ),
+    TaskType.GUI_POINTING: TaskConfig(
+        name=&quot;GUI Pointing&quot;,
+        prompt_template='Point to element &quot;{categories}&quot;.',
+        description=&quot;Point to GUI elements and return in point format&quot;,
+        output_format=&quot;points&quot;,
+        requires_categories=True,
+    ),
+}
+</code></pre>
+<p>对照来看:<code>GUI_DETECTION</code> 的 <code>output_format=&quot;boxes&quot;</code>、<code>GUI_POINTING</code> 的 <code>output_format=&quot;points&quot;</code>,复用的正是 §2 那套坐标 token 接口 —— 框还是 <span class="math inline">\((x_1,y_1,x_2,y_2)\)</span>,点还是 <span class="math inline">\((x,y)\)</span>,解码逻辑、坐标归一化全部照旧。GUI 任务唯一变的,是 <code>prompt_template</code> 换成了 &quot;Detect element / Point to element&quot;。换句话说,从自然图像检测切换到屏幕控件 grounding,模型不需要新的输出头、新的损失,只需要换一行 prompt 模板。这就是&quot;统一接口&quot;的威力:一套坐标语言,跨域复用。</p>
+<h3 id="sec-5-5">5.5 洞察</h3>
+<ul>
+<li><strong>演进三级跳:SeeClick → UGround → UI-TARS。</strong> SeeClick(arXiv:2401.10935, ACL 2024)首次把 GUI grounding 当作预训练任务,并提出 ScreenSpot 基准(600+ 截图、1200 条指令,覆盖 iOS/Android/macOS/Windows/Web 的文本与图标控件);UGround(arXiv:2410.05243)推进到&quot;像人一样&quot;的纯视觉通用 GUI grounding,不依赖任何 DOM/a11y 树;UI-TARS(arXiv:2501.12326)则把 grounding 内化进端到端原生 GUI agent。轨迹清晰:从&quot;GUI grounding 预训练&quot; → &quot;通用视觉 grounding&quot; → &quot;原生 agent&quot;。</li>
+<li><strong>高分辨率是核心瓶颈。</strong> 专业软件动辄 4K,而 VLM 视觉编码器往往先下采样到固定分辨率,那个 12×12 像素的图标在降采样后糊成一团,特征几乎丢失。目标越小、分辨率越高,这个矛盾越尖锐 —— 这正是 §7 高分辨率感知要正面回应的问题。</li>
+<li><strong>远未解决的硬骨头。</strong> ScreenSpot-Pro(arXiv:2504.07981, 2025)用 1,581 张专家标注截图、横跨 5 类 23 款专业应用、3 种操作系统,把目标压到平均 0.07% 面积。结果最强基线模型仅 <strong>18.9%</strong> 命中率;即便专门的免训练视觉搜索方法 ScreenSeekeR 也只到 48.1%。这说明 2025–2026 年,GUI grounding 仍是一块硬骨头,grounding 远未&quot;解决&quot;。</li>
+</ul>
+<h2 id="sec-6">6. Grounding 作为思维:grounded reasoning</h2>
+<p>§3–§5 把 grounding 当成<strong>最终输出</strong>:给定 <span class="math inline">\((I,t)\)</span>,模型吐出一组 referent <span class="math inline">\(\{r_i\}\)</span>,任务结束。本节把这个动作从输出端<strong>挪到推理链的中间</strong>——模型边想边在图上&quot;点&quot;,让坐标成为思考的工具而非答案本身。</p>
+<h3 id="sec-6-1">6.1 直觉</h3>
+<p>解几何题时,我们很少先闷头想完再画图。我们边读题边在图上标点、画辅助线:&quot;设这条边的中点为 <span class="math inline">\(M\)</span>&quot;——标下去的那一刻,抽象的&quot;中点&quot;就被钉在了一个具体位置上,后面所有推理都站在这个点上继续。<strong>&quot;指&quot;本身就是思考的一部分,而不是最后才写答案。</strong></p>
+<p>grounded reasoning 把同样的习惯搬给 VLM。§1 提过 <strong>Reference Gap</strong>:自然语言对密集空间布局的指代天然有歧义——&quot;左边那只稍小的狗&quot;在六只狗的合影里指谁?与其用更多文字绕,不如直接落一个坐标 <span class="math inline">\((0.62,0.40)\)</span>,把语言概念锚到物理像素上。于是点/框不再是答案,而是推理链中间的一步,模型边推理边在图上&quot;点&quot;,每点一下就消解一处歧义,推理才不会在空间关系上塌方。</p>
+<figure>
+  <img class="zoomable" src="figures/sec6-thinking-arch.png" alt="Thinking with Visual Primitives 架构">
+  <figcaption>图 6-1:Thinking with Visual Primitives 把点/框这类视觉原语穿插进推理轨迹,grounding 成为思考的中间步骤而非终点。</figcaption>
+</figure>
+<h3 id="sec-6-2">6.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python"># 一条 grounded CoT trace:文本推理步 与 grounding 动作 交错
+trace = [
+    {"act": "text",  "say": "题目问:离消防栓最近的人在哪?"},
+    {"act": "point", "xy": (0.62, 0.40)},          # 先把消防栓"点"出来
+    {"act": "text",  "say": "以该点为锚,扫描周围的人"},
+    {"act": "point", "xy": (0.55, 0.48)},          # 再点出最近的人
+    {"act": "text",  "say": "该点即为答案"},
+]
+
+ctx = []                                            # 推理上下文,会被坐标改写
+for step in trace:
+    if step["act"] == "point":
+        x, y = step["xy"]
+        ctx.append(f"[锚点@({x:.2f},{y:.2f})]")     # 坐标作为 token 注入推理流
+    else:
+        anchors = " ".join(ctx[-2:]) or "(暂无锚点)"
+        print(f"{step['say']}  <- 当前可用锚点: {anchors}")
+</code></pre>
+<p>关键在那个 <code>point</code> 步:它不打印答案,只往 <code>ctx</code> 里塞一个具体坐标 token,<strong>后续文本步的推理直接条件在这个坐标上</strong>。这正是 thought-grounding 与 output-grounding 的差别——坐标出现在轨迹中间,改写了下游的思考。</p>
+<h3 id="sec-6-3">6.3 正式化</h3>
+<p>把一次 grounded 推理建模为一条<strong>轨迹</strong> <span class="math inline">\(\tau=(s_1,a_1,s_2,a_2,\dots)\)</span>,其中每个动作 <span class="math inline">\(a_t\)</span> 要么是普通文本 token,要么是一个 grounding 原语 <span class="math inline">\(r_t=(x,y)\)</span>,二者<strong>交错在同一条序列里</strong>。对比两种范式:</p>
+<div class="math block">
+\[p(r \mid I,t) \qquad \text{vs} \qquad p(\text{answer}\mid I,t)=\sum_{\tau}\ \prod_t p\big(a_t \mid a_{\lt t},\, I\big)\]
+</div>
+<p class="math-translation">—— 翻译:左边是 §3–§5 的 output-grounding,坐标 $r$ 就是终点;右边是 thought-grounding,答案对所有交错了坐标的轨迹 $\tau$ 求和,每步 $a_t$ 都条件在此前所有 token $a_{\lt t}$(含中途的坐标)上。</p>
+<p>当某个 <span class="math inline">\(r_t=(x,y)\)</span> 出现在 <span class="math inline">\(a_{\lt t}\)</span> 里,它就成了后续每个 <span class="math inline">\(a_{t'}\ (t'\gt t)\)</span> 的条件,把语言推理钉在具体像素上。<strong>Reference Gap</strong> 可形式化为:存在文本指代 <span class="math inline">\(t\)</span> 使后验 <span class="math inline">\(p(r\mid I,t)\)</span> 在多个相距甚远的 referent 上接近均匀——语言不足以消歧;注入一个坐标 <span class="math inline">\(r_t\)</span> 后,条件分布 <span class="math inline">\(p(a_{t'}\mid a_{\lt t})\)</span> 的熵显著下降。</p>
+<p>这给出一个统一视角:<strong>Set-of-Marks</strong>(外部叠编号标记,把消歧交给视觉提示)、<strong>VGR</strong>(先检测相关区域再 replay-and-answer)、<strong>Chain-of-Visual-Thought / COVT</strong>(在链中插入连续视觉 token,在 Qwen2.5-VL/LLaVA 上 +3–16%),本质都是往轨迹里塞 <span class="math inline">\(r_t\)</span> 来压低 Reference Gap,只是原语形态不同(外部标记 / 离散框 / 连续向量)。</p>
+<h3 id="sec-6-4">6.4 代码引用</h3>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/finetuning/dataset/task_fns/pointing_task.py:L15-L28 — grounding 原语作为普通 token 内联在生成流里:gpt 答案把 referent 文本 + 坐标 token 直接编织进序列</p>
+<pre><code class="language-python">    Returns:
+        - dict: Dict with the following keys:
+            &quot;conversations&quot; (List): [
+                {
+                    &quot;from&quot;: &quot;human&quot;,
+                    &quot;value&quot;: &quot;&lt;image&gt;\nCan you point to the dog, cat in this image?&quot;
+                },
+                {
+                    &quot;from&quot;: &quot;gpt&quot;,
+                    &quot;value&quot;: &quot;&lt;|object_ref_start|&gt;dog&lt;|object_ref_end|&gt;&lt;|box_start|&gt;&lt;123&gt;&lt;456&gt;,&lt;789&gt;&lt;890&gt;&lt;|box_end|&gt;, &lt;|object_ref_start|&gt;cat&lt;|object_ref_end|&gt;&lt;|box_start|&gt;None&lt;|box_end|&gt;&quot;
+                },
+            ]
+            # ! Note: The coordinates are now normalized to [0, 999] bins.
+            # ! For negative examples, the point coordinates will be &quot;None&quot;.
+</code></pre>
+<p>注意 gpt 答案里的 <code>&lt;|object_ref_start|&gt;dog&lt;|object_ref_end|&gt;&lt;|box_start|&gt;&lt;123&gt;&lt;456&gt;...&lt;|box_end|&gt;</code>:referent 文本与坐标 bin 都是<strong>普通 token,内联在生成流里</strong>,和自然语言 token 走同一条自回归序列、同一个 softmax。正是这套&quot;坐标即 token&quot;的机械基底,让 grounded reasoning 可以把原语放在<strong>推理中途</strong>而非只在末尾——把 <span class="math inline">\(r_t\)</span> 编织进 <span class="math inline">\(a_{\lt t}\)</span> 在工程上和多写几个词没有区别。还需留意 <code>cat</code> 对应的 <code>None</code>:当某类目标在图中<strong>缺席</strong>(负例),坐标位置直接写 <code>None</code>,模型因此学会&quot;指不到就说指不到&quot;,而非硬编一个坐标——这对中途锚点的可靠性至关重要。</p>
+<h3 id="sec-6-5">6.5 洞察</h3>
+<ul>
+<li><strong>output-grounding vs thought-grounding 是两种范式。</strong> 前者把坐标当<strong>答案</strong>(<span class="math inline">\(p(r\mid I,t)\)</span>,§3–§5),后者把坐标当<strong>工具</strong>:Thinking with Visual Primitives(DeepSeek+PKU+THU)把点/框当作 <em>thinking atoms</em> 交错进推理轨迹,直指 Reference Gap;它是 LocateAnything &quot;bbox 作为一等输出&quot;到&quot;bbox 作为一等思想&quot;的自然延伸。</li>
+<li><strong>RL(GRPO)对 grounded reasoning 几乎是必需的。</strong> 中途的 grounding 步骤<strong>没有逐步监督</strong>——没人标注&quot;这一步该点哪&quot;,只有最终答案对错可查。于是只能靠最终奖励反向塑形整条轨迹:Thinking with Visual Primitives 用 <strong>Format / Quality / Accuracy 三个 reward model</strong> 做 GRPO,cold-start 任务则取计数、空间推理、迷宫导航、路径追踪这类天然可验证、强逼空间锚定的题目。</li>
+<li><strong>代价与回报:token 开销换&quot;逻辑不塌方&quot;。</strong> 中途落坐标确实多花 token,但换来计数 / 拓扑 / 空间推理上的稳定性。Thinking with Visual Primitives 在选定 benchmark 上与 <strong>GPT-5.4 / Claude-Sonnet-4.6 / Gemini-3-Flash 持平或反超</strong>,而 token 效率是它们的 <strong>1/8–1/10</strong>——锚定让模型用更短的链做对更难的空间题。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/sec6-maze.png" alt="迷宫导航 / 路径追踪示例">
+  <figcaption>图 6-2:迷宫导航 / 路径追踪是 grounded reasoning 的 cold-start 任务之一——每一步都必须落在具体格点上,逼模型把推理锚到坐标。</figcaption>
+</figure>
+<h2 id="sec-7">7. 高分辨率感知与视觉 token 压缩</h2>
+<h3 id="sec-7-1">7.1 直觉</h3>
+<p>要在地图上指准一条小巷,你得先把地图放大到能看清街道——但放得越大,要处理的&quot;格子&quot;就越多。VLM 也一样:§2 里 Qwen2.5-VL 输出的是<strong>绝对像素坐标</strong>,§5 又强调高分辨率是 GUI grounding 的核心瓶颈。说白了,<strong>指得准的前提是看得清</strong>。可看清需要高分辨率,而 ViT 把图切成 patch,patch 数随像素数线性膨胀——一张 4K 截图能切出几万个视觉 token,LLM 根本算不动。</p>
+<p>于是出现了一个隐形地基(见本节末图 7):高分辨率切出海量 patch → 必须经过池化 / KV 压缩 → 才剩下少量 token 喂给 LLM。看不清就指不准,但全看又算不动。这一节讲两种应对哲学:Qwen 的<strong>动态分辨率</strong>(按图调整 token 数)和 DeepSeek 的<strong>激进压缩</strong>(狠压 KV cache)。一个关键细节贯穿始终:无论怎么缩放,grounding 的坐标系永远绑定在 resize <strong>之后</strong>的几何上。</p>
+<h3 id="sec-7-2">7.2 最小 demo</h3>
+<p>下面这段玩具版 <code>smart_resize</code> 把真实 Qwen 逻辑缩到能心算的尺度:对齐到 <code>factor</code> 网格,超预算就按 <span class="math inline">\(\sqrt{}\)</span> 比例缩。</p>
+<pre class="teaching-demo"><code class="language-python">import math
+
+def smart_resize(H, W, factor=28, max_tokens=256):
+    max_pixels = max_tokens * factor * factor          # token 预算 → 像素预算
+    h = max(factor, round(H / factor) * factor)        # 对齐到 factor 网格
+    w = max(factor, round(W / factor) * factor)
+    if h * w > max_pixels:                             # 超预算 → 等比缩小
+        beta = math.sqrt((H * W) / max_pixels)
+        h = math.floor(H / beta / factor) * factor
+        w = math.floor(W / beta / factor) * factor
+    return h, w
+
+H, W = 1340, 2010                                      # 一张高清截图
+h, w = smart_resize(H, W)
+print(f"orig {H}x{W} -> resized {h}x{w}")
+print(f"tokens = {(h // 28) * (w // 28)}")             # ≈ (H/factor)*(W/factor)
+</code></pre>
+<p>跑一遍会看到 <code>1340x2010</code> 被压到 token 数落进 256 预算内——坐标若要指物,得相对 <code>resized</code> 后那个 <code>h×w</code> 来报。</p>
+<h3 id="sec-7-3">7.3 正式化</h3>
+<p><strong>(1) 朴素 patch 数。</strong> patch size 为 <span class="math inline">\(p\)</span> 时,ViT 切出的 token 数为</p>
+<div class="math block">
+\[N=\left\lceil \frac{H}{p}\right\rceil\cdot\left\lceil \frac{W}{p}\right\rceil\]
+</div>
+<p class="math-translation">—— 翻译: token 数 = 高、宽各自向上取整能切多少个 $p\times p$ 格子之积,随像素数 $O(HW/p^2)$ 增长,所以高分辨率天然昂贵。</p>
+<p><strong>(2) Qwen smart_resize 约束。</strong> 设 factor <span class="math inline">\(=28\)</span>(patch 14 × 2×2 merge),resize 后尺寸 <span class="math inline">\((h,w)\)</span> 须满足</p>
+<div class="math block">
+\[h\cdot w\in[\text{min},\text{max}],\quad h\equiv 0,\; w\equiv 0\pmod{\text{factor}}\]
+</div>
+<p class="math-translation">—— 翻译: 总像素被夹在 $[\text{min},\text{max}]$ 区间内,且高宽都必须是 factor 的整数倍(才能整齐切 patch + merge)。</p>
+<p>超预算(<span class="math inline">\(h\cdot w\gt\text{max}\)</span>)时按比例 <span class="math inline">\(\beta\)</span> 缩小:</p>
+<div class="math block">
+\[\beta=\sqrt{\frac{HW}{\text{max}}},\qquad h=\Big\lfloor \tfrac{H}{\beta}\Big\rfloor_{\text{factor}},\; w=\Big\lfloor \tfrac{W}{\beta}\Big\rfloor_{\text{factor}}\]
+</div>
+<p class="math-translation">—— 翻译: $\beta$ 是把像素数压回预算所需的等比缩放倍率,缩完再向下取整到 factor 网格,保持纵横比基本不变。</p>
+<p><strong>(3) Thinking-with-Visual-Primitives 的激进压缩。</strong> DeepSeek 把压缩拆成两级:ViT 输出做 <span class="math inline">\(3\times 3\)</span> spatial pooling(空间 ×9),LLM 端的 CSA(Compressed Sparse Attention)再把每 4 个 visual token 的 KV cache 压成 1 entry:</p>
+<div class="math block">
+\[\text{ratio}=\underbrace{9}_{\text{3×3 pool}}\times\underbrace{4}_{\text{CSA KV}}\times\underbrace{p^2}_{14^2\ \text{ViT}}\;\approx\;7056\]
+</div>
+<p class="math-translation">—— 翻译: $756\times756$ 输入($571{,}536$ 像素)经 9×4×196 三级压缩后,最终 KV cache 仅 $81$ entries,总压缩比约 $7056\times$。</p>
+<h3 id="sec-7-4">7.4 代码引用</h3>
+<p class="code-source">sources/repos/QwenLM-Qwen2.5-VL/qwen-vl-utils/src/qwen_vl_utils/vision_process.py:L56-L81 — Qwen2.5-VL 的 smart_resize:把任意分辨率对齐到 factor 网格并把像素数夹进 [min,max],决定了坐标参考系</p>
+<pre><code class="language-python">def smart_resize(height: int, width: int, factor: int, min_pixels: Optional[int] = None, max_pixels: Optional[int] = None) -&gt; Tuple[int, int]:
+    &quot;&quot;&quot;
+    Rescales the image so that the following conditions are met:
+
+    1. Both dimensions (height and width) are divisible by 'factor'.
+    2. The total number of pixels is within the range ['min_pixels', 'max_pixels'].
+    3. The aspect ratio of the image is maintained as closely as possible.
+    &quot;&quot;&quot;
+    max_pixels = max_pixels if max_pixels is not None else (IMAGE_MAX_TOKEN_NUM * factor ** 2)
+    min_pixels = min_pixels if min_pixels is not None else (IMAGE_MIN_TOKEN_NUM * factor ** 2)
+    assert max_pixels &gt;= min_pixels, &quot;The max_pixels of image must be greater than or equal to min_pixels.&quot;
+    if max(height, width) / min(height, width) &gt; MAX_RATIO:
+        raise ValueError(
+            f&quot;absolute aspect ratio must be smaller than {MAX_RATIO}, got {max(height, width) / min(height, width)}&quot;
+        )
+    h_bar = max(factor, round_by_factor(height, factor))
+    w_bar = max(factor, round_by_factor(width, factor))
+    if h_bar * w_bar &gt; max_pixels:
+        beta = math.sqrt((height * width) / max_pixels)
+        h_bar = floor_by_factor(height / beta, factor)
+        w_bar = floor_by_factor(width / beta, factor)
+    elif h_bar * w_bar &lt; min_pixels:
+        beta = math.sqrt(min_pixels / (height * width))
+        h_bar = ceil_by_factor(height * beta, factor)
+        w_bar = ceil_by_factor(width * beta, factor)
+    return h_bar, w_bar
+</code></pre>
+<p>逐行对照 §7.3:<code>round_by_factor</code> / <code>floor_by_factor</code> 实现了 <span class="math inline">\(h,w\equiv 0\pmod{\text{factor}}\)</span> 的整除约束,把任意 H、W 钉到 factor 网格;<code>beta = sqrt((height*width)/max_pixels)</code> 正是 §7.3 的缩放因子 <span class="math inline">\(\beta\)</span>——超预算时等比缩小再向下取整。最关键的承接 §2:返回的 <code>(h_bar, w_bar)</code> 就是图像实际进网络的几何,而 grounding 输出的<strong>绝对像素坐标正是相对这个 resized 几何</strong>而言的——上层 prompt 里的 box / point 坐标必须按同一个 <code>(h_bar, w_bar)</code> 来解码,否则会系统性偏移。</p>
+<h3 id="sec-7-5">7.5 洞察</h3>
+<ul>
+<li><strong>三角约束。</strong> 看得清要高分辨率、坐标精度要高分辨率,但 token 预算有限——三者拉成一个无法同时满足的三角。压缩不是优化,而是被迫的折中:你总得在&quot;看多细&quot;和&quot;算多快&quot;之间砍一刀。</li>
+<li><strong>为什么 V*Bench / HRBench 难。</strong> 这两个高分辨率 benchmark 专考小目标视觉搜索。在固定 token 预算下,smart_resize 把全图压进 max_pixels,小目标可能被池化得只剩半个 patch、甚至被压没——看不见自然指不准,grounding 直接失败。这暴露了&quot;全局降采样&quot;对局部细节的系统性损伤。</li>
+<li><strong>两种哲学。</strong> 动态分辨率(Qwen smart_resize)是<strong>按图调整 token 数</strong>——大图多给 token、小图少给,温和但仍受 max_pixels 顶死;激进压缩(Thinking-with-VP 的 <span class="math inline">\(7056\times\)</span>)是<strong>狠压 KV cache 换长上下文 / 速度</strong>——<span class="math inline">\(571{,}536\)</span> 像素塌成 <span class="math inline">\(81\)</span> entries,代价是细节几乎全靠模型脑补。前者保几何忠实,后者赌语义足够。grounding 任务更吃前者,长文档 / 多图推理更吃后者。</li>
+</ul>
+<figure>
+<svg viewBox="0 0 640 240" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <text x="70" y="22" font-size="13" text-anchor="middle" fill="#333">高分辨率 (海量 patch)</text>
+  <rect x="20" y="35" width="100" height="100" fill="#dff3e6" stroke="#2a6" stroke-width="1.5"/>
+  <g stroke="#9c9" stroke-width="0.6">
+    <line x1="20" y1="47.5" x2="120" y2="47.5"/><line x1="20" y1="60" x2="120" y2="60"/>
+    <line x1="20" y1="72.5" x2="120" y2="72.5"/><line x1="20" y1="85" x2="120" y2="85"/>
+    <line x1="20" y1="97.5" x2="120" y2="97.5"/><line x1="20" y1="110" x2="120" y2="110"/>
+    <line x1="20" y1="122.5" x2="120" y2="122.5"/>
+    <line x1="32.5" y1="35" x2="32.5" y2="135"/><line x1="45" y1="35" x2="45" y2="135"/>
+    <line x1="57.5" y1="35" x2="57.5" y2="135"/><line x1="70" y1="35" x2="70" y2="135"/>
+    <line x1="82.5" y1="35" x2="82.5" y2="135"/><line x1="95" y1="35" x2="95" y2="135"/>
+    <line x1="107.5" y1="35" x2="107.5" y2="135"/>
+  </g>
+  <text x="70" y="152" font-size="11" text-anchor="middle" fill="#666">N ≈ O(HW/p²) tokens</text>
+  <line x1="135" y1="85" x2="225" y2="85" stroke="#888" stroke-width="2" marker-end="url(#arr7)"/>
+  <rect x="240" y="60" width="120" height="50" rx="6" fill="#fce8d5" stroke="#e07a30" stroke-width="1.5"/>
+  <text x="300" y="82" font-size="12" text-anchor="middle" fill="#a04a10">池化 ×9</text>
+  <text x="300" y="100" font-size="12" text-anchor="middle" fill="#a04a10">CSA KV ÷4</text>
+  <line x1="375" y1="85" x2="455" y2="85" stroke="#888" stroke-width="2" marker-end="url(#arr7)"/>
+  <text x="540" y="22" font-size="13" text-anchor="middle" fill="#333">少量 token</text>
+  <rect x="500" y="50" width="80" height="80" fill="none" stroke="#2a6" stroke-width="1.5"/>
+  <g stroke="#9c9" stroke-width="0.8">
+    <line x1="500" y1="77" x2="580" y2="77"/><line x1="500" y1="104" x2="580" y2="104"/>
+    <line x1="527" y1="50" x2="527" y2="130"/><line x1="553" y1="50" x2="553" y2="130"/>
+  </g>
+  <g fill="#dff3e6"><rect x="501" y="51" width="25" height="25"/><rect x="554" y="105" width="25" height="25"/></g>
+  <text x="540" y="150" font-size="10.5" text-anchor="middle" fill="#b33">坐标系仍对齐</text>
+  <text x="540" y="164" font-size="10.5" text-anchor="middle" fill="#b33">resized 几何 (h̄, w̄)</text>
+  <defs>
+    <marker id="arr7" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#888"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>图 7 — 高分辨率切 patch → 池化/KV 压缩 → 少量 token,但 grounding 坐标系绑定在 resize 后的几何上。</figcaption>
+</figure>
+<h2 id="sec-8">8. 怎么评测:benchmark 与指标大盘点</h2>
+<h3 id="sec-8-1">8.1 直觉</h3>
+<p>怎么判分一个框对不对?最朴素的想法是:看模型给出的框和标准答案框&quot;重叠多少&quot;。重叠得越多越对——把这个直觉量化,就是 <strong>IoU(Intersection over Union,交并比)</strong>:两框交集面积除以并集面积,取值 <span class="math inline">\([0,1]\)</span>,<span class="math inline">\(1\)</span> 表示完全重合,<span class="math inline">\(0\)</span> 表示毫不相交(见图 8 的阴影示意)。</p>
+<p>围绕 IoU,grounding 领域演化出三类&quot;对了吗&quot;判据,对应三种任务形态:</p>
+<ul>
+<li><strong>REC(指代理解)</strong>:单框任务,用 <strong>acc@0.5</strong>——只要 <span class="math inline">\(\text{IoU}\ge 0.5\)</span> 就算命中,统计命中率;</li>
+<li><strong>检测 / OVD</strong>:多框任务,用 <strong>AP</strong>(平均精度),把不同置信度阈值下的 precision-recall 曲线面积化,还要在多个 IoU 阈值上平均;</li>
+<li><strong>pointing / GUI</strong>:模型只给一个点,用 <strong>point-in-box / point-in-mask</strong>——点落进目标框或掩码就算对(GUI 里叫 click accuracy)。</li>
+</ul>
+<p>三者底座都是&quot;重叠/命中&quot;的几何判定,而最基础的那块砖,就是 IoU。</p>
+<figure>
+<svg viewBox="0 0 520 220" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect x="60" y="40" width="160" height="120" fill="#cfe6ff" fill-opacity="0.5" stroke="#1f5fe0" stroke-width="2"/>
+  <text x="80" y="34" font-size="13" fill="#1f5fe0">真值框 B</text>
+  <rect x="150" y="80" width="160" height="120" fill="#ffd9c0" fill-opacity="0.5" stroke="#e07a30" stroke-width="2"/>
+  <text x="232" y="216" font-size="13" fill="#c0571a">预测框 A</text>
+  <rect x="150" y="80" width="70" height="80" fill="#7d5fc0" fill-opacity="0.55" stroke="#5a3fa0" stroke-width="1"/>
+  <text x="158" y="126" font-size="12" fill="#fff">∩</text>
+  <text x="350" y="100" font-size="15" fill="#333">IoU =</text>
+  <line x1="408" y1="92" x2="470" y2="92" stroke="#333" stroke-width="1.4"/>
+  <text x="416" y="86" font-size="13" fill="#5a3fa0">交集 ∩</text>
+  <text x="416" y="110" font-size="13" fill="#333">并集 ∪</text>
+  <text x="350" y="150" font-size="11.5" fill="#888">重叠越多 → 越接近 1</text>
+</svg>
+<figcaption>图 8 — IoU(交并比):预测框与真值框的交集面积除以并集面积,是绝大多数 grounding 指标的基石。</figcaption>
+</figure>
+<h3 id="sec-8-2">8.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">def iou(a, b):
+    # box = (x1, y1, x2, y2),归一化坐标
+    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])
+    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])
+    if ix2 &lt;= ix1 or iy2 &lt;= iy1:   # 不相交
+        return 0.0
+    inter = (ix2 - ix1) * (iy2 - iy1)
+    area_a = (a[2] - a[0]) * (a[3] - a[1])
+    area_b = (b[2] - b[0]) * (b[3] - b[1])
+    return inter / (area_a + area_b - inter)
+
+gt   = (0.10, 0.10, 0.50, 0.50)   # 真值框
+pred = (0.20, 0.20, 0.60, 0.60)   # 预测框
+v = iou(gt, pred)
+print(f"IoU = {v:.3f}, hit@0.5 = {v &gt;= 0.5}")   # IoU = 0.391, hit@0.5 = False
+</code></pre>
+<p>跑一下就懂:两框各占 <span class="math inline">\(0.4\times0.4\)</span>,但错位了 <span class="math inline">\(0.1\)</span>,交集只剩 <span class="math inline">\(0.3\times0.3=0.09\)</span>,IoU <span class="math inline">\(=0.09/(0.16+0.16-0.09)\approx0.391\lt0.5\)</span>,于是 acc@0.5 判定为<strong>未命中</strong>。</p>
+<h3 id="sec-8-3">8.3 正式化</h3>
+<p><strong>(1) IoU</strong>——设预测框区域 <span class="math inline">\(A\)</span>、真值框区域 <span class="math inline">\(B\)</span>:</p>
+<div class="math block">
+\[\text{IoU}(A,B)=\frac{|A\cap B|}{|A\cup B|}=\frac{|A\cap B|}{|A|+|B|-|A\cap B|}\]
+</div>
+<p class="math-translation">—— 翻译:交集面积除以并集面积;并集 = 两框面积之和减去被重复计的交集。</p>
+<p><strong>(2) acc@0.5</strong>——单样本命中函数,再对 <span class="math inline">\(N\)</span> 个样本取均值:</p>
+<div class="math block">
+\[\text{acc@}0.5=\frac{1}{N}\sum_{i=1}^{N}\mathbb{1}\!\left[\text{IoU}(A_i,B_i)\ge 0.5\right]\]
+</div>
+<p class="math-translation">—— 翻译:IoU 达到 0.5 才记 1 分,否则 0 分;全体样本的平均得分就是 acc@0.5。</p>
+<p><strong>(3) AP@[.5:.95]</strong>——COCO 主指标。在 10 个 IoU 阈值 <span class="math inline">\(\tau\in\{0.50,0.55,\dots,0.95\}\)</span> 上各算一次 AP(<span class="math inline">\(\text{precision}\)</span>-<span class="math inline">\(\text{recall}\)</span> 曲线下面积),再求平均:</p>
+<div class="math block">
+\[\text{mAP}=\frac{1}{10}\sum_{\tau\in\{.50,\dots,.95\}}\text{AP}_\tau,\qquad \text{AP}_\tau=\int_0^1 p_\tau(r)\,dr\]
+</div>
+<p class="math-translation">—— 翻译:在 0.50 到 0.95 共 10 档"对齐严格度"下分别评分再平均,阈值越高越要求框得准。</p>
+<p><strong>(4) F1@0.95</strong>——LocateAnything / LVIS 用的严格判据:仅当 <span class="math inline">\(\text{IoU}\ge 0.95\)</span> 才算 TP,在此判定下算 precision、recall 的调和平均:</p>
+<div class="math block">
+\[\text{F1@}0.95=\frac{2\,P\cdot R}{P+R}\Big|_{\text{TP iff }\text{IoU}\ge 0.95}\]
+</div>
+<p class="math-translation">—— 翻译:只有几乎完美重合(IoU≥0.95)才算对,再取查准率与查全率的调和平均,惩罚"框得糙"。</p>
+<p><strong>(5) point-in-box</strong>——pointing/GUI 的命中判据,<span class="math inline">\(p=(x,y)\)</span> 为预测点:</p>
+<div class="math block">
+\[\text{hit}(p,\text{bbox})=\mathbb{1}\!\left[p\in\text{bbox}\right]\]
+</div>
+<p class="math-translation">—— 翻译:预测点落在目标框(或掩码)内即命中,否则未命中;这是 click accuracy 的核心。</p>
+<h3 id="sec-8-4">8.4 代码引用</h3>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/evaluation/metrics/other_metric.py:L317-L331 — IoU = 交集面积 / 并集面积,acc@0.5 / AP 的基石</p>
+<pre><code class="language-python">def calculate_iou(box1, box2):
+    &quot;&quot;&quot;Calculate IoU between two boxes&quot;&quot;&quot;
+    x1 = max(box1[0], box2[0])
+    y1 = max(box1[1], box2[1])
+    x2 = min(box1[2], box2[2])
+    y2 = min(box1[3], box2[3])
+
+    if x2 &lt;= x1 or y2 &lt;= y1:
+        return 0.0
+
+    intersection = (x2 - x1) * (y2 - y1)
+    box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+    box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+
+    return intersection / (box1_area + box2_area - intersection)
+</code></pre>
+<p>逐行对照 §8.3 公式:前四行 <code>max/min</code> 取出两框相交矩形的左上角 <span class="math inline">\((x_1,y_1)\)</span> 与右下角 <span class="math inline">\((x_2,y_2)\)</span>,正是 <span class="math inline">\(A\cap B\)</span> 的几何边界;<code>intersection = (x2-x1)*(y2-y1)</code> 即交集面积 <span class="math inline">\(|A\cap B|\)</span>;最后 <code>intersection / (box1_area + box2_area - intersection)</code> 一一对应公式 <span class="math inline">\(\dfrac{|A\cap B|}{|A|+|B|-|A\cap B|}\)</span>——分母用&quot;两框面积和减交集&quot;算并集,避免重复计数。开头 <code>if x2 &lt;= x1 or y2 &lt;= y1: return 0.0</code> 则处理<strong>不相交</strong>的退化情形:此时相交矩形宽或高非正,直接返回 <span class="math inline">\(0\)</span>,防止算出负面积污染结果。这十几行就是 acc@0.5、AP、F1@0.95 全部指标共享的底层算子。</p>
+<h3 id="sec-8-5">8.5 洞察</h3>
+<p>下面把 grounding 主流 benchmark 摊开成一张大表——这是判断&quot;一个模型到底强不强&quot;的地图。读法:看任务类型对齐你的场景,看指标判断难度,看&quot;规模/特点&quot;判断是否已饱和。表后三条趋势是 2025–2026 的研判。</p>
+<table>
+<thead>
+<tr>
+<th>名称</th>
+<th>任务类型</th>
+<th>规模 / 特点</th>
+<th>指标</th>
+<th>年份 / 出处</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RefCOCO</strong></td>
+<td>REC 指代理解</td>
+<td>COCO 图上短指代,含空间词</td>
+<td>acc@0.5 IoU</td>
+<td>2016</td>
+</tr>
+<tr>
+<td><strong>RefCOCO+</strong></td>
+<td>REC 指代理解</td>
+<td><strong>禁空间词</strong>,逼模型靠外观</td>
+<td>acc@0.5 IoU</td>
+<td>2016</td>
+</tr>
+<tr>
+<td><strong>RefCOCOg</strong></td>
+<td>REC 指代理解</td>
+<td>长描述、句子级指代</td>
+<td>acc@0.5 IoU</td>
+<td>2016</td>
+</tr>
+<tr>
+<td><strong>gRefCOCO / GRES</strong></td>
+<td>广义指代分割</td>
+<td>支持<strong>多目标 + 无目标</strong>指代</td>
+<td>cIoU / gIoU、acc</td>
+<td>2023</td>
+</tr>
+<tr>
+<td><strong>Visual Genome</strong></td>
+<td>区域描述 / 场景图</td>
+<td>10 万图、密集区域标注与关系</td>
+<td>Recall@K、acc</td>
+<td>2017</td>
+</tr>
+<tr>
+<td><strong>Flickr30k Entities</strong></td>
+<td>短语→区域 grounding</td>
+<td>3 万图,短语级 phrase grounding</td>
+<td>Recall@1/5/10</td>
+<td>2015</td>
+</tr>
+<tr>
+<td><strong>LVIS</strong></td>
+<td>长尾实例检测/分割</td>
+<td><strong>1,203 类</strong>开放词表、长尾分布</td>
+<td>AP、<strong>F1@0.95</strong></td>
+<td>2019</td>
+</tr>
+<tr>
+<td><strong>ODinW</strong></td>
+<td>野外零样本检测</td>
+<td><strong>13/35</strong> 个子数据集集合</td>
+<td>AP(zero-shot)</td>
+<td>2022</td>
+</tr>
+<tr>
+<td><strong>COCO</strong></td>
+<td>通用检测基线</td>
+<td>80 类、118k 训练图</td>
+<td>AP@[.5:.95]</td>
+<td>2014</td>
+</tr>
+<tr>
+<td><strong>ScreenSpot</strong></td>
+<td>GUI grounding</td>
+<td>600+ 截图 / 1200 指令(SeeClick)</td>
+<td>click acc</td>
+<td>2024</td>
+</tr>
+<tr>
+<td><strong>ScreenSpot-v2</strong></td>
+<td>GUI grounding</td>
+<td>标注修订版,降噪</td>
+<td>click acc</td>
+<td>2024</td>
+</tr>
+<tr>
+<td><strong>ScreenSpot-Pro</strong></td>
+<td>GUI grounding(专业软件)</td>
+<td>1,581 专家截图、23 应用,<strong>目标均仅占 0.07% 面积</strong>,最佳基线 <strong>18.9%</strong></td>
+<td>click acc</td>
+<td>2025</td>
+</tr>
+<tr>
+<td><strong>PixMo-Points</strong></td>
+<td>pointing 指点</td>
+<td>Molmo 配套,点级标注</td>
+<td>point-in-mask / 距离</td>
+<td>2024</td>
+</tr>
+<tr>
+<td><strong>CountBench / FSC-147</strong></td>
+<td>计数(常借助定位)</td>
+<td>类别无关计数、FSC-147 含 147 类</td>
+<td>MAE / acc</td>
+<td>2022–2023</td>
+</tr>
+<tr>
+<td><strong>V*Bench</strong></td>
+<td>高分辨率小目标搜索</td>
+<td>强调高清图中找小物体</td>
+<td>acc</td>
+<td>2023</td>
+</tr>
+<tr>
+<td><strong>HRBench</strong></td>
+<td>高分辨率理解</td>
+<td>4K/8K 图细粒度感知</td>
+<td>acc</td>
+<td>2024</td>
+</tr>
+<tr>
+<td><strong>BLINK</strong></td>
+<td>视觉空间关系感知</td>
+<td>14 类感知任务,含相对位置</td>
+<td>acc</td>
+<td>2024</td>
+</tr>
+<tr>
+<td><strong>RoboPoint / Where2Place</strong></td>
+<td>具身空间指点</td>
+<td>机器人放置/可达点预测</td>
+<td>point-in-region / 成功率</td>
+<td>2024</td>
+</tr>
+</tbody>
+</table>
+<p>三条趋势:</p>
+<ul>
+<li><strong>(a) 经典 REC 近饱和</strong>:RefCOCO/+/g 的 SOTA 已普遍 <span class="math inline">\(\gt 90\%\)</span> acc@0.5,&quot;框得到&quot;在自然图像短指代上基本被解决,继续刷分边际收益极低。</li>
+<li><strong>(b) 硬骨头转移到&quot;极致严格 + 极端场景&quot;</strong>:LVIS 的 <strong>F1@0.95</strong>(要求几乎完美重合)和 <strong>ScreenSpot-Pro</strong>(目标仅占 0.07% 面积、最佳基线仅 18.9%)才是 2025–2026 真正区分能力的战场,长尾、小目标、专业 GUI 是公认未解。</li>
+<li><strong>(c) 评测范式在迁移</strong>:从单一的&quot;框得到&quot;(acc@0.5),转向&quot;框得准&quot;(F1@0.95)、&quot;框得快&quot;(推理效率/动态)、以及&quot;密集 + 广义 + 具身&quot;(gRefCOCO 多/无目标、pointing、RoboPoint),指标体系正随任务一起变难。</li>
+</ul>
+<h2 id="sec-9">9. 数据工程、综合与开放问题</h2>
+<h3 id="sec-9-1">9.1 直觉</h3>
+<p>教模型&quot;指东西&quot;,得先有海量&quot;指对了&quot;的例子;数据的质量,几乎直接等于 grounding 能力的上限。无论坐标怎样 token 化(§2)、解码是串行 NTP 还是并行原子(§3),只要喂进去的框是错的、是别的 VLM 偷懒蒸馏来的,模型学到的就是错位。所以前八节讲的所有架构与解码技巧,最终都站在一条数据管线之上。</p>
+<p>本节把三套有代表性的&quot;数据引擎&quot;摆在一起对照:Molmo 的 PixMo-Points 靠人工语音标注、刻意<strong>不</strong>用外部 VLM,避开蒸馏别人偏见;LocateAnything 走超大规模合成(亿级 query);DeepSeek 的 Thinking-with-Visual-Primitives 与 Rex-Omni 则用 <strong>LLM-judge 双过滤</strong>(几何 + 语义)把网络爬来的噪声数据洗干净。如图 9,原始数据要先过几何关、再过语义关,才配成为训练信号。</p>
+<figure>
+<svg viewBox="0 0 640 210" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <rect x="14" y="78" width="104" height="54" rx="6" fill="#eee" stroke="#999"/>
+  <text x="66" y="100" font-size="12" text-anchor="middle" fill="#444">原始数据</text>
+  <text x="66" y="117" font-size="10.5" text-anchor="middle" fill="#888">网络 / HF 爬取</text>
+  <line x1="120" y1="105" x2="158" y2="105" stroke="#888" stroke-width="2" marker-end="url(#arr9)"/>
+  <rect x="160" y="78" width="110" height="54" rx="6" fill="#dff3e6" stroke="#2a8"/>
+  <text x="215" y="100" font-size="12" text-anchor="middle" fill="#1a6">几何过滤</text>
+  <text x="215" y="117" font-size="10.5" text-anchor="middle" fill="#3a8">坐标合法/面积合理</text>
+  <line x1="272" y1="105" x2="310" y2="105" stroke="#888" stroke-width="2" marker-end="url(#arr9)"/>
+  <rect x="312" y="78" width="118" height="54" rx="6" fill="#fce8d5" stroke="#e07a30"/>
+  <text x="371" y="100" font-size="12" text-anchor="middle" fill="#a04a10">LLM 语义审核</text>
+  <text x="371" y="117" font-size="10.5" text-anchor="middle" fill="#c0571a">框文是否一致</text>
+  <line x1="432" y1="105" x2="470" y2="105" stroke="#888" stroke-width="2" marker-end="url(#arr9)"/>
+  <rect x="472" y="78" width="120" height="54" rx="6" fill="#e7e0ff" stroke="#6a4fc0"/>
+  <text x="532" y="100" font-size="12" text-anchor="middle" fill="#5a3fa0">高质量数据</text>
+  <text x="532" y="117" font-size="10.5" text-anchor="middle" fill="#7a5fd0">→ 训练信号</text>
+  <text x="320" y="170" font-size="11" text-anchor="middle" fill="#888">两道关卡:几何合法 ∧ 语义一致,才入训练集</text>
+  <defs>
+    <marker id="arr9" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#888"/>
+    </marker>
+  </defs>
+</svg>
+<figcaption>图 9 — grounding 数据引擎:原始数据经几何 + 语义双重过滤,才成为高质量训练信号。</figcaption>
+</figure>
+<h3 id="sec-9-2">9.2 最小 demo</h3>
+<p>下面这段玩具代码演示&quot;几何 + 语义&quot;双过滤的骨架:候选 <code>(box, caption)</code> 先做几何合法性检查,再交给一个 <code>llm_judge</code> stub 判断框与描述是否对得上,两关都过才保留。</p>
+<pre class="teaching-demo"><code class="language-python">candidates = [
+    {"caption": "the red car", "box": [0.10, 0.20, 0.45, 0.60]},
+    {"caption": "the dog",     "box": [0.80, 0.10, 0.30, 0.05]},  # x1&lt;x0,面积异常
+    {"caption": "a tree",      "box": [0.50, 0.50, 0.95, 0.95]},
+]
+
+def geom_ok(b):                       # 几何检查:坐标递增 + 面积合理
+    x0, y0, x1, y1 = b
+    area = (x1 - x0) * (y1 - y0)
+    return x1 &gt; x0 and y1 &gt; y0 and 0.001 &lt; area &lt; 0.9
+
+def llm_judge(caption, box):          # 语义检查(stub):框是否匹配描述
+    return "tree" not in caption      # 假设审核判定 "a tree" 框错了
+
+kept = [c for c in candidates
+        if geom_ok(c["box"]) and llm_judge(c["caption"], c["box"])]
+print(f"kept {len(kept)} / {len(candidates)}")   # kept 1 / 3
+</code></pre>
+<p>三条候选里,一条几何不合法(框反了)、一条语义被判错,只剩一条进入训练集——真实管线只是把规则换成更复杂的几何约束与更强的审核模型,逻辑同构。</p>
+<h3 id="sec-9-3">9.3 正式化</h3>
+<p>把数据质量形式化为一条<strong>过滤管线</strong>:从带噪原始数据 <span class="math inline">\(D_\text{raw}\)</span> 中,只保留同时通过几何谓词 <span class="math inline">\(\phi_\text{geom}\)</span> 与语义谓词 <span class="math inline">\(\phi_\text{sem}\)</span> 的样本:</p>
+<div class="math block">
+\[D_\text{clean}=\{(I,t,r)\in D_\text{raw}\;:\;\phi_\text{geom}(r)\wedge\phi_\text{sem}(I,t,r)\}\]
+</div>
+<p class="math-translation">—— 翻译:图像 $I$、文本 $t$、区域 $r$ 三元组,只有当框的几何合法($\phi_\text{geom}$:坐标递增、面积合理)**且**框与图文语义一致($\phi_\text{sem}$,常由 LLM-judge 判定)时才入选。</p>
+<p>规模上的取舍是另一条暗线:<span class="math inline">\(\phi_\text{sem}\)</span> 越严,<span class="math inline">\(|D_\text{clean}|\)</span> 越小但单样本信噪比越高;数据引擎的工程量,本质就是在&quot;规模&quot;与&quot;纯度&quot;之间找平衡点。下表对照四套引擎的不同选择:</p>
+<table>
+<thead>
+<tr>
+<th>数据引擎</th>
+<th>规模</th>
+<th>采集/过滤方法</th>
+<th>关键取舍</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PixMo-Points (Molmo)</td>
+<td>人工/语音标注的 pointing 数据</td>
+<td>人类标注员<strong>语音</strong>指点,<strong>不</strong>调用任何外部 VLM</td>
+<td>纯度极高、无蒸馏偏见;但人工标注规模与成本受限</td>
+</tr>
+<tr>
+<td>LocateAnything-Data</td>
+<td>138M queries / 12M images / 785M boxes</td>
+<td>大规模合成,覆盖 6 任务(检测、UI、referring、OCR、layout、pointing)</td>
+<td>规模与任务广度拉满;依赖合成质量,跨任务统一格式是挑战</td>
+</tr>
+<tr>
+<td>Thinking-w-Visual-Primitives (DeepSeek)</td>
+<td>自建 40M 高质量 box-grounding</td>
+<td>从 HuggingFace/网络爬取,<strong>两阶段 LLM-judge 过滤</strong>(语义 + 几何)</td>
+<td>用模型洗数据换纯度;冷启动任务覆盖计数/空间/迷宫/路径</td>
+</tr>
+<tr>
+<td>Rex-Omni</td>
+<td>22M SFT + GRPO RL 后训练</td>
+<td>数据引擎生成 grounding/referring/pointing,几何感知奖励微调</td>
+<td>SFT 打底 + RL 补精度;管线复杂但坐标更准</td>
+</tr>
+</tbody>
+</table>
+<p>可以看到,Molmo 选&quot;小而纯&quot;,LocateAnything 选&quot;大而广&quot;,DeepSeek 与 Rex-Omni 则用 LLM-judge 与 RL 在二者之间走中间路线。</p>
+<h3 id="sec-9-4">9.4 代码引用</h3>
+<p>Rex-Omni 的 grounding 训练样本如何编码,直接体现在它的数据格式里——尤其是负样本的处理:</p>
+<p class="code-source">sources/repos/IDEA-Research-Rex-Omni/finetuning/dataset/task_fns/grounding_task.py:L4-L30 — grounding 训练样本格式:human 问 + gpt 答(object_ref + box token,负样本框为 None)</p>
+<pre><code class="language-python">class GroundingTaskFn(object):
+    &quot;&quot;&quot;This is for detection dataset tsv training
+
+    Args:
+        task_prompts (list[str]): A list of prompts to random choose from.
+        image_min_pixels (int): The minimal number of pixels for the resized image.
+        image_max_pixels (int): The maximal number of pixels for the resized image.
+        extra_categories (List[str], optional): A list of all possible category names. Used for negative sampling.
+            If None, only positive examples will be used. Default: None.
+
+    Returns:
+        - dict: Dict with the following keys:
+            &quot;conversations&quot; (List): [
+                {
+                    &quot;from&quot;: &quot;human&quot;,
+                    &quot;value&quot;: &quot;&lt;image&gt;\nCan you detect the dog, cat in this image? Answer the question in json format.&quot;
+                },
+                {
+                    &quot;from&quot;: &quot;gpt&quot;,
+                    &quot;value&quot;: &quot;&lt;|object_ref_start|&gt;dog&lt;|object_ref_end|&gt;&lt;|box_start|&gt;x0y0x1y1, x0y0x1y1&lt;|box_end|&gt;, &lt;|object_ref_start|&gt;cat&lt;|object_ref_end|&gt;&lt;|box_start|&gt;None&lt;|box_end|&gt;&quot;
+                },
+            ]
+            # ! Note: The coordinates are now normalized to [0, 999] bins. If coord_to_word_map is provided,
+            # ! the coordinates will be mapped to corresponding word tokens. Otherwise, they remain as integers.
+            # ! For negative examples, the box coordinates will be &quot;None&quot;.
+    &quot;&quot;&quot;
+</code></pre>
+<p>样本被组织成 <code>human</code>/<code>gpt</code> 对话:human 给出 <code>&lt;image&gt;</code> 加待检测类别的问题,gpt 的回答里每个目标用 <code>&lt;|object_ref_start|&gt;类别&lt;|object_ref_end|&gt;</code> 包住,再跟 <code>&lt;|box_start|&gt;...&lt;|box_end|&gt;</code> 里的坐标 token(归一化到 <code>[0,999]</code> bin,正是 §2 的离散坐标 token 化)。关键在最后:当某个类别图中<strong>不存在</strong>时——示例里的 <code>cat</code>——其框坐标写成 <code>None</code>。这就是<strong>负采样</strong>:模型被显式训练&quot;指不到就拒答&quot;,而不是硬凑一个框。这与 §6 关于可靠性的论点直接呼应——一个会说&quot;没有&quot;的 grounding 模型,才能在 grounded reasoning 中被信任地当作工具调用。</p>
+<h3 id="sec-9-5">9.5 洞察</h3>
+<p>收束全篇,VLM grounding 的演进可以归结为三组张力:</p>
+<ul>
+<li><strong>离散坐标 token vs 连续回归</strong>(§2):前者复用语言词表、好训练、易与文本统一,但量化天然损失精度;后者精确却难与自回归框架融合。RL 后训练(Rex-Omni 的 GRPO、几何感知奖励)正是在补这道量化 gap。</li>
+<li><strong>串行 NTP vs 并行/原子解码</strong>(§3):逐 token 生成坐标慢且误差累积,LocateAnything 的 PBD 证明了&quot;原子化预测框&quot;可以兼得速度与精度——两者并非不可调和。</li>
+<li><strong>grounding 作为输出 vs 作为思维</strong>(§3–5 vs §6):早期把框当最终答案输出;新范式(thought-grounding)把&quot;指向&quot;内化为推理中途的工具调用,从&quot;给答案&quot;升级为&quot;会查证&quot;。</li>
+</ul>
+<p><strong>开放问题</strong>:当前进展主要停在 2D 静态图像,3D grounding 与 video grounding 仍是空白;坐标精度的天花板——量化 bin 数 vs 高分辨率压缩(§7)——尚无定论;mask、box、point、polygon 至今缺一个真正统一的单一接口;grounded reasoning 的<strong>可验证奖励</strong>该如何设计(框对了但推理错怎么办)仍是开放课题;评测也需从&quot;框得到&quot;(§8 的召回类指标)推进到&quot;框得准、又框得快&quot;的联合度量。完整参考文献与技术报告清单见文末。</p>
+<h2 id="sec-10">参考文献与技术报告全集</h2>
+<blockquote>
+<p>分类整理。arxiv ID 均经 2026-06 网络核验;标 <strong>[本站]</strong> 者为本博客已有精读,<strong>[锚点]</strong> 为本教程出发的两篇,<strong>[seminal]</strong> 为奠基工作。</p>
+</blockquote>
+<h3 id="sec-10-1">A. 综述(Surveys)</h3>
+<ul>
+<li><strong>Towards Visual Grounding: A Survey</strong> — Xiao et al., <em>TPAMI</em> 2025 — 视觉定位领域权威综述;配套清单 <a href="https://github.com/linhuixiao/Awesome-Visual-Grounding"><code>linhuixiao/Awesome-Visual-Grounding</code></a>。</li>
+<li><strong>Thinking with Images for Multimodal Reasoning: Foundations, Methods, and Future Frontiers</strong> — <a href="https://arxiv.org/abs/2506.23918">arXiv:2506.23918</a>, 2025 — &quot;用图思考&quot; / grounded reasoning 的系统梳理。</li>
+</ul>
+<h3 id="sec-10-2">B. Grounding-capable VLM 模型家族与技术报告</h3>
+<ul>
+<li><strong>[锚点] Thinking with Visual Primitives</strong> — DeepSeek + 北大 + 清华,2026 技术报告 — 把 points/bboxes 当思维原语穿插进 CoT;7056× 视觉 token 压缩;GRPO + 3 RM。<strong>[本站]</strong> <a href="../../papers/thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a></li>
+<li><strong>[锚点] LocateAnything</strong> — NVIDIA + HK PolyU + Princeton,<a href="https://arxiv.org/abs/2605.27365">arXiv:2605.27365</a>, 2026 — Parallel Box Decoding(bbox 原子化并行),12.7× 吞吐。<strong>[本站]</strong> <a href="../../papers/locate-anything-2026/index.html">locate-anything-2026</a></li>
+<li><strong>[seminal] Kosmos-2: Grounding Multimodal LLMs to the World</strong> — Microsoft,<a href="https://arxiv.org/abs/2306.14824">arXiv:2306.14824</a>, 2023 — markdown-link grounding <code>[text](boxes)</code> + location token。</li>
+<li><strong>[seminal] Shikra</strong> — <a href="https://arxiv.org/abs/2306.15195">arXiv:2306.15195</a>, 2023 — 坐标即纯文本数字,referential dialogue。</li>
+<li><strong>[seminal] Ferret</strong> — Apple,<a href="https://arxiv.org/abs/2310.07704">arXiv:2310.07704</a>, 2023(+ Ferret-v2, 2024)— 混合区域表示 + spatial-aware visual sampler。</li>
+<li><strong>[seminal] Grounding-DINO</strong> — IDEA,<a href="https://arxiv.org/abs/2303.05499">arXiv:2303.05499</a>, 2023 — 语言引导跨注意力的开放集检测(OVD 锚点)。</li>
+<li><strong>Florence-2</strong> — Microsoft,<a href="https://arxiv.org/abs/2311.06242">arXiv:2311.06242</a>, 2024 — 统一 seq2seq,location token 出 box/quad/polygon。</li>
+<li><strong>PaliGemma / PaliGemma 2</strong> — Google,<a href="https://arxiv.org/abs/2407.07726">arXiv:2407.07726</a>, 2024 — <code>&lt;locNNNN&gt;</code> / <code>&lt;segNNN&gt;</code> 定位 token。</li>
+<li><strong>Qwen2.5-VL</strong> — Alibaba,<a href="https://arxiv.org/abs/2502.13923">arXiv:2502.13923</a>, 2025 — 绝对像素坐标 JSON grounding,动态分辨率;本教程 secondary 代码仓。</li>
+<li><strong>Molmo &amp; PixMo</strong> — AllenAI,<a href="https://arxiv.org/abs/2409.17146">arXiv:2409.17146</a>, 2024 — native 2D pointing、counting-by-pointing,数据不靠外部 VLM。</li>
+<li><strong>MolmoPoint</strong> — <a href="https://arxiv.org/abs/2603.28069">arXiv:2603.28069</a>, 2026 — 用 grounding token 改进 pointing。</li>
+<li><strong>Rex-Omni: Detect Anything via Next Point Prediction</strong> — IDEA,<a href="https://arxiv.org/abs/2510.12798">arXiv:2510.12798</a>, CVPR 2026 — 量化坐标特殊 token(bins 0–999)+ SFT(22M)+ GRPO 几何奖励;本教程 primary 代码仓。</li>
+<li><strong>LLaVA-Grounding</strong> — <a href="https://arxiv.org/abs/2312.02949">arXiv:2312.02949</a>, 2023 — grounded visual chat。</li>
+<li><strong>GROUNDHOG</strong> — <a href="https://arxiv.org/abs/2402.16846">arXiv:2402.16846</a>, 2024 — grounding 到整体分割(mask)。</li>
+<li><strong>Qwen3-VL-Seg</strong> — <a href="https://arxiv.org/abs/2605.07141">arXiv:2605.07141</a>, 2026 — MLLM 框作结构先验 → referring segmentation。</li>
+<li><strong>Grasp Any Region</strong> — <a href="https://arxiv.org/abs/2510.18876">arXiv:2510.18876</a>, 2025 — 精确、上下文感知的像素级区域理解。</li>
+<li><strong>Visual Position Prompt (VPP-LLaVA)</strong> — <a href="https://arxiv.org/abs/2503.15426">arXiv:2503.15426</a>, 2025 — 位置提示修正坐标错位。</li>
+</ul>
+<h3 id="sec-10-3">C. Grounded reasoning / 视觉思维链</h3>
+<ul>
+<li><strong>VGR: Visual Grounded Reasoning</strong> — <a href="https://arxiv.org/abs/2506.11991">arXiv:2506.11991</a>, 2025 — 先检测相关区域再 replay-and-answer。</li>
+<li><strong>Chain-of-Visual-Thought (COVT)</strong> — <a href="https://arxiv.org/abs/2511.19418">arXiv:2511.19418</a>, 2025 — 推理链中插入连续视觉 token。</li>
+<li><strong>CoRGI: Verified CoT Reasoning with Visual Grounding</strong> — <a href="https://arxiv.org/abs/2508.00378">arXiv:2508.00378</a>, 2025。</li>
+<li><strong>[seminal] Set-of-Mark Prompting</strong> — Microsoft,<a href="https://arxiv.org/abs/2310.11441">arXiv:2310.11441</a>, 2023 — 叠加编号标记解锁空间推理(视觉提示)。</li>
+</ul>
+<h3 id="sec-10-4">D. GUI / Agent grounding</h3>
+<ul>
+<li><strong>[seminal] SeeClick</strong> — <a href="https://arxiv.org/abs/2401.10935">arXiv:2401.10935</a>, ACL 2024 — GUI grounding 预训练;提出 <strong>ScreenSpot</strong> benchmark。</li>
+<li><strong>UGround / Navigating the Digital World as Humans Do</strong> — <a href="https://arxiv.org/abs/2410.05243">arXiv:2410.05243</a>, 2024 — 纯视觉通用 GUI grounding。</li>
+<li><strong>ScreenSpot-Pro</strong> — <a href="https://arxiv.org/abs/2504.07981">arXiv:2504.07981</a>, 2025 — 专业高分辨率 GUI grounding;目标平均 0.07% 面积,最佳基线 18.9%。</li>
+<li><strong>UI-TARS</strong> — <a href="https://arxiv.org/abs/2501.12326">arXiv:2501.12326</a>, 2025 — 端到端原生 GUI agent。</li>
+</ul>
+<h3 id="sec-10-5">E. Benchmark &amp; 数据集</h3>
+<ul>
+<li><strong>RefCOCO / RefCOCO+ / RefCOCOg</strong>(Kazemzadeh 2014;Yu/Mao 2016)— 指代表达理解,acc@0.5 IoU。</li>
+<li><strong>gRefCOCO / GRES</strong>(Liu 2023,<a href="https://arxiv.org/abs/2306.00968">arXiv:2306.00968</a>)— 广义指代分割(多目标 + 无目标)。</li>
+<li><strong>Visual Genome</strong>(Krishna 2017)— 区域描述 / 场景图。</li>
+<li><strong>Flickr30k Entities</strong>(Plummer 2015)— 短语→区域 grounding。</li>
+<li><strong>LVIS</strong>(Gupta 2019)— 1,203 类长尾检测;LocateAnything 用 F1@0.95。</li>
+<li><strong>ODinW</strong>(Li 2022)— 野外零样本检测(13/35 子集)。</li>
+<li><strong>COCO</strong>(Lin 2014)— 80 类检测基线。</li>
+<li><strong>ScreenSpot / -v2 / -Pro</strong> — GUI grounding,click accuracy(见 D)。</li>
+<li><strong>PixMo-Points</strong>(Molmo, 2024)— pointing 评测,point-in-mask。</li>
+<li><strong>CountBench / FSC-147</strong> — 计数(常借助定位)。</li>
+<li><strong>V*Bench</strong>(<a href="https://arxiv.org/abs/2312.14135">arXiv:2312.14135</a>)/ <strong>HRBench</strong> — 高分辨率小目标搜索 / 理解。</li>
+<li><strong>BLINK</strong>(<a href="https://arxiv.org/abs/2404.12390">arXiv:2404.12390</a>)— 视觉空间关系感知。</li>
+<li><strong>RoboPoint / Where2Place</strong> — 具身空间指点(机器人)。</li>
+</ul>
+<h3 id="sec-10-6">F. 代码仓库</h3>
+<ul>
+<li><a href="https://github.com/IDEA-Research/Rex-Omni"><code>IDEA-Research/Rex-Omni</code></a> — <strong>本教程 primary 代码仓</strong>;<code>rex_omni/parser.py</code> 坐标量化、<code>rex_omni/tasks.py</code> 任务统一、<code>finetuning/</code> 数据与 GRPO。</li>
+<li><a href="https://github.com/QwenLM/Qwen2.5-VL"><code>QwenLM/Qwen2.5-VL</code></a> — <strong>secondary</strong>;<code>qwen-vl-utils/.../vision_process.py</code> 的 <code>smart_resize</code>、<code>cookbooks/2d_grounding.ipynb</code>。</li>
+<li><a href="https://github.com/allenai/molmo"><code>allenai/molmo</code></a> — pointing / PixMo。</li>
+<li><a href="https://github.com/IDEA-Research/GroundingDINO"><code>IDEA-Research/Grounding-DINO</code></a> — 开放集检测参考实现。</li>
+<li><a href="https://github.com/linhuixiao/Awesome-Visual-Grounding"><code>linhuixiao/Awesome-Visual-Grounding</code></a> — TPAMI'25 综述配套清单。</li>
+</ul>
+<hr />
+<p><em>本教程由 reading-papers / writing-tutorial 工作流生成;所有代码引用均 verbatim 自上述已克隆仓库的指定行号,所有 arxiv ID 与 benchmark 数据经网络核验。若发现笔误或失效链接,欢迎在评论区指出。</em></p>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
