@@ -65,6 +65,7 @@
     <li class="h3"><a href="#sec-2-3">2.3 Pretraining 数据构建 (技术报告最有 hands-on 价值的一节)</a></li>
     <li class="h3"><a href="#sec-2-4">2.4 4 个 Cold-Start 任务</a></li>
     <li class="h3"><a href="#sec-2-5">2.5 Post-Training: 4 阶段 + 3 类 Reward Model</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 训练流程总览(谁→从谁初始化→什么方法→什么数据)</a></li>
     <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
     <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
     <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
@@ -181,6 +182,11 @@ This covers ... 25 in total.
 <li>Point query: <code>Help me find TARGET. Give me the center point for each instance.</code></li>
 <li>Point response: <code>&lt;|point|&gt;[[x1,y1],...]&lt;|/point|&gt;</code> (不带 ref)</li>
 </ul>
+<p><strong>两个值得抄的 curation 取舍</strong>:</p>
+<ol>
+<li><strong>通用多模态数据坚持用 web 爬取,拒绝模型蒸馏合成</strong>(如合成 caption),也<strong>不让 LLM 改写数据内容</strong> —— 避免把其他模型的偏见 / 幻觉一并继承进来。</li>
+<li>专项 primitive 能力另外补了 <strong>6 个高质量公开集</strong>:<strong>PixMo / Molmo</strong>(Deitke et al.)、<strong>Open Images V4</strong>(Kuznetsova et al.)、<strong>COCO</strong>(Lin et al.)、<strong>Kosmos-2</strong> 的 grounding 数据(Peng et al.)、<strong>Objects365</strong>(Shao et al.)、<strong>V3Det</strong>(Wang et al.),统一转成上面的 <code>&lt;|ref|&gt;...&lt;|box|&gt;</code> / <code>&lt;|point|&gt;</code> 格式。</li>
+</ol>
 <p>Pretraining 全程消耗 trillions of multimodal tokens (与 base LLM 同尺度)。</p>
 <h3 id="sec-2-4">2.4 4 个 Cold-Start 任务</h3>
 <p>Post-training 之前需要 cold-start 数据 bootstrap <strong>visual primitives 推理风格</strong>。4 个任务:</p>
@@ -190,36 +196,39 @@ This covers ... 25 in total.
 <th>任务</th>
 <th style="text-align:right">样本数</th>
 <th>难点</th>
-<th>关键数据来源</th>
+<th>关键数据来源 &amp; 合成方式</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>Counting (coarse + fine)</strong></td>
-<td style="text-align:right">10k</td>
+<td style="text-align:right">~10k</td>
 <td>密集物体计数易丢漏</td>
-<td>多个 dense detection 数据集 + GQA</td>
+<td>粗:聚合多个 dense detection 集 —— <strong>CARPK</strong>(无人机车辆)、<strong>OmniCount</strong>、<strong>Open Images</strong>、<strong>CrowdHuman</strong>、<strong>Objects365</strong>、<strong>VisDrone</strong>、病理/细胞密集检测集;细:基于 <strong>GQA</strong> scene-graph 自造问题。MLLM 按&quot;意图分析→批量 grounding→求和&quot;生成 thinking,<strong>严格校验</strong>框与元数据坐标/语法/计数全一致;含 count=0 负样本</td>
 </tr>
 <tr>
 <td><strong>Spatial Reasoning + VQA</strong></td>
 <td style="text-align:right">9k</td>
 <td>多 hop 关系推断</td>
-<td>GQA 自然场景 + CLEVR 合成场景</td>
+<td>自然:<strong>GQA</strong> 图 + scene graph;合成:<strong>CLEVR</strong> 工具链(3D 坐标投影成 2D box 做监督)。含负样本(faithful refusal)</td>
 </tr>
 <tr>
 <td><strong>Maze Navigation</strong></td>
 <td style="text-align:right">460k</td>
 <td>拓扑可达性,需 DFS + 回溯</td>
-<td>程序合成 3 种拓扑迷宫</td>
+<td><strong>程序合成</strong>:DFS / Prim / Kruskal 生成迷宫;3 种拓扑(矩形 / 同心圆环 / 六边形蜂窝)+ 可解 &amp; 不可解;难度靠网格大小控制;point 标 DFS 前探 + 回溯</td>
 </tr>
 <tr>
 <td><strong>Path Tracing</strong></td>
 <td style="text-align:right">125k</td>
 <td>交叉曲线 disambiguation</td>
-<td>Bézier 曲线合成</td>
+<td><strong>Bézier 曲线合成</strong>:统一线宽 + 去颜色捷径,逼模型靠曲率连续性;端点不与他线重叠(违反则重生成);thinking 为沿曲线采样的 point 序列(曲率大处加密)</td>
 </tr>
 </tbody>
 </table>
+<blockquote>
+<p>冷启动总量 ≈ <strong>604k</strong>(10k + 9k + 460k + 125k),其中迷宫 / 路径追踪几乎全靠程序合成,计数 / 空间推理则在公开集上用 MLLM 合成 thinking + 规则校验。所有冷启动样本的 thinking 里都嵌<strong>可验证的 primitive 序列</strong>,不是自由文本。</p>
+</blockquote>
 <p><strong>每个 cold-start 样本的 thinking content 都包含可验证的 visual primitive 序列</strong>, 不是普通自由文本。Counting 例子 (Fig 3):</p>
 <pre><code>1. Deconstructing the query: count men.
 2. Sweeping the photo:
@@ -250,8 +259,61 @@ Response: 25 men.
 </li>
 </ul>
 <p><strong>关键 trick</strong>: cold-start 中的 visual primitives <strong>已 ground-truth-verified</strong>,所以 RL 阶段<strong>不对 primitives 本身做监督</strong> — 只看最终答案和质量。这让 RL 数据要求大幅放宽 (图+问题+答案就够,不需要 box 标注),数据规模可大幅扩张。</p>
-<p><strong>Stage 3: Unified RFT</strong> —— 把 FTwG 和 FTwP <strong>合并成一个统一模型</strong>。</p>
-<p><strong>Stage 4: On-Policy Distillation</strong> —— 进一步 distill 统一模型 (推测,paper 没展开)。</p>
+<p><strong>Stage 3: Unified RFT(拒绝采样 / rollout 微调,⚠️ 不是 RL)</strong> —— 这里的 RFT 是 <strong>Rejection-sampling / Rollout Fine-Tuning</strong>,不是 &quot;reinforcement fine-tuning&quot;。做法:让两个专家 FTwG、FTwP 在 data pool 上 <strong>rollout 生成轨迹</strong>(套用前面的难度分级),汇成一份更大更杂的 RFT 数据集;然后<strong>从 base 预训练模型重新初始化</strong>(不是把两个专家做权重平均!),按与 SFT <strong>相同的配置</strong>训练,得到统一模型 <span class="math inline">\(\mathcal{F}\)</span>。换句话说,&quot;合并&quot;发生在 <strong>数据层面</strong>(两个专家的 rollout 数据并集),而非权重层面。</p>
+<p><strong>Stage 4: On-Policy Distillation (OPD)</strong> —— RFT 后的 <span class="math inline">\(\mathcal{F}\)</span> 在各自专长域仍略逊于两个专家,于是用 OPD 把专家本事蒸进 <span class="math inline">\(\mathcal{F}\)</span>:student(<span class="math inline">\(\mathcal{F}\)</span>)用<strong>自己生成的 on-policy 轨迹</strong>,以 <strong>KL 散度 + 全词表 logit 蒸馏</strong>(full-vocabulary logit distillation)对齐 <strong>两个 teacher(FTwG、FTwP)</strong> 的输出分布,得到最终交付模型。</p>
+<blockquote>
+<p><strong>术语澄清</strong>:RFT 在本文 = 拒绝采样微调(专家 rollout 数据 → re-init from base → SFT 式训练),不要与 &quot;reinforcement fine-tuning&quot; 混淆。Stage 2 的 RL 用的是 GRPO,Stage 3 才是 RFT,二者是不同阶段、不同方法。</p>
+</blockquote>
+<h3 id="sec-2-6">2.6 训练流程总览(谁→从谁初始化→什么方法→什么数据)</h3>
+<p>整条流水线是 <strong>&quot;先分科训两个专家 → 数据层面合成一个统一模型 → 蒸馏提质&quot;</strong>(论文称 <em>train specialists—then—merge</em>)。底座始终是 <strong>DeepSeek-ViT + DeepSeek-V4-Flash</strong>(LLaVA 式结构)。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>训练哪个模型</th>
+<th>从什么初始化</th>
+<th>训练方法</th>
+<th>用什么数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>0. 预训练</strong></td>
+<td>整个 MLLM(ViT+投影+LLM)</td>
+<td>DeepSeek-V4-Flash + DeepSeek-ViT 底座</td>
+<td>标准自回归预训练(NTP)</td>
+<td>trillions 多模态 token + 自建 <strong>40M</strong> box-grounding + 6 个公开集</td>
+</tr>
+<tr>
+<td><strong>1. 专项 SFT</strong></td>
+<td><strong>两个</strong>专家 FTwG(框)/ FTwP(点)</td>
+<td><strong>均复制自</strong>阶段 0 预训练模型</td>
+<td>监督微调(SFT)</td>
+<td>70% 通用多模态 + 30% 专项冷启动</td>
+</tr>
+<tr>
+<td><strong>2. 专项 RL</strong></td>
+<td>FTwG、FTwP <strong>各自</strong></td>
+<td>各自的 Stage1 SFT 结果</td>
+<td><strong>GRPO</strong> + 3 类 RM(Format/Quality/Accuracy)</td>
+<td>仅&quot;图+问题+答案&quot;(不监督 thinking 里的 primitive)</td>
+</tr>
+<tr>
+<td><strong>3. Unified RFT</strong></td>
+<td><strong>1 个</strong>统一模型 <span class="math inline">\(\mathcal{F}\)</span></td>
+<td>⚠️ <strong>重新初始化自 base 预训练模型</strong></td>
+<td><strong>拒绝采样微调(RFT)</strong>,SFT 同配置</td>
+<td>两专家 rollout 生成的统一数据集(难度分级)</td>
+</tr>
+<tr>
+<td><strong>4. On-Policy Distill</strong></td>
+<td>统一模型 <span class="math inline">\(\mathcal{F}\)</span>(最终版)</td>
+<td>Stage3 的 <span class="math inline">\(\mathcal{F}\)</span></td>
+<td><strong>OPD</strong>:on-policy + KL 全词表 logit 蒸馏</td>
+<td><span class="math inline">\(\mathcal{F}\)</span> 自采样轨迹,teacher = FTwG + FTwP</td>
+</tr>
+</tbody>
+</table>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <p>⚠️ <strong>没有 detailed benchmark 表</strong> — README 和 PDF 都是定性 + Fig 1 单张柱状图。具体数字只能看 Fig 1。</p>
 <p><strong>Fig 1 右边</strong>:</p>
@@ -296,7 +358,7 @@ Response: 25 men.
 <li><strong>代码 + 权重 + 数据 0 release</strong> (截至 2026/06/04): 跟 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 一样的问题。Repo 实际只有 PDF + README。News 说&quot;近期&quot; release 数据子集 + benchmark 子集,但没具体时间。<strong>研究价值现在主要是 framing + ideas, 工业可用还远</strong>。</li>
 <li><strong>Benchmark <strong>subset</strong> 这个 caveat 不能忽略</strong>: README 和 paper 都明说 &quot;scores cover only a subset of evaluation dimensions&quot;. 也就是说: 在 visual primitives 不能帮助的任务上,本模型很可能远低于 GPT-5.4 / Claude / Gemini 这种通用模型。<strong>只是某个垂直能力的反超,不是整体反超</strong>。</li>
 <li><strong>DeepSeek-V4-Flash 的 CSA 是 prerequisite</strong>: 没有 CSA, 这套范式 (大量穿插 visual primitives) 立刻 token 爆炸。这意味着该范式<strong>强依赖</strong> base model 的特殊 attention 能力。其他 LLM (Qwen, LLaMA, GPT 系) 不一定有同等能力,可移植性受限。</li>
-<li><strong>Specialized vs Unified 训练阶段细节缺失</strong>: Stage 3 Unified RFT 怎么 merge FTwG 和 FTwP?是简单 weight average 还是 KL-distill?Paper 一句话带过。</li>
+<li><strong><s>Stage 3 merge 机制缺失</s> → 已澄清</strong>(本页早期版本曾据博客摘要误判&quot;一句话带过&quot;;细读 PDF §2.5.3-2.5.4 后更正):merge 其实<strong>说清了</strong> —— Unified RFT 是 <strong>数据层面</strong>合并(两专家 rollout 出统一数据集、re-init from base、SFT 式训练),OPD 是 <strong>on-policy + KL 全词表 logit 蒸馏</strong>、双 teacher。真正缺的不是机制,而是 <strong>各阶段贡献 / 成本的 ablation</strong>(见下条)。另需注意 Stage 3 的 &quot;RFT&quot; 是<strong>拒绝采样微调</strong>,非 reinforcement(易误读)。</li>
 <li><strong>缺 ablation</strong>: 不带 visual primitives 的 baseline (同 backbone + 同 RL 但 thinking 是纯文本) 性能是多少?Paper 没给。<strong>Visual primitives 帶来的 lift 到底多大</strong>, 没有量化证据。</li>
 <li><strong>Maze 460k cold-start 是真的需要这么多吗</strong>: 460k 比 counting (10k) 多 46×。这说明拓扑推理对大量 supervision 很饥饿,可能意味着模型并没&quot;理解&quot; topology,只是大量 memorize。</li>
 <li><strong>没跟 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 直接比</strong>: Thinking-VP 输出 box 和 LocateAnything 输出 box 是不同 framing (thinking vs final output),但底层格式接近 (<code>&lt;|box|&gt;</code> token)。两者实际可以同模型支持,但没有 head-to-head 对比。</li>
