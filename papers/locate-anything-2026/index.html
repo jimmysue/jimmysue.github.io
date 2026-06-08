@@ -64,6 +64,7 @@
     <li class="h3"><a href="#sec-2-2">2.2 训练: 同一 GT 双格式 + 两条流互不串话</a></li>
     <li class="h3"><a href="#sec-2-3">2.3 推理: Fast / Slow / Hybrid 三模式</a></li>
     <li class="h3"><a href="#sec-2-4">2.4 LocateAnything-Data: 138M queries 多任务大数据</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 完整训练流程:4 阶段 progressive(base VLM → grounding SFT)</a></li>
     <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
     <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
     <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
@@ -94,7 +95,7 @@
 <li><strong>Textual Digit</strong>: bbox = &quot;1024, 647, 911, 832&quot; → tokenizer 切成数字字符 + 逗号 + 空格,平均一个 bbox 25+ token</li>
 <li><strong>Quantized Coordinate</strong>: 把坐标量化到 1000 桶,每个坐标变 1 个 token,1 个 bbox = 4 坐标 token + 2 结构 token = 6 token</li>
 </ul>
-<p>两者<strong>共同病灶</strong>:<strong>2D 几何对象被强行 1D 化</strong>。<span class="math inline">\(x_1, y_1, x_2, y_2\)</span> 这 4 个数有强结构耦合 (必须 <span class="math inline">\(x_1 &lt; x_2\)</span>、必须围住同一物体),但模型逐 token 出时<strong>每一步独立决策</strong>,只能靠预训练分布慢慢学这个耦合。结果:<strong>精度受损 + 吞吐被卡</strong> (每个 box 串行 6 步)。</p>
+<p>两者<strong>共同病灶</strong>:<strong>2D 几何对象被强行 1D 化</strong>。<span class="math inline">\(x_1, y_1, x_2, y_2\)</span> 这 4 个数有强结构耦合 (必须 <span class="math inline">\(x_1 \lt x_2\)</span>、必须围住同一物体),但模型逐 token 出时<strong>每一步独立决策</strong>,只能靠预训练分布慢慢学这个耦合。结果:<strong>精度受损 + 吞吐被卡</strong> (每个 box 串行 6 步)。</p>
 <p>直观的&quot;修法&quot; — <strong>Multi-Token Prediction (MTP)</strong>: 一次预测多个 token。但通用 MTP (随机选 span、随机 mask) 与 bbox 的耦合结构<strong>对不齐</strong>:</p>
 <figure>
   <img class="zoomable" src="figures/fig1-teaser.png" alt="NTP vs MTP vs PBD" style="display:none;">
@@ -117,7 +118,7 @@
 </figure>
 <p>联合分布:</p>
 <div class="math block">
-\[P(\mathcal{B} \mid Z, \mathcal{E}) = \prod_{i=1}^N P(b_i \mid b_{&lt;i}, Z, \mathcal{E})\]
+\[P(\mathcal{B} \mid Z, \mathcal{E}) = \prod_{i=1}^N P(b_i \mid b_{\lt i}, Z, \mathcal{E})\]
 </div>
 <p class="math-translation">—— 翻译: 当前 block $b_i$ 条件依赖前面所有 block + 视觉 token $Z$ + 文本 query $\mathcal{E}$。**block 间 causal**(下一 block 看前面所有),**block 内 6 个 token 并行**。</p>
 <h3 id="sec-2-2">2.2 训练: 同一 GT 双格式 + 两条流互不串话</h3>
@@ -182,6 +183,115 @@
     Fig. 6 — 12M unique image,138M queries,785M bbox。任务分布: Detection 66.9% (Object365 / OpenImages / V3Det 等),UI grounding 16.5% (OSAtlas / GroundCUA / ScaleCUA),Referring 7.3% (RefCOCO 系列 + Flickr30kEntities),OCR 3.6%,Layout 3.5%,Pointing 2.2% (PixmoPoints)。**单一统一格式喂模型同时学这 6 个任务**。
   </figcaption>
 </figure>
+<p><strong>数据引擎:138M 不是人工标的,是专家模型级联自动合成 + 验证</strong>(论文 §B,这是 §2.4 之前缺的关键细节)。</p>
+<p><strong>(1) 整合开源 + 清洗 + 负样本</strong>(§B.1):先收集 6 域开源检测/grounding 数据做统一格式清洗归一化。两个值得注意的处理:</p>
+<ul>
+<li><strong>GroundCUA 增强</strong>:其原始 UI label 太短,用 <strong>Qwen3-VL</strong> 把&quot;渲染了目标框的全图 + 局部裁剪 + 元数据&quot;喂进去,生成 <strong>appearance / spatial / functional 三视角</strong>自然语言描述,把短 label 变成可解释的丰富 query。</li>
+<li><strong>负样本构造</strong>:开源检测数据几乎全是正样本 → 模型易幻觉(query 与图无关也硬画框)。于是显式造&quot;图中不存在的物体&quot; query,挂上 <strong>negative block</strong>(§2.1 的四类 block 之一),教模型该 abstain 时 abstain。最终含 <strong>22M+ 负样本</strong>。</li>
+</ul>
+<p><strong>(2) 多目标 grounding 数据引擎</strong>(§B.2,Fig 9)—— 一条专家模型流水线把&quot;框 + query&quot;自动造出来:</p>
+<ul>
+<li><strong>从有标注检测集</strong>(Open Images / Objects365):每个 GT 框的类别 → 喂 <strong>Qwen3-VL</strong> 生成 object-centric query(属性 / 空间关系 / 推理线索)→ 喂 <strong>Molmo</strong> 预测候选点 → <strong>只保留落在 GT 框内的点</strong>当可靠监督。</li>
+<li><strong>从无标注图</strong>(Unsplash / SA-1B):<strong>Qwen3-VL</strong> 直接由图生成多样 query → <strong>Molmo</strong> 出点 → <strong>SAM 3</strong> 把点转成框;或直接用 <strong>Rex-Omni</strong> 出框。</li>
+<li><strong>最后所有框都由 Qwen3-VL 做 post-check 验证</strong>,过滤掉不一致的预测。</li>
+</ul>
+<p>也就是说,LocateAnything 用 <strong>Qwen3-VL(出 query + 验证)+ Molmo(出点)+ SAM 3(点→框)+ Rex-Omni(出框)</strong> 这套现成模型的级联,把数据规模从&quot;开源能拿到的&quot;放大到 1.38 亿级。框的输出顺序按 <strong>X-Y Corner Order</strong>(先按左上角 x、再按 y 排序)—— 消融显示这个排序 F1 最高,定为数据构建默认。</p>
+<p><strong>(3) 规模统计</strong>(§B.4,Table 10,共 <strong>139M queries / 22M+ negatives</strong>,长尾的&quot;每 query 目标数&quot;分布):</p>
+<table>
+<thead>
+<tr>
+<th>域</th>
+<th style="text-align:right">#Queries</th>
+<th style="text-align:right">#Negative</th>
+<th style="text-align:right">平均目标/query</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Detection</td>
+<td style="text-align:right">93.35M</td>
+<td style="text-align:right">21.0M</td>
+<td style="text-align:right">6.29</td>
+</tr>
+<tr>
+<td>GUI</td>
+<td style="text-align:right">23.01M</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">1.03</td>
+</tr>
+<tr>
+<td>Referring</td>
+<td style="text-align:right">10.14M</td>
+<td style="text-align:right">93k</td>
+<td style="text-align:right">2.12</td>
+</tr>
+<tr>
+<td>OCR</td>
+<td style="text-align:right">5.05M</td>
+<td style="text-align:right">0</td>
+<td style="text-align:right">11.89</td>
+</tr>
+<tr>
+<td>Layout</td>
+<td style="text-align:right">4.86M</td>
+<td style="text-align:right">1.38M</td>
+<td style="text-align:right">4.92</td>
+</tr>
+<tr>
+<td>Pointing</td>
+<td style="text-align:right">3.15M</td>
+<td style="text-align:right">353k</td>
+<td style="text-align:right">3.25</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-2-5">2.5 完整训练流程:4 阶段 progressive(base VLM → grounding SFT)</h3>
+<p>⚠️ 正文把后训练叫&quot;Stage-1 / Stage-2 SFT&quot;,但 supplementary(Table 7)把<strong>整条流水线拆成 4 个 progressive stage</strong>:前两阶段<strong>先造 base VLM</strong>(此时<strong>完全不碰检测/grounding 数据</strong>),后两阶段才是正文说的那两段检测 SFT。底座 = <strong>Moon-ViT(原生任意分辨率)+ Qwen2.5 + MLP projector</strong>,3B。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>目标</th>
+<th>数据</th>
+<th>可训练部分</th>
+<th>LR / 步数 / GPU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Stage 1</strong> 视觉概念初始化</td>
+<td>让 ViT 特征对齐文本</td>
+<td><strong>仅 caption 类</strong>数据(Table 8)</td>
+<td><strong>只训 MLP projector</strong></td>
+<td>2e-4 / 2000 / 64</td>
+</tr>
+<tr>
+<td><strong>Stage 2</strong> 综合多模态</td>
+<td>建强 base VLM</td>
+<td>全量通用集(数学/代码/科学/图表/OCR/VQA/纯文本/基础计数)</td>
+<td><strong>全部</strong></td>
+<td>4e-5 / 20000 / 256</td>
+</tr>
+<tr>
+<td><strong>Stage 3</strong> 检测&amp;grounding(=正文 SFT-1)</td>
+<td>注入 grounding 能力</td>
+<td><strong>138M LocateAnything-Data</strong></td>
+<td><strong>全部解冻</strong></td>
+<td>4e-5 cosine / 25000 / 256</td>
+</tr>
+<tr>
+<td><strong>Stage 4</strong> 密集检测增强(=正文 SFT-2)</td>
+<td>密集场景不崩</td>
+<td>20% 前序 + 密集集(MOT20Det / SKU110K)</td>
+<td><strong>全部</strong></td>
+<td>1e-5 / 5000 / 256</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>初始化链</strong>:Stage 1 从 Moon-ViT + Qwen2.5 + 随机 projector 起步(只训 projector 对齐);Stage 2 起全参训练得到 base VLM;Stage 3 在 base VLM 上全参 SFT 灌入 138M grounding 数据;Stage 4 在 Stage 3 之上继续,降通用数据比例、提密集数据。最大序列长度 Stage 1-2 用 32768、Stage 3-4 用 25600(因为 §2.2 的双格式 <span class="math inline">\(x_\text{ntp}\oplus x_\text{blk}\)</span> 拼接很长)。</li>
+<li><strong>关键 trick</strong>:Stage 1-2 <strong>刻意排除所有检测/grounding 数据</strong>,先把世界知识打牢,再在 Stage 3-4 专精——避免一上来就 SFT detection 损伤通用能力。</li>
+</ul>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <figure>
   <img class="zoomable" src="figures/tab1-lvis-coco.png" alt="Table 1: LVIS + COCO 结果">
@@ -245,7 +355,9 @@
 <li><strong>Hybrid threshold</strong>: top-1 prob &lt; 0.7 且 top-5 max-min &gt; 80 → 回退 NTP。两个条件<strong>同时</strong>满足才回退 (避免误判)。这两个 threshold 是 paper 经验值,在 supplementary 提到敏感度分析。</li>
 <li><strong>训练时 NTP 和 MTP loss 等权相加</strong>: 没有 weight tuning。考虑到 NTP 和 MTP 都是 cross-entropy 同 scale,合理。</li>
 <li><strong><code>x_blk</code> 构造</strong>: 把 <code>x_ntp</code> 左到右扫,按 block 边界切+pad,每个 block 保留第 1 个 token 作为 prediction context,其余替换为 <code>[mask]</code>。block 大小 = 1 时退化为标准 NTP。</li>
-<li><strong>paper-vs-code gap 风险</strong>: 因为代码没开,只能信任 paper claim。Throughput 数字 (12.7 BPS) 需要看清是哪种硬件 + batch size + decoding mode (Fast / Hybrid)。Hybrid 在密集场景会变慢但 paper Table 1 没分开列。</li>
+<li><strong>吞吐口径(已从 supplementary 澄清)</strong>: BPS = <strong>boxes per second</strong>,在 <strong>单张 NVIDIA H100、batch size 1、BF16、默认 Hybrid Mode</strong> 下测;MTP block size = 6(<span class="math inline">\(n_\text{future}=6\)</span>),最大新生成 token 8192。Fast / Slow Mode 的数字在 supplementary 单列。(本页早期版本曾质疑&quot;BPS 单位 / 硬件不透明&quot;,现更正:口径是明确的。)</li>
+<li><strong>系统级训练技巧</strong>(supplementary §A.1): 双格式 <span class="math inline">\(x_\text{ntp}\oplus x_\text{blk}\)</span> 让序列很长且 attention mask 异构,论文用两招扛住——<strong>Stream Packing</strong>(打包样本最大化 GPU 利用率)+ <strong>MagiAttention</strong>(原生支持 NTP+MTP 联合训练所需的异构 attention mask)。这是复现该训练的两个隐藏前提。</li>
+<li><strong>paper-vs-code gap 风险</strong>: 代码 / 权重仍未开,核心 PBD claim 只能信任论文。Hybrid 在密集场景会触发更多 NTP 回退而变慢,但正文 Table 1 只给单一 Hybrid 数字、没按场景密度分档。</li>
 </ul>
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">5.1 优点</h3>
@@ -259,7 +371,7 @@
 <h3 id="sec-5-2">5.2 不足 / 疑点</h3>
 <ul>
 <li><strong>代码 + 数据 + 权重 0 release</strong> (截至 2026/06/04): 没有任何东西可复现。GitHub / HF 链接 placeholder。<strong>对工业 / 学术应用价值打折</strong>。</li>
-<li><strong>Throughput 比较的硬件 / batch size 不透明</strong>: 12.7 BPS vs Qwen3-VL-8B 的 1.0 — 是同一硬件吗?BPS 是 box-per-second 还是 batch-per-second?Hybrid mode 在密集场景的实际加速比 Fast mode 低多少?Paper 没充分披露。</li>
+<li><strong><s>Throughput 硬件/单位不透明</s> → 已澄清</strong>(细读 supplementary 后更正):BPS = boxes per second,统一在单张 H100 / batch 1 / BF16 / Hybrid Mode 下测,Fast/Slow 另列。真正仍欠披露的是:Hybrid 在不同目标密度下的实际加速曲线(只给单一聚合值),以及与 Qwen3-VL-8B 比较时两者 batch/精度是否完全对齐。</li>
 <li><strong><code>mtp</code> block 内 4 坐标的&quot;耦合&quot;实际有多强</strong>: paper claim PBD 利用了 <span class="math inline">\(x_1, y_1, x_2, y_2\)</span> 的几何耦合,但 attention 在 4 个位置间的 query/key/value 学习强度没有 visualization (比如 attention map)。&quot;耦合好&quot; 是定性 claim, 不是定量证据。</li>
 <li><strong>Hybrid mode threshold (0.7 / 80) 怎么调出来的</strong>: paper 说 supplementary 有敏感度分析,但 main paper 没给。这两个阈值是 task-specific 还是普适?</li>
 <li><strong>没跟 NTP 用 speculative decoding 比</strong>: 加速 NTP 的另一条路是 speculative decoding (像 EAGLE / Medusa),这能不能在 detection VLM 上达到类似 throughput?Paper 没比。</li>
