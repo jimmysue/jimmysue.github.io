@@ -162,102 +162,97 @@
       <figcaption>Fig. 5 — MAR 消融。w/o KL Loss 的样本对象单调、背景同质化 (典型的 reward hacking);加上 MAR (w. KL Loss(Ours)) 后橙子有阴影、剪刀有立体感、小鸟羽毛纹理回来了。</figcaption>
     </figure>
 <h3 id="sec-2-9">2.8 与代码对照</h3>
-<p>Flow-OPD 官方 repo 暂未释放训练代码 (TODO 列表第一条),但作者明确指出基于 <a href="https://github.com/yifan123/flow_grpo">yifan123/flow_grpo</a> 实现。下面的引文都来自基础 codebase,Flow-OPD 在此之上的扩展点 (multi-teacher routing + detached <span class="math inline">\(\bar v_\theta\)</span> + MAR) 是<em>替换</em>而不是<em>新建</em>这些函数。</p>
+<blockquote>
+<p><strong>2026-06-08 更新</strong>:官方训练代码已释放(<a href="https://github.com/CostaliyA/Flow-OPD">CostaliyA/Flow-OPD</a>,&quot;Release Training Code&quot; 已 ✅)。本节已把原先的教学性伪代码<strong>全部替换为作者原码的逐行引用</strong>(<code>repo/scripts/train_sd3_opd_mix.py</code> 等)。</p>
+</blockquote>
+<p>Flow-OPD 基于 <a href="https://github.com/yifan123/flow_grpo">yifan123/flow_grpo</a> 扩展,官方 repo 直接 vendor 了 <code>flow_grpo/</code> 与 <code>scripts/</code>。核心创新(per-task teacher routing + KL→L2 dense reward + MAR)就落在 <code>train_sd3_opd_mix.py</code> 的训练循环里。下面四段全部 verbatim 引自官方 repo。</p>
 <p><strong>(a) SDE 转换 + transition log-prob</strong> — 实现 Eq. 5-6。共方差结构在 L44-L50 (<code>std_dev_t</code>),正是后面 KL→L2 折叠之所以成立的根源。</p>
-<p class="code-source">repo_flow_grpo/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L42-L68 — SDE Euler-Maruyama 步 + Gaussian transition log-prob</p>
-<pre><code class="language-python">step_index = [self.index_for_timestep(t) for t in timestep]
-prev_step_index = [step+1 for step in step_index]
-sigma = self.sigmas[step_index].view(-1, *([1] * (len(sample.shape) - 1)))
-sigma_prev = self.sigmas[prev_step_index].view(-1, *([1] * (len(sample.shape) - 1)))
-sigma_max = self.sigmas[1].item()
-dt = sigma_prev - sigma
+<p class="code-source">repo/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L46-L68 — SDE Euler-Maruyama 步 + Gaussian transition log-prob</p>
+<pre><code class="language-python">    sigma_max = self.sigmas[1].item()
+    dt = sigma_prev - sigma
 
-if sde_type == 'sde':
-    std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma)))*noise_level
+    if sde_type == 'sde':
+        std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma)))*noise_level
 
-    # our sde
-    prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt) \
-                     + model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
+        # our sde
+        prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt)+model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
 
-    if prev_sample is None:
-        variance_noise = randn_tensor(model_output.shape, generator=generator,
-                                       device=model_output.device, dtype=model_output.dtype)
-        prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1*dt) * variance_noise
+        if prev_sample is None:
+            variance_noise = randn_tensor(
+                model_output.shape,
+                generator=generator,
+                device=model_output.device,
+                dtype=model_output.dtype,
+            )
+            prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1*dt) * variance_noise
 
-    log_prob = (
-        -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1*dt))**2))
-        - torch.log(std_dev_t * torch.sqrt(-1*dt))
-        - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
-    )
+        log_prob = (
+            -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1*dt))**2))
+            - torch.log(std_dev_t * torch.sqrt(-1*dt))
+            - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+        )
 </code></pre>
-<p>注意 <code>std_dev_t</code> 完全由 timestep 决定,不依赖 <code>model_output</code> — 这就是为什么学生与教师的 transition 自动同协方差,从而 Eq. 8 中 <span class="math inline">\(\Sigma^{-1}\)</span> 退化为标量。</p>
-<p><strong>(b) KL 退化为 mean-差 L2 + PPO clipped surrogate</strong> — 实现 Eq. 8 + Eq. 11。<u>这是把 LLM-style PPO 移植到 flow matching 的核心循环。</u></p>
-<p class="code-source">repo_flow_grpo/scripts/train_sd3.py:L879-L904 — GRPO + KL 主循环</p>
-<pre><code class="language-python">prev_sample, log_prob, prev_sample_mean, std_dev_t = compute_log_prob(
-    transformer, pipeline, sample, j, embeds, pooled_embeds, config)
-if config.train.beta &gt; 0:
-    with torch.no_grad():
-        with transformer.module.disable_adapter():            # base SD3 (LoRA off) 当 reference
-            _, _, prev_sample_mean_ref, _ = compute_log_prob(
-                transformer, pipeline, sample, j, embeds, pooled_embeds, config)
-
-# grpo logic
-advantages = torch.clamp(sample[&quot;advantages&quot;][:, j],
-                          -config.train.adv_clip_max, config.train.adv_clip_max)
-ratio = torch.exp(log_prob - sample[&quot;log_probs&quot;][:, j])
-unclipped_loss = -advantages * ratio
-clipped_loss = -advantages * torch.clamp(ratio,
-                                          1.0 - config.train.clip_range,
-                                          1.0 + config.train.clip_range)
-policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
-if config.train.beta &gt; 0:
-    # KL between two same-covariance Gaussians == ||μ_θ - μ_ref||^2 / (2 σ^2 Δt)
-    kl_loss = ((prev_sample_mean - prev_sample_mean_ref) ** 2).mean(
-        dim=(1,2,3), keepdim=True) / (2 * std_dev_t ** 2)
-    kl_loss = torch.mean(kl_loss)
-    loss = policy_loss + config.train.beta * kl_loss
+<p>注意 <code>std_dev_t</code> 完全由 timestep 决定,不依赖 <code>model_output</code> — 这就是为什么学生与教师的 transition 自动同协方差,从而 Eq. 8 中 <span class="math inline">\(\Sigma^{-1}\)</span> 退化为标量。<code>prev_sample_mean</code> 就是 SDE 步的高斯均值 <span class="math inline">\(\mu\)</span>,KL→L2 折叠的全部魔法都在它身上。</p>
+<p><strong>(b) 任务路由(Eq. 7)</strong> — 每个 dataset(task)绑定它自己的 teacher LoRA reference:</p>
+<p class="code-source">repo/scripts/train_sd3_opd_mix.py:L1484-L1488 — OPD 模式下按当前 dataset 取该任务的 teacher reference transformer</p>
+<pre><code class="language-python"># In OPD mode, get current dataset's ref transformer for KL reward
+if is_opd_mode and is_alternate_mode:
+    current_ref_transformer = ref_transformers.get(current_ds_name)
 else:
-    loss = policy_loss
+    current_ref_transformer = None
 </code></pre>
-<p>看 L900 — <code>((prev_sample_mean - prev_sample_mean_ref) ** 2) / (2 * std_dev_t ** 2)</code> 是论文 Eq. 8 的逐字翻译。在 Flow-OPD 里,只需要把 <code>prev_sample_mean_ref</code> 替换成 <strong>task-routed teacher 的 <span class="math inline">\(\mu_{\phi_k}\)</span></strong>,KL 项就变成 task-specific dense reward (Eq. 10);把 base 模型当 <code>prev_sample_mean_aesthetic</code> 再加一项,就得到 MAR (Eq. 12)。</p>
-<p><strong>(c) Flow-OPD 在 base codebase 之上的扩展点</strong> — 教学性伪代码,无官方实现可引:</p>
-<pre><code class="language-python"># Flow-OPD specific extensions (didactic — official training code not yet released)
-def flow_opd_step(student, teachers, mar_teacher, prompts, prev_sample, t, dt, sigma_t, lam):
-    &quot;&quot;&quot;
-    teachers: dict[task_name -&gt; teacher_model]
-    mar_teacher: 任务无关美学 teacher
-    &quot;&quot;&quot;
-    # ----- 1) on-policy student transition (Eq. 5-6) -----
-    v_student = student(prev_sample, t, prompts)              # [B, C, H, W]
-    mu_theta  = euler_maruyama_mean(prev_sample, v_student, t, dt, sigma_t)
+<p>对照 §2.5 的 hard routing <span class="math inline">\(R(c)\)</span>:工程上就是&quot;按 dataset 名查表取 teacher&quot;。<code>ref_transformers</code> 是 {task → teacher LoRA},每个 task 的样本只跟自己的专家算 KL——soft mixing 被显式拒绝,跨任务梯度干扰在 input 端就消除。</p>
+<p><strong>(c) KL → 速度场 L2 的 dense reward(Eq. 8-10)</strong> — 全文最关键的折叠,这里 verbatim:</p>
+<p class="code-source">repo/scripts/train_sd3_opd_mix.py:L1707-L1728 — reward_mode=="mixed":末步稀疏 task reward + 逐 step 稠密 KL-to-teacher reward</p>
+<pre><code class="language-python">if config.train.get(&quot;kl_reward_level&quot;) == &quot;step_wise&quot; and config.train.get(&quot;kl_scale&quot;, 0) != 0:
+    if prev_sample_mean_ref_lora is not None:
+        kl_reward = ((prev_sample_mean - prev_sample_mean_ref_lora) ** 2).mean(dim=(1, 2, 3), keepdim=True) / (2 * std_dev_t ** 2)
+    else:
+        kl_reward = torch.zeros_like(prev_sample_mean.mean(dim=(1, 2, 3), keepdim=True))
+    kl_reward = kl_reward.squeeze(-1).squeeze(-1)
 
-    # ----- 2) task routing (Eq. 7) -----
-    target_means = []
-    for prompt, sample in zip(prompts, prev_sample):
-        k = route_to_task(prompt)                             # GenEval / OCR / DeQA / PickScore
-        with torch.no_grad():
-            v_phi_k = teachers[k](sample.unsqueeze(0), t, [prompt])
-        target_means.append(euler_maruyama_mean(sample.unsqueeze(0), v_phi_k, t, dt, sigma_t))
-    mu_target = torch.cat(target_means, dim=0)
+    if kl_norm == &quot;per_sample&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
+    elif kl_norm == &quot;per_timestep&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
+    elif kl_norm == &quot;global&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
 
-    # ----- 3) dense reward = -w(t) * ||v_θ̄ - v_target||^2  (Eq. 9-10) -----
-    # NB: student vector field MUST be detached on the reward path
-    w_t = ((sigma_t * (1 - t) / (2 * t)) + (1.0 / sigma_t)) ** 2
-    r_opd = -w_t * dt * ((v_student.detach() - v_phi_k) ** 2).mean(dim=(1, 2, 3))
-
-    # ----- 4) PPO clipped surrogate uses r_opd as advantage (Eq. 11) -----
-    ratio = torch.exp(log_prob_student - log_prob_old)
-    policy_loss = -torch.minimum(ratio * r_opd,
-                                 ratio.clamp(1 - eps, 1 + eps) * r_opd).mean()
-
-    # ----- 5) MAR (Eq. 12) — task-agnostic aesthetic anchor on ALL samples -----
-    with torch.no_grad():
-        v_aes = mar_teacher(prev_sample, t, prompts)
-    mar_loss = (w_t * dt * ((v_student - v_aes) ** 2).mean(dim=(1, 2, 3))).mean()
-
-    return policy_loss + lam * mar_loss
+    advantages = task_advantage + config.train.kl_scale * kl_reward
+    advantages = torch.clamp(
+        advantages,
+        -config.train.adv_clip_max,
+        config.train.adv_clip_max,
+    )
+else:
+    advantages = task_advantage
 </code></pre>
-<p>三个关键区别于 flow-grpo 主循环:(i) <code>prev_sample_mean_ref</code> 不再是 base 模型,而是按 prompt 路由到的<em>专家</em>;(ii) <span class="math inline">\(v_\theta\)</span> 在 reward 路径上 detach (paper Eq. 10 强调),梯度只走 ratio;(iii) 多了一个全场 MAR 项,reference 不是 base SD3 而是单独训好的 aesthetic teacher。</p>
+<p>对照 Eq. 8-9:<code>((prev_sample_mean - prev_sample_mean_ref_lora) ** 2) / (2 * std_dev_t ** 2)</code> 就是两个<strong>同协方差</strong>高斯之间的 KL —— 学生 SDE 均值 <span class="math inline">\(\mu_\theta\)</span> 与<strong>路由到的 teacher</strong> 均值 <span class="math inline">\(\mu_{\phi_k}\)</span> 的逐元素 L2,除以 <span class="math inline">\(2\sigma_t^2\)</span>,正是论文 Eq. 8 的逐字翻译。稀疏的 <code>task_advantage</code>(只在末步给)+ 稠密的 <code>kl_scale * kl_reward</code>(每一步给)= Eq. 10 的混合优势。<code>prev_sample_mean_ref_lora</code> 由 (b) 路由到的 <code>current_ref_transformer</code> 算出。</p>
+<p><strong>(d) PPO clip(Eq. 11)+ MAR 美学锚定(Eq. 12)</strong>:</p>
+<p class="code-source">repo/scripts/train_sd3_opd_mix.py:L1753-L1767 — clipped surrogate;beta>0 时加 MAR(到 task-agnostic teacher 的 KL)</p>
+<pre><code class="language-python">else:
+    ratio = torch.exp(log_prob - sample[&quot;log_probs&quot;][:, j])
+    unclipped_loss = -advantages * ratio
+    clipped_loss = -advantages * torch.clamp(
+        ratio,
+        1.0 - config.train.clip_range,
+        1.0 + config.train.clip_range,
+    )
+    policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+    if config.train.beta &gt; 0:
+        kl_loss = ((prev_sample_mean - prev_sample_mean_ref_base) ** 2).mean(dim=(1,2,3), keepdim=True) / (2 * std_dev_t ** 2)
+        kl_loss = torch.mean(kl_loss)
+        loss = policy_loss + config.train.beta * kl_loss
+    else:
+        loss = policy_loss
+</code></pre>
+<p><code>prev_sample_mean_ref_base</code> 由 <code>mar_transformer</code>(单独的 task-agnostic 美学 teacher,加载时 <code>requires_grad_(False)</code> + <code>eval()</code>)算出;<code>loss = policy_loss + beta * kl_loss</code> 就是 Eq. 12 的 MAR 锚定项 —— 用一个&quot;全数据美学 teacher&quot;把生成拉回高质量 manifold,缓解纯 RL 的美学退化。</p>
+<p><strong>三个关键观察(基于真实代码,非伪代码)</strong>:</p>
+<ul>
+<li>(i) <strong>routing 是 dataset 级查表</strong>(<code>ref_transformers.get(current_ds_name)</code>),不是 prompt 级软混合 —— 印证 §2.5 的 hard routing 设计。</li>
+<li>(ii) <strong>dense distillation 在代码里有三种形态</strong>:<code>gkd</code> 模式把 KL→L2 当<strong>直接 loss</strong>(<code>gkd_loss = torch.mean(kl_reward_gkd)</code>,L1735,梯度直接过学生速度场,这是最&quot;纯&quot;的 OPD 稠密监督);<code>mixed</code> 模式把同一个 KL→L2 当<strong>逐步 reward</strong> 塞进 PPO 优势(上面 (c));MAR 则是 <code>beta * kl_loss</code> 的<strong>直接正则</strong>(上面 (d))。同一道 KL→L2 折叠,被复用在三个位置。</li>
+<li>(iii) ⚠️ <strong>paper-vs-code 细节(精读才看得到)</strong>:论文 Eq. 10 强调对学生速度场 &quot;strictly detached&quot;。但在 <code>mixed</code> 模式里 <code>advantages = task_advantage + kl_scale * kl_reward</code> <strong>没有对 <code>kl_reward</code></strong>(含 <code>prev_sample_mean</code> 的学生梯度)<strong>显式 detach</strong> 就乘进了 <code>ratio</code> —— 学生梯度会同时经 ratio 与 advantage 回传。&quot;严格 detach&quot; 因此取决于 OPD 实跑用 <code>gkd</code> 还是 <code>mixed</code> 哪个 reward_mode;论文叙事与释放代码在这点上不完全对齐,复刻时务必确认所用模式。</li>
+</ul>
 <h2 id="sec-3">3. 结论 (Key Findings)</h2>
 <p>在 SD-3.5-M 上的四个 benchmark:</p>
 <figure>
@@ -292,7 +287,8 @@ def flow_opd_step(student, teachers, mar_teacher, prompts, prev_sample, t, dt, s
 </ul></li>
 <li><strong>MAR 的 aesthetic teacher 来源:</strong> &quot;optimized via DeQA&quot; — 复用前面的 DeQA teacher。所以这个组件 reuse,没有额外训一个新模型,但论文没写 MAR 的 <span class="math inline">\(\lambda\)</span> 值,需要自己 sweep。</li>
 <li><strong>PPO clip 参数:</strong> 沿用 flow-grpo,<code>config.train.clip_range</code> 通常取 0.2,<code>adv_clip_max</code> 通常取 10 — 这些都在 <code>config/base.py</code> 默认值。Flow-OPD 没单独 ablation。</li>
-<li><strong>&quot;代码 vs 论文&quot;的 gap (重点):</strong> 真实训练代码未发布,论文 Eq. 7 的 routing 函数、Eq. 12 的 <span class="math inline">\(\lambda\)</span>、多教师 batch 编排、MAR teacher 的具体实现 — 都需要读者自己复刻。这是 paper 的最大可重现性短板。</li>
+<li><strong>代码状态(2026-06-08 更新):</strong> 官方 repo <a href="https://github.com/CostaliyA/Flow-OPD">CostaliyA/Flow-OPD</a> <strong>已释放完整训练代码</strong>(&quot;Release Training Code&quot; ✅):<code>scripts/train_sd3_opd_mix.py</code>(多教师 OPD 主循环)、<code>scripts/train_sd3_sft.py</code>(SFT 冷启动)、<code>scripts/merge.py</code>(LoRA 合并)、<code>config/grpo.py</code>+<code>config/sft.py</code>+<code>config/base.py</code>、<code>flow_grpo/</code>(SDE/reward 实现)。§2.8 的四段引用已全部换成作者原码。</li>
+<li><strong>&quot;代码 vs 论文&quot;的 gap(现在能看清了):</strong> routing(Eq. 7)、KL→L2(Eq. 8-10)、MAR(Eq. 12)在 §2.8 都能逐行对上。但仍有两处需复刻者确认:① 论文 Eq. 10 的 &quot;strictly detached&quot; 在释放代码的 <code>mixed</code> 模式里<strong>没有显式 detach</strong> <code>kl_reward</code>(见 §2.8 观察 iii)—— 实跑用 <code>gkd</code> 还是 <code>mixed</code> 会改变梯度路径;② MAR 的 <code>beta</code>(<span class="math inline">\(\lambda\)</span>)与 <code>kl_scale</code> 默认值需查 <code>config/grpo.py</code> 的具体实验配置,论文正文未给。</li>
 </ul>
 <h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
 <h3 id="sec-5-1">5.1 优点</h3>
