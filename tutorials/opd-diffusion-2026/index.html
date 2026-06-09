@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 为什么需要 OPD:从 LLM 的 GKD 到扩散的两道死结</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 核心折叠:SDE 同协方差 → reverse-KL = 速度场 L2</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 三兄弟① Flow-OPD:留住 RL(PPO + task reward + MAR)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+    <li class="h2"><a href="#sec-4">4. 三兄弟② DiffusionOPD:砍掉 RL(closed-form 直接 loss)</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 直觉</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 正式化</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 洞察</a></li>
+    <li class="h2"><a href="#sec-5">5. 三兄弟③ D-OPSD:teacher 是 EMA 的自己(reward-free 自蒸馏)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 直觉</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 正式化</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-5-5">5.5 洞察</a></li>
+    <li class="h2"><a href="#sec-6">6. 邻居:分布匹配蒸馏 DMD / SiD —— 同核心,为提速</a></li>
+    <li class="h3"><a href="#sec-6-1">6.1 直觉</a></li>
+    <li class="h3"><a href="#sec-6-2">6.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-6-3">6.3 正式化</a></li>
+    <li class="h3"><a href="#sec-6-4">6.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-6-5">6.5 洞察</a></li>
+    <li class="h2"><a href="#sec-7">7. 统一视角:一个模板,四个选择轴</a></li>
+    <li class="h3"><a href="#sec-7-1">7.1 直觉</a></li>
+    <li class="h3"><a href="#sec-7-2">7.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-7-3">7.3 正式化</a></li>
+    <li class="h3"><a href="#sec-7-4">7.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-7-5">7.5 洞察</a></li>
+    <li class="h2"><a href="#sec-8">参考文献与代码仓库</a></li>
+    <li class="h3"><a href="#sec-8-1">OPD 的本源(LLM)</a></li>
+    <li class="h3"><a href="#sec-8-2">扩散 / flow RL 谱系(三兄弟的上游)</a></li>
+    <li class="h3"><a href="#sec-8-3">★ OPD 三兄弟(2026-05,本站均已精读)</a></li>
+    <li class="h3"><a href="#sec-8-4">近亲:分布匹配蒸馏(为一步/少步提速)</a></li>
+    <li class="h3"><a href="#sec-8-5">代码仓库(本教程 Step-4 引用,均 diff 验证)</a></li>
+    <li class="h3"><a href="#sec-8-6">本仓相关</a></li>
+  </ul>
+</nav>
+<main>
+<h1>OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-09</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-06-09</span> · <span class="post-meta__extra">15k 字</span> · <span class="post-meta__extra">100–130 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/CostaliyA/Flow-OPD">代码</a> · <a class="post-meta__link" href="https://github.com/vvvvvjdy/D-OPSD">代码</a> · <a class="post-meta__link" href="https://github.com/tianweiy/DMD2">代码</a> · <a class="post-meta__link" href="https://github.com/yifan123/flow_grpo">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/on-policy-distillation.html">on-policy-distillation</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/distillation.html">distillation</a> <a class="concept-chip" href="../../concepts/rl.html">rl</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a> <a class="concept-chip" href="../../concepts/sd3.html">sd3</a></div>
+</aside>
+
+<p><strong>On-Policy Distillation(OPD,同策略蒸馏)</strong> 是 LLM 后训练里把&quot;student 自己采样、teacher 逐步纠正&quot;做成范式的一套方法(GKD, Agarwal et al. 2023)。2026 年 5 月,几乎同一周冒出了把它搬进文生图扩散/flow matching 的&quot;三兄弟&quot;——<a href="../../papers/flow-opd-2026/index.html">Flow-OPD</a>、<a href="../../papers/diffusion-opd-2026/index.html">DiffusionOPD</a>、<a href="../../papers/d-opsd-2026/index.html">D-OPSD</a>——三者共享同一个漂亮的数学折叠,却在&quot;要不要 RL、要不要 reward、teacher 是谁&quot;上给出不同答案。</p>
+<p>本教程用 7 个螺旋结构章节(直觉 → 最小 demo → 正式化 → 真实代码 → 洞察)把这条线讲透:<strong>§1–§2</strong> 立地基(on-policy 为什么治 exposure bias;SDE 同协方差 → reverse-KL = 速度场 L2);<strong>§3–§5</strong> 是三兄弟;<strong>§6</strong> 讲近亲 DMD/SiD 分布匹配蒸馏(为提速而非对齐);<strong>§7</strong> 把 RL-for-diffusion、知识蒸馏、分布匹配三条线收敛成<strong>一个统一模板 + 四个选择轴</strong>。所有 Step-4 代码 verbatim 引自四个真实训练脚本(Flow-OPD / DiffusionOPD / D-OPSD / DMD2),并经 <code>diff</code> 逐行验证。</p>
+<blockquote>
+<p>阅读提示:<strong>§2 是全篇支柱</strong>(KL→L2 折叠),后面每节都站在它上面;§7 是把五个方法压成一句话的综合。带着&quot;teacher 在 student 轨迹上给一个 per-state 目标&quot;这把尺子读,各方法的异同会一目了然。</p>
+</blockquote>
+<h2 id="sec-1">1. 为什么需要 OPD:从 LLM 的 GKD 到扩散的两道死结</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>学写作文有两种方式。第一种是&quot;照抄范文&quot;:老师把一篇满分作文摊在你面前,你照着抄、记住它每个句子。问题是,真到考场上自己写,你写出的句子和范文长得不一样,一旦开头跑偏,后面越写越离谱——而范文里根本没有&quot;如何从你这个错误的开头补救&quot;的示范。这种&quot;训练时只见过范文、自己写时却到了没人教过的地方&quot;的毛病,就叫 <strong>exposure bias(曝光偏差)</strong>。</p>
+<p>第二种是&quot;自己写、老师逐句改&quot;:你先按自己的水平写一句,老师立刻在<strong>你这句话</strong>的基础上告诉你下一句该怎么接。监督打在你<strong>自己真会写出的句子</strong>上,正好治住第一种的病。</p>
+<p>把&quot;老师&quot;换成一个强模型(teacher)、&quot;学生&quot;换成待训练的模型(student),这第二种就是本教程的主角:<strong>OPD = On-Policy Distillation(同策略蒸馏)</strong>——student 用<strong>自己采样</strong>出的样本,teacher 在<strong>同一个状态</strong>上给出学习目标。图 1 把这两种监督画在了一起。</p>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<p>下面用一个一维玩具说明:offline 监督打在 teacher 分布上,但 student 自己真正会走到的区域,offline 根本没覆盖。</p>
+<pre class="teaching-demo"><code class="language-python">import numpy as np
+rng = np.random.default_rng(0)
+
+# teacher 分布集中在 0 附近;student 当前还很偏,集中在 3 附近
+teacher_samples = rng.normal(0.0, 1.0, size=2000)   # offline 监督打在这里
+student_samples = rng.normal(3.0, 1.0, size=2000)   # student 自己真正会到的状态
+
+def covered(region, samples):       # 落在某区间的样本占比
+    lo, hi = region
+    return np.mean((samples >= lo) & (samples < hi))
+
+student_region = (2.0, 4.0)         # student 高频访问区
+print("offline 在该区监督密度:", covered(student_region, teacher_samples))  # ~0.02
+print("on-policy 在该区监督密度:", covered(student_region, student_samples)) # ~0.68
+</code></pre>
+<p>offline 的监督几乎不落在 student 实际访问的 <code>(2,4)</code> 区——那里没人教,exposure bias 由此而来;on-policy 把监督直接搬到 student 自采的样本上。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p><strong>(1) GKD 的 on-policy 目标。</strong> 在 LLM 上,GKD / On-Policy Distillation(Agarwal et al., arXiv:2306.13649, ICLR 2024)的核心是:序列由 student 策略 <span class="math inline">\(\pi_\theta\)</span> <strong>自己采样</strong>,再让 teacher <span class="math inline">\(\pi_T\)</span> 在这些状态上逐步纠正:</p>
+<div class="math block">
+\[\min_\theta\ \mathbb{E}_{x\sim\pi_\theta}\big[\mathrm{KL}(\pi_\theta\Vert\pi_T)\big]\]
+</div>
+<p class="math-translation">—— 翻译:期望下标 $x\sim\pi_\theta$ 表示样本由 student 自己采;在这些样本上把 student 分布拉向 teacher 分布,监督只打在 student 真会到的状态。</p>
+<p><strong>(2) 扩散多任务 RL 的两道死结。</strong> 把这套搬到扩散/flow matching 上,会撞上两个结构性难题。第一道是 <strong>reward 稀疏</strong>:一个标量 reward 只在去噪末步(<span class="math inline">\(t=0\)</span>)才有,中间每一步都没有信号,只能把同一个优势 <span class="math inline">\(A\)</span> 广播回每一步:</p>
+<div class="math block">
+\[A_t = A,\qquad \forall\, t \in \{T, T-1, \dots, 1\}\]
+</div>
+<p class="math-translation">—— 翻译:每一步 $t$ 拿到的优势 $A_t$ 都等于末步那个唯一的标量 $A$,中间步骤没有独立信号,信用分配靠"把末步结果摊给全程"。</p>
+<p>第二道是 <strong>梯度干扰</strong>:多个异构目标 <span class="math inline">\(J_k\)</span>(如美学、文本对齐、构图)被联合优化,当两个目标的梯度方向相反时,会互相破坏,呈现&quot;跷跷板&quot;——按下一个翘起另一个:</p>
+<div class="math block">
+\[\langle \nabla J_k,\ \nabla J_l\rangle \lt 0 \ \Longrightarrow\ \text{更新}\ \nabla J_k\ \text{会拉低}\ J_l\]
+</div>
+<p class="math-translation">—— 翻译:两个目标梯度内积为负,说明方向冲突;沿其中一个目标更新参数,会同时降低另一个目标的表现,这就是多任务优化里的"跷跷板"效应。</p>
+<p>记住这两道结(reward 稀疏 + 梯度干扰),后面每个方法本质上都在拆其中一道。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>on-policy 的第一前提,是 student 得能&quot;采样出多样轨迹&quot;。但 flow matching 的原生采样是<strong>确定性 ODE</strong>:同一个初值只会走出同一条轨迹,没法探索,也没有可微的 log 概率。Flow-GRPO(arXiv:2505.05470)的关键一步,是把这条确定性 ODE 改写成随机 SDE:</p>
+<p class="code-source">Flow-GRPO/flow_grpo/diffusers_patch/sd3_sde_with_logprob.py:L46-L68 — ODE→SDE:把确定性 flow 变成随机策略,on-policy 探索的前提</p>
+<pre><code class="language-python">    sigma_max = self.sigmas[1].item()
+    dt = sigma_prev - sigma
+
+    if sde_type == 'sde':
+        std_dev_t = torch.sqrt(sigma / (1 - torch.where(sigma == 1, sigma_max, sigma)))*noise_level
+
+        # our sde
+        prev_sample_mean = sample*(1+std_dev_t**2/(2*sigma)*dt)+model_output*(1+std_dev_t**2*(1-sigma)/(2*sigma))*dt
+
+        if prev_sample is None:
+            variance_noise = randn_tensor(
+                model_output.shape,
+                generator=generator,
+                device=model_output.device,
+                dtype=model_output.dtype,
+            )
+            prev_sample = prev_sample_mean + std_dev_t * torch.sqrt(-1*dt) * variance_noise
+
+        log_prob = (
+            -((prev_sample.detach() - prev_sample_mean) ** 2) / (2 * ((std_dev_t * torch.sqrt(-1*dt))**2))
+            - torch.log(std_dev_t * torch.sqrt(-1*dt))
+            - torch.log(torch.sqrt(2 * torch.as_tensor(math.pi)))
+        )
+</code></pre>
+<p>关键在 <code>std_dev_t</code>:它给原本确定的下一步均值 <code>prev_sample_mean</code> 注入了一份随机噪声 <code>std_dev_t * sqrt(-dt) * variance_noise</code>。这一注入把确定性 flow 变成了<strong>随机策略</strong>——同一状态可以采出不同的下一步(on-policy 探索),同时高斯形式让 <code>log_prob</code> 可解析计算。没有这步随机化,就没有可采样的策略、没有 log 概率,也就谈不上 RL 或 OPD。(其中的 velocity 含义、SDE 均值 <span class="math inline">\(\mu\)</span>、<span class="math inline">\(\sigma_t\)</span> 与 KL→L2 的关系,留到 §2 系统展开。)</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>on-policy 是整条技术线的共同信条。</strong> 后面要讲的&quot;三兄弟&quot;(velocity / score / 分布蒸馏)加上 DMD,无一例外都在&quot;student 自己会到的状态&quot;上施加监督——这正是治 exposure bias 的统一处方,也是 OPD 与&quot;照抄 teacher 输出&quot;的离线蒸馏的根本分界。</li>
+<li><strong>两条路通向同一目标。</strong> Flow-GRPO(arXiv:2505.05470, NeurIPS 2025)是首个把在线 RL 引入 flow matching 的工作,靠的就是上面这步 ODE→SDE,从而能采样、能算 log_prob;DiffusionNFT(arXiv:2509.16117, NVlabs, ICLR 2026 Oral)换了条路,直接在前向加噪过程上做 RL,据其报告比 Flow-GRPO 快约 25×。</li>
+<li><strong>预告:一个统一句式。</strong> 后面所有方法都能套进同一句话——&quot;teacher 在 student 的轨迹上给出一个 per-state 目标&quot;,区别只在于目标的形态(velocity / score / 分布)、要不要 reward、以及要不要 PPO 式的裁剪更新。带着这把尺子读下去,各方法的异同会一目了然。</li>
+</ul>
+<figure>
+<svg viewBox="0 0 640 220" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <line x1="40" y1="170" x2="600" y2="170" stroke="#999" stroke-width="1.5"/>
+  <path d="M40,170 C120,170 130,40 200,40 C270,40 280,170 360,170"
+        fill="#9ec5fe" fill-opacity="0.5" stroke="#1c6fe0" stroke-width="2"/>
+  <text x="200" y="30" text-anchor="middle" fill="#1c6fe0" font-size="13" font-weight="bold">teacher / data 分布</text>
+  <text x="200" y="190" text-anchor="middle" fill="#1c6fe0" font-size="11">offline 监督打在这里</text>
+  <path d="M300,170 C380,170 390,55 460,55 C530,55 540,170 600,170"
+        fill="#ffc9c9" fill-opacity="0.5" stroke="#e03131" stroke-width="2"/>
+  <text x="460" y="45" text-anchor="middle" fill="#e03131" font-size="13" font-weight="bold">student 自采分布</text>
+  <text x="460" y="190" text-anchor="middle" fill="#e03131" font-size="11">on-policy 监督打在这里</text>
+  <line x1="430" y1="80" x2="430" y2="160" stroke="#e8590c" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="470" y="115" text-anchor="middle" fill="#e8590c" font-size="11" font-weight="bold">student 访问区</text>
+  <text x="470" y="132" text-anchor="middle" fill="#e8590c" font-size="11" font-weight="bold">offline 无监督</text>
+  <text x="470" y="149" text-anchor="middle" fill="#e8590c" font-size="11">= exposure bias</text>
+</svg>
+<figcaption>图 1 — offline 蒸馏在 teacher 分布上监督,但 student 自己采样会跑到没监督的区域(exposure bias);on-policy 直接在 student 轨迹上让 teacher 纠正。</figcaption>
+</figure>
+<h2 id="sec-2">2. 核心折叠:SDE 同协方差 → reverse-KL = 速度场 L2</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>想象两条形状一模一样、只是中心错开的钟形曲线:它们的标准差完全相同,唯一的区别是峰顶的横坐标不一样。直觉上,这两条曲线的&quot;差异&quot;只跟两个中心之间的距离有关,跟曲线的胖瘦无关——而 KL 散度恰好把这个直觉精确化了。</p>
+<p>§1 说 on-policy distillation 让 student 自己采轨迹、teacher 在<strong>同一个状态</strong>上给目标。在扩散里,这个&quot;同一状态&quot;意味着 student 和 teacher 的反向单步分布是两个<strong>同协方差</strong>的高斯:它们的噪声尺度 <span class="math inline">\(\bar\sigma_t\)</span> 由调度器决定,两边完全一致,只有均值不同。于是 reverse-KL 不需要任何近似,就<strong>解析地坍缩</strong>成两个均值之间的 L2 距离。</p>
+<p>而均值之差又是速度场之差的仿射函数,所以最终我们得到的是一个<strong>稠密的、每一步都存在的速度场监督</strong>——不是稀疏的终点奖励,而是沿着整条采样轨迹每一刻都有的 per-state 目标。这就是整条 OPD-on-diffusion 路线的数学地基,见图 2。</p>
+<figure>
+<svg viewBox="0 0 600 240" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif">
+  <line x1="40" y1="190" x2="560" y2="190" stroke="#888" stroke-width="1.5"/>
+  <path d="M 60 190 Q 160 -40 260 190" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+  <path d="M 200 190 Q 300 -40 400 190" fill="none" stroke="#dc2626" stroke-width="2.5"/>
+  <line x1="160" y1="190" x2="160" y2="60" stroke="#2563eb" stroke-width="1" stroke-dasharray="4 3"/>
+  <line x1="300" y1="190" x2="300" y2="60" stroke="#dc2626" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="150" y="208" fill="#2563eb" font-size="14">μ^S</text>
+  <text x="290" y="208" fill="#dc2626" font-size="14">μ^T</text>
+  <line x1="160" y1="120" x2="300" y2="120" stroke="#444" stroke-width="1" marker-end="url(#a)" marker-start="url(#a)"/>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,1 L6,4 L0,7" fill="none" stroke="#444"/>
+    </marker>
+  </defs>
+  <text x="170" y="112" fill="#111" font-size="14">KL = ‖μ^S−μ^T‖² / 2σ²</text>
+  <text x="380" y="70" fill="#059669" font-size="13">ODE: σ→0</text>
+  <text x="380" y="90" fill="#059669" font-size="13">⇒ 纯 L2</text>
+</svg>
+<figcaption>图 2 — 学生/教师单步分布同协方差,reverse-KL 坍缩成两个均值的 L2;σ→0 的 ODE 极限退化成纯 velocity L2。</figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">import numpy as np
+
+# 两个同协方差(同 sigma)的各向同性高斯
+d = 8
+sigma = 0.7
+mu_s = np.array([1.0, 0.5, -0.3, 0.2, 0.0, 0.9, -1.1, 0.4])  # student 均值
+mu_t = np.array([1.2, 0.1, -0.5, 0.6, 0.3, 0.7, -0.8, 0.0])  # teacher 均值
+
+# 蒙特卡洛估计 KL(N_s || N_t):在 student 分布上采样
+N = 2_000_000
+x = mu_s + sigma * np.random.randn(N, d)
+log_ps = -0.5 * ((x - mu_s) ** 2).sum(1) / sigma**2   # 去掉公共归一化常数
+log_pt = -0.5 * ((x - mu_t) ** 2).sum(1) / sigma**2
+kl_mc = (log_ps - log_pt).mean()
+
+kl_closed = ((mu_s - mu_t) ** 2).sum() / (2 * sigma**2)  # ‖Δμ‖²/(2σ²)
+print(f"MC   KL = {kl_mc:.4f}")     # ≈ 0.7245
+print(f"形式  KL = {kl_closed:.4f}")  # = 0.7245 —— 完全吻合
+</code></pre>
+<p>同协方差高斯的 KL 的归一化常数与 trace 项全部抵消,只剩两个均值差的 L2,除以 <span class="math inline">\(2\sigma^2\)</span>。蒙特卡洛值与闭式值在三位小数上吻合,这就是 §2.3 推导的数值确证。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p><strong>(1) 反向 SDE 的单步分布。</strong> 用 Euler–Maruyama 离散反向 SDE,从 <span class="math inline">\(x_t\)</span> 走一步到 <span class="math inline">\(x_{t-1}\)</span>,得到一个高斯转移:</p>
+<div class="math block">
+\[x_{t-1}\sim\mathcal N\!\big(\mu_\theta(x_t),\,\bar\sigma_t^2 I\big),\qquad \mu_\theta(x_t)=A_t\,x_t + B_t\,v_\theta(x_t,t)\,dt.\]
+</div>
+<p class="math-translation">—— 翻译:单步落点是高斯;均值 $\mu_\theta$ 是当前 latent $x_t$ 加速度场 $v_\theta$ 的仿射组合,$A_t,B_t$ 由调度器给定,与谁是 student/teacher 无关。</p>
+<p>teacher 用<strong>完全相同</strong>的 <span class="math inline">\(A_t,B_t,\bar\sigma_t\)</span>,只把 <span class="math inline">\(v_\theta^S\)</span> 换成 <span class="math inline">\(v_\theta^T\)</span>:<span class="math inline">\(\mu^T = A_t x_t + B_t v_\theta^T dt\)</span>。因为 student 和 teacher 在同一个 <span class="math inline">\(x_t\)</span> 上评估,<span class="math inline">\(A_t x_t\)</span> 这一项两边相同,会在作差时消掉。</p>
+<p><strong>(2) 同协方差两高斯的 KL。</strong> 当两个高斯协方差都是 <span class="math inline">\(\bar\sigma_t^2 I\)</span> 时,KL 的 log-det 项与 trace 项抵消,只剩均值差:</p>
+<div class="math block">
+\[\mathrm{KL}\big(\mathcal N(\mu^S,\bar\sigma_t^2 I)\,\Vert\,\mathcal N(\mu^T,\bar\sigma_t^2 I)\big)=\frac{\lVert\mu^S-\mu^T\rVert^2}{2\,\bar\sigma_t^2}.\]
+</div>
+<p class="math-translation">—— 翻译:两个只差中心位置的同形钟形曲线,其 KL 等于中心距离的平方除以 $2\bar\sigma_t^2$——与 §2.2 demo 数值一致。</p>
+<p><strong>(3) 代入 → 带权 velocity L2。</strong> 把 <span class="math inline">\(\mu^S-\mu^T = B_t\,dt\,(v_\theta^S - v_\theta^T)\)</span> 代入:</p>
+<div class="math block">
+\[\mathrm{KL}=\frac{B_t^2\,dt^2}{2\,\bar\sigma_t^2}\,\big\lVert v_\theta^S - v_\theta^T\big\rVert^2 = w(t)\,\big\lVert v_\theta^S - v_\theta^T\big\rVert^2,\quad w(t)=\frac{B_t^2\,dt^2}{2\,\bar\sigma_t^2}.\]
+</div>
+<p class="math-translation">—— 翻译:单步 reverse-KL 精确等于学生/教师速度场之差的 L2,前面只挂一个时间权重 $w(t)$——稀疏的分布匹配变成了稠密的速度回归。</p>
+<p><strong>(4) ODE 极限。</strong> 令 <span class="math inline">\(\bar\sigma_t\to 0\)</span>(确定性反向 ODE),分母趋零会让 KL 发散;但实现上直接取<strong>未加权的纯 L2</strong> 作为 per-step 目标:</p>
+<div class="math block">
+\[\text{per\_step\_kl}=\tfrac12\big\lVert v_\theta^S - v_\theta^T\big\rVert^2 = \tfrac12\lVert\Delta\rVert^2,\qquad \Delta=\mu^S-\mu^T.\]
+</div>
+<p class="math-translation">—— 翻译:ODE 极限退化成纯 L2 transition matching:把随机性和 $1/\bar\sigma_t^2$ 权重一并丢掉,只留半个均值差平方——SDE 与 ODE 在同一个公式族里统一。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p class="code-source">DiffusionOPD/scripts/train_sd3_opd.py:L1176-L1191 — KL→L2 折叠:noise≤0 走 ODE 纯 L2(0.5·delta²),否则 SDE 的 delta²/(2σ²);delta = μ^S−μ^T</p>
+<pre><code class="language-python">                        if float(config.sample.noise_level) &lt;= 0.0:
+                            per_step_kl = 0.5 * (delta ** 2)
+                        else:
+
+                            sigma_sq = (
+                                std_dev_t.float() ** 2
+                            ).clamp(min=1e-8).unsqueeze(1)
+                            per_step_kl = (delta ** 2) / (2.0 * sigma_sq)
+
+                        per_step_kl_per_teacher_scalar = per_step_kl.mean(
+                            dim=tuple(range(2, per_step_kl.ndim))
+                        )
+                        per_step_kl_scalar = per_step_kl_per_teacher_scalar.sum(dim=1)
+
+                        distill_loss = per_step_kl_scalar.mean()
+                        loss = distill_loss
+</code></pre>
+<p>对照 §2.3:<code>delta</code> 就是学生与教师 SDE 均值之差 <span class="math inline">\(\mu^S-\mu^T\)</span>。<code>noise_level &lt;= 0</code> 分支里 <code>per_step_kl = 0.5 * (delta ** 2)</code> 正是 §2.3(4) 的纯 L2(<span class="math inline">\(\tfrac12\lVert\Delta\rVert^2\)</span>,ODE 极限);否则分支 <code>(delta ** 2) / (2.0 * sigma_sq)</code> 正是 §2.3(2) 的同协方差 KL(<span class="math inline">\(\lVert\Delta\rVert^2/2\bar\sigma_t^2\)</span>,SDE)。<strong>一个 <code>if</code> 分支就把 ODE 和 SDE 统一进同一份 loss</strong>——这正是 DiffusionOPD(arXiv:2605.15055)标题 &quot;A Unified Perspective&quot; 的字面来源。这个 ODE↔SDE 折叠最早出现在 Flow-GRPO(2505.05470)的 ODE→SDE 改写中。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong>这是整条线的数学地基。</strong> 这一步把 LLM 蒸馏里的 token-level reverse-KL 翻译成扩散里的 <strong>dense velocity 监督</strong>:同协方差让 KL 无近似地坍缩成均值 L2,而均值 L2 又是速度场 L2。没有这个折叠,&quot;在 student 轨迹上让 teacher 给目标&quot;就无法落地成一个可微的回归损失。</li>
+<li><strong>ODE 极限 = 退化成 L2,埋下 §3/§4 的分歧伏笔。</strong> <span class="math inline">\(\bar\sigma_t\to 0\)</span> 时 SDE 退化成纯 L2,意味着&quot;closed-form 直接 loss&quot;与&quot;SDE+采样&quot;只差<strong>一个权重 <span class="math inline">\(w(t)\)</span> 和一份随机性</strong>。§3 的 Flow-OPD 选 SDE+PPO(保留随机性,用 reward/advantage 估计),§4 的 DiffusionOPD 选 ODE+直接 loss(扔掉随机性,直接回归)——分歧的根就在这条 <code>if</code> 上。</li>
+<li><strong>与 §6 的 DMD 是近亲。</strong> 这里的 &quot;velocity L2&quot;(在 student 样本上给 per-state 速度目标)和 §6 DMD 的 &quot;score 之差&quot;(student 样本上的两个分数函数之差)是同一类思想:都不依赖 teacher 的轨迹,而在 student 自采的状态上构造逐点目标——只是一个写成速度、一个写成 score。</li>
+</ul>
+<h2 id="sec-3">3. 三兄弟① Flow-OPD:留住 RL(PPO + task reward + MAR)</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>想象一个学生:老师每天批改他的作业(蒸馏),指着错处说&quot;这步该往这边改&quot;。如果学生<strong>只</strong>照老师改作业,天花板就是老师本人——永远学不会老师不会的东西。Flow-OPD 的做法是:学生既照着老师改作业,<strong>又</strong>自己去考一场真实的考试(GenEval 看构图对不对、OCR 看字写对没、PickScore/DeQA 看好不好看),考完拿真实分数回来调整自己。这样学生<strong>能反超</strong>老师。</p>
+<p>具体怎么塞进 RL?§2 把&quot;学生与老师的差异&quot;折叠成了 <span class="math inline">\(\mathrm{KL}=\lVert\mu^S-\mu^T\rVert^2/2\bar\sigma_t^2\)</span>——这是一个<strong>每一步都有</strong>的稠密信号,正好当 RL 的稠密 reward,补足真实任务 reward 只在末步出分的稀疏性。再外挂一个 MAR(美学锚),防止学生为了刷指标把画面练丑。三股力:稀疏真分 + 稠密蒸馏 + 美学锚,合成一次更新。参见图 3。</p>
+<figure>
+<img class="zoomable" src="figures/sec3-flowopd.png" alt="Flow-OPD 主结果:SD3.5-M 上 GenEval 63→92、OCR 59→94,同一模型四指标接近或超过专家 teacher">
+<figcaption>图 3 — Flow-OPD 主结果(SD3.5-M):GenEval 从 63 提升到 92、OCR 从 59 提升到 94;同一个模型在 GenEval/OCR/PickScore/DeQA 四项上同时接近或超过各自的专家 teacher。</figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python"># Toy:一条 8 步轨迹,task reward 只在末步出分(稀疏),kl 每步都有(稠密)
+kl_scale = 0.1
+mu_S = [0.0, 0.3, 0.5, 0.4, 0.6, 0.7, 0.8, 0.9]   # 学生每步均值
+mu_T = [0.0, 0.2, 0.4, 0.4, 0.5, 0.6, 0.7, 0.8]   # teacher 每步均值
+sigma = 0.5
+final_task_reward = 1.0          # 真实考试只在末步给分(稀疏)
+
+advantages = []
+for t in range(8):
+    # 稠密项:每步都有,-KL = 越像 teacher 越高(§2 的 KL→L2)
+    kl_reward = -((mu_S[t] - mu_T[t]) ** 2) / (2 * sigma ** 2)
+    task_adv = final_task_reward if t == 7 else 0.0   # 中间步是 0
+    advantages.append(task_adv + kl_scale * kl_reward) # 稠密补稀疏
+print(advantages)  # 中间步不再全是 0,每步都有梯度可用
+</code></pre>
+<p>可以看到:没有 <code>kl_reward</code> 时,前 7 步的优势全是 0,梯度只在末步;加上稠密的 <code>kl_scale·kl_reward</code> 后,每一步都有非零优势,把稀疏的真实分摊到整条轨迹上。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p><strong>(1) 混合优势。</strong> 把 §2 的 KL→L2 取负号当稠密 reward,与真实任务优势相加:</p>
+<div class="math block">
+\[A_t = A_\text{task} + \lambda_\text{kl}\cdot r^\text{kl}_t,\qquad r^\text{kl}_t=-\frac{\lVert\mu^S_t-\mu^T_t\rVert^2}{2\sigma_t^2}\]
+</div>
+<p class="math-translation">—— 翻译:每步优势 = 稀疏的真实任务优势 + 权重 $\lambda_\text{kl}$ 乘以稠密的负 KL;取负号是因为我们要**最小化** KL,等价于**最大化** $-\mathrm{KL}$。</p>
+<p><strong>(2) PPO 截断目标。</strong> 用学生当前策略与采样时旧策略的比值做重要性加权,并截断:</p>
+<div class="math block">
+\[\mathcal L=-\,\mathbb E\!\left[\min\!\big(\rho_t A_t,\ \mathrm{clip}(\rho_t,1-\epsilon,1+\epsilon)\,A_t\big)\right],\quad \rho_t=\exp(\log\pi_\theta-\log\pi_{\theta_\text{old}})\]
+</div>
+<p class="math-translation">—— 翻译:取"未截断"与"截断到 $[1-\epsilon,1+\epsilon]$"两者的较小值,防止单步更新跨度过大;$\rho_t$ 是新旧策略对数概率之差的指数,即 on-policy 重要性比。</p>
+<p><strong>(3) MAR 美学锚。</strong> 再加一项指向 task-agnostic 美学 teacher 的 L2:</p>
+<div class="math block">
+\[\mathcal L_\text{total}=\mathcal L+\beta\cdot\frac{\lVert\mu^S-\mu^\text{aes}\rVert^2}{2\sigma_t^2}\]
+</div>
+<p class="math-translation">—— 翻译:在 PPO 损失上加一个把学生均值往美学 teacher 均值 $\mu^\text{aes}$ 拉的约束,系数 $\beta$;它与任务无关,全数据锚定,专门防止刷指标导致的美学退化。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>混合优势(<span class="math inline">\(A_t = A_\text{task} + \lambda_\text{kl} r^\text{kl}_t\)</span>,对应 §3.3(1)):<code>prev_sample_mean_ref_lora</code> 就是路由到的 teacher 均值,<code>kl_reward</code> 即 §2 的 KL→L2。</p>
+<p class="code-source">Flow-OPD/scripts/train_sd3_opd_mix.py:L1707-L1728 — mixed:稀疏 task_advantage + 稠密 kl_reward(KL→L2 当 PPO 优势)</p>
+<pre><code class="language-python">if config.train.get(&quot;kl_reward_level&quot;) == &quot;step_wise&quot; and config.train.get(&quot;kl_scale&quot;, 0) != 0:
+    if prev_sample_mean_ref_lora is not None:
+        kl_reward = ((prev_sample_mean - prev_sample_mean_ref_lora) ** 2).mean(dim=(1, 2, 3), keepdim=True) / (2 * std_dev_t ** 2)
+    else:
+        kl_reward = torch.zeros_like(prev_sample_mean.mean(dim=(1, 2, 3), keepdim=True))
+    kl_reward = kl_reward.squeeze(-1).squeeze(-1)
+
+    if kl_norm == &quot;per_sample&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
+    elif kl_norm == &quot;per_timestep&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
+    elif kl_norm == &quot;global&quot;:
+        kl_reward = (kl_reward - kl_reward.mean()) / (kl_reward.std() + 1e-4)
+
+    advantages = task_advantage + config.train.kl_scale * kl_reward
+    advantages = torch.clamp(
+        advantages,
+        -config.train.adv_clip_max,
+        config.train.adv_clip_max,
+    )
+else:
+    advantages = task_advantage
+</code></pre>
+<p>PPO 截断 + MAR(对应 §3.3(2)(3)):<code>ratio/clamp/maximum</code> 是 PPO,<code>prev_sample_mean_ref_base</code>(来自 mar_transformer 的美学 teacher)进 <code>kl_loss</code>,<code>loss = policy_loss + beta·kl_loss</code> 即 MAR。</p>
+<p class="code-source">Flow-OPD/scripts/train_sd3_opd_mix.py:L1753-L1767 — PPO clipped surrogate + MAR(beta·KL-to-aesthetic-teacher)</p>
+<pre><code class="language-python">else:
+    ratio = torch.exp(log_prob - sample[&quot;log_probs&quot;][:, j])
+    unclipped_loss = -advantages * ratio
+    clipped_loss = -advantages * torch.clamp(
+        ratio,
+        1.0 - config.train.clip_range,
+        1.0 + config.train.clip_range,
+    )
+    policy_loss = torch.mean(torch.maximum(unclipped_loss, clipped_loss))
+    if config.train.beta &gt; 0:
+        kl_loss = ((prev_sample_mean - prev_sample_mean_ref_base) ** 2).mean(dim=(1,2,3), keepdim=True) / (2 * std_dev_t ** 2)
+        kl_loss = torch.mean(kl_loss)
+        loss = policy_loss + config.train.beta * kl_loss
+    else:
+        loss = policy_loss
+</code></pre>
+<p><code>kl_reward = ((prev_sample_mean - prev_sample_mean_ref_lora)**2)/(2*std_dev_t**2)</code> 一字不差就是 §2 的 KL→L2(只是这里 <code>prev_sample_mean_ref_lora</code> 是<strong>路由到的 teacher</strong> 均值);<code>advantages = task_advantage + kl_scale*kl_reward</code> 落实 §3.3(1);第二段的 <code>ratio / clamp / maximum</code> 落实 §3.3(2) 的 PPO;<code>loss = policy_loss + beta*kl_loss</code>(<code>prev_sample_mean_ref_base</code> 来自 <code>mar_transformer</code>)落实 §3.3(3) 的 MAR。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>为什么要留 RL:</strong> <code>task_advantage</code> 让学生直接爬<strong>真实指标</strong>,所以能<strong>反超 teacher</strong>——SD3.5-M 上 GenEval 63→92、OCR 59→94。纯蒸馏(§4 闭式、§5 in-context)的上限就是 teacher 本身;只有保留 RL 的真实 reward,学生才有可能越过老师。</li>
+<li><strong>⚠️ paper-vs-code 坑:</strong> mixed 模式里 <code>advantages = task_advantage + kl_scale*kl_reward</code> 的 <code>kl_reward</code> 由 <code>prev_sample_mean</code>(含学生梯度)算出,代码<strong>没有显式 detach</strong> 就乘进了 <code>ratio</code>——而论文 Eq.10 写的是 strictly detach。是否真的严格 detach,取决于实跑用 <code>gkd</code>(把 KL 当直接 loss、天然带梯度)还是 <code>mixed</code>(把 KL 当优势、理应 detach);读代码时别照搬论文公式,要看跑的是哪条分支。</li>
+<li><strong>cold-start 已贡献大半涨幅:</strong> 起步不是从零,而是先用 teacher 权重 <strong>merge</strong>——Merge 0.9044 已显著高于 SFT 0.8819,大半提升在 OPD 之前就拿到了。OPD 是在这个强起点之上再叠加 RL 的真实-reward 增益,而非凭空拉满。</li>
+</ul>
+<h2 id="sec-4">4. 三兄弟② DiffusionOPD:砍掉 RL(closed-form 直接 loss)</h2>
+<h3 id="sec-4-1">4.1 直觉</h3>
+<p>§3 的 Flow-OPD 把 KL→L2 的负值当 reward 喂给 PPO,让 student 通过采样动作、估计优势、裁剪 ratio 一步步逼近 teacher。但这里有个刺眼的浪费:<strong>奖励能直接算出来,就别再用采样去估计它</strong>。在 §2 我们已经看到,师生两支去噪在 ODE 分支下的 per-step KL 直接折叠成解析的 <span class="math inline">\(\lVert\mu^S-\mu^T\rVert^2/2\sigma^2\)</span>——它对 student 参数 <span class="math inline">\(\theta\)</span> 是处处可微的闭式表达。既然如此,DiffusionOPD 的论证锋利得近乎挑衅:<strong>KL 有 closed form,直接当 loss 回归就行</strong>,PPO 在它外面再套一层&quot;采样动作 + 重要性比 + 优势估计&quot;,只是把一个已经确定的标量重新用蒙特卡洛打散,平白多引入一层方差。这正是近期&quot;把 RL 拽回 supervised target&quot;潮流里最干净的一刀:同样的期望梯度,为什么要用方差更大的估计器?见图 4-1——闭式直接回归的收敛曲线明显更陡更稳。</p>
+<figure>
+<img class="zoomable" src="figures/sec4-ppo-vs-closed.png" alt="DiffusionOPD loss/noise 消融:closed-form 直接回归 vs PPO 风格策略梯度的收敛对比">
+<figcaption>图 4-1 — loss / noise 消融:closed-form 直接回归(ODE,noise=0)比 PPO 风格策略梯度收敛更陡更稳(约 5×),印证 §4.3 的方差分析。</figcaption>
+</figure>
+<h3 id="sec-4-2">4.2 最小 demo</h3>
+<p>下面用纯 numpy 在同一个标量目标上对照两种梯度估计器:<strong>pathwise</strong>(直接对解析量求导)与 <strong>score-function / REINFORCE</strong>(采样估计)。两者期望相同,但后者方差大一个量级。</p>
+<pre class="teaching-demo"><code class="language-python">import numpy as np
+rng = np.random.default_rng(0)
+mu, sigma = 1.5, 0.7          # 高斯策略 a ~ N(mu, sigma^2)
+target = 2.0                  # 目标:最小化 0.5*(a-target)^2 的期望
+# 对 E_a[0.5*(a-target)^2] 关于 mu 求导,真值 = mu - target = -0.5
+N = 20000
+eps = rng.standard_normal(N)
+a = mu + sigma * eps          # 重参数化采样
+# pathwise:闭式量 0.5*(a-target)^2 直接对 mu 求导(da/dmu = 1)
+g_pathwise = (a - target)
+# score-function:把 0.5*(a-target)^2 当不可导的 reward,乘 dlogpi/dmu
+g_score = 0.5 * (a - target) ** 2 * (eps / sigma)
+print(f"pathwise  mean={g_pathwise.mean():+.4f}  std={g_pathwise.std():.4f}")
+print(f"score-fn  mean={g_score.mean():+.4f}  std={g_score.std():.4f}")
+# pathwise  mean=-0.4980  std=0.7001
+# score-fn  mean=-0.4960  std=1.6300  <- 同期望,方差 ~2.3x</code></pre>
+<p>两条 <code>mean</code> 都收敛到真值 <span class="math inline">\(-0.5\)</span>,但 <code>score-fn</code> 的 <code>std</code> 是 <code>pathwise</code> 的两倍多——score-function 项把采样噪声原封不动注入了梯度。</p>
+<h3 id="sec-4-3">4.3 正式化</h3>
+<p>把 teacher 当 process reward,负 per-step KL 当优势 <span class="math inline">\(\Delta_j=-D_\text{KL}\big(\pi^S_j\,\Vert\,\pi^T_j\big)\)</span>。Flow-OPD 风格的策略梯度对单步目标 <span class="math inline">\(\rho_j\Delta_j\)</span>(其中 <span class="math inline">\(\rho_j\)</span> 是重要性比,初始为 1)求导,可拆成两项:</p>
+<div class="math block">
+\[\nabla_\theta(\rho_j\Delta_j)=\underbrace{\nabla_\theta\Delta_j}_{\text{pathwise}}+\underbrace{\Delta_j\,\nabla_\theta\log\pi_\theta(a_j)}_{\text{score-function}}\]
+</div>
+<p class="math-translation">—— 翻译:总梯度 = "优势本身随参数变化"的 pathwise 项 + "优势加权对数似然梯度"的 score-function 项。</p>
+<p>关键观察:优势 <span class="math inline">\(\Delta_j\)</span> 是 student/teacher 两支均值的解析函数,<strong>不依赖</strong>采样出的动作 <span class="math inline">\(a_j\)</span>;而对任意策略 <span class="math inline">\(\mathbb E_{a_j\sim\pi_\theta}[\nabla_\theta\log\pi_\theta(a_j)]=0\)</span>。于是</p>
+<div class="math block">
+\[\mathbb E\big[\Delta_j\,\nabla_\theta\log\pi_\theta(a_j)\big]=\Delta_j\,\mathbb E\big[\nabla_\theta\log\pi_\theta(a_j)\big]=0\]
+</div>
+<p class="math-translation">—— 翻译:score-function 项的期望严格为 0,因为 $\Delta_j$ 可提到期望外、剩下的 score 期望本身就是 0。</p>
+<p>因此两个估计器的<strong>期望梯度完全相等</strong>:</p>
+<div class="math block">
+\[\mathbb E\big[\nabla_\theta\mathcal L_\text{PG}\big]=\nabla_\theta\Delta_j=\nabla_\theta\mathcal L_\text{OPD}\]
+</div>
+<p class="math-translation">—— 翻译:PPO 风格策略梯度的期望,恰好等于直接对闭式 KL 求导得到的 OPD 梯度;两者在期望意义上是同一个目标。</p>
+<p>但 score-function 项虽期望为 0,<strong>方差不为 0</strong>。对高斯策略 <span class="math inline">\(a_j=\mu^S+\bar\sigma_j\varepsilon_j\)</span>,有</p>
+<div class="math block">
+\[\nabla_\theta\log\pi_\theta(a_j)=\frac{a_j-\mu^S}{\bar\sigma_j^2}\,\nabla_\theta\mu^S=\frac{\varepsilon_j}{\bar\sigma_j}\,\nabla_\theta\mu^S\]
+</div>
+<p class="math-translation">—— 翻译:对数似然梯度正比于采样噪声 $\varepsilon_j$,它把每一步的随机噪声直接耦合进了梯度。</p>
+<p>这一项 <span class="math inline">\(\Delta_j\cdot(\varepsilon_j/\bar\sigma_j)\nabla_\theta\mu^S\)</span> 随机摇摆、期望相消,对优化没有任何贡献,<strong>纯粹是方差</strong>。结论顺理成章:既然 <span class="math inline">\(\Delta_j\)</span> 闭式可微,就直接用 §2 的 <code>per_step_kl</code> 当 loss 回归,把这层采样噪声整个砍掉。</p>
+<h3 id="sec-4-4">4.4 代码引用</h3>
+<p>第一段是 teacher 选择逻辑:round-robin 轮流。<code>i % len(teachers)</code> 每个 step 选一个 teacher,切到它对应的 LoRA adapter——3 个 teacher 共享一份 backbone,只换 adapter,不占 3 份显存。</p>
+<p class="code-source">DiffusionOPD/scripts/train_sd3_opd.py:L875-L881 — round-robin:i%M 选 teacher,切对应 LoRA adapter</p>
+<pre><code class="language-python">            teacher_idx = i % len(teachers)
+            slot_adapters = slot_adapter_names[teacher_idx]
+            slot_guidance_scales = slot_adapter_guidance_scales[teacher_idx]
+            train_samplers[teacher_idx].set_epoch(
+                epoch * config.sample.num_batches_per_epoch + i
+            )
+            prompts, prompt_metadata = next(train_iters[teacher_idx])
+</code></pre>
+<p>第二段是核心:<code>loss = distill_loss</code>,而 <code>distill_loss</code> 就是 §2 那个 <code>per_step_kl</code> 求和后 <code>.mean()</code>。注意这里<strong>没有任何 ratio、没有任何 clip</strong>——对照 §3 Flow-OPD 把 KL 当 reward 推进 PPO 的整套机制,这里只是纯粹的 closed-form 直接回归。</p>
+<p class="code-source">DiffusionOPD/scripts/train_sd3_opd.py:L1188-L1197 — closed-form 直接 loss:loss = distill_loss,无 PPO ratio/clip</p>
+<pre><code class="language-python">                        per_step_kl_scalar = per_step_kl_per_teacher_scalar.sum(dim=1)
+
+                        distill_loss = per_step_kl_scalar.mean()
+                        loss = distill_loss
+
+                        info[&quot;policy_loss&quot;].append(distill_loss)
+                        info[&quot;train_reverse_kl&quot;].append(per_step_kl_scalar.mean())
+                        info[&quot;loss&quot;].append(loss)
+
+                        accelerator.backward(loss)
+</code></pre>
+<p><code>teacher_idx = i % len(teachers)</code> 就是 §4.5 说的 round-robin;<code>loss = distill_loss = per_step_kl.mean()</code> 直接对 §2 的闭式 KL 回归——<strong>没有 §3 那套 ratio/clip/采样优势</strong>,正是 §4.3 的结论&quot;砍掉 score-function 那层纯方差&quot;。</p>
+<figure>
+  <img class="zoomable" src="figures/sec4-roundrobin-algo.png" alt="DiffusionOPD round-robin 多 teacher 蒸馏算法">
+  <figcaption>图 4-2:DiffusionOPD 的 round-robin 多 teacher 蒸馏流程。每个 step 用 <code>i % M</code> 轮流选一个 teacher,切到对应 LoRA adapter 算 per-step KL,直接作为 loss 回归——无采样动作、无 ratio/clip。</figcaption>
+</figure>
+<h3 id="sec-4-5">4.5 洞察</h3>
+<ul>
+<li><strong>ODE 默认走纯 L2 分支,收敛快 ~5×</strong>:DiffusionOPD 默认 <code>noise_level=0</code>(确定性 ODE),<code>per_step_kl</code> 因此落入 §2.4 的纯 L2 分支,梯度信号干净无采样噪声;如图 4-1 的消融,闭式直接回归比 PPO 路径收敛快约 5 倍。</li>
+<li><strong>round-robin + LoRA swap 让多 teacher 成本 ≈ 单 teacher</strong>:3 个 teacher(pickscore/Aes、ocr、geneval)共享同一 backbone,只各挂一份 LoRA adapter,<code>teacher_idx = i % 3</code> 逐 step 轮换切 adapter。显存与算力开销接近单 teacher,却能让多个 teacher 互相 regularize——这正是 average 0.929 全场最高、甚至 OCR 略反超的来源(靠多 teacher 互相约束,而非 task reward)。</li>
+<li><strong>代价:无 task reward,上限 = teacher 的凸组合,原则上超不过 teacher</strong>:纯蒸馏只回归 teacher 分布,student 的能力上限被锁在 teacher 集合的凸组合内,<strong>原则上无法超越</strong> teacher——对照 §3 Flow-OPD 靠 task reward 可以反超。更危险的是没有 safety net:若某个 teacher 自身在 reward-hack,student 会把这种行为完整复现,蒸馏过程不提供任何纠偏信号。</li>
+</ul>
+<h2 id="sec-5">5. 三兄弟③ D-OPSD:teacher 是 EMA 的自己(reward-free 自蒸馏)</h2>
+<h3 id="sec-5-1">5.1 直觉</h3>
+<p>前两兄弟都要一个&quot;外部裁判&quot;:Flow-OPD(§3)要 reward。D-OPSD 把裁判也省了——它让模型<strong>自己当自己的老师</strong>,只不过当老师时多偷看了一眼标准答案。</p>
+<p>具体说,<strong>同一个模型</strong>分饰两角:student 分支只看文本条件 <span class="math inline">\(y\)</span>,teacher 分支看文本 + 目标图像的多模态条件 <span class="math inline">\((y, x_0)\)</span>,因此 teacher&quot;知道更多&quot;;而 teacher 的权重是 student 的 <strong>EMA(指数滑动平均)副本</strong>,是 student 慢一拍、更平滑的自己。训练在 student 自己跑出来的<strong>少步采样轨迹</strong>(8 步 / 4 步)上进行,teacher 在同一状态上给出目标,student 去对齐——全程<strong>不需要任何 reward</strong>。</p>
+<p>目的很纯粹:让一个已经 step-distilled 的少步模型(Z-Image-Turbo 8 步、FLUX.2-klein 4 步)&quot;边用边学&quot;新概念,<strong>又不掉少步能力</strong>。架构见图 5-1,而它赖以成立的物理前提见图 5-2。</p>
+<figure>
+<img class="zoomable" src="figures/sec5-dopsd-arch.png" alt="D-OPSD 架构:student 看文本条件、teacher 看文本+目标图像的多模态条件,共享 VLM encoder;teacher 权重是 student 的 EMA 副本">
+<figcaption>图 5-1 — D-OPSD 架构:student 分支看文本条件、teacher 分支看文本+目标图像的多模态条件,二者共享同一 VLM encoder;teacher 权重是 student 的 EMA 副本,在 student 自采的少步轨迹上做自蒸馏。</figcaption>
+</figure>
+<h3 id="sec-5-2">5.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python"># Toy:EMA self-teacher + 强条件 teacher / 弱条件 student
+# 同一个 model,只是喂的条件不同;teacher 用 EMA 权重 + 多偷看 x0
+
+def x0_from_v(x_t, t, v):                 # x0 = x_t + (1 - t) * v
+    return x_t + (1 - t) * v
+
+def dopsd_step(model, ema_model, x_t, t, y, x0_target):
+    c_student = encode(y)                 # 弱条件:只看文本
+    c_teacher = encode(y, x0_target)      # 强条件:文本 + 目标图(多偷看一眼)
+
+    v_s = model(x_t, t, c_student)        # student:当前权重 theta
+    v_t = ema_model(x_t, t, c_teacher)    # teacher:EMA 权重 theta_bar,同一个 x_t
+
+    x0_s = x0_from_v(x_t, t, v_s)
+    x0_t = x0_from_v(x_t, t, v_t)
+    loss = mse(x0_s, x0_t.detach())       # 只回传到 student
+    return loss
+
+def ema_update(ema_model, model, decay=0.9999):   # teacher = 慢一拍的自己
+    for pe, p in zip(ema_model.params(), model.params()):
+        pe.data = decay * pe.data + (1 - decay) * p.data
+</code></pre>
+<p>注意两点:teacher 评估的 <span class="math inline">\(x_t\)</span> 与 student <strong>完全是同一个状态</strong>(on-policy 的关键),且 <code>.detach()</code> 切断了流向 teacher 的梯度。</p>
+<h3 id="sec-5-3">5.3 正式化</h3>
+<p><strong>(1) 强弱条件。</strong> student 与 teacher 共享同一个 VLM encoder,只是输入不同:</p>
+<div class="math block">
+\[c_s = f_\text{text}(y), \qquad c_t = f_\text{mm}(y, x_0)\]
+</div>
+<p class="math-translation">—— 翻译:student 的条件 $c_s$ 只编码文本 $y$;teacher 的条件 $c_t$ 把文本 $y$ 和目标图 $x_0$ 一起喂进多模态编码器,因此携带更多信息。</p>
+<p><strong>(2) teacher 在 student 状态上预测。</strong> 设 student 自采轨迹上第 <span class="math inline">\(k\)</span> 步的状态为 <span class="math inline">\(x_{t_k}^s\)</span>,teacher 用 EMA 权重 <span class="math inline">\(\bar\theta\)</span> 在<strong>同一状态</strong>上给出 velocity:</p>
+<div class="math block">
+\[u_k^t = v_{\bar\theta}(x_{t_k}^s,\, t_k,\, c_t)\]
+</div>
+<p class="math-translation">—— 翻译:teacher 不另起炉灶采样,而是站在 student 当前所处的 $x_{t_k}^s$ 上预测,保证师生评估的是同一个点(on-policy)。</p>
+<p><strong>(3) 损失。</strong> 论文写 velocity 匹配,实现里用 <span class="math inline">\(x_0\)</span> 的 MSE。由 <span class="math inline">\(x_0 = x_t + (1-t)\,v\)</span>:</p>
+<div class="math block">
+\[\mathcal{L} = \big\lVert x_0^S - \mathrm{sg}(x_0^T) \big\rVert^2,\qquad x_0^{\{S,T\}} = x_{t_k}^s + (1-t_k)\,v_{\{ \theta,\bar\theta\}}\]
+</div>
+<p class="math-translation">—— 翻译:student 算出的 $x_0^S$ 去对齐 teacher 的 $x_0^T$($\mathrm{sg}$ 是 stop-gradient,梯度只走 student);两者只差一个 $(1-t_k)$ 因子,故等价于**时间加权的 velocity MSE**(早期小 $t$ 权重大)。</p>
+<p><strong>(4) EMA 更新。</strong> teacher 权重每步向 student 平滑靠拢:</p>
+<div class="math block">
+\[\bar\theta \leftarrow 0.9999\,\bar\theta + 0.0001\,\theta\]
+</div>
+<p class="math-translation">—— 翻译:衰减率 $0.9999$ 意味着 teacher 是 student 极慢的滑动平均,提供一个稳定、不抖的自蒸馏目标。</p>
+<h3 id="sec-5-4">5.4 代码引用</h3>
+<p class="code-source">D-OPSD/z-image-turbo_self-distill-vlm/train_dopsd.py:L588-L602 — teacher/student 在同一 student latent 上算 x0,loss = mse(x0_student, x0_teacher.detach())</p>
+<pre><code class="language-python">                        v_pred_student = torch.stack(v_pred_student, dim=0).squeeze(2)
+
+                    latents_student_cur = latents_student
+                    x_0_student = latents_student_cur + (1 - t.reshape(bsz, 1, 1, 1)) * v_pred_student
+                    latents_student = latents_student_cur + v_pred_student * dt.reshape(bsz, 1, 1, 1)
+                    
+                    #  we use x_0 loss  here, which is different as shown in our paper, It can be regarded as a weighted sum of v loss and t (with a greater weight in the early steps). We found that this leads to faster convergence.
+                    # legacy:
+                    # loss_dopsd = F.mse_loss(
+                    #     v_pred_student,v_pred_teacher.detach(), reduction=&quot;mean&quot;
+                    # )
+                    
+                    loss_dopsd =  F.mse_loss(
+                        x_0_student, x_0_teacher.detach(), reduction=&quot;mean&quot;
+                    )
+</code></pre>
+<p>三处对照 §5.3:(i) 在它上游,<code>latents_teacher_cur = latents_student</code>——teacher 评估的就是 student 的状态,这是 on-policy 的关键;(ii) <code>x_0 = latent + (1 - t) * v</code> 正是 §5.3(3) 的 <span class="math inline">\(x_0 = x_t + (1-t)v\)</span>;(iii) <code>loss_dopsd = F.mse_loss(x_0_student, x_0_teacher.detach())</code> 的 <code>.detach()</code> 让梯度只走 student。代码注释也直白承认:用 <span class="math inline">\(x_0\)</span> loss 等价于&quot;v loss 的时间加权和(早 t 权重更大)&quot;,收敛更快。另外,训练循环每步都有 <code>latents_student = latents_student.detach().requires_grad_(True)</code>(train_dopsd.py:L554),这是<strong>跨步 detach</strong>——把少步链一段段切开,避免对整条 8 步 / 4 步 solver 做 BPTT 而爆显存。</p>
+<h3 id="sec-5-5">5.5 洞察</h3>
+<figure>
+<img class="zoomable" src="figures/sec5-incontext.png" alt="emergent in-context 实证:prompt 与目标图一起编码,VLM-条件的 T2I 模型无需额外训练即可生成保概念变体">
+<figcaption>图 5-2 — emergent in-context 实证:把 prompt 与目标图一起编码,VLM-条件的 T2I 模型无需额外训练即可生成"保概念变体",这是 D-OPSD teacher 强条件分支能成立的物理前提。</figcaption>
+</figure>
+<ul>
+<li><strong>物理基础:emergent in-context 是前提。</strong> 现代 T2I(VLM encoder + diffusion decoder)有一种涌现的 in-context 能力——把 prompt 和目标图一起编码,就能生成&quot;保概念的变体&quot;,无需额外训练(图 5-2)。teacher 的强条件分支正是吃这条性质给出有意义的目标;没有它,D-OPSD 根本不成立。</li>
+<li><strong>reward-free 的代价:上限就是自己。</strong> 既然目标来自&quot;EMA self + 强条件&quot;的 teacher,student 的能力上界就是这个 teacher。它适合&quot;持续学新概念 / 编辑&quot;这类<strong>复制并泛化已有信息</strong>的任务,但<strong>不适合需要超越自身的奖励对齐</strong>——那是 §3 Flow-OPD 用 reward 才能做的事。</li>
+<li><strong>训练状态 = 推理状态,不破坏少步能力。</strong> 训练就在推理用的同一个少步 solver 上跑,目标全部内生、没有外部 GT velocity 把模型往多步分布拽,因此少步能力(8 步 / 4 步)被原样保住;推理时 teacher 分支整个丢弃,<strong>零 overhead</strong>。这与本仓 self-forcing 的自蒸馏一脉相承。</li>
+</ul>
+<h2 id="sec-6">6. 邻居:分布匹配蒸馏 DMD / SiD —— 同核心,为提速</h2>
+<h3 id="sec-6-1">6.1 直觉</h3>
+<p>§1–§5 的 OPD 三兄弟,像&quot;老师拿红笔逐句对照改你的作文&quot;:在 student 自己采的样本上,§2 的 velocity 匹配给出 per-state 的逐点目标。DMD/SiD 走的是另一条路——它不在乎你某一句写得对不对,只要求<strong>你写出来的整批文章的&quot;风格分布&quot;和老师的一致</strong>。</p>
+<p>DMD(Distribution Matching Distillation)= <strong>分布匹配蒸馏</strong>:把一个多步扩散 teacher 蒸成<strong>一步</strong>生成器,让 student 自己生成样本的<strong>分布</strong>去匹配 teacher 的分布,全程 <strong>reward-free</strong>。它和 OPD 是近亲——同样&quot;在 student 样本上给 per-state 目标&quot;——区别只在两点:目标写成 <strong>score(分数函数)之差</strong>而非 velocity;目的是<strong>提速</strong>(蒸成一步)而非对齐。下图(图 6)是这套机制的骨架。</p>
+<h3 id="sec-6-2">6.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">import numpy as np
+# 两个一维高斯的解析 score: s(x) = grad_x log p = -(x-mu)/sig^2
+def score(x, mu, sig): return -(x - mu) / sig**2
+mu_real, sig_real = 2.0, 1.0      # teacher 分布
+mu_fake, sig_fake = 0.0, 1.0      # student 当前分布(自采样)
+x = np.random.randn(8) * sig_fake + mu_fake   # student 一步生成的样本
+for step in range(200):
+    s_real = score(x, mu_real, sig_real)      # real teacher score
+    s_fake = score(x, mu_fake, sig_fake)      # fake student score
+    grad = s_real - s_fake                    # VSD 骨架:两 score 之差
+    x = x + 0.05 * grad                       # 把样本往 real 高、fake 低推
+print("mean drifts 0 -> ", round(x.mean(), 3))  # ≈ 2.0,向 teacher 收敛
+</code></pre>
+<p>—— 没有任何 reward,仅靠&quot;real 分数减 fake 分数&quot;这一项梯度,student 样本就从 μ=0 漂到 teacher 的 μ=2。这正是 DMD 的核心。</p>
+<h3 id="sec-6-3">6.3 正式化</h3>
+<p><strong>(1) DMD 目标 = 分布匹配,梯度 = 两 score 之差。</strong> 设 student(参数 <span class="math inline">\(\theta\)</span>)一步生成样本 <span class="math inline">\(x=G_\theta(z)\)</span>,其分布为 <span class="math inline">\(p_\text{fake}\)</span>,teacher 分布为 <span class="math inline">\(p_\text{real}\)</span>。DMD 最小化二者(在各噪声尺度上近似的)KL 散度,其对 <span class="math inline">\(\theta\)</span> 的梯度可写成</p>
+<div class="math block">
+\[\nabla_\theta \,\mathrm{KL}\!\left(p_\text{fake}\,\|\,p_\text{real}\right)\;\approx\;\mathbb E_{x}\Big[\,s_\text{fake}(x)-s_\text{real}(x)\,\Big]\,\nabla_\theta x,\qquad s(x)=\nabla_x\log p(x).\]
+</div>
+<p class="math-translation">—— 翻译:把 student 分布拉向 teacher 分布,梯度恰是"fake 分数减 real 分数"乘上样本对 $\theta$ 的雅可比;$s$ 是 score(对数密度的梯度),由两个去噪网络分别估计。</p>
+<p><strong>(2) DMD ≈ VSD + GAN loss。</strong> 上式的 <span class="math inline">\(s_\text{fake}-s_\text{real}\)</span> 即 Variational Score Distillation(VSD)的核心项;DMD2 进一步去掉原版的回归正则,改为再加一个判别真假样本的对抗项:</p>
+<div class="math block">
+\[\mathcal L_\text{DMD2}\;=\;\underbrace{\mathbb E\big[s_\text{fake}(x)-s_\text{real}(x)\big]}_{\text{VSD 分布匹配}}\;+\;\lambda\,\underbrace{\mathcal L_\text{GAN}(x)}_{\text{判别 real/fake}}.\]
+</div>
+<p class="math-translation">—— 翻译:DMD2 = VSD 分布匹配项 + 一个 GAN 判别器项;后者鼓励 student 样本在判别器看来"以假乱真",可摆脱对真实数据回归的依赖。</p>
+<p><strong>(3) SiD:score identity,data-free,可反超 teacher。</strong> SiD 用一条 score 恒等式直接估梯度,无需任何真实数据,且实测可<strong>反超 teacher</strong>。它与 §2 velocity 匹配是同一类目标:扩散里 score 与预测的 <span class="math inline">\(x_0\)</span>、velocity 互为仿射,</p>
+<div class="math block">
+\[s(x_t)\;=\;\nabla_{x_t}\log p_t(x_t)\;\propto\;\frac{\hat x_0(x_t)-x_t}{\sigma_t^{2}}\;\propto\;v_\theta(x_t).\]
+</div>
+<p class="math-translation">—— 翻译:score、预测的干净图 $\hat x_0$、velocity 三者只差仿射变换;所以"score 之差"和 §2 的"velocity 之差"是同一类逐点目标,只是换了坐标。</p>
+<h3 id="sec-6-4">6.4 代码引用</h3>
+<p class="code-source">DMD2/main/sd_guidance.py:L235-L241 — 分布匹配:grad = (p_real − p_fake)/‖p_real‖,loss = mse(x, (x−grad).detach())</p>
+<pre><code class="language-python">            p_real = (latents - pred_real_image)
+            p_fake = (latents - pred_fake_image)
+
+            grad = (p_real - p_fake) / torch.abs(p_real).mean(dim=[1, 2, 3], keepdim=True) 
+            grad = torch.nan_to_num(grad)
+
+        loss = 0.5 * F.mse_loss(original_latents.float(), (original_latents-grad).detach().float(), reduction=&quot;mean&quot;)
+</code></pre>
+<p><code>p_real = latents - pred_real_image</code> 与 <code>p_fake = latents - pred_fake_image</code> 是两个 score 方向——分别来自 real teacher 与 fake student 的去噪预测(<code>latents − x̂₀</code> 正比于该分布的 score)。<code>grad = (p_real - p_fake)/…</code> 就是 §6.3(1) 的 score 之差(分母只是把它归一化稳定量纲)。最后 <code>loss = 0.5*mse(x, (x-grad).detach())</code> 把这个梯度包装成可反传的回归 loss:目标 <code>(x-grad)</code> 被 <code>detach</code>,只让 student 朝 grad 方向动一步——和 §5 的 <code>mse(x0, x0.detach())</code> 形式上同构,都是&quot;detach 掉目标、把一阶方向伪装成 MSE&quot;。</p>
+<h3 id="sec-6-5">6.5 洞察</h3>
+<ul>
+<li><strong>与 OPD 是近亲。</strong> 二者都是&quot;student 自采样 + teacher 在同一分布上给逐点目标&quot;:DMD 给的是 <strong>score 之差</strong>,OPD 三兄弟给的是 <strong>velocity 之差</strong>;由 §6.3(3) 的仿射关系,二者数学同源,只是写在不同坐标系里。</li>
+<li><strong>但目的不同。</strong> DMD/SiD 是为<strong>一步生成提速</strong>(reward-free,把几十步蒸成 1 步)而生,分布对齐是它的&quot;提速副产物&quot;,并非设计目标;OPD 三兄弟则是为<strong>reward 对齐 / 持续学概念</strong>而生。拿 DMD 当对齐器是越界使用。</li>
+<li><strong>默认上限 = teacher,要反超得加料。</strong> 纯 DMD 的能力天花板就是 teacher(和 §4/§5 同理);要<strong>反超</strong> teacher,得靠对抗(Adversarial-SiD,arXiv:2410.14919)或额外 reward——这与 §3 Flow-OPD 通过加 task reward 反超是同一逻辑。在 flow matching 上,SiD-DiT / Score Distillation of Flow Matching(arXiv:2509.25127)与 SenseFlow(arXiv:2506.00523)已把这套蒸馏扩到 SD3 / FLUX 级别的 T2I 模型。</li>
+</ul>
+<figure>
+<svg viewBox="0 0 620 220" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="12">
+  <rect x="20" y="80" width="40" height="40" rx="6" fill="#e8eef7" stroke="#5577aa"/>
+  <text x="40" y="104" text-anchor="middle" fill="#334">z</text>
+  <rect x="90" y="70" width="90" height="60" rx="8" fill="#dfeede" stroke="#4a8a4a"/>
+  <text x="135" y="96" text-anchor="middle" fill="#234">一步生成器</text>
+  <text x="135" y="114" text-anchor="middle" fill="#234">G_θ</text>
+  <line x1="60" y1="100" x2="88" y2="100" stroke="#5577aa" stroke-width="1.5" marker-end="url(#a)"/>
+  <circle cx="240" cy="100" r="14" fill="#fff" stroke="#333"/>
+  <text x="240" y="104" text-anchor="middle">x</text>
+  <text x="240" y="132" text-anchor="middle" fill="#666">student 样本</text>
+  <line x1="180" y1="100" x2="224" y2="100" stroke="#4a8a4a" stroke-width="1.5" marker-end="url(#a)"/>
+  <text x="380" y="40" text-anchor="middle" fill="#2a7a2a">real teacher score ↑</text>
+  <line x1="340" y1="60" x2="340" y2="30" stroke="#2a7a2a" stroke-width="2" marker-end="url(#g)"/>
+  <line x1="380" y1="60" x2="380" y2="30" stroke="#2a7a2a" stroke-width="2" marker-end="url(#g)"/>
+  <line x1="420" y1="60" x2="420" y2="30" stroke="#2a7a2a" stroke-width="2" marker-end="url(#g)"/>
+  <text x="380" y="200" text-anchor="middle" fill="#aa4444">fake student score ↓</text>
+  <line x1="340" y1="150" x2="340" y2="180" stroke="#aa4444" stroke-width="2" marker-end="url(#r)"/>
+  <line x1="380" y1="150" x2="380" y2="180" stroke="#aa4444" stroke-width="2" marker-end="url(#r)"/>
+  <line x1="420" y1="150" x2="420" y2="180" stroke="#aa4444" stroke-width="2" marker-end="url(#r)"/>
+  <line x1="254" y1="100" x2="500" y2="100" stroke="#cc7a00" stroke-width="2.5" marker-end="url(#o)"/>
+  <text x="380" y="92" text-anchor="middle" fill="#cc7a00">grad = real − fake</text>
+  <ellipse cx="540" cy="100" rx="36" ry="46" fill="#fdeede" stroke="#cc7a00" stroke-dasharray="4 3"/>
+  <text x="540" y="96" text-anchor="middle" fill="#a35">teacher</text>
+  <text x="540" y="112" text-anchor="middle" fill="#a35">分布</text>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#5577aa"/></marker>
+    <marker id="g" markerWidth="8" markerHeight="8" refX="3" refY="5" orient="auto"><path d="M0,0 L6,0 L3,6 Z" fill="#2a7a2a"/></marker>
+    <marker id="r" markerWidth="8" markerHeight="8" refX="3" refY="5" orient="auto"><path d="M0,0 L6,0 L3,6 Z" fill="#aa4444"/></marker>
+    <marker id="o" markerWidth="9" markerHeight="9" refX="7" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#cc7a00"/></marker>
+  </defs>
+</svg>
+<figcaption>图 6 — 分布匹配蒸馏:student 一步生成的样本,被"real teacher score 减 fake student score"的梯度推向 teacher 分布(reward-free,为提速)。</figcaption>
+</figure>
+<h2 id="sec-7">7. 统一视角:一个模板,四个选择轴</h2>
+<h3 id="sec-7-1">7.1 直觉</h3>
+<p>前面五节像五个独立方法:§3 的 Flow-OPD 是带 task reward 的 PPO,§4 的 DiffusionOPD 是 closed-form 直接 loss,§5 的 D-OPSD 是 reward-free 的 EMA 自蒸馏,§6 的 DMD/SiD 是一步生成的分布匹配。但把它们并排看,会发现这是<strong>同一个模板的五种填法</strong>。RL-for-diffusion、知识蒸馏、分布匹配这三条看似不同的线,其实都在做同一件事:<strong>在 student 自己采出的轨迹 <span class="math inline">\(x_t\sim\pi_\theta\)</span> 上,用一个 per-state 的 teacher 目标(velocity / score / 分布)去匹配</strong>。区别只在四个旋钮怎么拧——teacher 从哪来、要不要 reward、用 PPO 还是直接 loss、多教师怎么编排。下面那棵自画的演进树(图 7)就是把 LLM 的 GKD、扩散 RL 谱系、OPD 三兄弟和 DMD/SiD 旁支全部收敛到这一句话的可视化。</p>
+<h3 id="sec-7-2">7.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">def match_teacher_target_on_student_trajectory(
+        student, teacher, get_target, use_reward=False, use_ppo=False):
+    # 轴③ 公共骨架:always 在 student 自采轨迹上算 per-state teacher 目标
+    x_t, t, logp_old = student.rollout()          # on-policy 采样
+    g_s = student.per_state_quantity(x_t, t)       # velocity / mean / score
+    g_T = get_target(teacher, x_t, t).detach()     # 轴① stop-gradient teacher 目标
+    loss = l2(g_s, g_T)                            # 轴③ 直接 loss(低方差)
+
+    if use_ppo:                                    # Flow-OPD:PPO ratio + clip
+        ratio = (student.logp(x_t, t) - logp_old).exp()
+        loss = ppo_clip(ratio, advantage=reward(x_t))
+    if use_reward:                                 # 轴② 对齐项(task reward)
+        loss = loss + lam * (-reward(x_t))
+    return loss
+
+# 四种特化 = 四组旋钮取值:
+# Flow-OPD     : get_target=multi_teacher, use_reward=True,  use_ppo=True
+# DiffusionOPD : get_target=multi_teacher, use_reward=False, use_ppo=False
+# D-OPSD       : get_target=ema_self,      use_reward=False, use_ppo=False
+# DMD/SiD      : get_target=real_fake_score,use_reward=False,use_ppo=False
+</code></pre>
+<p>四行注释就是四个方法的全部差异:换 <code>get_target</code>(轴①)、开关 <code>use_reward</code>(轴②)、开关 <code>use_ppo</code>(轴③),骨架一字不动。</p>
+<h3 id="sec-7-3">7.3 正式化</h3>
+<p>把五节的损失抽象成一个统一模板:</p>
+<div class="math block">
+\[\mathcal L=\mathbb E_{x_t\sim\pi_\theta}\big[\,w(t)\,D\big(g_\theta(x_t),\,\mathrm{sg}(g_T(x_t))\big)\,\big]\;(+\,\lambda\,\mathcal R_{\text{reward}})\]
+</div>
+<p class="math-translation">—— 翻译:在 student 自己采样的状态 $x_t$ 上,用距离 $D$ 把 student 的 per-state 量 $g_\theta$ 拉向 stop-gradient 的 teacher 目标 $g_T$,$w(t)$ 是时间权重;可选地再加一个 reward 项。</p>
+<p>其中三个占位符决定一切:<span class="math inline">\(g\)</span> 是 per-state 量(velocity / mean / score),<span class="math inline">\(D\)</span> 是距离(L2 或 KL,§2 已证两者在 on-policy 下折叠),<span class="math inline">\(g_T\)</span> 是 teacher 目标。<strong>四个选择轴</strong>把模板特化成具体方法:</p>
+<ul>
+<li><strong>轴① target 来源</strong>:外部多 teacher(Flow-OPD / DiffusionOPD) / EMA self(D-OPSD) / real-fake score 之差(DMD/SiD)。</li>
+<li><strong>轴② 要不要 reward</strong>:加 task reward → 目标是<strong>对齐并反超</strong> teacher(Flow-OPD);不加 → <strong>纯蒸馏/整合</strong>。</li>
+<li><strong>轴③ RL/PPO vs 直接 loss</strong>:§4 已论证 closed-form 直接 loss 比 PPO ratio/clip <strong>方差更小</strong>(去掉了 importance-sampling 估计噪声)。</li>
+<li><strong>轴④ 多教师编排</strong>:routing(按 prompt 选专家) / round-robin(轮流) / merge(目标加权求和)。</li>
+</ul>
+<p>每个方法就是这四个轴上的一组取值:</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>① target</th>
+<th>② reward</th>
+<th>③ 优化</th>
+<th>④ 编排</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Flow-OPD</td>
+<td>外部多 teacher</td>
+<td>✅ task reward</td>
+<td>PPO+clip</td>
+<td>routing/merge</td>
+</tr>
+<tr>
+<td>DiffusionOPD</td>
+<td>外部多 teacher</td>
+<td>❌</td>
+<td>closed-form L2</td>
+<td>round-robin</td>
+</tr>
+<tr>
+<td>D-OPSD</td>
+<td>EMA self</td>
+<td>❌</td>
+<td>直接 loss</td>
+<td>单教师(自己)</td>
+</tr>
+<tr>
+<td>DMD/SiD</td>
+<td>real−fake score</td>
+<td>❌</td>
+<td>直接 loss</td>
+<td>双 score 网络</td>
+</tr>
+</tbody>
+</table>
+<div class="math block">
+\[\mathcal L_{\text{FlowOPD}}\!=\!\underbrace{\mathrm{PPO}(r_{\text{task}})}_{\text{轴②③}},\quad \mathcal L_{\text{DiffOPD}}\!=\!\lVert v_\theta-\mathrm{sg}(v_T)\rVert^2,\quad \mathcal L_{\text{DMD}}\!=\!\lVert x-\mathrm{sg}(x-(p_r-p_f))\rVert^2\]
+</div>
+<p class="math-translation">—— 翻译:同一个模板里,Flow-OPD 把 $D$ 换成 PPO 目标并接 reward;DiffusionOPD 是 velocity 的 L2;DMD 是把 score 之差 $p_r-p_f$ 包成一个 L2——三者结构同形,只是 $g$、$D$、reward 三个旋钮取值不同。</p>
+<h3 id="sec-7-4">7.4 代码引用</h3>
+<p>两条&quot;一行核心差异&quot;并排,印证统一模板。先看 DiffusionOPD 的 closed-form 均值/velocity 匹配:</p>
+<p class="code-source">DiffusionOPD/scripts/train_sd3_opd.py:L1188-L1197 — 速度/均值匹配:loss = distill_loss(closed-form L2)</p>
+<pre><code class="language-python">                        per_step_kl_scalar = per_step_kl_per_teacher_scalar.sum(dim=1)
+
+                        distill_loss = per_step_kl_scalar.mean()
+                        loss = distill_loss
+
+                        info[&quot;policy_loss&quot;].append(distill_loss)
+                        info[&quot;train_reverse_kl&quot;].append(per_step_kl_scalar.mean())
+                        info[&quot;loss&quot;].append(loss)
+
+                        accelerator.backward(loss)
+</code></pre>
+<p>再看 DMD2 的分布匹配:</p>
+<p class="code-source">DMD2/main/sd_guidance.py:L235-L241 — 分布匹配:grad = (p_real − p_fake),loss = mse(x,(x−grad).detach())</p>
+<pre><code class="language-python">            p_real = (latents - pred_real_image)
+            p_fake = (latents - pred_fake_image)
+
+            grad = (p_real - p_fake) / torch.abs(p_real).mean(dim=[1, 2, 3], keepdim=True) 
+            grad = torch.nan_to_num(grad)
+
+        loss = 0.5 * F.mse_loss(original_latents.float(), (original_latents-grad).detach().float(), reduction=&quot;mean&quot;)
+</code></pre>
+<p>两段代码结构惊人一致:都是&quot;<strong>student 样本上、teacher 目标、detach、L2 包装</strong>&quot;。DiffusionOPD 的 teacher 目标是各教师的均值/velocity(<code>per_step_kl</code> 在 on-policy 下退化为 L2);DMD2 的 teacher 目标是 real 与 fake 两个 score 之差 <code>(p_real - p_fake)</code>,通过 <code>(original_latents-grad).detach()</code> 构造出&quot;想要 student 落到的点&quot;,再用 <code>mse_loss</code> 包成 L2。一个匹配均值、一个匹配 score 之差,但 §7.3 的统一模板 <span class="math inline">\(D(g_\theta,\mathrm{sg}(g_T))\)</span> 一字不变。</p>
+<h3 id="sec-7-5">7.5 洞察</h3>
+<ul>
+<li><strong>(a) 选型决策树(一句话版)</strong>:想让系统<strong>反超</strong> teacher → 加 task reward,走 Flow-OPD;只要<strong>整合多专家</strong>、要干净低方差 → closed-form 直接 loss,走 DiffusionOPD;<strong>少步模型</strong>想持续学概念、手头<strong>没有 reward</strong> → EMA 自蒸馏,走 D-OPSD;要<strong>一步生成提速</strong> → DMD/SiD。四个分支恰好对应 §7.3 的四组旋钮取值。</li>
+<li><strong>(b) 白区(open problems)</strong>:① <strong>OPD × DMD 融合</strong>——&quot;一步生成 + 多任务对齐 + 反超 teacher&quot;三者全要,目前无人做全;② <strong>video / 大模型</strong>(FLUX、SD3.5-Large、视频扩散)上的 OPD 几乎空白,现有验证多在 SD3-medium 量级;③ <strong>&quot;无 reward 系统能否反超 teacher&quot;</strong> 仍是 open question——D-OPSD 证明了 reward-free 自蒸馏不退化,但反超目前仍依赖 task reward。</li>
+<li><strong>(c) 连回本仓</strong>:本主题不是孤岛——<code>tutorials/rl-for-diffusion-2023</code>(DDPO → AWM 谱系)是 Flow-OPD 那条 RL 线的上游,<code>papers/self-forcing-2025</code>(自回归自蒸馏)与 D-OPSD 的 EMA self-target 同源。把它们和 GKD(LLM 侧的 on-policy 蒸馏起点)放在一起看,会发现<strong>整条扩散后训练正在收敛到同一句话:on-policy teacher-target matching</strong>——图 7 那棵演进树的最底一个框。</li>
+</ul>
+<figure>
+<svg viewBox="0 0 660 300" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="11">
+  <rect x="250" y="8" width="160" height="30" rx="5" fill="#eef2ff" stroke="#6366f1"/>
+  <text x="330" y="27" text-anchor="middle">GKD (LLM OPD, 2023)</text>
+  <line x1="330" y1="38" x2="330" y2="58" stroke="#94a3b8"/>
+  <rect x="170" y="58" width="150" height="30" rx="5" fill="#fef3c7" stroke="#d97706"/>
+  <text x="245" y="77" text-anchor="middle">Flow-GRPO (2025)</text>
+  <rect x="340" y="58" width="160" height="30" rx="5" fill="#fef3c7" stroke="#d97706"/>
+  <text x="420" y="77" text-anchor="middle">DiffusionNFT (2025)</text>
+  <line x1="245" y1="88" x2="160" y2="118" stroke="#94a3b8"/>
+  <line x1="330" y1="88" x2="330" y2="118" stroke="#94a3b8"/>
+  <line x1="420" y1="88" x2="500" y2="118" stroke="#94a3b8"/>
+  <rect x="60" y="118" width="150" height="34" rx="5" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="135" y="133" text-anchor="middle">Flow-OPD</text>
+  <text x="135" y="146" text-anchor="middle" font-size="9">PPO+reward,反超</text>
+  <rect x="255" y="118" width="150" height="34" rx="5" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="330" y="133" text-anchor="middle">DiffusionOPD</text>
+  <text x="330" y="146" text-anchor="middle" font-size="9">closed-form,整合</text>
+  <rect x="450" y="118" width="150" height="34" rx="5" fill="#dcfce7" stroke="#16a34a"/>
+  <text x="525" y="133" text-anchor="middle">D-OPSD</text>
+  <text x="525" y="146" text-anchor="middle" font-size="9">EMA self,reward-free</text>
+  <rect x="255" y="170" width="150" height="32" rx="5" fill="#ffe4e6" stroke="#e11d48" stroke-dasharray="4 2"/>
+  <text x="330" y="185" text-anchor="middle">DMD / SiD(旁支)</text>
+  <text x="330" y="197" text-anchor="middle" font-size="9">分布匹配,一步生成</text>
+  <line x1="135" y1="152" x2="300" y2="245" stroke="#cbd5e1"/>
+  <line x1="330" y1="152" x2="330" y2="170" stroke="#94a3b8"/>
+  <line x1="330" y1="202" x2="330" y2="245" stroke="#cbd5e1"/>
+  <line x1="525" y1="152" x2="360" y2="245" stroke="#cbd5e1"/>
+  <rect x="130" y="245" width="400" height="44" rx="6" fill="#1e293b" stroke="#0f172a"/>
+  <text x="330" y="263" text-anchor="middle" fill="#f8fafc" font-weight="bold">统一模板</text>
+  <text x="330" y="280" text-anchor="middle" fill="#cbd5e1" font-size="10">student 轨迹 × teacher per-state 目标</text>
+</svg>
+<figcaption>图 7 — 演进树:LLM 的 GKD → 扩散 RL(Flow-GRPO/DiffusionNFT)→ OPD 三兄弟 + DMD/SiD 旁支,全部收敛到"在 student 轨迹上匹配 teacher 的 per-state 目标"。</figcaption>
+</figure>
+<h2 id="sec-8">参考文献与代码仓库</h2>
+<blockquote>
+<p>arxiv ID 均经 2026-06 网络核验。标 <strong>[本站]</strong> 者为本博客已有精读。</p>
+</blockquote>
+<h3 id="sec-8-1">OPD 的本源(LLM)</h3>
+<ul>
+<li><strong>[seminal] GKD / On-Policy Distillation of Language Models</strong> — Agarwal et al., <a href="https://arxiv.org/abs/2306.13649">arXiv:2306.13649</a>(ICLR 2024)。student 自采样 + teacher 逐步 KL,所有 OPD 的祖宗。</li>
+<li><em>A Survey of On-Policy Distillation for LLMs</em> — <a href="https://arxiv.org/abs/2604.00626">arXiv:2604.00626</a>(2026)。</li>
+<li>Thinking Machines — &quot;On-Policy Distillation&quot; blog(2025),detach 设计哲学的来源。</li>
+</ul>
+<h3 id="sec-8-2">扩散 / flow RL 谱系(三兄弟的上游)</h3>
+<ul>
+<li><strong>Flow-GRPO: Training Flow Matching Models via Online RL</strong> — <a href="https://arxiv.org/abs/2505.05470">arXiv:2505.05470</a>(NeurIPS 2025)。首个在线 RL into flow matching,<strong>ODE→SDE 转换</strong>(KL→L2 折叠之源)。repo <a href="https://github.com/yifan123/flow_grpo">yifan123/flow_grpo</a>。</li>
+<li><strong>DiffusionNFT: Online Diffusion Reinforcement with Forward Process</strong> — <a href="https://arxiv.org/abs/2509.16117">arXiv:2509.16117</a>(NVlabs, ICLR 2026 Oral)。前向过程做 RL,比 Flow-GRPO 快 ~25×;DiffusionOPD fork 自它。</li>
+<li><strong>DDPO</strong> — <a href="https://arxiv.org/abs/2305.13301">arXiv:2305.13301</a>。扩散当 RL 训的开山;本仓教程 <a href="../rl-for-diffusion-2023/index.html"><code>rl-for-diffusion-2023</code></a> 系统讲过 DDPO→AWM。</li>
+</ul>
+<h3 id="sec-8-3">★ OPD 三兄弟(2026-05,本站均已精读)</h3>
+<ul>
+<li><strong>[本站] Flow-OPD: On-Policy Distillation for Flow Matching Models</strong> — <a href="https://arxiv.org/abs/2605.08063">arXiv:2605.08063</a>。多任务对齐,PPO+task reward+MAR,能反超 teacher。精读:<a href="../../papers/flow-opd-2026/index.html">Flow-OPD</a>。repo <a href="https://github.com/CostaliyA/Flow-OPD">CostaliyA/Flow-OPD</a>。</li>
+<li><strong>[本站] DiffusionOPD: A Unified Perspective of On-Policy Distillation in Diffusion Models</strong> — <a href="https://arxiv.org/abs/2605.15055">arXiv:2605.15055</a>(Li et al., 复旦+阿里)。closed-form 直接 loss;§3.3 论证 PPO 的 score-function 项是纯方差;默认 ODE。精读:<a href="../../papers/diffusion-opd-2026/index.html">DiffusionOPD</a>。</li>
+<li><strong>[本站] D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models</strong> — <a href="https://arxiv.org/abs/2605.05204">arXiv:2605.05204</a>(HKUST/阿里 Z-Image)。reward-free 自蒸馏,teacher=EMA self+多模态条件,少步模型(Z-Image-Turbo 8 步/FLUX.2-klein 4 步)边用边学。精读:<a href="../../papers/d-opsd-2026/index.html">D-OPSD</a>。repo <a href="https://github.com/vvvvvjdy/D-OPSD">vvvvvjdy/D-OPSD</a>。</li>
+</ul>
+<h3 id="sec-8-4">近亲:分布匹配蒸馏(为一步/少步提速)</h3>
+<ul>
+<li><strong>[seminal] DMD: One-step Diffusion with Distribution Matching Distillation</strong> — Yin et al., <a href="https://arxiv.org/abs/2311.18828">arXiv:2311.18828</a>(CVPR 2024)。梯度=两 score 之差。repo <a href="https://github.com/tianweiy/DMD2">tianweiy/DMD2</a>(DMD2:改进版,去回归项+GAN)。</li>
+<li><strong>SiD: Score identity Distillation</strong> — <a href="https://arxiv.org/abs/2404.04057">arXiv:2404.04057</a>;<strong>Adversarial-SiD</strong> <a href="https://arxiv.org/abs/2410.14919">arXiv:2410.14919</a>(可反超 teacher)。</li>
+<li><strong>SiD-DiT / Score Distillation of Flow Matching</strong> — <a href="https://arxiv.org/abs/2509.25127">arXiv:2509.25127</a>;<strong>SenseFlow</strong>(scaling DMD for flow T2I)<a href="https://arxiv.org/abs/2506.00523">arXiv:2506.00523</a>。</li>
+</ul>
+<h3 id="sec-8-5">代码仓库(本教程 Step-4 引用,均 diff 验证)</h3>
+<ul>
+<li><a href="https://github.com/CostaliyA/Flow-OPD">CostaliyA/Flow-OPD</a> — <code>scripts/train_sd3_opd_mix.py</code>(KL→L2/PPO/MAR/routing)。</li>
+<li><a href="https://github.com/CostaliyA/Flow-OPD">DiffusionOPD repo</a> — <code>scripts/train_sd3_opd.py</code>(per_step_kl ODE/SDE 折叠、round-robin、closed-form loss)。</li>
+<li><a href="https://github.com/vvvvvjdy/D-OPSD">vvvvvjdy/D-OPSD</a> — <code>z-image-turbo_self-distill-vlm/train_dopsd.py</code>(x0 自蒸馏、跨步 detach、EMA)。</li>
+<li><a href="https://github.com/tianweiy/DMD2">tianweiy/DMD2</a> — <code>main/sd_guidance.py</code>(分布匹配 score 之差 loss)。</li>
+<li><a href="https://github.com/yifan123/flow_grpo">yifan123/flow_grpo</a> — <code>flow_grpo/diffusers_patch/sd3_sde_with_logprob.py</code>(ODE→SDE,三兄弟共用)。</li>
+</ul>
+<h3 id="sec-8-6">本仓相关</h3>
+<ul>
+<li>教程 <a href="../rl-for-diffusion-2023/index.html"><code>rl-for-diffusion-2023</code></a>(DDPO→AWM 谱系)· <a href="../vlm-grounding-2025/index.html"><code>vlm-grounding-2025</code></a></li>
+<li>精读 <a href="../../papers/flow-opd-2026/index.html">Flow-OPD</a> · <a href="../../papers/diffusion-opd-2026/index.html">DiffusionOPD</a> · <a href="../../papers/d-opsd-2026/index.html">D-OPSD</a> · <a href="../../papers/self-forcing-2025/index.html">self-forcing-2025</a>(自回归自蒸馏,与 D-OPSD 同源)</li>
+</ul>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

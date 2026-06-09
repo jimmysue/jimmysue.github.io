@@ -237,6 +237,15 @@
       "url": "papers/worldforge-2026/index.html"
     },
     {
+      "id": "tutorials/opd-diffusion-2026",
+      "type": "tutorial",
+      "slug": "opd-diffusion-2026",
+      "title": "OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角",
+      "date": "2026-06-09",
+      "tldr": "7 节螺旋系统讲透 On-Policy Distillation(OPD)如何从 LLM 的 GKD 搬到扩散/flow matching。地基是一个折叠:SDE 同协方差让 reverse-KL 解析坍缩成速度场 L2(ODE 极限退化成纯 L2)。在此之上讲\"三兄弟\":Flow-OPD(留住 RL:PPO+task reward+MAR,能反超 teacher)、DiffusionOPD(砍掉 RL:closed-form 直接 loss,§3.3 论证 PPO 是纯方差)、D-OPSD(teacher=EMA 自己,reward-free 自蒸馏,少步模型边用边学);再讲近亲 DMD/SiD 分布匹配蒸馏(为提速),最后收敛到一个统一模板\"在 student 自采轨迹上匹配 teacher 的 per-state 目标\"+ 四个选择轴。代码 verbatim 引自 CostaliyA/Flow-OPD、DiffusionOPD、vvvvvjdy/D-OPSD、tianweiy/DMD2 真实训练脚本(均经 diff 验证)。\n",
+      "url": "tutorials/opd-diffusion-2026/index.html"
+    },
+    {
       "id": "tutorials/rl-for-diffusion-2023",
       "type": "tutorial",
       "slug": "rl-for-diffusion-2023",
@@ -769,6 +778,46 @@
       "url": "concepts/wan2.html"
     },
     {
+      "id": "concepts/on-policy-distillation",
+      "type": "concept",
+      "slug": "on-policy-distillation",
+      "name": "on-policy-distillation",
+      "has_file": false,
+      "url": "concepts/on-policy-distillation.html"
+    },
+    {
+      "id": "repos/CostaliyA/Flow-OPD",
+      "type": "repo",
+      "url": "https://github.com/CostaliyA/Flow-OPD",
+      "host": "github.com",
+      "owner": "CostaliyA",
+      "name": "Flow-OPD"
+    },
+    {
+      "id": "repos/vvvvvjdy/D-OPSD",
+      "type": "repo",
+      "url": "https://github.com/vvvvvjdy/D-OPSD",
+      "host": "github.com",
+      "owner": "vvvvvjdy",
+      "name": "D-OPSD"
+    },
+    {
+      "id": "repos/tianweiy/DMD2",
+      "type": "repo",
+      "url": "https://github.com/tianweiy/DMD2",
+      "host": "github.com",
+      "owner": "tianweiy",
+      "name": "DMD2"
+    },
+    {
+      "id": "repos/yifan123/flow_grpo",
+      "type": "repo",
+      "url": "https://github.com/yifan123/flow_grpo",
+      "host": "github.com",
+      "owner": "yifan123",
+      "name": "flow_grpo"
+    },
+    {
       "id": "concepts/ddpo",
       "type": "concept",
       "slug": "ddpo",
@@ -1097,7 +1146,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
@@ -1107,12 +1156,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -1192,17 +1241,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -1213,6 +1257,11 @@
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1327,12 +1376,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1377,17 +1426,17 @@
     },
     {
       "from": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1457,12 +1506,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1627,22 +1676,22 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1724,6 +1773,76 @@
       "from": "papers/worldforge-2026",
       "to": "concepts/world-model",
       "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/on-policy-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/rl",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/image-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "concepts/sd3",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "repos/CostaliyA/Flow-OPD",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "repos/vvvvvjdy/D-OPSD",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "repos/tianweiy/DMD2",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
+      "to": "repos/yifan123/flow_grpo",
+      "kind": "implements"
     },
     {
       "from": "tutorials/rl-for-diffusion-2023",
