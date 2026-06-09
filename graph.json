@@ -129,6 +129,15 @@
       "url": "papers/mrt-2026/index.html"
     },
     {
+      "id": "papers/q-ground-2024",
+      "type": "paper",
+      "slug": "q-ground-2024",
+      "title": "Q-Ground: Image Quality Grounding with Large Multi-modality Models",
+      "date": "2024-07-24",
+      "tldr": "ACM MM 2024 Oral(南洋理工 + 商汤)。第一个做\"细粒度画质 grounding\"的工作:不再只给一张图打一个总分/一段评语,而是把**画质缺陷的具体位置**分割出来。核心贡献是 **QGround-100K 数据集** —— 10 万条 (图像, 画质描述文本, 失真分割掩码) 三元组,建在 Q-Instruct/Q-Pathway 之上,锁定 5 种失真(模糊/过曝/噪声/抖动/低光),掩码用固定颜色编码。制作走**双轨标注**:① 15 名人工标注员(SAM 预分割 + 参考画质文本手调边界);② GPT4V 自动标注(Set-of-Mark:SAM 分割 + 编号 → GPT4V 给每个区域判失真类型)。人工 17,963 图 / 52,924 标注 + GPT4V 50,599 图。配套 Q-Ground 模型(PixelLM 式 [SEG] token + 多尺度投影 MSFA)。\n",
+      "url": "papers/q-ground-2024/index.html"
+    },
+    {
       "id": "papers/qwen-image-2-2026",
       "type": "paper",
       "slug": "qwen-image-2-2026",
@@ -658,6 +667,62 @@
       "url": "concepts/image-editing.html"
     },
     {
+      "id": "concepts/iqa",
+      "type": "concept",
+      "slug": "iqa",
+      "name": "iqa",
+      "has_file": false,
+      "url": "concepts/iqa.html"
+    },
+    {
+      "id": "concepts/image-quality",
+      "type": "concept",
+      "slug": "image-quality",
+      "name": "image-quality",
+      "has_file": false,
+      "url": "concepts/image-quality.html"
+    },
+    {
+      "id": "concepts/segmentation",
+      "type": "concept",
+      "slug": "segmentation",
+      "name": "segmentation",
+      "has_file": false,
+      "url": "concepts/segmentation.html"
+    },
+    {
+      "id": "concepts/mllm",
+      "type": "concept",
+      "slug": "mllm",
+      "name": "mllm",
+      "has_file": false,
+      "url": "concepts/mllm.html"
+    },
+    {
+      "id": "concepts/dataset",
+      "type": "concept",
+      "slug": "dataset",
+      "name": "dataset",
+      "has_file": false,
+      "url": "concepts/dataset.html"
+    },
+    {
+      "id": "concepts/defect-grounding",
+      "type": "concept",
+      "slug": "defect-grounding",
+      "name": "defect-grounding",
+      "has_file": false,
+      "url": "concepts/defect-grounding.html"
+    },
+    {
+      "id": "repos/Q-Future/Q-Ground",
+      "type": "repo",
+      "url": "https://github.com/Q-Future/Q-Ground",
+      "host": "github.com",
+      "owner": "Q-Future",
+      "name": "Q-Ground"
+    },
+    {
       "id": "concepts/multimodal",
       "type": "concept",
       "slug": "multimodal",
@@ -712,14 +777,6 @@
       "name": "world-model",
       "has_file": false,
       "url": "concepts/world-model.html"
-    },
-    {
-      "id": "concepts/mllm",
-      "type": "concept",
-      "slug": "mllm",
-      "name": "mllm",
-      "has_file": false,
-      "url": "concepts/mllm.html"
     },
     {
       "id": "concepts/chain-of-thought",
@@ -1146,12 +1203,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -1161,7 +1213,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
@@ -1241,6 +1298,11 @@
     },
     {
       "from": "papers/ideogram-4-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
@@ -1251,17 +1313,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1426,11 +1483,6 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
@@ -1438,6 +1490,66 @@
       "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/iqa",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/image-quality",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/segmentation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/mllm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/dataset",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/defect-grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "concepts/vlm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/q-ground-2024",
+      "to": "repos/Q-Future/Q-Ground",
+      "kind": "implements"
     },
     {
       "from": "papers/qwen-image-2-2026",
@@ -1676,12 +1788,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -1811,7 +1923,7 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
@@ -1821,7 +1933,7 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {

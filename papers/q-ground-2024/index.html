@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Q-Ground: Image Quality Grounding with Large Multi-modality Models</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/atom-one-dark.min.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+  </div>
+</nav>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">核心思想 (类比)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.1 三元组与 5 种失真</a></li>
+    <li class="h3"><a href="#sec-2-3">2.2 ★ 数据制作:双轨标注流水线</a></li>
+    <li class="h3"><a href="#sec-2-4">2.3 数据格式:掩码用颜色编码 5 种失真</a></li>
+    <li class="h3"><a href="#sec-2-5">2.4 Q-Ground 模型(简述)</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 进一步阅读</a></li>
+  </ul>
+</nav>
+<main>
+<h1>Q-Ground: Image Quality Grounding with Large Multi-modality Models</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2024-07-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2024-07-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Chaofeng Chen, Sensen Yang, Haoning Wu, Liang Liao, Zicheng Zhang, Annan Wang, Wenxiu Sun, Qiong Yan, Weisi Lin</span> · <span class="post-meta__venue">ACM Multimedia 2024 (Oral)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2407.17035">arXiv:2407.17035</a> · <a class="post-meta__link" href="https://github.com/Q-Future/Q-Ground">项目页</a> · <a class="post-meta__link" href="https://github.com/Q-Future/Q-Ground">代码</a> · <a class="post-meta__link" href="https://huggingface.co/datasets/chaofengc/QGround-100K">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/iqa.html">iqa</a> <a class="concept-chip" href="../../concepts/image-quality.html">image-quality</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/segmentation.html">segmentation</a> <a class="concept-chip" href="../../concepts/mllm.html">mllm</a> <a class="concept-chip" href="../../concepts/dataset.html">dataset</a> <a class="concept-chip" href="../../concepts/defect-grounding.html">defect-grounding</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a></div>
+</aside>
+
+<blockquote>
+<p>ACM MM 2024 Oral。代码 + 数据:<a href="https://github.com/Q-Future/Q-Ground">Q-Future/Q-Ground</a>、数据集 <a href="https://huggingface.co/datasets/chaofengc/QGround-100K">chaofengc/QGround-100K</a>。</p>
+<p>本文按你的要求<strong>重点讲 QGround-100K 数据集怎么做</strong>,并展示真实示例。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>现在的画质评估(IQA)有两类输出:要么给整张图打<strong>一个总分</strong>(KonIQ、SPAQ 那种),要么用 LMM 给<strong>一段文字评语</strong>(Q-Instruct 那种)。两类都停在<strong>全局</strong>——它们能说&quot;这张图有点糊&quot;,却说不出&quot;<strong>糊在哪儿</strong>&quot;。</p>
+<p>但很多场景恰恰要的是&quot;哪儿&quot;:图像增强要知道哪块该修、内容审核要定位瑕疵、相册要圈出&quot;脸糊了&quot;的那部分。<strong>把画质缺陷的位置分割出来</strong>(fine-scale visual quality grounding)是这篇论文要补的空白。</p>
+<p>要训这样一个模型,得有前所未有的数据:不是 (图→分) 或 (图→文),而是 <strong>(图, 画质描述, 失真分割掩码) 三元组</strong>。这就是 QGround-100K,本文的核心贡献。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">核心思想 (类比)</h3>
+<p>把画质标注想象成医生看 X 光片。<strong>旧做法</strong>是医生只写一句诊断报告(&quot;这张片子质量一般&quot;)。<strong>Q-Ground 要的</strong>是医生不仅写报告,还<strong>在片子上用不同颜色的笔圈出</strong>:这块是运动模糊(红)、那块过曝(黄绿)、角落低光(绿)……报告(文本)+ 圈注(掩码)+ 原片(图)三件套绑在一起,就是一条训练样本。</p>
+<p>而&quot;圈注&quot;这件事人工很贵,所以 Q-Ground 用<strong>两条流水线</strong>同时造:一条人工精标,一条让 GPT4V 自动圈——下面 §2.2 详解。</p>
+<h3 id="sec-2-2">2.1 三元组与 5 种失真</h3>
+<p>QGround-100K 的每条样本是 <span class="math inline">\((x_{img},\, x_{txt},\, y_m)\)</span>:图像、画质描述文本、失真分割掩码。掩码只标 <strong>5 种最常见的失真</strong>(按 Q-Instruct 统计选出,频率高、对画质影响大):</p>
+<blockquote>
+<p><strong>模糊 (blur) · 过曝 (overexposure) · 噪声 (noise) · 抖动 (jitter) · 低光 (low light)</strong></p>
+</blockquote>
+<p>数据<strong>建在 Q-Instruct / Q-Pathway 之上</strong>(它已经有多样来源图像的人工画质文本),Q-Ground 给这些图<strong>补上分割掩码</strong>;新增图像的画质文本则用 <strong>Co-Instruct</strong>(与 GPT4V 同级)自动生成。来源覆盖 KonIQ-10K、SPAQ、LIVE-FB、LIVE-itw、AGIQA-3K、ImageRewardDB(含 5.5K AI 生成图)。</p>
+<h3 id="sec-2-3">2.2 ★ 数据制作:双轨标注流水线</h3>
+<p>这是全文工程核心。<strong>先用 SAM 对图做预分割</strong>(给出干净的候选区域边界),再分两条标注流:</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-pipeline.png" alt="QGround-100K 双轨标注流水线:SAM 预分割 → 人工标注 / GPT4V(Set-of-Mark)标注">
+  <figcaption>
+    Fig. 2 — 数据标注流水线。输入图先经 <strong>SAM 预分割</strong>。<strong>人工分支</strong>:标注员拿到 (图, 画质文本) 对,圈出失真区域并归类,可手动调 SAM 边界。<strong>GPT4V 分支</strong>:SAM 分割后给每个区域<strong>编号(Set-of-Mark)</strong>,连同同一份 (图, 画质描述) 一起喂 GPT4V,GPT4V 输出"1: low light, 2: low light, 3: low light, 4: no distortion …"逐区域判类型。图中的真实例子:一张楼房照,画质文本说"focus is clear, but the lighting is dark and lacks exposure",人工标出绿色(低光)掩码,GPT4V 把多个区域判为 low light。
+  </figcaption>
+</figure>
+<p><strong>① 人工标注(§3.2.1):</strong> 15 名受过训练的标注员,拿到 (图, 画质描述) 对,任务是<strong>圈出失真区域 + 归类失真类型</strong>。关键设计:① 必须<strong>对照画质描述文本</strong>标(避免标到&quot;显眼物体&quot;而非&quot;真失真区&quot;);② SAM 预分割给统一边界,但标注员<strong>保留手调权</strong>——因为 SAM 倾向于按物体切,而失真区不一定贴着物体。</p>
+<p><strong>② GPT4V 标注(§3.2.2):</strong> 为省人力、上规模,用 <strong>Set-of-Mark (SoM)</strong> 技巧让 GPT4V 自动标:SAM 分割 → 每个区域<strong>打上数字编号</strong>叠在图上 → 把&quot;带编号的图 + 同一份画质描述&quot;喂给 GPT4V → GPT4V 逐区域输出失真类型(见 Fig 2 右侧&quot;1: low light, 2: low light …&quot;)。这样 GPT4V 不需要画掩码,只需&quot;给每个已切好的区域贴标签&quot;,任务被降维成它擅长的视觉-文本理解。</p>
+<p><strong>标注可靠性(Eq 1):</strong> 每张图至少 3 个不同标注员标。论文用&quot;成对交集 / 较小掩码&quot;的 recall 度量一致性:</p>
+<div class="math block">
+\[\text{Recall} = \frac{1}{N}\sum_{i}^{N}\frac{1}{M_i}\sum_{j}^{M_i}\frac{A_j\cap B_j}{\min(A_j,\,B_j)}\]
+</div>
+<p class="math-translation">—— 翻译: 对每张图、每对标注掩码 $(A_j,B_j)$,算它们交集占"较小那个掩码"的比例(一个掩码是另一个的子集就算一致),再对所有对/所有图平均。值越接近 1 越一致。论文报告各数据集 0.86–0.98,说明人工标注相当可靠。</p>
+<h3 id="sec-2-4">2.3 数据格式:掩码用颜色编码 5 种失真</h3>
+<p>三元组里的掩码 <span class="math inline">\(y_m\)</span> <strong>不是二值图,而是一张 RGB 彩色图</strong>:每种失真对应一个固定颜色,黑色=无失真。代码里写死了这套调色板:</p>
+<p class="code-source">repo/utils_label.py:L75-L90 — 5 种失真 → 固定 RGB 颜色(+ 无失真=黑)</p>
+<pre><code class="language-python">DISTORTION_TYPES = {
+    'jitter': np.array(ImageColor.getrgb('#4b54e1')),
+    'noise': np.array(ImageColor.getrgb('#93fff0')),
+    'overexposure': np.array(ImageColor.getrgb('#cde55d')),
+    'blur': np.array(ImageColor.getrgb('#e45c5c')),
+    'low light': np.array(ImageColor.getrgb('#35e344')), 
+}
+
+DISTORTION_TYPES_EXT = {
+    'jitter': np.array(ImageColor.getrgb('#4b54e1')),
+    'noise': np.array(ImageColor.getrgb('#93fff0')),
+    'overexposure': np.array(ImageColor.getrgb('#cde55d')),
+    'blur': np.array(ImageColor.getrgb('#e45c5c')),
+    'low light': np.array(ImageColor.getrgb('#35e344')), 
+    'no distortion': np.array([0, 0, 0])
+}
+</code></pre>
+<p>所以 jitter=蓝 <code>#4b54e1</code>、noise=青 <code>#93fff0</code>、overexposure=黄绿 <code>#cde55d</code>、blur=红 <code>#e45c5c</code>、low light=绿 <code>#35e344</code>。训练时从这张彩色掩码<strong>按颜色抠出</strong>每种失真的二值掩码:</p>
+<p class="code-source">repo/utils_label.py:L93-L114 — 彩色掩码 ↔ 标签;按颜色抠单类二值掩码(>100 像素才算)</p>
+<pre><code class="language-python">def rgb2label(mask_rgb):
+    mask_label = np.zeros(mask_rgb.shape[:2], dtype=np.uint8)
+    for i, (k, v) in enumerate(DISTORTION_TYPES.items()):
+        mask_label[np.isclose(mask_rgb, v, rtol=0.2, atol=20).all(axis=-1)] = i + 1
+    return mask_label
+
+
+def label2rgb(label):
+    mask_rgb = np.zeros(label.shape + (3,), dtype=np.uint8)
+    for i, (k, v) in enumerate(DISTORTION_TYPES.items()):
+        mask_rgb[label == i + 1] = v
+    return mask_rgb
+
+
+def get_distortion_mask(seg_map, category_name):
+    mask = np.zeros_like(seg_map)
+    mask[np.isclose(seg_map, DISTORTION_TYPES[category_name], rtol=0.2, atol=20)] = 1 
+    mask = np.prod(mask, axis=-1)
+    if mask.sum() &gt; 100:    # mask region &gt; 100 pixels
+        return mask.astype(np.uint8)
+    else:
+        return None 
+</code></pre>
+<p>注意两个实现细节:颜色匹配带容差(<code>rtol=0.2, atol=20</code>,抗 JPEG 压缩导致的颜色漂移);单类掩码<strong>小于 100 像素直接丢弃</strong>(太小的区域当噪声扔掉)。</p>
+<p><strong>查询怎么问?</strong> 训练时把三元组包成对话:用户问&quot;给我这张图的失真分割掩码&quot;,模型答文本 + <code>[SEG]</code> token。问法/无失真答法都是模板随机采样,增加多样性:</p>
+<p class="code-source">repo/utils/qground_dataset.py:L33-L50 — grounding 查询模板 + "无失真"标准答案(随机采样,增多样性)</p>
+<pre><code class="language-python">DISTORTION_SEG_LIST = [
+    'distortion segmentation mask',
+    'segmentation mask for distorted regions',
+    'segmentation mask for identifying distorted regions',
+    'segmentation mask for distortions in the image', 
+    'segmentation mask to distortions', 
+    'distorted regions in the image',
+    'distortions in the image',
+    'low quality regions in the image',
+]
+
+NO_DISTORTION_ANSWER = [
+    &quot;The image quality is good without distortions.&quot;,
+    &quot;No distortion found in the image.&quot;,
+    &quot;The image quality is good with little distortions.&quot;,
+    &quot;There is no obvious distortions in the image&quot;,
+    &quot;The image is clear without distortions.&quot;,
+    &quot;The image is clear with little distortions.&quot;,
+]
+</code></pre>
+<h3 id="sec-2-5">2.4 Q-Ground 模型(简述)</h3>
+<p>有了数据,模型走 <strong>PixelLM 式</strong>路线:引入可学习的<strong>分割 token</strong> <span class="math inline">\(H_{seg}\)</span>,LLM 自回归吐文本时顺带吐 <span class="math inline">\(H_{seg}\)</span>,再由掩码解码器 <span class="math inline">\(\mathcal D\)</span> 解成掩码:</p>
+<div class="math block">
+\[\{y_{txt},\, H_{seg}\} = \mathcal F\big(\phi_v(\mathcal V(x_{img})),\, x_{txt},\, H_{seg}\big),\qquad y_{seg} = \mathcal D\big(\mathcal V(x_{img}),\, H_{seg}\big)\]
+</div>
+<p class="math-translation">—— 翻译: LLM $\mathcal F$(LLaMA)吃"投影后的图像特征 + 文本 + 分割 token",产出文本回答和分割 token;掩码解码器 $\mathcal D$(同 PixelLM)再把 CLIP 图像特征 $\mathcal V(x_{img})$ 和分割 token 解成像素掩码 $y_{seg}$。</p>
+<p>唯一的模型创新是投影器 <span class="math inline">\(\phi_v\)</span>:不像别的工作只用 CLIP 最后一层特征,Q-Ground 的 <strong>MSFA(Multi-Scale Feature Abstractor)</strong> 融合<strong>多尺度</strong>视觉特征——因为画质感知(模糊/噪声)是低层纹理信号,只看高层语义会丢。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<p><strong>数据集规模(Tab 2):</strong> 人工标注 <strong>17,963 图 / 52,924 标注</strong>;GPT4V 标注 <strong>50,599 图 / 50,599 标注</strong>。来源分布如下:</p>
+<figure>
+  <img class="zoomable" src="figures/tab2-sources.png" alt="QGround-100K 图像来源与统计">
+  <figcaption>
+    Tab. 2 — 来源与统计。KonIQ-10K(10,373:5,182 人工 + 5,168 GPT4V)、SPAQ(11,125:10,797 人工)、LIVE-FB(39,810:800 人工 + 38,946 GPT4V)、LIVE-itw、AGIQA-3K、ImageRewardDB(5 万张,584 人工 + 2,947 GPT4V)。人工部分精而少,GPT4V 部分广而多——这正是"人工保质 + GPT4V 上量"的分工。
+  </figcaption>
+</figure>
+<p><strong>失真类型分布(Fig 4):</strong> 大致 blur &gt; low light &gt; overexposure ≈ noise。一个有趣偏差:<strong>人工标的 jitter(抖动)明显比 GPT4V 多(15.5% vs 6.0%)</strong>——因为人工部分大量来自 SPAQ(手机拍摄,手抖常见),而 GPT4V 部分多是网络爬图(抖动少)。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-distortion-stats.png" alt="人工 vs GPT4V 标注的失真类型分布饼图">
+  <figcaption>
+    Fig. 4 — 人工(左)与 GPT4V(右)各自的失真类型分布。两者分布总体相似 → 论文据此论证 "GPT4V 作为数据生成器是有效的";差异主要在 jitter(人工 15.5% vs GPT4V 6.0%,来源构成不同所致)。
+  </figcaption>
+</figure>
+<p><strong>标注一致性:</strong> Eq 1 的成对 recall 在各数据集 <strong>0.864–0.980</strong>,GPT4V 多次运行结果也稳定 → 双轨标注都可靠。</p>
+<p><strong>真实示例(Fig 7):</strong> 同一张寺庙图,模型/基线分割出的失真掩码对比 —— 红=blur、蓝=jitter、绿=low light、黄绿=overexposure、青=noise。Q-Ground 的掩码比 MaskFormer/LISA/PixelLM 更贴近 Ground Truth。</p>
+<figure>
+  <img class="zoomable" src="figures/fig7-examples.png" alt="失真分割结果示例:Input / 各方法 / Q-Ground / GT,5 种失真用 5 种颜色">
+  <figcaption>
+    Fig. 7 — 失真分割结果对比(jitter <span style="color:#4b54e1">蓝</span> / noise <span style="color:#2aa">青</span> / overexposure <span style="color:#9a3">黄绿</span> / blur <span style="color:#e45c5c">红</span> / low light <span style="color:#35e344">绿</span>)。左起:Input、MaskFormer、LISA、PixelLM、Ours(Q-Ground)、Ground Truth。这就是数据集里一条样本的样子:一张图 + 一张彩色失真掩码。
+  </figcaption>
+</figure>
+<p>模型在 QGround-100K 基准上,分割 mIoU / mAcc 全面优于 MaskFormer / LISA / PixelLM(Tab 3);消融显示 <strong>MSFA 多尺度特征</strong>与 <strong>prompt 里给画质文本</strong>都有正贡献(Tab 4-5)。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<ul>
+<li><strong>数据集托管</strong>:HF <a href="https://huggingface.co/datasets/chaofengc/QGround-100K">chaofengc/QGround-100K</a>,两个大包:<code>qground.tar</code>(7.25 GB,人工)+ <code>qground_gpt4v.tar</code>(9.1 GB,GPT4V)。每包含 <code>images/</code> + <code>masks/</code>(彩色失真掩码)+ JSON 标注。</li>
+<li><strong>掩码 = 彩色 RGB 图</strong>,不是 0/1。5 种失真各一个固定 hex 色(<code>utils_label.py:L75</code>),解码靠 <code>np.isclose(..., rtol=0.2, atol=20)</code> 容差匹配(<code>L96</code>/<code>L109</code>)抗压缩漂移。</li>
+<li><strong>&gt;100 像素阈值</strong>(<code>utils_label.py:L111</code>):太小的失真区被丢弃,避免噪声标注。</li>
+<li><strong>Set-of-Mark 是 GPT4V 标注的关键</strong>:GPT4V <strong>不直接画掩码</strong>(它做不好像素级),而是 SAM 先切区域 + 编号,GPT4V 只&quot;给每个编号区域贴失真标签&quot;,掩码由 SAM 区域回填。这把&quot;分割&quot;降维成&quot;分类&quot;,绕开 LMM 的像素短板 —— 这套思路值得任何想用 LMM 造分割数据的人借鉴。</li>
+<li><strong>人工标注对照文本</strong>:标注员必须参考画质描述文本(<code>L259</code>),否则容易标&quot;显眼物体&quot;而非&quot;真失真区&quot;;SAM 边界可手调(<code>L265</code>)因为失真区不贴物体边界。</li>
+<li><strong>新图文本用 Co-Instruct 生成</strong>(非 GPT4V),因为它开源、性能相当、可批量。</li>
+<li><strong>查询/答案模板化随机采样</strong>(<code>qground_dataset.py:L33</code>/<code>L45</code>):8 种问法 + 6 种&quot;无失真&quot;答法,防止模型过拟合到固定措辞。</li>
+<li><strong>paper-vs-code 一致</strong>:5 种失真、颜色编码、SoM 流程在 <code>utils_label.py</code> / <code>qground_dataset.py</code> / <code>qgroundgpt_dataset.py</code> 都能对上;未发现明显 gap。唯一&quot;代码比论文细&quot;的是颜色容差和 100px 阈值这种工程细节,论文正文没提。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>填了真空</strong>:第一个把&quot;画质 grounding&quot;做成数据集 + 模型的工作,(图, 文, 掩码) 三元组范式干净可复用。</li>
+<li><strong>双轨标注的工程取舍漂亮</strong>:人工保质(17.9K 精标)+ GPT4V 上量(50.6K),且用 recall 一致性 + 分布相似性两个证据论证 GPT4V 标注可信 —— 不是拍脑袋说&quot;GPT4V 够好&quot;。</li>
+<li><strong>Set-of-Mark 降维分割任务</strong>:让 GPT4V 只做&quot;区域分类&quot;而非&quot;像素分割&quot;,绕开 LMM 的像素短板,是这套 pipeline 最可复用的 trick。</li>
+<li><strong>数据 + 代码 + 权重全开</strong>:HF 上 100K 数据可下,复现门槛低(对照很多只放 PDF 的工作)。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>只 5 种失真,且偏成像失真</strong>:blur/overexposure/noise/jitter/low-light 都是<strong>全局成像类</strong>缺陷。对&quot;人脸痘痣/衣服褶皱/物体破损&quot;这种<strong>内容级 low-level 瑕疵</strong>完全不覆盖 —— 想做那类 grounding 不能直接用这套标签体系。</li>
+<li><strong>GPT4V 标注的&quot;掩码&quot;其实是 SAM 区域</strong>:GPT4V 只贴标签,掩码边界全靠 SAM。SAM 切不准的地方(失真区跨物体、渐变模糊无清晰边界),GPT4V 分支无法纠正 —— GPT4V 那 5 万张的掩码精度受 SAM 上限锁死。</li>
+<li><strong>颜色编码掩码有歧义风险</strong>:用 <code>rtol=0.2, atol=20</code> 容差按颜色抠类,若两种失真色在压缩后接近、或图本身有接近调色板的颜色,可能误匹配;一个 region 多类失真重叠时颜色叠加也没定义。</li>
+<li><strong>失真&quot;类型&quot;边界主观</strong>:Fig 3(b) 自己承认同一区域不同人标不同类型(jitter vs blur 难分);recall 度量只看区域重叠,不惩罚&quot;类型标错&quot;。</li>
+<li><strong>画质文本来自 Q-Instruct/Co-Instruct,本身有噪声</strong>:三元组的&quot;文本&quot;支柱不是 ground truth 而是另一个模型/众包的产物,误差会传导进 grounding 监督。</li>
+<li><strong>GPT4V 不可复现/会变</strong>:用闭源 GPT4V 当标注器,模型更新后标注分布会漂;论文用 Co-Instruct 生成文本部分规避,但区域标签那步仍依赖 GPT4V。</li>
+</ul>
+<h3 id="sec-5-3">5.3 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>:做<strong>成像类画质缺陷定位</strong>(模糊/过曝/噪声/低光/抖动)的训练数据 —— 直接用 QGround-100K;想自建类似数据,直接抄它的 SAM + Set-of-Mark + 双轨流水线。</li>
+<li>✅ <strong>适用</strong>:想用 LMM 半自动造<strong>分割</strong>数据的团队 —— Set-of-Mark&quot;切好区域让 LMM 贴标签&quot;是核心可复用方法。</li>
+<li>⚠️ <strong>谨慎</strong>:内容级 low-level 瑕疵(痘痣/褶皱/破损)—— 标签体系不覆盖,但<strong>数据构造方法论可借鉴</strong>(换 5 类标签 + 换文本来源)。</li>
+<li>❌ <strong>不适用</strong>:需要严格、可复现标注的场景 —— GPT4V 分支不可复现;需要类型精确的场景 —— 类型边界主观、recall 不惩罚类型错。</li>
+</ul>
+<h3 id="sec-5-4">5.4 进一步阅读</h3>
+<ul>
+<li><strong>Q-Instruct / Q-Pathway / Co-Instruct</strong>:QGround-100K 的文本来源与上游(同团队 Q-Future 系列)。</li>
+<li><strong>PixelLM</strong>:Q-Ground 模型骨架([SEG] token + 掩码解码器)。</li>
+<li><strong>Set-of-Mark Prompting</strong>(arXiv:2310.11441):GPT4V 标注分支的核心技巧来源。</li>
+<li><strong>SAM</strong>(arXiv:2304.02643):预分割 + GPT4V 分支的区域来源。</li>
+<li>与本站 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> / <a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 对照:那两篇是<strong>语义级</strong> grounding,Q-Ground 是<strong>画质/细节级</strong> grounding 的早期代表。</li>
+</ul>
+<section class="comments">
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

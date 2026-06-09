@@ -468,6 +468,21 @@
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </a>
+<a class="post-card post-card--paper" href="papers/q-ground-2024/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2024-07-24</span></span>
+  </div>
+  <h3 class="post-card__title">Q-Ground: Image Quality Grounding with Large Multi-modality Models</h3>
+  <p class="post-card__tldr">ACM MM 2024 Oral(南洋理工 + 商汤)。第一个做&quot;细粒度画质 grounding&quot;的工作:不再只给一张图打一个总分/一段评语,而是把**画质缺陷的具体位置**分割出来。核心贡献是 **QGround-100K 数据集** —— 10 万条 (图像, 画质描述文本, 失真分割掩码) 三元组,建在 Q-Instruct/Q-Pathway 之上,锁定 5 种失真(模糊/过曝/噪声/抖动/低光),掩码用固定颜色编码。制作走**双轨标注**:① 15 名人工标注员(SAM 预分割 + 参考画质文本手调边界);② GPT4V 自动标注(Set-of-Mark:SAM 分割 + 编号 → GPT4V 给每个区域判失真类型)。人工 17,963 图 / 52,924 标注 + GPT4V 50,599 图。配套 Q-Ground 模型(PixelLM 式 [SEG] token + 多尺度投影 MSFA)。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/iqa.html">iqa</a>
+      <a class="tag-chip" href="concepts/image-quality.html">image-quality</a>
+      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</a>
 </div>
 </main>
 </body>
