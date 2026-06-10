@@ -20,8 +20,23 @@
     <a class="site-nav__link" href="papers.html">论文</a>
     <a class="site-nav__link active" href="tutorials.html">教程</a>
     <a class="site-nav__link" href="concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
   </div>
 </nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="pagefind/pagefind-ui.js"></script>
+<script defer src="assets/search.js"></script>
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>教程</h1>

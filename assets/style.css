@@ -973,3 +973,89 @@ body > main {
 .giscus-frame {
   min-height: 200px;
 }
+
+/* --- pagination control --- */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 2.5rem 0 1rem;
+}
+.pager__item,
+.pager__nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2rem;
+  height: 2.2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  color: var(--accent);
+  text-decoration: none;
+  background: var(--bg-card);
+}
+.pager__item:hover,
+.pager__nav:hover { background: var(--accent-soft); }
+.pager__item--current {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-card);
+  cursor: default;
+}
+.pager__item--disabled {
+  color: var(--text-secondary);
+  cursor: default;
+  opacity: 0.6;
+}
+.pager__item--disabled:hover { background: var(--bg-card); }
+
+/* --- search modal --- */
+/* Icon-only search trigger — visually fused with the nav links (no border, no label). */
+.site-nav__search-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  padding: 0.35rem 0.6rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.site-nav__search-btn:hover { color: var(--text); background: var(--rule); }
+.search-modal { position: fixed; inset: 0; z-index: 1000; }
+.search-modal[hidden] { display: none; }
+.search-modal__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.search-modal__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
+  margin: 8vh auto 8vh;
+  max-height: 84vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border-radius: 10px;
+  padding: 0.75rem 1.5rem 1rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+/* Close sits on its own row above the Pagefind search field so it never
+   collides with the widget's built-in search icon / 清除 clear button. */
+.search-modal__close {
+  position: sticky; top: 0; z-index: 2;
+  align-self: flex-end;
+  margin: 0 -0.5rem 0.25rem 0;
+  padding: 0 0.25rem;
+  background: var(--bg-card); border: none;
+  font-size: 1.25rem; line-height: 1.4;
+  color: var(--text-secondary); cursor: pointer;
+}
+body.search-open { overflow: hidden; }

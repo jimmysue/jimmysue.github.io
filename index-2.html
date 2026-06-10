@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>paper-reading — 论文 &amp; 教程 — 第 2 页</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="papers.html">论文</a>
+    <a class="site-nav__link" href="tutorials.html">教程</a>
+    <a class="site-nav__link" href="concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="pagefind/pagefind-ui.js"></script>
+<script defer src="assets/search.js"></script>
+<!-- NAV-END -->
+<main class="page page--listing">
+<h1>paper-reading</h1>
+<p class="page__intro">论文精读与系统化教程。</p>
+<div class="post-grid">
+<a class="post-card post-card--paper" href="papers/diffusion-opd-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-02</span></span>
+  </div>
+  <h3 class="post-card__title">DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</h3>
+  <p class="post-card__tldr">Fudan + 阿里 Wan Team (arXiv 2026/05/14)。多任务 diffusion RL 现有两条路都不好走: joint 多目标互相打架 + 难任务被压制, cascade 多阶段繁琐 + 灾难遗忘。DiffusionOPD 抄 LLM 的 On-Policy Distillation (OPD) 思路, 把它从 token 序列搬到 Euler-Maruyama 离散化的反向 SDE: 学生和老师在同一个噪声 schedule 上有同协方差的 one-step Gaussian transition, 反向 KL 解析地坍缩成 $\|\mu^S - \mu^T\|^2 / (2\bar\sigma^2)$, 在 ODE 极限 (a→0) 进一步退化成纯 L2 transition matching (Eq. 12)。配 round-robin 多 teacher (per-task LoRA adapter), 一个 backward 一个 round。SD3.5-M 上 GenEval 0.96 + OCR 0.94 + Aes 6.15, average 0.929 反超 cascade NFT 0.851 / multi-task NFT 0.715, 总 wall-clock 比 cascade 少 ~50 GPU h。论文最有教育意义的是 §3.3: PPO-style 跟 closed-form KL 期望梯度相同, 但 PPO 多一个 $\epsilon_j / \bar\sigma_j$ 的 score-function 项, 是纯方差; 而 closed-form 通过 pathwise gradient 完全消掉这一项。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/worldforge-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</h3>
+  <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--tutorial" href="tutorials/vlm-industrial-2024/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10k+ 字</span></span>
+  </div>
+  <h3 class="post-card__title">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</h3>
+  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="concepts/anomaly-detection.html">anomaly-detection</a>
+      <a class="tag-chip" href="concepts/industrial.html">industrial</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/tuna-2/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
+  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/tstars-tryon-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Tstars-Tryon 1.0: Robust and Realistic Virtual Try-On for Diverse Fashion Items</h3>
+  <p class="post-card__tldr">阿里 Pailitao:把 try-on 从 inpainting 重新定义为通用多图编辑,5B MMDiT + 五阶段训练(预训→渐进分辨率→垂域 SFT→DiffusionNFT 多奖励 RL→CFG+Step 蒸馏)。Tstars-VTON Bench 上 Overall 9.372 力压 GPT-Image-2 / Nano Banana Pro,单衣 3.92s / 多件 6.74s 比开源快 25-50×。已上线淘宝 App。论文是产品报告 + benchmark 论文 — 模型无开源、无 method 章节、无 ablation。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/try-on.html">try-on</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/sd3.html">sd3</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/tm-interaction-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Interaction Models: A Scalable Approach to Human-AI Collaboration</h3>
+  <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/system-paper.html">system-paper</a>
+      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/starchild-1-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
+  <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/sensenova-u1/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
+  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/self-forcing-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Self Forcing: 自展开训练让因果视频扩散摆脱 exposure bias</h3>
+  <p class="post-card__tldr">Adobe + UT Austin (NeurIPS 2025)。把训练时序流程改成跟推理一样的 KV-cache 自回滚: 学生在自己生成的过去 frames 上 condition, 用 holistic DMD/SiD/GAN loss 直接匹配整段视频分布。靠一个随机选时间步 s + 只在第 s 步开梯度的 stochastic gradient truncation, 把『看似不能并行』的训练塞进 1.5 小时收敛 (64×H100)。配上 rolling KV cache + 训练时 mask 掉首 chunk 这两个工程细节, 1.3B 模型在单 H100 上跑 17 FPS、0.69s latency, VBench 反超 14B 教师模型 Wan2.1 (84.31 vs 84.26)。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/autoregressive.html">autoregressive</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+</div>
+<nav class="pager" aria-label="分页">
+  <a class="pager__nav" href="index.html">上一页</a>
+  <a class="pager__item" href="index.html">1</a>
+  <span class="pager__item pager__item--current" aria-current="page">2</span>
+  <a class="pager__item" href="index-3.html">3</a>
+  <a class="pager__item" href="index-4.html">4</a>
+  <a class="pager__nav" href="index-3.html">下一页</a>
+</nav>
+</main>
+</body>
+</html>

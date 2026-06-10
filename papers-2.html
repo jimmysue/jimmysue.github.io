@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>论文 — paper-reading — 第 2 页</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="papers.html">论文</a>
+    <a class="site-nav__link" href="tutorials.html">教程</a>
+    <a class="site-nav__link" href="concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="pagefind/pagefind-ui.js"></script>
+<script defer src="assets/search.js"></script>
+<!-- NAV-END -->
+<main class="page page--listing">
+<h1>论文</h1>
+<p class="page__intro">共 27 篇论文精读。</p>
+<div class="post-grid">
+<a class="post-card post-card--paper" href="papers/tuna-2/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</h3>
+  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/tstars-tryon-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Tstars-Tryon 1.0: Robust and Realistic Virtual Try-On for Diverse Fashion Items</h3>
+  <p class="post-card__tldr">阿里 Pailitao:把 try-on 从 inpainting 重新定义为通用多图编辑,5B MMDiT + 五阶段训练(预训→渐进分辨率→垂域 SFT→DiffusionNFT 多奖励 RL→CFG+Step 蒸馏)。Tstars-VTON Bench 上 Overall 9.372 力压 GPT-Image-2 / Nano Banana Pro,单衣 3.92s / 多件 6.74s 比开源快 25-50×。已上线淘宝 App。论文是产品报告 + benchmark 论文 — 模型无开源、无 method 章节、无 ablation。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/try-on.html">try-on</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/sd3.html">sd3</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/tm-interaction-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Interaction Models: A Scalable Approach to Human-AI Collaboration</h3>
+  <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/system-paper.html">system-paper</a>
+      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/starchild-1-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</h3>
+  <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/sensenova-u1/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</h3>
+  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/self-forcing-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Self Forcing: 自展开训练让因果视频扩散摆脱 exposure bias</h3>
+  <p class="post-card__tldr">Adobe + UT Austin (NeurIPS 2025)。把训练时序流程改成跟推理一样的 KV-cache 自回滚: 学生在自己生成的过去 frames 上 condition, 用 holistic DMD/SiD/GAN loss 直接匹配整段视频分布。靠一个随机选时间步 s + 只在第 s 步开梯度的 stochastic gradient truncation, 把『看似不能并行』的训练塞进 1.5 小时收敛 (64×H100)。配上 rolling KV cache + 训练时 mask 掉首 chunk 这两个工程细节, 1.3B 模型在单 H100 上跑 17 FPS、0.69s latency, VBench 反超 14B 教师模型 Wan2.1 (84.31 vs 84.26)。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/autoregressive.html">autoregressive</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/self-flow-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</h3>
+  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/rls-razor-2025/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</h3>
+  <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/alignment.html">alignment</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</a>
+<a class="post-card post-card--paper" href="papers/qwen-image-2-2026/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title">Qwen-Image-2.0 Technical Report</h3>
+  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/qwen.html">qwen</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</a>
+</div>
+<nav class="pager" aria-label="分页">
+  <a class="pager__nav" href="papers.html">上一页</a>
+  <a class="pager__item" href="papers.html">1</a>
+  <span class="pager__item pager__item--current" aria-current="page">2</span>
+  <a class="pager__item" href="papers-3.html">3</a>
+  <a class="pager__nav" href="papers-3.html">下一页</a>
+</nav>
+</main>
+</body>
+</html>
