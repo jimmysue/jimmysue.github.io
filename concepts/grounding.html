@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
   <title>grounding — paper-reading</title>
   <link rel="stylesheet" href="../assets/style.css">
 </head>
@@ -25,6 +26,10 @@
         <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
       </svg>
     </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
   </div>
 </nav>
 <div class="search-modal" id="search-modal" hidden data-pagefind-path="../pagefind/">
@@ -37,6 +42,7 @@
 <link href="../pagefind/pagefind-ui.css" rel="stylesheet">
 <script defer src="../pagefind/pagefind-ui.js"></script>
 <script defer src="../assets/search.js"></script>
+<script defer src="../assets/theme.js"></script>
 <!-- NAV-END -->
 
 <main class="page page--concept">
@@ -47,42 +53,42 @@
   </div>
   <h2>提到此概念的论文 / 教程</h2>
   <div class="post-grid">
-<a class="post-card post-card--tutorial" href="../tutorials/vlm-grounding-2025/index.html">
+<div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span></span>
   </div>
-  <h3 class="post-card__title">VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</h3>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../tutorials/vlm-grounding-2025/index.html">VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</a></h3>
   <p class="post-card__tldr">9 节螺旋结构系统综述 2025–2026 视觉语言模型(VLM)的 grounding(视觉定位)浪潮:从「坐标如何变成 token」(三大编码流派)到「框作为输出」(检测/referring/Pointing/GUI/并行框解码)再到「框作为思维」(grounded reasoning)。覆盖 Kosmos-2/Shikra/Ferret/Grounding-DINO/Florence-2/PaliGemma/Qwen2.5-VL/Molmo/Rex-Omni/LocateAnything/Thinking-with-Visual-Primitives 等模型与技术报告,以及 RefCOCO/LVIS/ScreenSpot-Pro/PixMo-Points 等 18+ benchmark 的大盘点。代码 verbatim 引自 IDEA-Research/Rex-Omni 与 QwenLM/Qwen2.5-VL。两篇 anchor:Thinking with Visual Primitives 与 LocateAnything。文末附分类参考文献与技术报告全集。
 </p>
-</a>
-<a class="post-card post-card--paper" href="../papers/locate-anything-2026/index.html">
+</div>
+<div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
   </div>
-  <h3 class="post-card__title">LocateAnything: 把 VLM 的 bbox 输出当作不可分割原子,一次 forward 出 4 个坐标,12.7 BPS 跑赢 NTP 5×</h3>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/locate-anything-2026/index.html">LocateAnything: 把 VLM 的 bbox 输出当作不可分割原子,一次 forward 出 4 个坐标,12.7 BPS 跑赢 NTP 5×</a></h3>
   <p class="post-card__tldr">NVIDIA + HK PolyU + Princeton + Nanjing + UIUC (arXiv 2026/05/27)。指出主流 VLM (Qwen3-VL / DeepSeek-VL2 / Rex-Omni) 输出 bbox 都把 4 个坐标当 token 序列 (x1, y1, x2, y2) 串行 next-token-predict——这是几何上耦合的 4-tuple 被人为序列化,既损精度又限吞吐。**Parallel Box Decoding (PBD)**: 把整个 bbox (4 坐标 + 2 个 &lt;box&gt;/&lt;/box&gt; 结构 token = 长度 L=6 的 atomic block) 一次性并行预测,而非逐 token 输出。block 内 bidirectional attention 让 4 个坐标互相看到,block 间 causal attention 保持自回归语义。**关键 trick**: 训练时把同一 GT 同时塞两种格式 (`x_ntp` + `x_blk`) 让模型 joint 学 NTP + MTP,**通过 attention mask 让两条 stream 互不串话**(都看 shared context 但 MTP block 看不到 NTP token 反之亦然)。推理三模式: Fast (纯 MTP),Slow (纯 NTP),Hybrid (默认 MTP,format 异常或 top-1 prob &lt; 0.7 时回退 NTP 重 decode 该 block)。LocateAnything-Data 138M queries / 12M images / 785M bbox 涵盖 detection + UI + referring + OCR + layout + pointing 6 大任务。结果: LocateAnything-3B 在 LVIS F1@0.95 上 31.1 (vs Qwen3-VL-8B 的 20.2 / Rex-Omni-3B 的 20.7),Throughput 12.7 BPS = **比 Qwen3-VL-8B 快 12.7×、比 Rex-Omni 快 2.5×**。
 </p>
-</a>
-<a class="post-card post-card--paper" href="../papers/thinking-visual-primitives-2026/index.html">
+</div>
+<div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
   </div>
-  <h3 class="post-card__title">Thinking with Visual Primitives: 让 MLLM 在思考时 &quot;用手指点&quot;——points/bboxes 作为最小思维单元穿插进 CoT 推理链</h3>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/thinking-visual-primitives-2026/index.html">Thinking with Visual Primitives: 让 MLLM 在思考时 &quot;用手指点&quot;——points/bboxes 作为最小思维单元穿插进 CoT 推理链</a></h3>
   <p class="post-card__tldr">DeepSeek + 北大 + 清华 (技术报告 2026/04/30 release,代码 + 权重未公开)。MLLM 现在解决了 *Perception Gap* (高清 cropping / thinking-with-images),但还堵在 **Reference Gap** ——自然语言对密集空间布局指代太模糊,导致计数 / 拓扑推理时 &quot;逻辑塌方&quot;。提出 **Thinking with Visual Primitives**: 把 points / bboxes 当**思维原子**直接 interleave 进推理 trajectory,模型一边推理一边 &quot;点&quot;,把抽象语言概念锚到具体物理坐标。架构: DeepSeek-V4-Flash (284B MoE / 13B active) + DeepSeek-ViT。**视觉 token 压缩**: ViT 输出 3×3 spatial pooling (×9 压缩) + LLM 的 CSA (Compressed Sparse Attention) 把每 4 个 visual token 的 KV cache 压成 1 entry → 756×756 输入 (571,536 pixel) 最终 KV cache 仅 **81 entries**,**总压缩比 7,056×**。Pretraining 用 trillion+ tokens, 自建 40M 高质量 box-grounding 数据 (从 HF / 网络爬,两阶段 LLM 审核过滤)。Post-training 4 阶段: Specialized SFT → Specialized RL (GRPO 配 Format/Quality/Accuracy 3 个 RM) → Unified RFT → On-Policy Distillation。Cold-start 4 个任务: counting (10k), spatial reasoning (9k), maze navigation (460k), path tracing (125k)。结果: 选定子集 benchmark 上跟 **GPT-5.4 / Claude-Sonnet-4.6 / Gemini-3-Flash** 持平或反超,而 token efficiency 是这些 frontier model 的 1/8 到 1/10。本质是把 [[locate-anything-2026]] 的&quot;bbox 是 first-class output&quot; 进一步推进成&quot;bbox 是 first-class **thought**&quot;。
 </p>
-</a>
-<a class="post-card post-card--paper" href="../papers/q-ground-2024/index.html">
+</div>
+<div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-09</span></span>
   </div>
-  <h3 class="post-card__title">Q-Ground: Image Quality Grounding with Large Multi-modality Models</h3>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/q-ground-2024/index.html">Q-Ground: Image Quality Grounding with Large Multi-modality Models</a></h3>
   <p class="post-card__tldr">ACM MM 2024 Oral(南洋理工 + 商汤)。第一个做&quot;细粒度画质 grounding&quot;的工作:不再只给一张图打一个总分/一段评语,而是把**画质缺陷的具体位置**分割出来。核心贡献是 **QGround-100K 数据集** —— 10 万条 (图像, 画质描述文本, 失真分割掩码) 三元组,建在 Q-Instruct/Q-Pathway 之上,锁定 5 种失真(模糊/过曝/噪声/抖动/低光),掩码用固定颜色编码。制作走**双轨标注**:① 15 名人工标注员(SAM 预分割 + 参考画质文本手调边界);② GPT4V 自动标注(Set-of-Mark:SAM 分割 + 编号 → GPT4V 给每个区域判失真类型)。人工 17,963 图 / 52,924 标注 + GPT4V 50,599 图。配套 Q-Ground 模型(PixelLM 式 [SEG] token + 多尺度投影 MSFA)。
 </p>
-</a>
+</div>
 </div>
 
   <p class="back-link"><a href="../concepts.html">← 返回所有概念</a></p>
