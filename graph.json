@@ -273,6 +273,15 @@
       "url": "tutorials/rlhf-evolution-2024/index.html"
     },
     {
+      "id": "tutorials/step-distillation-2022",
+      "type": "tutorial",
+      "slug": "step-distillation-2022",
+      "title": "Diffusion / Flow Matching 步数蒸馏:四大家族与可实践指南(PD → LCM-LoRA → DMD2 → MeanFlow/rCM)",
+      "date": "2026-06-11",
+      "tldr": "8 节螺旋系统讲透\"把 1000 步扩散/flow matching teacher 压到 1–4 步\"的四大家族:轨迹蒸馏(Progressive\nDistillation 逐次砍半 + ReFlow 拉直轨迹)、一致性家族(CM → 可直接复跑的 LCM-LoRA → 连续时间 sCM)、\n分布匹配(DMD/DMD2,real/fake score 差 = reverse-KL 梯度)、对抗蒸馏(官方未开源,用 DMD2 的 GAN\n分支佐证可实践)。覆盖 2025–2026 前沿(sCM/TrigFlow、MeanFlow 的 JVP 恒等式、NVIDIA rCM 视频蒸馏),\n每个主讲方法都配经 diff 逐行验证的开源训练代码(diffusers / openai CM / DMD2 / RectifiedFlow /\nMeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑清单。\n",
+      "url": "tutorials/step-distillation-2022/index.html"
+    },
+    {
       "id": "tutorials/vlm-grounding-2025",
       "type": "tutorial",
       "slug": "vlm-grounding-2025",
@@ -907,6 +916,78 @@
       "url": "concepts/rlhf.html"
     },
     {
+      "id": "concepts/step-distillation",
+      "type": "concept",
+      "slug": "step-distillation",
+      "name": "step-distillation",
+      "has_file": false,
+      "url": "concepts/step-distillation.html"
+    },
+    {
+      "id": "concepts/consistency-models",
+      "type": "concept",
+      "slug": "consistency-models",
+      "name": "consistency-models",
+      "has_file": false,
+      "url": "concepts/consistency-models.html"
+    },
+    {
+      "id": "concepts/video-gen",
+      "type": "concept",
+      "slug": "video-gen",
+      "name": "video-gen",
+      "has_file": false,
+      "url": "concepts/video-gen.html"
+    },
+    {
+      "id": "repos/huggingface/diffusers",
+      "type": "repo",
+      "url": "https://github.com/huggingface/diffusers",
+      "host": "github.com",
+      "owner": "huggingface",
+      "name": "diffusers"
+    },
+    {
+      "id": "repos/openai/consistency_models",
+      "type": "repo",
+      "url": "https://github.com/openai/consistency_models",
+      "host": "github.com",
+      "owner": "openai",
+      "name": "consistency_models"
+    },
+    {
+      "id": "repos/gnobitab/RectifiedFlow",
+      "type": "repo",
+      "url": "https://github.com/gnobitab/RectifiedFlow",
+      "host": "github.com",
+      "owner": "gnobitab",
+      "name": "RectifiedFlow"
+    },
+    {
+      "id": "repos/Gsunshine/MeanFlow",
+      "type": "repo",
+      "url": "https://github.com/Gsunshine/MeanFlow",
+      "host": "github.com",
+      "owner": "Gsunshine",
+      "name": "MeanFlow"
+    },
+    {
+      "id": "repos/NVlabs/rcm",
+      "type": "repo",
+      "url": "https://github.com/NVlabs/rcm",
+      "host": "github.com",
+      "owner": "NVlabs",
+      "name": "rcm"
+    },
+    {
+      "id": "repos/mingyuanzhou/SiD",
+      "type": "repo",
+      "url": "https://github.com/mingyuanzhou/SiD",
+      "host": "github.com",
+      "owner": "mingyuanzhou",
+      "name": "SiD"
+    },
+    {
       "id": "concepts/pointing",
       "type": "concept",
       "slug": "pointing",
@@ -1203,22 +1284,22 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/dapo-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -1298,12 +1379,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1318,7 +1399,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1433,12 +1514,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1488,12 +1569,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1618,12 +1699,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1788,12 +1869,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -1803,7 +1884,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1928,12 +2009,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
@@ -2010,6 +2091,86 @@
       "from": "tutorials/rlhf-evolution-2024",
       "to": "concepts/rlhf",
       "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/step-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/consistency-models",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/image-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "concepts/video-gen",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "papers/self-forcing-2025",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "tutorials/opd-diffusion-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/huggingface/diffusers",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/openai/consistency_models",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/tianweiy/DMD2",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/gnobitab/RectifiedFlow",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/Gsunshine/MeanFlow",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/NVlabs/rcm",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "repos/mingyuanzhou/SiD",
+      "kind": "implements"
     },
     {
       "from": "tutorials/vlm-grounding-2025",

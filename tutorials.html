@@ -40,8 +40,28 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>教程</h1>
-<p class="page__intro">共 5 篇深度教程。</p>
+<p class="page__intro">共 6 篇深度教程。</p>
 <div class="post-grid">
+<a class="post-card post-card--tutorial" href="tutorials/step-distillation-2022/index.html">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-11</span> · <span class="post-card__extra">15k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+  </div>
+  <h3 class="post-card__title">Diffusion / Flow Matching 步数蒸馏:四大家族与可实践指南(PD → LCM-LoRA → DMD2 → MeanFlow/rCM)</h3>
+  <p class="post-card__tldr">8 节螺旋系统讲透&quot;把 1000 步扩散/flow matching teacher 压到 1–4 步&quot;的四大家族:轨迹蒸馏(Progressive
+Distillation 逐次砍半 + ReFlow 拉直轨迹)、一致性家族(CM → 可直接复跑的 LCM-LoRA → 连续时间 sCM)、
+分布匹配(DMD/DMD2,real/fake score 差 = reverse-KL 梯度)、对抗蒸馏(官方未开源,用 DMD2 的 GAN
+分支佐证可实践)。覆盖 2025–2026 前沿(sCM/TrigFlow、MeanFlow 的 JVP 恒等式、NVIDIA rCM 视频蒸馏),
+每个主讲方法都配经 diff 逐行验证的开源训练代码(diffusers / openai CM / DMD2 / RectifiedFlow /
+MeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑清单。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
+      <a class="tag-chip" href="concepts/step-distillation.html">step-distillation</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</a>
 <a class="post-card post-card--tutorial" href="tutorials/opd-diffusion-2026/index.html">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
