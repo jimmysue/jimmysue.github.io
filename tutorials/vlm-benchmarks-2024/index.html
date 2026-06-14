@@ -112,21 +112,28 @@
     <li class="h3"><a href="#sec-7-2">7.2 怎么读一张 leaderboard(三大陷阱)</a></li>
     <li class="h3"><a href="#sec-7-3">7.3 「头版指标」在代码里是怎么被挑出来的</a></li>
     <li class="h3"><a href="#sec-7-4">7.4 什么时候你得自建 benchmark</a></li>
-    <li class="h2"><a href="#sec-8">参考文献与数据集</a></li>
-    <li class="h3"><a href="#sec-8-1">通用能力 benchmark</a></li>
-    <li class="h3"><a href="#sec-8-2">会读图会算 / VQA</a></li>
-    <li class="h3"><a href="#sec-8-3">幻觉 / 诚实</a></li>
-    <li class="h3"><a href="#sec-8-4">Grounding 定位</a></li>
-    <li class="h3"><a href="#sec-8-5">细节 / 瑕疵</a></li>
-    <li class="h3"><a href="#sec-8-6">评测框架与综述</a></li>
+    <li class="h2"><a href="#sec-8">8. 新一代发布会评分卡:推理 · agentic · 新多模态(2025+)</a></li>
+    <li class="h3"><a href="#sec-8-1">8.1 纯文本推理与知识:GPQA Diamond / HMMT Feb 2025 / MMMLU</a></li>
+    <li class="h3"><a href="#sec-8-2">8.2 指令遵循:IFBench</a></li>
+    <li class="h3"><a href="#sec-8-3">8.3 Agentic:BFCL V4 / BrowseComp / SWE-bench Verified / Terminal-Bench 2</a></li>
+    <li class="h3"><a href="#sec-8-4">8.4 新多模态:MMMU-Pro / ERQA / OmniDocBench v1.5 / Video-MME</a></li>
+    <li class="h3"><a href="#sec-8-5">8.5 这张卡和前七层有什么不同</a></li>
+    <li class="h2"><a href="#sec-9">参考文献与数据集</a></li>
+    <li class="h3"><a href="#sec-9-1">通用能力 benchmark</a></li>
+    <li class="h3"><a href="#sec-9-2">会读图会算 / VQA</a></li>
+    <li class="h3"><a href="#sec-9-3">幻觉 / 诚实</a></li>
+    <li class="h3"><a href="#sec-9-4">Grounding 定位</a></li>
+    <li class="h3"><a href="#sec-9-5">细节 / 瑕疵</a></li>
+    <li class="h3"><a href="#sec-9-6">新一代发布卡 benchmark(2025+)</a></li>
+    <li class="h3"><a href="#sec-9-7">评测框架与综述</a></li>
   </ul>
 </nav>
 <main data-pagefind-body>
 <h1>VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</h1>
 <aside class="post-meta">
-  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-14</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-06-14</span> · <span class="post-meta__extra">16k 字</span> · <span class="post-meta__extra">90–120 分钟</span></div>
-  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/open-compass/VLMEvalKit">代码</a> · <a class="post-meta__link" href="https://github.com/openvinotoolkit/anomalib">代码</a></div>
-  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/benchmark.html">benchmark</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/evaluation.html">evaluation</a> <a class="concept-chip" href="../../concepts/hallucination.html">hallucination</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/anomaly-detection.html">anomaly-detection</a> <a class="concept-chip" href="../../concepts/image-quality.html">image-quality</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a></div>
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-14</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-06-14</span> · <span class="post-meta__extra">19k 字</span> · <span class="post-meta__extra">90–120 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/open-compass/VLMEvalKit">代码</a> · <a class="post-meta__link" href="https://github.com/openvinotoolkit/anomalib">代码</a> · <a class="post-meta__link" href="https://github.com/princeton-nlp/SWE-bench">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/benchmark.html">benchmark</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/evaluation.html">evaluation</a> <a class="concept-chip" href="../../concepts/hallucination.html">hallucination</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/anomaly-detection.html">anomaly-detection</a> <a class="concept-chip" href="../../concepts/image-quality.html">image-quality</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a> <a class="concept-chip" href="../../concepts/agentic.html">agentic</a> <a class="concept-chip" href="../../concepts/reasoning.html">reasoning</a></div>
 </aside>
 
 <p>这是一份<strong>常见 VLM 评测 benchmark 的速查目录</strong>。VLM(Vision-Language Model,能看图又能说话的模型)发布时榜单上密密麻麻几十个名字——MMMU、DocVQA、POPE、RefCOCO、MVTec……它们各测一种能力、各用一套判分规则。本文把它们按<strong>三层</strong>整理成卡片,每个 benchmark 回答五件事:</p>
@@ -1148,8 +1155,162 @@ def anls_compute(groundtruth, prediction):
 <li><strong>协议</strong>:固定 prompt 模板与答案提取规则,否则分数不可复现、不可横比。</li>
 </ul>
 <p><strong>给小白的读榜 checklist</strong>:① 认能力层(别把不同能力当一个总分);② 认指标与量纲(满分 100 还是 2800?先归一化);③ 认协议(哪套 harness);④ 查视觉冗余;⑤ 查污染/泄漏;⑥ 看一整组而非一个数;⑦ 关心的能力榜上没有对口列 = 该自建的信号。</p>
-<h2 id="sec-8">参考文献与数据集</h2>
-<h3 id="sec-8-1">通用能力 benchmark</h3>
+<h2 id="sec-8">8. 新一代发布会评分卡:推理 · agentic · 新多模态(2025+)</h2>
+<p>前七层是 2023–2024 年「VLM 视觉能力」的尺子。但翻开 2025 年起的前沿模型发布卡,会发现榜单换了一批面孔——大量不再是看图答题,而是<strong>纯文本推理</strong>、<strong>agentic(工具 / 搜索 / 编码 / 终端)</strong>,以及<strong>更硬的多模态</strong>。下面这张 Qwen3.5 系列的发布对比卡就是典型:</p>
+<figure><img class="zoomable" src="figures/sec8-release-scorecard.png" alt="2025 前沿模型发布评分卡"><figcaption>图 8.1 一张 2025 年前沿模型发布评分卡(此为 Qwen3.5 系列对比 GPT-5 mini / Claude Sonnet 4.5 / gpt-oss-120b 的示例):12 个 benchmark 横跨推理、agentic、多模态,与 §2–§6 的经典 VLM 榜几乎不重叠。图为厂商发布材料。</figcaption></figure>
+<p>这批 benchmark 与前六层有三处根本不同,读它们前先记住:</p>
+<ol>
+<li><strong>很多根本不是 VLM</strong>,而是 LLM 的推理 / agent 能力(GPQA、HMMT、BFCL、SWE-bench 都不喂图)。它们和 §3 的 MMMU 不在一根能力轴上,不能混进同一张「视觉能力」对照表。</li>
+<li><strong>判分从「对答案」扩展到「跑环境」</strong>:agentic benchmark 不再正则抠选项,而是真的把模型生成的补丁打进仓库跑测试(SWE-bench)、把命令丢进容器看结果(Terminal-Bench)。§1 的第④步「答案提取」被「执行并观察」取代。</li>
+<li><strong>强调防污染</strong>:像 HMMT Feb 2025 这种「刚比完的竞赛题」之所以上卡,正是因为它发布得够新、几乎不可能进训练语料——这是 §7.2 第 1 条「数据泄漏」陷阱的正面解法。</li>
+</ol>
+<p>按发布卡的四个自然分组逐个说清。</p>
+<h3 id="sec-8-1">8.1 纯文本推理与知识:GPQA Diamond / HMMT Feb 2025 / MMMLU</h3>
+<p>这组不喂图、纯文本;放进 VLM 发布卡是为了证明「底座 LLM 的推理没退化」。</p>
+<p><strong>GPQA Diamond — 研究生级「Google 也搜不到」的科学推理</strong></p>
+<ul>
+<li><strong>测什么</strong>:生物 / 物理 / 化学的博士级难题,设计成「非专家即便联网搜 30 分钟也答不对」(故称 google-proof)。</li>
+<li><strong>怎么测 · 指标</strong>:4 选 1 多选,<strong>accuracy</strong>(随机基线 25%)。Diamond 是最难子集——专家都答对、且多数非专家答错的那 <strong>198 题</strong>(全集 448)。</li>
+<li><strong>来源</strong>:NYU + Cohere + Anthropic,2023(arxiv 2311.12022)。</li>
+<li><strong>一句样题</strong>:给两条能级的寿命,问能否在光谱上分辨这两条谱线,4 个数值选项里选一个。</li>
+</ul>
+<p><strong>HMMT Feb 2025 — 用「刚比完的奥数」防污染</strong></p>
+<ul>
+<li><strong>测什么</strong>:Harvard-MIT 数学竞赛 2025 年 2 月那场的题,奥赛难度。</li>
+<li><strong>怎么测 · 指标</strong>:<strong>填最终答案</strong>(数值或闭式,不是选择题,也不判证明过程),共 <strong>30 题</strong>。MathArena(ETH / INSAIT)把它做成 LLM 评测,报 <strong>avg@4</strong>(每题跑 4 次取平均,不是普通 pass@1)。</li>
+<li><strong>来源</strong>:竞赛本身无 arxiv;评测框架见 MathArena(arxiv 2505.23281)。</li>
+<li><strong>为什么上卡</strong>:发布得极新,几乎不可能被训练集背过——是「未污染推理」的活体探针。</li>
+</ul>
+<p><strong>MMMLU — 多语种知识(别和 MMMU 搞混)</strong></p>
+<ul>
+<li><strong>测什么</strong>:MMLU 的 57 学科知识题,<strong>人工翻译成多种语言</strong>,测跨语言的知识与理解。注意它是纯文本的 <strong>MMMLU</strong>,和 §3 看图的 <strong>MMMU</strong> 只差一个字母却是两回事。</li>
+<li><strong>怎么测 · 指标</strong>:4 选 1 多选,<strong>accuracy</strong>;OpenAI 版覆盖 <strong>14 种语言</strong>、每语约 1.4 万题。</li>
+<li><strong>来源</strong>:OpenAI,2024,无独立论文,引原始 MMLU(arxiv 2009.03300)。</li>
+</ul>
+<h3 id="sec-8-2">8.2 指令遵循:IFBench</h3>
+<p><strong>IFBench — 对「没见过的约束」还守不守规矩</strong></p>
+<ul>
+<li><strong>测什么</strong>:模型能否把「精确遵循指令」泛化到<strong>训练时没见过的、可程序化验证的新约束</strong>(故意做来戳破模型对老基准 IFEval 的过拟合)。</li>
+<li><strong>怎么测 · 指标</strong>:取 WildChat 真实 prompt,叠上 <strong>58 种全新约束类型</strong>(每种配一个程序验证器),共 <strong>300 条测试 prompt</strong>;报 prompt 级 <strong>strict / loose accuracy</strong>(loose 为头版)。</li>
+<li><strong>来源</strong>:Ai2 + UW,2025(arxiv 2507.02833)。</li>
+<li><strong>与 IFEval 的关系</strong>:IFEval(Google,2023,arxiv 2311.07911,约 500 prompt、25 种约束)是原版,但模型已把它刷到饱和;IFBench 换上 58 种<strong>没见过</strong>的约束来测泛化,前沿模型因此常掉到约 50%。</li>
+<li><strong>一句样题</strong>:「回答里每个词的首字母必须按字母表顺序依次推进,Z 之后回到 A。」——一个能被脚本逐词验证的硬约束。</li>
+</ul>
+<h3 id="sec-8-3">8.3 Agentic:BFCL V4 / BrowseComp / SWE-bench Verified / Terminal-Bench 2</h3>
+<p>这组的共同点:模型不再只「说」,而要「做」——调函数、查网、改代码、敲命令;判分靠执行结果。</p>
+<p><strong>BFCL V4 — 函数调用 / 工具使用</strong></p>
+<ul>
+<li><strong>测什么</strong>:给定一组函数签名和一句需求,模型能否吐出<strong>正确的函数调用</strong>(选对函数、填对参数);V4 进一步扩到 agentic——多轮调用、联网搜索、记忆管理、对 prompt 格式的鲁棒性。</li>
+<li><strong>怎么测 · 指标</strong>:既比对调用的抽象语法树(AST accuracy),也实际执行看返回(executable accuracy),汇总为 <strong>Overall Accuracy</strong>。</li>
+<li><strong>来源</strong>:UC Berkeley Gorilla 团队,2025,以排行榜形式维护(无独立 arxiv;V4 总题数官方未给统一数字,此处不杜撰)。</li>
+</ul>
+<p><strong>BrowseComp — 难找信息的「浏览竞赛」</strong></p>
+<ul>
+<li><strong>测什么</strong>:agent 能不能锲而不舍地上网,把<strong>极难检索、需多跳交叉</strong>的事实挖出来。</li>
+<li><strong>怎么测 · 指标</strong>:开放式短答,每题从一个冷僻但可核验的答案<strong>反向出题</strong>;比对参考答案算 <strong>accuracy</strong>;共 <strong>1266 题</strong>。</li>
+<li><strong>来源</strong>:OpenAI,2025(arxiv 2504.12516)。注意另有中文版 BrowseComp-ZH(289 题,另一团队,非 OpenAI)。</li>
+<li><strong>一句样题</strong>:「找出这个虚构角色:偶尔打破第四面墙、背景里受过苦行僧帮助、以幽默著称、有部 1960–80 年代播出且不足 50 集的电视剧。」——答案唯一,但要绕好几跳才查得到。</li>
+</ul>
+<p><strong>SWE-bench Verified — 真·改 GitHub issue</strong></p>
+<ul>
+<li><strong>测什么</strong>:给一个真实仓库快照 + 一条 issue,模型要产出一个 <strong>patch(补丁)</strong>,让仓库里原本失败的隐藏测试通过。</li>
+<li><strong>怎么测 · 指标</strong>:把补丁打进仓库<strong>跑单元测试</strong>——原本 FAIL 的要变 PASS(修好了)、原本 PASS 的不能被改成 FAIL(没改坏);指标是 <strong>% Resolved(解决率)</strong>。</li>
+<li><strong>来源</strong>:SWE-bench(Princeton,ICLR 2024,arxiv 2310.06770);Verified 是 OpenAI 联合人工筛过的 <strong>500 题</strong>高质量子集(全集 2294 / Lite 300)。</li>
+</ul>
+<p><strong>Terminal-Bench 2 — 终端里的 agent</strong></p>
+<ul>
+<li><strong>测什么</strong>:在一个<strong>容器化终端</strong>里完成真实任务(软件工程、运维、科学计算、安全),考 agent 敲命令、读输出、迭代收敛的端到端能力。</li>
+<li><strong>怎么测 · 指标</strong>:每个任务在 Docker 容器中跑,看是否达成目标;报<strong>任务成功率 / 通过率</strong>(无正式指标名);v2.0 共 <strong>89 个精选任务</strong>。</li>
+<li><strong>来源</strong>:Stanford + Laude Institute,v2.0 于 2025 年 11 月发布(暂无 arxiv)。任务如 chess-best-move、pytorch-model-recovery。</li>
+</ul>
+<h3 id="sec-8-4">8.4 新多模态:MMMU-Pro / ERQA / OmniDocBench v1.5 / Video-MME</h3>
+<p>这组才是真喂图 / 视频的,但比 §2–§4 的经典 VLM 榜更硬、更抗「不看图也能蒙」。</p>
+<p><strong>MMMU-Pro — 把 MMMU 的水分拧干</strong></p>
+<ul>
+<li><strong>测什么</strong>:与 MMMU 同为大学 / 专家级跨 6 学科多模态推理,但用三招硬化:① 删掉「只看文字就能答」的题;② 选项从 4 个<strong>扩到最多 10 个</strong>(压低蒙对率);③ 加一个 <strong>vision-only 设定</strong>——把题干和选项<strong>渲染进图里</strong>,逼模型先 OCR 再推理。</li>
+<li><strong>怎么测 · 指标</strong>:多选,<strong>accuracy</strong>;共 <strong>1730 题</strong>。</li>
+<li><strong>来源</strong>:CMU + Waterloo + MMMU 团队,2024(arxiv 2409.02813;原版 MMMU 见 §3,arxiv 2311.16502)。</li>
+</ul>
+<p><strong>ERQA — 具身推理</strong></p>
+<ul>
+<li><strong>测什么</strong>:面向机器人的<strong>具身 / 物理 / 空间推理</strong>——看场景图判断空间关系、轨迹、动作、状态、指向等 7 类。</li>
+<li><strong>怎么测 · 指标</strong>:多选 VQA(常含多图),输出单个字母,<strong>accuracy</strong>;共 <strong>400 题</strong>。</li>
+<li><strong>来源</strong>:Google DeepMind,2025,随 Gemini Robotics 技术报告发布(arxiv 2503.20020)。</li>
+<li><strong>一句样题</strong>:一张操作场景叠加了一条运动轨迹,问这条轨迹对应哪个动作(如「抬起」)。</li>
+</ul>
+<p><strong>OmniDocBench v1.5 — 文档解析</strong></p>
+<ul>
+<li><strong>测什么</strong>:把真实 PDF 页<strong>端到端解析</strong>成结构化输出——正文、表格、公式、阅读顺序全要还原(§3 的 DocVQA 只问一个字段,这里要还原整页)。</li>
+<li><strong>怎么测 · 指标</strong>:分组件判分——正文用归一化编辑距离,<strong>表格用 TEDS</strong>,<strong>公式用 CDM</strong>,阅读顺序用编辑距离;v1.5 共 <strong>1355 页</strong>(双语再平衡、加了 374 页公式密集页)。</li>
+<li><strong>来源</strong>:OpenDataLab / 上海 AI Lab,CVPR 2025(arxiv 2412.07626)。</li>
+</ul>
+<p><strong>Video-MME(with subtitle)— 视频理解</strong></p>
+<ul>
+<li><strong>测什么</strong>:跨**短(&lt;2min)/ 中(4–15min)/ 长(30–60min)**时长、6 大领域的视频理解。</li>
+<li><strong>怎么测 · 指标</strong>:4 选 1 多选,<strong>accuracy</strong>(按时长分别报 + 总分);共 <strong>900 段视频(约 254 小时)、2700 题</strong>。</li>
+<li><strong>「with subtitle」</strong>:同一套题有两条赛道——「w/o subs」只给抽帧,「<strong>w subs</strong>」额外把视频字幕作为文本上下文喂进去;给字幕通常显著涨点(长视频可达 +9%)。这也是为什么发布卡上要标注「with subtitle」——换条赛道分数就不可比。</li>
+<li><strong>来源</strong>:Chaoyou Fu 等,2024(arxiv 2405.21075)。</li>
+</ul>
+<p>▸ <strong>agentic 怎么打分:SWE-bench 跑隐藏测试看 resolve rate</strong></p>
+<p>这一节的 benchmark 里,最能体现「判分从『对答案』变成『跑环境』」的是 SWE-bench。它不正则抠任何东西,而是把补丁打进仓库、跑两组测试,再判这道题算不算「解决」。核心逻辑就这二十几行:</p>
+<p class="code-source">sources/repos/princeton-nlp-SWE-bench/swebench/harness/grading.py:L194-L232 — SWE-bench 解决判定:FAIL_TO_PASS 全过 且 PASS_TO_PASS 全保持,才算 resolved</p>
+<pre><code class="language-python">def compute_fail_to_pass(report: dict[str, dict[str, Any]]) -&gt; float:
+    &quot;&quot;&quot;
+    Compute fail-to-pass metric. Accepts single report as argument.
+    &quot;&quot;&quot;
+    total = len(report[FAIL_TO_PASS][&quot;success&quot;]) + len(report[FAIL_TO_PASS][&quot;failure&quot;])
+    if total == 0:
+        return 1
+    return len(report[FAIL_TO_PASS][&quot;success&quot;]) / total
+
+
+def compute_pass_to_pass(report: dict[str, dict[str, Any]]) -&gt; float:
+    &quot;&quot;&quot;
+    Compute pass-to-pass metric. Accepts single report as argument.
+    &quot;&quot;&quot;
+    total = len(report[PASS_TO_PASS][&quot;success&quot;]) + len(report[PASS_TO_PASS][&quot;failure&quot;])
+    if total == 0:
+        # TODO: Don't factor in p2p metrics
+        return 1
+    return len(report[PASS_TO_PASS][&quot;success&quot;]) / total
+
+
+def get_resolution_status(report: dict[str, dict[str, Any]]) -&gt; str:
+    &quot;&quot;&quot;
+    Determine resolved status of an evaluation instance
+
+    Criteria:
+        - If fail-to-pass (Resolution) = 1 and pass-to-pass (Maintenance) = 1 -&gt; FULL
+        - If (fail-to-pass (Resolution) &lt; 1 and &gt; 0) and pass-to-pass (Maintenance) = 1 -&gt; PARTIAL
+        - Otherwise -&gt; NO
+    &quot;&quot;&quot;
+    f2p = compute_fail_to_pass(report)
+    p2p = compute_pass_to_pass(report)
+
+    if f2p == 1 and p2p == 1:
+        return ResolvedStatus.FULL.value
+    elif f2p &lt; 1 and f2p &gt; 0 and p2p == 1:
+        return ResolvedStatus.PARTIAL.value
+    else:
+        return ResolvedStatus.NO.value
+</code></pre>
+<p>对照来看:</p>
+<ul>
+<li><code>compute_fail_to_pass</code> 算的是「原本失败、现在被补丁修好的测试」占比(<code>success / (success+failure)</code>),回答「真把 bug 修好了吗」。</li>
+<li><code>compute_pass_to_pass</code> 算的是「原本就通过、补丁没把它改坏的测试」占比,回答「修的过程有没有伤到别处」,即回归测试。</li>
+<li><code>get_resolution_status</code> 把两者收成一个三档结论:<strong>只有 <code>f2p == 1</code> 且 <code>p2p == 1</code>(该修的全修好、该保的全没坏)才记 FULL</strong>;修好一部分记 PARTIAL;否则 NO。</li>
+<li>榜单上的 <strong>% Resolved</strong>,就是把全部 500 个实例里判为 FULL 的比例求出来——没有任何字符串匹配、没有 LLM 裁判,<strong>判分权完全交给仓库自带的测试</strong>。这正是 agentic 评测和前七层最深的分野:对错由「世界(代码能不能跑)」裁决,而非由「答案串比对」裁决。</li>
+</ul>
+<h3 id="sec-8-5">8.5 这张卡和前七层有什么不同</h3>
+<p>把新老两代放一起,差异可收成三句话:</p>
+<ol>
+<li><strong>能力轴变多了</strong>。§2–§6 几乎都在「看图」这一根轴上分层;发布卡则把<strong>纯文本推理、agentic、多模态</strong>三根轴并排——所以同一张卡上 GPQA(不看图)和 MMMU-Pro(看图)并列,绝不能加成一个总分(又一次 §7.2 的「量纲 / 能力不可混加」)。</li>
+<li><strong>判分机制升级</strong>。从「正则抠答案 + 容差匹配」(§1、§3)走到「执行并观察」:跑测试(SWE-bench)、跑容器(Terminal-Bench)、跑验证器(IFBench)、联网核验(BrowseComp)。第④步不再是提取,而是<strong>运行</strong>。</li>
+<li><strong>防污染成了一等公民</strong>。HMMT Feb 2025 用「刚发布」对抗泄漏,MMMU-Pro 用「渲染进图 + 加选项」对抗蒙猜,IFBench 用「全新约束」对抗过拟合——它们本质都在落地 §7.2 的三道筛。</li>
+</ol>
+<p>所以读 2025 之后的发布卡,§7.3 的老教训依然成立、且更要紧:<strong>先认这一列在哪根能力轴上,再认它判分是「对答案」还是「跑环境」,最后才比数字</strong>。一张把 GPQA、SWE-bench、Video-MME 并排的卡,本身就是在说「我这代模型推理、动手、看图三条腿都想要」——而每条腿该用哪把尺子,前八节已经给全了。</p>
+<h2 id="sec-9">参考文献与数据集</h2>
+<h3 id="sec-9-1">通用能力 benchmark</h3>
 <ul>
 <li><strong>MMMU</strong> — A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark for Expert AGI. arxiv <a href="https://arxiv.org/abs/2311.16502">2311.16502</a> (CVPR 2024)</li>
 <li><strong>MMBench</strong> — Is Your Multi-modal Model an All-around Player? arxiv <a href="https://arxiv.org/abs/2307.06281">2307.06281</a></li>
@@ -1157,7 +1318,7 @@ def anls_compute(groundtruth, prediction):
 <li><strong>SEED-Bench</strong> — Benchmarking Multimodal LLMs with Generative Comprehension. arxiv <a href="https://arxiv.org/abs/2307.16125">2307.16125</a></li>
 <li><strong>MM-Vet</strong> — Evaluating Large Multimodal Models for Integrated Capabilities. arxiv <a href="https://arxiv.org/abs/2308.02490">2308.02490</a></li>
 </ul>
-<h3 id="sec-8-2">会读图会算 / VQA</h3>
+<h3 id="sec-9-2">会读图会算 / VQA</h3>
 <ul>
 <li><strong>ChartQA</strong> — A Benchmark for Question Answering about Charts. arxiv <a href="https://arxiv.org/abs/2203.10244">2203.10244</a></li>
 <li><strong>DocVQA</strong> — A Dataset for VQA on Document Images. arxiv <a href="https://arxiv.org/abs/2007.00398">2007.00398</a></li>
@@ -1165,24 +1326,39 @@ def anls_compute(groundtruth, prediction):
 <li><strong>AI2D</strong> — A Diagram Is Worth A Dozen Images. arxiv <a href="https://arxiv.org/abs/1603.07396">1603.07396</a></li>
 <li><strong>MathVista</strong> — Evaluating Mathematical Reasoning of Foundation Models in Visual Contexts. arxiv <a href="https://arxiv.org/abs/2310.02255">2310.02255</a> (ICLR 2024)</li>
 </ul>
-<h3 id="sec-8-3">幻觉 / 诚实</h3>
+<h3 id="sec-9-3">幻觉 / 诚实</h3>
 <ul>
 <li><strong>POPE</strong> — Evaluating Object Hallucination in Large Vision-Language Models. arxiv <a href="https://arxiv.org/abs/2305.10355">2305.10355</a> (EMNLP 2023)</li>
 <li><strong>HallusionBench</strong> — An Advanced Diagnostic Suite for Entangled Language Hallucination and Visual Illusion. arxiv <a href="https://arxiv.org/abs/2310.14566">2310.14566</a> (CVPR 2024)</li>
 <li><strong>MMStar</strong> — Are We on the Right Way for Evaluating Large Vision-Language Models? arxiv <a href="https://arxiv.org/abs/2403.20330">2403.20330</a> (NeurIPS 2024)</li>
 </ul>
-<h3 id="sec-8-4">Grounding 定位</h3>
+<h3 id="sec-9-4">Grounding 定位</h3>
 <ul>
 <li><strong>Molmo &amp; PixMo</strong>(PixMo-Points pointing). arxiv <a href="https://arxiv.org/abs/2409.17146">2409.17146</a>;仓库精读 <a href="../../papers/molmo-2024/">molmo-2024</a></li>
 <li>更细的 grounding benchmark 盘点见教程 <a href="../vlm-grounding-2025/">VLM Grounding 全景</a> §8(覆盖 RefCOCO / LVIS / ScreenSpot-Pro 等 18+)</li>
 </ul>
-<h3 id="sec-8-5">细节 / 瑕疵</h3>
+<h3 id="sec-9-5">细节 / 瑕疵</h3>
 <ul>
 <li><strong>MVTec-AD</strong> — A Comprehensive Real-World Dataset for Unsupervised Anomaly Detection (CVPR 2019)</li>
 <li><strong>VisA</strong> — SPot-the-Difference Self-Supervised Pre-training for Anomaly Detection. arxiv <a href="https://arxiv.org/abs/2207.14315">2207.14315</a></li>
 <li><strong>Q-Ground</strong> — Image Quality Grounding with Large Multi-modality Models. arxiv <a href="https://arxiv.org/abs/2407.17035">2407.17035</a> (ACM MM 2024 Oral);仓库精读 <a href="../../papers/q-ground-2024/">q-ground-2024</a>;工业异常教程 <a href="../vlm-industrial-2024/">VLM 工业质检</a></li>
 </ul>
-<h3 id="sec-8-6">评测框架与综述</h3>
+<h3 id="sec-9-6">新一代发布卡 benchmark(2025+)</h3>
+<ul>
+<li><strong>GPQA</strong> — A Graduate-Level Google-Proof Q&amp;A Benchmark. arxiv <a href="https://arxiv.org/abs/2311.12022">2311.12022</a>(Diamond 为 198 题最难子集)</li>
+<li><strong>HMMT Feb 2025</strong> — 竞赛本身无 arxiv;LLM 评测口径见 <strong>MathArena</strong>. arxiv <a href="https://arxiv.org/abs/2505.23281">2505.23281</a></li>
+<li><strong>MMMLU</strong> — OpenAI 多语种 MMLU(无独立论文),原始 MMLU arxiv <a href="https://arxiv.org/abs/2009.03300">2009.03300</a></li>
+<li><strong>IFBench</strong> — 指令遵循对未见约束的泛化(Ai2 + UW). arxiv <a href="https://arxiv.org/abs/2507.02833">2507.02833</a>;原版 IFEval arxiv <a href="https://arxiv.org/abs/2311.07911">2311.07911</a></li>
+<li><strong>BFCL</strong> — Berkeley Function-Calling Leaderboard(以排行榜维护,无独立 arxiv)— <a href="https://gorilla.cs.berkeley.edu/leaderboard.html">gorilla.cs.berkeley.edu/leaderboard</a></li>
+<li><strong>BrowseComp</strong> — A Simple Yet Challenging Benchmark for Browsing Agents(OpenAI). arxiv <a href="https://arxiv.org/abs/2504.12516">2504.12516</a></li>
+<li><strong>SWE-bench</strong> — Can Language Models Resolve Real-World GitHub Issues? arxiv <a href="https://arxiv.org/abs/2310.06770">2310.06770</a>(ICLR 2024);Verified 子集由 OpenAI 联合人工筛选;判分代码引用 <a href="https://github.com/princeton-nlp/SWE-bench">github.com/princeton-nlp/SWE-bench</a></li>
+<li><strong>Terminal-Bench</strong> — 容器化终端 agent 基准(Stanford + Laude Institute,v2.0 2025-11,暂无 arxiv)— <a href="https://www.tbench.ai/">tbench.ai</a></li>
+<li><strong>MMMU-Pro</strong> — A More Robust Multi-discipline Multimodal Understanding Benchmark. arxiv <a href="https://arxiv.org/abs/2409.02813">2409.02813</a>(ACL 2025)</li>
+<li><strong>ERQA</strong> — Embodied Reasoning QA,随 Gemini Robotics 技术报告发布. arxiv <a href="https://arxiv.org/abs/2503.20020">2503.20020</a></li>
+<li><strong>OmniDocBench</strong> — Benchmarking Diverse PDF Document Parsing. arxiv <a href="https://arxiv.org/abs/2412.07626">2412.07626</a>(CVPR 2025;v1.5 为数据集更新)</li>
+<li><strong>Video-MME</strong> — The First-Ever Comprehensive Evaluation of MLLMs in Video Analysis. arxiv <a href="https://arxiv.org/abs/2405.21075">2405.21075</a>(CVPR 2025)</li>
+</ul>
+<h3 id="sec-9-7">评测框架与综述</h3>
 <ul>
 <li><strong>VLMEvalKit</strong>(评分代码引用脊柱)— <a href="https://github.com/open-compass/VLMEvalKit">github.com/open-compass/VLMEvalKit</a></li>
 <li><strong>lmms-eval</strong> — <a href="https://github.com/EvolvingLMMs-Lab/lmms-eval">github.com/EvolvingLMMs-Lab/lmms-eval</a></li>
