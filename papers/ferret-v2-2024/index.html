@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 先做对照实验：any-resolution 完胜 direct upsampling</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 多粒度视觉编码：CLIP 管语义，DINOv2 管细节</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 any-resolution referring：两路特征逐通道相加</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 三阶段训练：coarse-to-fine</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">谱系衔接：Ferret → Ferret-v2 → Ferret-UI</a></li>
+    <li class="h3"><a href="#sec-5-5">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Ferret-v2: An Improved Baseline for Referring and Grounding with Large Language Models</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2024-04-11</strong></span> · <span class="post-meta__paper-date">论文日期: 2024-04-11</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Haotian Zhang, Haoxuan You, Philipp Dufter, Bowen Zhang, Chen Chen, Hong-You Chen, Tsu-Jui Fu, William Yang Wang, Shih-Fu Chang, Zhe Gan, Yinfei Yang</span> · <span class="post-meta__venue">COLM 2024</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2404.07973">arXiv:2404.07973</a> · <a class="post-meta__link" href="https://github.com/apple/ml-ferret">项目页</a> · <a class="post-meta__link" href="https://github.com/apple/ml-ferret">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/referring-grounding.html">referring-grounding</a> <a class="concept-chip" href="../../concepts/any-resolution.html">any-resolution</a> <a class="concept-chip" href="../../concepts/multi-granularity-encoding.html">multi-granularity-encoding</a> <a class="concept-chip" href="../../concepts/dinov2.html">dinov2</a> <a class="concept-chip" href="../../concepts/region-input.html">region-input</a> <a class="concept-chip" href="../../concepts/multimodal-llm.html">multimodal-llm</a> <a class="concept-chip" href="../../concepts/high-resolution-mllm.html">high-resolution-mllm</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="Ferret-v2 vs Ferret 在指代/定位和各基准上的对比">
+  <figcaption>
+    <strong>Fig. 1</strong> — <strong>(左)定性</strong>:小区域里的文字"Great",Ferret 看成 "ABTO"(分辨率不够,认错),Ferret-v2 正确读出;"夏天用什么降温",Ferret 只找到一辆卡车,Ferret-v2 准确框出多台空调。<strong>(右)定量</strong>:Ferret-v2(深色)在 SA-Refer、RefCOCO/+/g、Ferret-Bench、VQAv2、TextVQA 上全面超过 Ferret(浅色),尤其在需要看清细节的小物体/OCR 任务上。(论文 Fig. 1,均为 7B)
+  </figcaption>
+</figure>
+<blockquote>
+<p>上一篇 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 解决了&quot;圈哪问哪&quot;的输入,但它的眼睛被卡在 336×336——小物体、屏幕文字、密集场景一律糊成一团。Ferret-v2 干的就一件事:<strong>在不丢全局推理能力的前提下,把分辨率拉上去。</strong></p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p><a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 用混合区域表示统一了 referring 和 grounding,很强。但有个硬伤:它用的视觉编码器是预训练好的 <strong>CLIP-ViT-L/14,输入分辨率固定在 336×336</strong>(很多 MLLM 甚至 224)。这个分辨率一卡,精细视觉理解就废了——</p>
+<ul>
+<li>小区域里的<strong>文字</strong>看不清(Fig. 1 的 &quot;Great&quot; 被认成 &quot;ABTO&quot;);</li>
+<li>密集场景里的<strong>小物体</strong>糊成一片;</li>
+<li>OCR、密集检测这类任务直接拉胯。</li>
+</ul>
+<p>但简单粗暴地提分辨率又有代价:已有的&quot;任务专用高分辨率 MLLM&quot;要么过于复杂,要么在传统 MLLM 基准上表现反而变差。于是论文盯住一个核心矛盾:</p>
+<blockquote>
+<p><strong>怎么让 MLLM 在精细视觉任务上变强,又不牺牲它的全局推理能力?</strong></p>
+</blockquote>
+<p>Ferret-v2 从三个方向回答:<strong>更高分辨率的缩放策略</strong>、<strong>多粒度视觉编码</strong>、<strong>训练配方</strong>。选 Ferret 当底座,因为它有两个别人没有的优点——指代/定位互益、且支持自由形状区域。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="Ferret-v2 架构：CLIP 编全局 + DINOv2 编局部块，channel-wise 融合后过视觉采样器">
+  <figcaption>
+    <strong>Fig. 2</strong> — Ferret-v2 架构。<strong>全局低分辨率图</strong>走 CLIP 编码器 + Projector_1 得 $H_g$(抓语义);<strong>局部高分辨率子块</strong>走 DINOv2 编码器 + Projector_2 得 $H_{l1..lN}$(抓细节)。两路特征图按空间排布合并、上采样对齐后 <strong>channel-wise 相加</strong>(图中 ⊕)成高分辨率特征,既喂给 LLM 当视觉 token,又喂给空间感知视觉采样器抽区域特征。输出端照旧在名词后吐坐标。(论文 Fig. 3)
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 先做对照实验：any-resolution 完胜 direct upsampling</h3>
+<p>提分辨率有两条主流路线,论文先做了控制实验比个高下:</p>
+<ul>
+<li><strong>Direct upsampling(直接上采样)</strong>:把 CLIP 的位置编码插值到更高分辨率(如 448×448),微调时让整个 ViT 适应新分辨率。</li>
+<li><strong>Any resolution(任意分辨率)</strong>:预定义一组网格(最多 6 格,如 <code>{1x1, 1x2, ..., 2x3}</code> 及其转置),给定图先<strong>选一个最贴合原图宽高比、最小化浪费的网格</strong>,把图切成若干子块,<strong>每个子块单独过 CLIP</strong>,再加一张缩小的全局图。</li>
+</ul>
+<p>结论很干脆:<strong>any-resolution 在 ROC / REC / TextVQA / Ferret-Bench 四个任务上全面胜出</strong>。论文给的解释很关键:</p>
+<blockquote>
+<p>direct upsampling 强迫 ViT 适应它从没见过的高分辨率(token 长度暴增),而微调数据(1.3M)远小于 CLIP 预训练数据(400M),会<strong>破坏预训练知识</strong>。any-resolution 把大图切成子块,<strong>每个子块的 token 长度和 CLIP 预训练时几乎一样</strong>,所以预训练知识保住了。</p>
+</blockquote>
+<p>选最优网格的逻辑——在&quot;有效分辨率最大&quot;和&quot;浪费分辨率最小&quot;之间取舍——代码里就是一段直白的遍历:</p>
+<p class="code-source">repo/ferretui/ferretui/mm_utils.py:L13-L40 — 选择最贴合原图、浪费最少的网格分辨率(any-res 核心)</p>
+<pre><code class="language-python">def select_best_resolution(original_size, possible_resolutions):
+    original_width, original_height = original_size
+    best_fit = None
+    max_effective_resolution = 0
+    min_wasted_resolution = float('inf')
+    for width, height in possible_resolutions:
+        scale = min(width / original_width, height / original_height)
+        downscaled_width, downscaled_height = int(original_width * scale), int(original_height * scale)
+        effective_resolution = min(downscaled_width * downscaled_height, original_width * original_height)
+        wasted_resolution = (width * height) - effective_resolution
+        if effective_resolution &gt; max_effective_resolution or \
+           (effective_resolution == max_effective_resolution and wasted_resolution &lt; min_wasted_resolution):
+            max_effective_resolution = effective_resolution
+            min_wasted_resolution = wasted_resolution
+            best_fit = (width, height)
+    return best_fit
+</code></pre>
+<p>切块时,<strong>总是把一张缩小的全局图拼在子块前面</strong>(<code>[global] + patches</code>),这样模型同时拿到&quot;全局语义&quot;和&quot;局部细节&quot;:</p>
+<p class="code-source">repo/ferretui/ferretui/mm_utils.py:L138-L153 — 选最优分辨率 → 切块 → 全局图拼在最前</p>
+<pre><code class="language-python">best_resolution = select_best_resolution(image.size, possible_resolutions)
+image_padded = resize_and_pad_image(image, best_resolution, is_pad=False)
+patches = divide_to_patches(image_padded, processor.crop_size['height'])
+...
+image_original_resize = image.resize((processor.size['shortest_edge'], processor.size['shortest_edge']))
+image_patches = [image_original_resize] + patches      # 全局缩略图 + 高分辨率子块
+</code></pre>
+<blockquote>
+<p>⚠️ 这段 any-resolution 代码来自仓库里的 <strong>Ferret-UI 模块</strong>(同组、同期、共享 any-res 配方)。Ferret-v2 <strong>自己的双编码器(CLIP+DINOv2)+ 三阶段训练代码并未在 <code>apple/ml-ferret</code> 开源</strong>——详见 §4。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 多粒度视觉编码：CLIP 管语义，DINOv2 管细节</h3>
+<p>切块后冒出一个新问题:<strong>全局图和局部块的&quot;粒度&quot;不一样</strong>——全局图看到整个场景但粗糙,每个局部块只看到一部分但精细。用同一个编码器硬编,效果打架。</p>
+<p>Ferret-v2 的解法:<strong>两路不同的编码器各管一摊</strong>。</p>
+<div class="math block">
+\[F_g = \text{CLIP}(I_g); \qquad F_{li} = \text{DINO}(I_{li}), \quad I_{li} \in \{I_{l1}, ..., I_{lN}\}\]
+</div>
+<div class="math block">
+\[H_g = \text{MLP}_g(F_g); \qquad H_{li} = \text{MLP}_l(F_{li})\]
+</div>
+<p class="math-translation">—— 翻译：全局低分辨率图 I_g 交给 CLIP(F_g),局部高分辨率块 I_li 交给 DINOv2(F_li);两路各自再过一个独立的 MLP 投影层。为什么分工:CLIP 用图文对比学习,擅长抓"这张图讲了啥"的语义,但忽略像素细节;DINOv2 用自监督(图级+块级),擅长抓形状、纹理这种局部细节。一个看大局,一个看细节。</p>
+<h3 id="sec-2-3">2.3 any-resolution referring：两路特征逐通道相加</h3>
+<p>区域指代要靠空间感知视觉采样器(沿用 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>)抽连续特征。但高分辨率下,光靠全局图的特征抽不准小物体。Ferret-v2 把全局语义和局部细节<strong>融合后</strong>再抽:先把局部块特征图按原空间排布拼成大图 <span class="math inline">\(H_l'\)</span>,把全局特征上采样到同尺寸 <span class="math inline">\(H_g'\)</span>,然后<strong>逐通道相加</strong>:</p>
+<div class="math block">
+\[H_l' = \text{Concat}\{H_{l1}, ..., H_{lN}\}, \quad H_g' = \text{Upsample}(H_g), \quad H_a = H_l' + H_g'\]
+</div>
+<p class="math-translation">—— 翻译：把"局部细节大图"和"上采样后的全局语义图"在每个像素位置、每个通道上直接加起来,得到一张既有强语义、又有局部细节的高分辨率特征图 H_a。再把 H_a 喂给视觉采样器抽区域特征。说白了:让每个位置同时记住"我是什么(语义)"和"我长什么样(细节)"。</p>
+<p>合并的工程实现就是按网格形状 reshape、再按空间排布展平拼接(这段在 Ferret-UI 模块里是 CLIP 单路版本):</p>
+<p class="code-source">repo/ferretui/ferretui/model/ferret_arch.py:L618-L638 — 局部块特征按网格排布合并,再与全局特征拼接</p>
+<pre><code class="language-python">if image_aspect_ratio == 'anyres':
+    num_patch_width, num_patch_height = get_anyres_image_grid_shape(
+        image_sizes[image_idx], self.config.image_grid_pinpoints, self.get_vision_tower().config.image_size)
+    image_feature = image_feature.view(num_patch_height, num_patch_width, height, width, -1)
+...
+image_feature = image_feature.permute(0, 2, 1, 3, 4).contiguous()
+image_feature = image_feature.flatten(0, 3)
+image_feature = torch.cat((base_image_feature, image_feature), dim=0)   # 全局特征 + 合并后的局部特征
+</code></pre>
+<h3 id="sec-2-4">2.4 三阶段训练：coarse-to-fine</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-training.png" alt="三阶段训练：图文对齐 → 高分辨率密集对齐 → 意图增强指令微调">
+  <figcaption>
+    <strong>Fig. 3</strong> — 三阶段"由粗到精"训练(❄️=冻结,🔥=可训)。<strong>Stage I</strong>:低分辨率图文对齐,只训 Projector_1,冻结编码器和 LLM。<strong>Stage II(新增)</strong>:高分辨率密集对齐,放开两个 projector + 视觉采样器,冻结编码器和 LLM。<strong>Stage III</strong>:意图增强指令微调,编码器、projector、采样器、LLM 全部放开。(论文 Fig. 4)
+  </figcaption>
+</figure>
+<p>相比 Ferret 的两阶段(图文对齐 + 指令微调),v2 在中间<strong>插了一个全新的 Stage II</strong>:</p>
+<ul>
+<li>
+<p><strong>Stage I — 图文对齐</strong>:1.4M 图文对,只训 projector,低分辨率,冻结编码器和 LLM。视觉采样器不参与(没有 referring 数据)。</p>
+</li>
+<li>
+<p><strong>Stage II — 高分辨率密集对齐(关键创新)</strong>:发现&quot;图级对齐&quot;和&quot;指令微调&quot;之间有断层——下游任务需要精细的空间感知。于是设计两类任务把<strong>图里每一个局部物体都和语义对齐</strong>:</p>
+<ul>
+<li><strong>密集指代 (Dense Referring)</strong>:一次性把图里所有物体的区域列出来,问它们各自的类别;</li>
+<li><strong>密集检测 (Dense Detection)</strong>:按<strong>光栅扫描顺序</strong>(从上到下、从左到右)定位列出所有物体,减少随机性、注入空间秩序。</li>
+</ul>
+<p>用密集标注的 <strong>LVIS</strong>(平均每张图约 10 个物体,而指令微调阶段每样本通常只有 1-2 个)。DINOv2 的 projector 从 CLIP 的 projector <strong>初始化以求稳定</strong>;冻结两个编码器和 LLM,只训两个 projector + 采样器。</p>
+</li>
+<li>
+<p><strong>Stage III — 意图增强指令微调</strong>:全部放开。用 GRIT + VQA + OCR 数据。两个额外技巧:(i) <strong>数据统一</strong>——用 GLIPv2 检测器和 OCR 模型把 VQA/OCR 文本里的名词自动框出来,做成带定位的数据;(ii) <strong>任务泛化</strong>——在需要定位的任务后面加提示 &quot;Include the coordinates for each mentioned object.&quot; 消歧。</p>
+</li>
+</ul>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>① 小物体指代暴涨。</strong> 指代物体分类 (ROC),Ferret-v2-7B vs Ferret-7B:</p>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th>类型</th>
+<th>Ferret-7B</th>
+<th>Ferret-v2-7B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LVIS</td>
+<td>Box</td>
+<td>79.42</td>
+<td><strong>86.59</strong></td>
+</tr>
+<tr>
+<td>LVIS</td>
+<td>Free-form</td>
+<td>69.77</td>
+<td><strong>76.13</strong></td>
+</tr>
+<tr>
+<td><strong>SA-refer</strong>(野外小物体)</td>
+<td>Box</td>
+<td>62.99</td>
+<td><strong>68.83</strong></td>
+</tr>
+<tr>
+<td>SA-refer</td>
+<td>Free-form</td>
+<td>57.74</td>
+<td><strong>62.07</strong></td>
+</tr>
+</tbody>
+</table>
+<p>SA-refer 是专门用 SA-1B 高分辨率图 + 小物体标注做的&quot;in-the-wild&quot;测试集——v2 在这上面领先最多,正是高分辨率的功劳。</p>
+<p><strong>② 定位逼近专用检测器。</strong> REC (Acc@0.5),Ferret-v2-7B 在 RefCOCO val <strong>92.79</strong>(Ferret-7B 87.49)、RefCOCOg val <strong>89.42</strong>(83.93),超过 Qwen-VL-7B、SPHINX-2k、MiniGPT-v2,已接近专用检测器 Grounding-DINO-L 的水平。</p>
+<p><strong>③ Ferret-Bench 大幅提升。</strong> 平均 <strong>75.6</strong> vs Ferret-7B 的 64.5,指代描述、指代推理、对话中定位三项全面提高。</p>
+<p><strong>④ any-resolution &gt; direct upsampling 被实证。</strong> 控制实验(Fig. 2)显示 any-res 在四个任务上一致更优;且 any-res 下<strong>放开编码器训练总是更好</strong>,而 direct upsampling 下冻结编码器有时反而更好——印证&quot;别破坏 CLIP 预训练知识&quot;的判断。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p><strong>① v2 的核心代码(双编码器 + 三阶段)未开源。</strong> <code>apple/ml-ferret</code> 仓库只有 <strong>Ferret v1</strong> 和 <strong>Ferret-UI</strong> 两个模块,没有 Ferret-v2 的 <strong>CLIP+DINOv2 双编码器</strong>、§2.3 的逐通道融合 <span class="math inline">\(H_a = H_l' + H_g'\)</span>、以及三阶段训练脚本。本文的 any-resolution 代码引用自<strong>同组同期的 Ferret-UI 模块</strong>(共享 any-res 配方,但它是 <strong>CLIP 单编码器</strong>,没有 DINOv2 那一路)。所以 §2 的双编码器部分只能对照论文公式,代码层面无法逐行验证——按诚实原则在此标注。</p>
+<p><strong>② any-resolution 的 token 上限是 1280。</strong> 论文脚注:token 数随输入分辨率动态变化,但<strong>最大 1280</strong>;选 448 作为目标分辨率是权衡计算开销。网格配置 <code>{1x1, 1x2, 1x3, 1x4, 1x5, 1x6, 2x2, 2x3}</code> 及其转置,最多 6 格。</p>
+<p><strong>③ 空间感知视觉采样器直接复用 v1。</strong> v2 没动采样器(FPS+KNN+融合+池化那套),只是改了喂给它的输入——从&quot;全局特征&quot;变成&quot;融合后的高分辨率特征 <span class="math inline">\(H_a\)</span>&quot;。采样器实现见 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 精读的 <code>ferret_arch.py:GeoRegionSampler</code>。</p>
+<p><strong>④ DINOv2 projector 从 CLIP projector 初始化。</strong> 这是个稳定性 trick(§3.4 Stage II):新加的 DINOv2 路 projector 不是随机初始化,而是拷贝 CLIP projector 的权重起步,避免训练早期两路特征尺度差太多。</p>
+<p><strong>⑤ &quot;数据统一&quot;靠外部模型伪标注。</strong> Stage III 用 <strong>GLIPv2</strong>(开放词表检测器)和一个 <strong>OCR 模型</strong> 把 VQA/OCR 数据里的名词/文字自动框出来,变成带坐标的训练数据。好处是把纯文本任务和区域任务对齐;隐患是伪标注的误差会传进训练(见 §5)。</p>
+<p><strong>⑥ 投影层从 linear 升级为 2 层 MLP。</strong> §3.2 提到,相比 Ferret 的单层 linear projector,v2(及其对照实验)统一改用两层 MLP——这是 LLaVA-1.5 带起来的小改动,但对高分辨率下的对齐有帮助。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>不是拍脑袋调分辨率,而是先做对照实验</strong>:direct upsampling vs any-resolution 的控制实验(含冻结/放开编码器的交叉对比)给出了&quot;为什么 any-res 更好&quot;的机理解释——保护预训练知识。这种&quot;先分析再设计&quot;的严谨度是论文最大亮点。</li>
+<li><strong>双编码器分工有清晰 motivation</strong>:CLIP(对比学习→语义)+ DINOv2(自监督→细节)不是堆料,而是针对&quot;全局 vs 局部粒度差异&quot;对症下药。</li>
+<li><strong>Stage II 是真正的新东西</strong>:用 LVIS 密集标注做&quot;每个局部物体都对齐&quot;的高分辨率密集对齐,填补图文对齐和指令微调之间的断层。</li>
+<li><strong>效果实打实</strong>:小物体/OCR 大涨,REC 逼近专用检测器,且不牺牲全局推理(VQAv2/Ferret-Bench 同涨)。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>输出仍是框,不是掩码</strong>:v2 把<strong>输入侧</strong>的分辨率问题解决得很好,但<strong>输出</strong>还是 bounding box 坐标——和 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 一样,要像素级掩码还得走 <a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a>→GLaMM→Sa2VA 那条线。v2 没碰这个维度。</li>
+<li><strong>代码未完全开源</strong>:双编码器 + 三阶段是论文的核心,却不在公开仓库里,复现门槛高、可验证性差。</li>
+<li><strong>推理变重</strong>:any-res 最多 1280 视觉 token + <strong>两个 ViT</strong>(CLIP &amp; DINOv2)并行编码,比 v1 重不少;对延迟敏感的场景不友好。</li>
+<li><strong>伪标注误差传递</strong>:Stage III 的&quot;数据统一&quot;依赖 GLIPv2/OCR 自动框名词,这些外部模型的错误会直接污染训练数据。</li>
+<li><strong>DINOv2 projector 从 CLIP 初始化</strong>是个未充分论证的工程 trick——两个编码器特征空间本就不同,拷贝初始化为何有效、是否最优,论文没深究。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>:需要看清<strong>小物体、屏幕文字、密集场景</strong>的指代/定位(文档理解、UI/截图、遥感、细粒度 VQA);想要一个不牺牲全局推理的高分辨率 grounding 底座。</li>
+<li><strong>不适合</strong>:要像素掩码输出(用 LISA 线);算力/延迟极敏感(双 ViT + 多 token 重);只要纯检测框(专用检测器更省)。</li>
+</ul>
+<h3 id="sec-5-4">谱系衔接：Ferret → Ferret-v2 → Ferret-UI</h3>
+<blockquote>
+<p>把三篇放进一条线看最清楚。</p>
+</blockquote>
+<ul>
+<li><strong>输入侧分辨率主线</strong>:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>(混合区域表示,固定 336px,框输出)→ <strong>Ferret-v2</strong>(any-res + CLIP/DINOv2 双编码器 + 三阶段,高分辨率密集感知)→ <strong>Ferret-UI / Ferret-UI 2</strong>(<code>2404.05719</code> / <code>2410.18967</code>,把 any-res 配方下放到<strong>手机/多平台 UI 屏幕</strong>,喂养了 GUI agent grounding 方向,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
+<li><strong>和 LISA 的对偶仍在</strong>:v2 把&quot;圈哪问哪&quot;的输入做到了高分辨率,但输出依旧是坐标框;<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 那条&quot;<code>&lt;SEG&gt;</code>→SAM 出掩码&quot;的输出侧主线与之正交。真正两头都做到像素级的是 GLaMM / Sa2VA。</li>
+<li><strong>更大的潮流</strong>:any-resolution + 多编码器后来成为高分辨率 MLLM 的<strong>标配</strong>——LLaVA-NeXT、InternVL、Qwen2-VL 等都走了&quot;切块 + 保留全局缩略图&quot;的路子。Ferret-v2 是这股潮流里把它和<strong>区域指代/定位</strong>结合得最早、最系统的工作之一。</li>
+</ul>
+<h3 id="sec-5-5">Further reading</h3>
+<ul>
+<li>前作:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">ferret-2023</a>(混合区域表示 + 空间感知视觉采样器,本文的底座)。</li>
+<li>输出侧对偶:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">lisa-2023</a>(文本→掩码,<code>&lt;SEG&gt;</code> embedding-as-mask)。</li>
+<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 GUI/UI 线)。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

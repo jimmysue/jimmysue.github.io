@@ -92,7 +92,7 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2024-09-25</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/molmo-2024/index.html">Molmo &amp; PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力</a></h3>
   <p class="post-card__tldr">AllenAI + UW (arXiv 2409.17146, 2024/09)。当时最强开源 VLM 几乎都靠蒸馏 GPT-4V 合成数据,等于把闭源模型「偷」进开源。Molmo 反其道:**全程不用任何 VLM 生成训练数据**,核心是一套叫 PixMo 的自采数据集。最大创新是 **PixMo-Points**——让未受训标注员「点」图中物体 (语音描述 + 逐实例点击),收了 **2.3M question-point 对 / 223k 图**。Pointing 在 Molmo 里有三个用途:(1) 按文字指代去**点**物体;(2) **数数靠点**——把点序列当成一条 chain-of-thought,逐个点完再求和,counting 直接屠榜;(3) 把点当**视觉解释**塞进回答。模型把点输出成归一化到 0–100 的纯文本坐标 `&lt;point x=&quot;63.5&quot; y=&quot;44.5&quot; alt=&quot;Mt. Rainier&quot;&gt;Mt. Rainier&lt;/point&gt;`。架构是标准 ViT + connector + LLM,但有两个干净的工程点:**overlapping multi-crop** 解决裁剪边界丢上下文,**2×2 mean-query attention pooling** 压视觉 token。72B 版本学术 benchmark 第一、人评仅次于 GPT-4o,counting 任务全场最强。本质上,Molmo 是后来 [[locate-anything-2026]] (bbox 作 first-class **输出**) 和 [[thinking-visual-primitives-2026]] (primitives 作 first-class **思维**) 的共同祖先——这两篇 2026 的工作都直接拿 PixMo/Molmo 当 grounding 数据来源。

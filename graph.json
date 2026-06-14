@@ -66,6 +66,24 @@
       "url": "papers/diffusion-opd-2026/index.html"
     },
     {
+      "id": "papers/ferret-2023",
+      "type": "paper",
+      "slug": "ferret-2023",
+      "title": "Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型",
+      "date": "2023-10-11",
+      "tldr": "Ferret 用「混合区域表示」（离散坐标 + 连续特征）把用户圈的任意形状区域（点/框/涂鸦/自由形状）编码进 LLM 输入，同时在输出端把名词后接坐标实现定位——一个模型统一了 referring（区域→语义）和 grounding（语义→区域）。\n它是 LISA「文本→掩码」的**输入侧对偶**：LISA 解决\"想哪打哪\"的输出，Ferret 解决\"圈哪问哪\"的输入。\n",
+      "url": "papers/ferret-2023/index.html"
+    },
+    {
+      "id": "papers/ferret-v2-2024",
+      "type": "paper",
+      "slug": "ferret-v2-2024",
+      "title": "Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛",
+      "date": "2024-04-11",
+      "tldr": "Ferret-v2 是 Ferret 的重大升级,三招破解\"固定低分辨率编码器看不清小物体\":(1) any-resolution——把大图切成子块各自编码,保住 CLIP 预训练知识;(2) 多粒度双编码器——全局图用 CLIP 抓语义、局部块用 DINOv2 抓细节;(3) 三阶段训练,中间插一个\"高分辨率密集对齐\"阶段。\n它把 [[ferret-2023|Ferret]] 的输入侧 grounding 推到高分辨率密集感知,也是 Ferret-UI 屏幕理解的技术底座。\n",
+      "url": "papers/ferret-v2-2024/index.html"
+    },
+    {
       "id": "papers/flow-opd-2026",
       "type": "paper",
       "slug": "flow-opd-2026",
@@ -109,6 +127,15 @@
       "date": "2026-05-12",
       "tldr": "ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。",
       "url": "papers/leap-align-2026/index.html"
+    },
+    {
+      "id": "papers/lisa-2023",
+      "type": "paper",
+      "slug": "lisa-2023",
+      "title": "LISA：用大语言模型做「推理分割」",
+      "date": "2023-08-01",
+      "tldr": "LISA 给多模态大模型加一个 `<SEG>` token，把这个 token 的最后一层隐藏向量当作 SAM 的「文本提示」直接解码成掩码（embedding-as-mask），端到端用 LoRA 训练。\n由此首次让 LLM 能根据「需要推理的隐式指令」输出分割掩码，并开创了一整条 `<SEG>`-token 像素级多模态大模型的研究路线。\n",
+      "url": "papers/lisa-2023/index.html"
     },
     {
       "id": "papers/locate-anything-2026",
@@ -558,6 +585,102 @@
       "name": "DiffusionOPD"
     },
     {
+      "id": "concepts/referring-grounding",
+      "type": "concept",
+      "slug": "referring-grounding",
+      "name": "referring-grounding",
+      "has_file": false,
+      "url": "concepts/referring-grounding.html"
+    },
+    {
+      "id": "concepts/region-input",
+      "type": "concept",
+      "slug": "region-input",
+      "name": "region-input",
+      "has_file": false,
+      "url": "concepts/region-input.html"
+    },
+    {
+      "id": "concepts/hybrid-region-representation",
+      "type": "concept",
+      "slug": "hybrid-region-representation",
+      "name": "hybrid-region-representation",
+      "has_file": false,
+      "url": "concepts/hybrid-region-representation.html"
+    },
+    {
+      "id": "concepts/spatial-aware-visual-sampler",
+      "type": "concept",
+      "slug": "spatial-aware-visual-sampler",
+      "name": "spatial-aware-visual-sampler",
+      "has_file": false,
+      "url": "concepts/spatial-aware-visual-sampler.html"
+    },
+    {
+      "id": "concepts/multimodal-llm",
+      "type": "concept",
+      "slug": "multimodal-llm",
+      "name": "multimodal-llm",
+      "has_file": false,
+      "url": "concepts/multimodal-llm.html"
+    },
+    {
+      "id": "concepts/visual-prompt",
+      "type": "concept",
+      "slug": "visual-prompt",
+      "name": "visual-prompt",
+      "has_file": false,
+      "url": "concepts/visual-prompt.html"
+    },
+    {
+      "id": "concepts/object-hallucination",
+      "type": "concept",
+      "slug": "object-hallucination",
+      "name": "object-hallucination",
+      "has_file": false,
+      "url": "concepts/object-hallucination.html"
+    },
+    {
+      "id": "repos/apple/ml-ferret",
+      "type": "repo",
+      "url": "https://github.com/apple/ml-ferret",
+      "host": "github.com",
+      "owner": "apple",
+      "name": "ml-ferret"
+    },
+    {
+      "id": "concepts/any-resolution",
+      "type": "concept",
+      "slug": "any-resolution",
+      "name": "any-resolution",
+      "has_file": false,
+      "url": "concepts/any-resolution.html"
+    },
+    {
+      "id": "concepts/multi-granularity-encoding",
+      "type": "concept",
+      "slug": "multi-granularity-encoding",
+      "name": "multi-granularity-encoding",
+      "has_file": false,
+      "url": "concepts/multi-granularity-encoding.html"
+    },
+    {
+      "id": "concepts/dinov2",
+      "type": "concept",
+      "slug": "dinov2",
+      "name": "dinov2",
+      "has_file": false,
+      "url": "concepts/dinov2.html"
+    },
+    {
+      "id": "concepts/high-resolution-mllm",
+      "type": "concept",
+      "slug": "high-resolution-mllm",
+      "name": "high-resolution-mllm",
+      "has_file": false,
+      "url": "concepts/high-resolution-mllm.html"
+    },
+    {
       "id": "concepts/sd3",
       "type": "concept",
       "slug": "sd3",
@@ -628,6 +751,62 @@
       "name": "comparison",
       "has_file": false,
       "url": "concepts/comparison.html"
+    },
+    {
+      "id": "concepts/reasoning-segmentation",
+      "type": "concept",
+      "slug": "reasoning-segmentation",
+      "name": "reasoning-segmentation",
+      "has_file": false,
+      "url": "concepts/reasoning-segmentation.html"
+    },
+    {
+      "id": "concepts/embedding-as-mask",
+      "type": "concept",
+      "slug": "embedding-as-mask",
+      "name": "embedding-as-mask",
+      "has_file": false,
+      "url": "concepts/embedding-as-mask.html"
+    },
+    {
+      "id": "concepts/segment-anything",
+      "type": "concept",
+      "slug": "segment-anything",
+      "name": "segment-anything",
+      "has_file": false,
+      "url": "concepts/segment-anything.html"
+    },
+    {
+      "id": "concepts/referring-segmentation",
+      "type": "concept",
+      "slug": "referring-segmentation",
+      "name": "referring-segmentation",
+      "has_file": false,
+      "url": "concepts/referring-segmentation.html"
+    },
+    {
+      "id": "concepts/lora",
+      "type": "concept",
+      "slug": "lora",
+      "name": "lora",
+      "has_file": false,
+      "url": "concepts/lora.html"
+    },
+    {
+      "id": "concepts/seg-token",
+      "type": "concept",
+      "slug": "seg-token",
+      "name": "seg-token",
+      "has_file": false,
+      "url": "concepts/seg-token.html"
+    },
+    {
+      "id": "repos/dvlab-research/LISA",
+      "type": "repo",
+      "url": "https://github.com/dvlab-research/LISA",
+      "host": "github.com",
+      "owner": "dvlab-research",
+      "name": "LISA"
     },
     {
       "id": "concepts/detection",
@@ -1363,7 +1542,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -1373,12 +1552,122 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "repos/ali-vilab/DiffusionOPD",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/referring-grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/region-input",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/hybrid-region-representation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/spatial-aware-visual-sampler",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/multimodal-llm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/visual-prompt",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "concepts/object-hallucination",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "papers/q-ground-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "tutorials/vlm-grounding-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "repos/apple/ml-ferret",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/referring-grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/any-resolution",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/multi-granularity-encoding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/dinov2",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/region-input",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/multimodal-llm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "concepts/high-resolution-mllm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "tutorials/vlm-grounding-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "papers/ferret-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
+      "to": "repos/apple/ml-ferret",
       "kind": "implements"
     },
     {
@@ -1453,7 +1742,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1463,7 +1752,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1473,7 +1762,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1555,6 +1844,61 @@
       "from": "papers/leap-align-2026",
       "to": "concepts/flux",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/reasoning-segmentation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/embedding-as-mask",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/multimodal-llm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/segment-anything",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/referring-segmentation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/lora",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "concepts/seg-token",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "papers/q-ground-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "tutorials/vlm-grounding-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "repos/dvlab-research/LISA",
+      "kind": "implements"
     },
     {
       "from": "papers/locate-anything-2026",
@@ -1643,12 +1987,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -1703,17 +2047,17 @@
     },
     {
       "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -1838,12 +2182,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -2013,12 +2357,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -2268,12 +2612,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {

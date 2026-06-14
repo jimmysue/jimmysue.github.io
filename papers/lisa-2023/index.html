@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>LISA：用大语言模型做「推理分割」</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 为什么不直接让 LLM 吐坐标 / 多边形？</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 核心：embedding-as-mask</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 损失函数</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">后续工作谱系（&quot;类似方案&quot;的演化主线）</a></li>
+    <li class="h3"><a href="#sec-5-5">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>LISA: Reasoning Segmentation via Large Language Model</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2023-08-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2023-08-01</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Xin Lai, Zhuotao Tian, Yukang Chen, Yanwei Li, Yuhui Yuan, Shu Liu, Jiaya Jia</span> · <span class="post-meta__venue">CVPR 2024 (Highlight)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2308.00692">arXiv:2308.00692</a> · <a class="post-meta__link" href="https://github.com/dvlab-research/LISA">项目页</a> · <a class="post-meta__link" href="https://github.com/dvlab-research/LISA">代码</a> · <a class="post-meta__link" href="https://huggingface.co/xinlai">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/reasoning-segmentation.html">reasoning-segmentation</a> <a class="concept-chip" href="../../concepts/embedding-as-mask.html">embedding-as-mask</a> <a class="concept-chip" href="../../concepts/multimodal-llm.html">multimodal-llm</a> <a class="concept-chip" href="../../concepts/segment-anything.html">segment-anything</a> <a class="concept-chip" href="../../concepts/referring-segmentation.html">referring-segmentation</a> <a class="concept-chip" href="../../concepts/lora.html">lora</a> <a class="concept-chip" href="../../concepts/seg-token.html">seg-token</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="LISA 能力示例：根据隐式、需要推理的指令输出分割掩码">
+  <figcaption>
+    <strong>Fig. 1</strong> — LISA 解锁的新能力。它不再需要「分割那个橘子」这种显式指代，而能处理「图里维生素 C 最高的食物是哪个」「我要洗衣服，衣服该放进哪台机器」这类<strong>需要推理或世界知识</strong>的隐式指令；第 3 行还能在给出掩码的同时<strong>解释为什么</strong>；第 4 行一次输出<strong>多个掩码</strong>。（论文 Fig. 1）
+  </figcaption>
+</figure>
+<blockquote>
+<p>一句话：<strong>SAM 让你&quot;指哪打哪&quot;，LISA 让你&quot;想哪打哪&quot;</strong>——把&quot;想&quot;这一步交给 LLM，把&quot;打&quot;这一步交给 SAM，用一个 token 的隐藏向量把两者焊在一起端到端训练。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>现有的视觉感知系统——哪怕是 SAM、X-Decoder、SEEM 这种很强的——都要求人类<strong>先把目标显式说清楚</strong>：给一个点、一个框、一个类别名、或者一句明确的指代（&quot;the trash can&quot;）。它们不会<strong>主动推理</strong>用户的真实意图。</p>
+<p>但日常里人不是这么说话的。你对机器人说&quot;把电视换台&quot;，而不是&quot;先走到桌子边、找到遥控器、按下按钮&quot;。论文把这种能力缺口形式化成一个新任务：</p>
+<blockquote>
+<p><strong>推理分割 (Reasoning Segmentation)</strong>：给定图像 <span class="math inline">\(x_{img}\)</span> 和一句<strong>隐式、需要复杂推理或世界知识</strong>的查询 <span class="math inline">\(x_{txt}\)</span>（例如&quot;something that the garbage should be put into&quot;），输出一张二值掩码 <span class="math inline">\(M\)</span>。</p>
+</blockquote>
+<p>它和经典的<strong>指代分割 (referring segmentation)</strong> 形式上一样（一句话 → 一张掩码），但查询文本的复杂度天差地别：指代分割是&quot;the orange&quot;，推理分割是&quot;the food with high Vitamin C&quot;。模型必须<strong>真正读懂</strong>这句话，而不是做短语-区域匹配。</p>
+<p>为此论文还顺手建了一个评测基准 <strong>ReasonSeg</strong>：从 OpenImages 和 ScanNetv2 标了 1218 条 <code>图像-指令-掩码</code> 三元组（train/val/test = 239/200/779），指令分&quot;短语&quot;和&quot;长句&quot;两类。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-training-data.png" alt="三类训练数据：语义分割、指代分割、VQA">
+  <figcaption>
+    <strong>Fig. 2</strong> — 关键观察：LISA 的训练集里<strong>没有任何一条推理分割样本</strong>。它只用现成的语义分割（ADE20K、COCO-Stuff、PACO 等）、指代分割（refCOCO 系列）、以及 VQA（LLaVA-Instruct）数据，套上问答模板转成 `USER: … ASSISTANT: It is [SEG].` 的形式。推理能力是 LLM 自带的，分割能力靠这些"无推理"数据注入——两者一组合就涌现出 zero-shot 推理分割。（论文 Fig. 4）
+  </figcaption>
+</figure>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>LISA 的全部巧思可以压缩成一句话：<strong>把分割掩码表示成一个 token 的 embedding</strong>（embedding-as-mask）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-pipeline.png" alt="LISA 架构：多模态 LLM 输出 SEG token，其隐藏向量经解码器变成掩码">
+  <figcaption>
+    <strong>Fig. 3</strong> — LISA 流水线。多模态 LLM（LLaVA）照常生成文字回复，当它想分割时就吐出一个 <code>&lt;SEG&gt;</code> token；取该 token 的<strong>最后一层隐藏向量</strong>，经一个 MLP 投影后，喂给视觉解码器 $\mathcal{F}_{dec}$（SAM 的 mask decoder），结合视觉骨干 $\mathcal{F}_{enc}$ 抽的特征 $f$，解码出掩码 $\hat{M}$。LLM 用 LoRA 微调，视觉骨干冻结。（论文 Fig. 3）
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 为什么不直接让 LLM 吐坐标 / 多边形？</h3>
+<p>一个自然的想法是像 VisionLLM 那样把掩码写成&quot;多边形顶点序列&quot;的纯文本，让 LLM 直接生成。但论文指出这条路<strong>优化困难、且会损伤泛化</strong>——VisionLLM 训一个 7B 模型要 4×8 张 A100 跑 50 epoch。相比之下 LISA-7B 在 8 张 24G 的 3090 上<strong>不到 3 天</strong>就训完。</p>
+<p>差别在于：把空间信息塞进<strong>离散文本 token 序列</strong>既长又难学；而用<strong>一个连续的隐藏向量</strong>承载分割意图，信息更稠密、可微、可端到端反传。</p>
+<h3 id="sec-2-2">2.2 核心：embedding-as-mask</h3>
+<p>第一步，给词表加一个新 token <code>&lt;SEG&gt;</code>（代码里实际是 <code>[SEG]</code>，见 §4）。给定图文输入，多模态 LLM <span class="math inline">\(\mathcal{F}\)</span> 自回归生成文本回复 <span class="math inline">\(\hat{y}_{txt}\)</span>：</p>
+<div class="math block">
+\[\hat{\mathbf{y}}_{txt} = \mathcal{F}(\mathbf{x}_{img}, \mathbf{x}_{txt})\]
+</div>
+<p class="math-translation">—— 翻译：图像 + 文字进去，LLM 像平常一样吐出一串文字回复。唯一不同是，当它打算分割时，这串文字里会包含一个 <code>&lt;SEG&gt;</code> token。</p>
+<p>第二步，把 <code>&lt;SEG&gt;</code> 对应位置的<strong>最后一层隐藏向量</strong> <span class="math inline">\(\tilde{h}_{seg}\)</span> 抽出来，经 MLP 投影 <span class="math inline">\(\gamma\)</span> 得到 <span class="math inline">\(h_{seg}\)</span>；同时视觉骨干 <span class="math inline">\(\mathcal{F}_{enc}\)</span> 抽稠密视觉特征 <span class="math inline">\(f\)</span>；最后解码器 <span class="math inline">\(\mathcal{F}_{dec}\)</span> 把两者合成掩码：</p>
+<div class="math block">
+\[\mathbf{h}_{seg} = \gamma(\tilde{\mathbf{h}}_{seg}), \quad \mathbf{f} = \mathcal{F}_{enc}(\mathbf{x}_{img}), \quad \hat{\mathbf{M}} = \mathcal{F}_{dec}(\mathbf{h}_{seg}, \mathbf{f})\]
+</div>
+<p class="math-translation">—— 翻译：<code>&lt;SEG&gt;</code> 这个 token 的隐藏向量，本质上是 LLM"想清楚要分割什么之后"压缩出来的一份指令。投影一下，当成提示喂给 SAM，SAM 就把它画成掩码。LLM 负责"理解"，SAM 负责"画"。</p>
+<p><strong>最关键的工程细节</strong>：<span class="math inline">\(h_{seg}\)</span> 是怎么&quot;喂给 SAM&quot;的？答案出乎意料地简洁——SAM 的 prompt encoder 本来就接受稀疏提示（点、框）的 embedding，LISA 把 <span class="math inline">\(h_{seg}\)</span> 当作<strong>又一个稀疏提示 token</strong> 直接拼上去（见 §4 代码）。等于告诉 SAM：&quot;这是一段文本提示，照着分。&quot;</p>
+<h3 id="sec-2-3">2.3 损失函数</h3>
+<p>端到端训练，总损失是文本损失 + 掩码损失的加权和：</p>
+<div class="math block">
+\[\mathcal{L} = \lambda_{txt}\,\mathcal{L}_{txt} + \lambda_{mask}\,\mathcal{L}_{mask}\]
+</div>
+<p>其中文本损失是自回归交叉熵，掩码损失是 BCE + DICE 的组合：</p>
+<div class="math block">
+\[\mathcal{L}_{txt} = \mathbf{CE}(\hat{\mathbf{y}}_{txt}, \mathbf{y}_{txt}), \quad \mathcal{L}_{mask} = \lambda_{bce}\,\mathbf{BCE}(\hat{\mathbf{M}}, \mathbf{M}) + \lambda_{dice}\,\mathbf{DICE}(\hat{\mathbf{M}}, \mathbf{M})\]
+</div>
+<p class="math-translation">—— 翻译：一边逼模型把话说对（CE），一边逼它把掩码画准（BCE 管逐像素对错、DICE 管整体形状重叠）。论文取 λ_bce=2.0、λ_dice=0.5。两路梯度都会经过 <code>&lt;SEG&gt;</code> 向量反传回 LLM，所以"说什么"和"画什么"是联合学的。</p>
+<p>代码里这两个掩码损失就是标准实现：</p>
+<p class="code-source">repo/model/LISA.py:L16-L39 — DICE loss（整体形状重叠度）</p>
+<pre><code class="language-python">def dice_loss(inputs, targets, num_masks, scale=1000, eps=1e-6):
+    inputs = inputs.sigmoid()
+    inputs = inputs.flatten(1, 2)
+    targets = targets.flatten(1, 2)
+    numerator = 2 * (inputs / scale * targets).sum(-1)
+    denominator = (inputs / scale).sum(-1) + (targets / scale).sum(-1)
+    loss = 1 - (numerator + eps) / (denominator + eps)
+    loss = loss.sum() / (num_masks + 1e-8)
+    return loss
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>① Zero-shot 就能打。</strong> 只用&quot;无推理&quot;数据训练，LISA 在 ReasonSeg 上直接碾压所有现有方法（OVSeg、GRES、X-Decoder、SEEM、Grounded-SAM 全部失败），gIoU 高出 <strong>20+ 个点</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>val gIoU</th>
+<th>val cIoU</th>
+<th>test gIoU</th>
+<th>test cIoU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OVSeg</td>
+<td>28.5</td>
+<td>18.6</td>
+<td>26.1</td>
+<td>20.8</td>
+</tr>
+<tr>
+<td>GRES</td>
+<td>22.4</td>
+<td>19.9</td>
+<td>21.3</td>
+<td>22.0</td>
+</tr>
+<tr>
+<td>X-Decoder</td>
+<td>22.6</td>
+<td>17.9</td>
+<td>21.7</td>
+<td>16.3</td>
+</tr>
+<tr>
+<td>SEEM</td>
+<td>25.5</td>
+<td>21.2</td>
+<td>24.3</td>
+<td>18.7</td>
+</tr>
+<tr>
+<td>Grounded-SAM</td>
+<td>26.0</td>
+<td>14.5</td>
+<td>21.3</td>
+<td>16.4</td>
+</tr>
+<tr>
+<td><strong>LISA-7B</strong></td>
+<td><strong>44.4</strong></td>
+<td><strong>46.0</strong></td>
+<td><strong>36.8</strong></td>
+<td><strong>34.1</strong></td>
+</tr>
+<tr>
+<td><strong>LISA-7B (ft)</strong></td>
+<td><strong>52.9</strong></td>
+<td><strong>54.0</strong></td>
+<td><strong>47.3</strong></td>
+<td><strong>48.4</strong></td>
+</tr>
+<tr>
+<td><strong>LISA-13B-LLaVA1.5 (ft)</strong></td>
+<td><strong>65.0</strong></td>
+<td><strong>72.9</strong></td>
+<td><strong>61.3</strong></td>
+<td><strong>62.2</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>② 239 条样本就能再涨一截。</strong> 仅用 ReasonSeg 训练集的 239 条推理样本微调（表中 <code>ft</code>），gIoU 再涨 ~8 个点。说明这条路线数据效率极高。</p>
+<p><strong>③ 端到端 &gt; 两阶段。</strong> 和&quot;LLaVA 先出文字 → OVSeg 再分割&quot;的解耦两阶段方案相比，LISA 显著更好。论文给的解释：(1) 端到端 vs 完全解耦；(2) 两阶段靠<strong>文本</strong>当中介传信息，会丢失细节，而 LISA 用<strong>隐藏向量</strong>——表达力更强。这一点是整个 <code>&lt;SEG&gt;</code> 路线的立论根基。</p>
+<p><strong>④ 不牺牲老本行。</strong> LISA 在标准指代分割（refCOCO/+/g）上也达到 SOTA（refCOCOg val 66.4 cIoU），且因为用了 LoRA + 混入 VQA 数据，没有灾难性遗忘，对话能力保留。</p>
+<p><strong>⑤ 瓶颈在&quot;理解&quot;不在&quot;分割&quot;。</strong> LISA-13B 明显强于 7B，尤其在长句场景——说明性能瓶颈仍是<strong>读懂查询</strong>，换更强的 LLM 就能更好。这条观察精准预言了后续 RL 推理分割（Seg-Zero、LENS）的方向。</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-comparison.png" alt="LISA 与 OVSeg/GRES/X-Decoder/SEEM 的定性对比">
+  <figcaption>
+    <strong>Fig. 4</strong> — 定性对比。面对"别人最可能落下的东西""搅拌咖啡用的物件""飞机将在哪片区域降落"这类需要推理的查询，OVSeg/GRES/X-Decoder/SEEM 各种出错，LISA（Ours）给出准确掩码。（论文 Fig. 5）
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p>把论文公式落到代码上，有几处只读论文看不到的东西：</p>
+<p><strong>① <code>&lt;SEG&gt;</code> 在代码里叫 <code>[SEG]</code>。</strong> 论文通篇写 <code>&lt;SEG&gt;</code>，但仓库实际加的 token 是 <code>[SEG]</code>，并记下它的 id 用于后续定位：</p>
+<p class="code-source">repo/train_ds.py:L127-L128 — 扩词表、记录 seg token id</p>
+<pre><code class="language-python">num_added_tokens = tokenizer.add_tokens(&quot;[SEG]&quot;)
+args.seg_token_idx = tokenizer(&quot;[SEG]&quot;, add_special_tokens=False).input_ids[0]
+</code></pre>
+<p><strong>② &quot;怎么从一串 token 里捞出 <code>[SEG]</code> 的隐藏向量&quot;用了一个布尔掩码 + 一个 magic number 255。</strong> forward 里先构造 <code>seg_token_mask</code> 标出哪些位置是 <code>[SEG]</code>，再前置 255 个 False——这是给图像 patch token 占位的 hack（假设图像在最前、只有一张图）。这种硬编码偏移是该实现最脆的地方：</p>
+<p class="code-source">repo/model/LISA.py:L187-L199 — 定位 [SEG] token，并为图像 token 硬塞 255 偏移</p>
+<pre><code class="language-python">seg_token_mask = input_ids[:, 1:] == self.seg_token_idx
+seg_token_mask = torch.cat(
+    [seg_token_mask, torch.zeros((seg_token_mask.shape[0], 1)).bool().cuda()], dim=1)
+# hack for IMAGE_TOKEN_INDEX (假设只有一张图、且在最前面)
+seg_token_mask = torch.cat(
+    [torch.zeros((seg_token_mask.shape[0], 255)).bool().cuda(), seg_token_mask], dim=1)
+</code></pre>
+<p><strong>③ embedding-as-mask 的&quot;焊点&quot;：把 LLM 向量当成 SAM 的稀疏提示。</strong> 这是全论文最优雅的一行。LISA 改了 SAM 的 <code>PromptEncoder</code>，让它多接受一个 <code>text_embeds</code> 参数，并把它<strong>直接 concat 进 sparse_embeddings</strong>——和点、框提示一视同仁：</p>
+<p class="code-source">repo/model/segment_anything/modeling/prompt_encoder.py:L168-L177 — 把 LLM 投影后的 [SEG] 向量当作 SAM 的"文本提示" token</p>
+<pre><code class="language-python">if points is not None:
+    coords, labels = points
+    point_embeddings = self._embed_points(coords, labels, pad=(boxes is None))
+    sparse_embeddings = torch.cat([sparse_embeddings, point_embeddings], dim=1)
+if boxes is not None:
+    box_embeddings = self._embed_boxes(boxes)
+    sparse_embeddings = torch.cat([sparse_embeddings, box_embeddings], dim=1)
+if text_embeds is not None:                       # ← LISA 新增
+    sparse_embeddings = torch.cat([sparse_embeddings, text_embeds], dim=1)
+</code></pre>
+<p>正因为 SAM 的提示接口本来就是&quot;一组 embedding&quot;，LISA 才能几乎零改动地把 LLM 接上去——这也是为什么 §3 的消融里 <strong>SAM 预训练权重贡献巨大</strong>（去掉从头训，gIoU 从 52.9 掉到 35.9）。</p>
+<p><strong>④ 谁在训、谁冻结。</strong> 视觉骨干（SAM image encoder）<strong>完全冻结</strong>；LLM 走 LoRA；而 mask decoder、<code>lm_head</code>、<code>embed_tokens</code>（因为扩了词表）、投影层 <code>text_hidden_fcs</code> 这四类参数<strong>全量可训</strong>：</p>
+<p class="code-source">repo/train_ds.py:L219-L228 — 显式打开四类模块的梯度</p>
+<pre><code class="language-python"># make text_hidden_fcs, mask_decoder, lm_head, embed_tokens trainable
+for n, p in model.named_parameters():
+    if any(x in n for x in [&quot;lm_head&quot;, &quot;embed_tokens&quot;, &quot;mask_decoder&quot;, &quot;text_hidden_fcs&quot;]):
+        p.requires_grad = True
+</code></pre>
+<p><strong>⑤ 一个回复里多个 <code>[SEG]</code> 怎么办？</strong> forward 里用 <code>seg_token_offset</code> 按样本切分，支持一句话里出现多个 <code>[SEG]</code>（对应 Fig. 1 第 4 行&quot;分别分割炸物和蛋白质最高的食物&quot;）。但注意：<strong>多个 <code>[SEG]</code> 各自独立解码</strong>，token 之间不共享多目标的结构信息——这正是后续 PixelLM「分割码本」和 GSVA「多 <code>[SEG]</code> + <code>[REJ]</code>」要补的洞。</p>
+<p><strong>⑥ 对 SAM 做 LoRA 反而更差。</strong> 消融显示给 SAM 骨干加 LoRA 微调（41.5 gIoU）不如直接冻结（44.4）。论文解释：微调会损伤 SAM 原本的泛化能力。这也呼应&quot;分割能力来自 SAM 预训练、推理能力来自 LLM&quot;的分工。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>范式开创性</strong>：embedding-as-mask + <code>&lt;SEG&gt;</code> token 是一个&quot;接口级&quot;创新——它定义了 LLM 和稠密视觉模型之间的一种通用焊接方式，之后两年几乎所有像素级多模态大模型都沿用了这个 token 桥接思想（见下方谱系）。</li>
+<li><strong>数据效率惊人</strong>：zero-shot 即 SOTA，239 条样本即可微调提升。</li>
+<li><strong>工程极简</strong>：核心改动就是给 SAM prompt encoder 加一个 <code>text_embeds</code> 入口，复用 SAM 全部预训练。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>单目标基因</strong>：原版一个 <code>[SEG]</code> ≈ 一个目标，多目标靠并列多个独立 token，且<strong>无法&quot;拒绝&quot;</strong>（查询里没有对应物体时仍会硬画一张）。→ GSVA、GROUNDHOG 专门修这个。</li>
+<li><strong>绑死 SAM 的开销</strong>：每张图都要跑一遍 ViT-H SAM image encoder，重。→ PixelLM 干脆扔掉 SAM 自己造轻量解码器。</li>
+<li><strong>隐式推理，无显式思维链</strong>：LISA 把&quot;推理&quot;压进一个向量，既不可解释也无法在推理时&quot;想更久&quot;。→ Seg-Zero、LENS 用 GRPO RL 让模型<strong>先输出 CoT 再分割</strong>。</li>
+<li><strong>硬编码的 255 偏移</strong>：实现假设&quot;单图、图在最前&quot;，换布局就崩，工程上不够robust。</li>
+<li><strong>ReasonSeg 偏小</strong>：1218 条，评测信号有限；cIoU 对大物体严重偏置（论文自己也更信 gIoU）。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>：需要&quot;读懂隐式/带世界知识的指令再分割&quot;的场景（机器人指令、交互式图像编辑的目标选择）；想用少量数据把分割能力接到现成 MLLM 上。</li>
+<li><strong>不适合</strong>：要求精确多目标计数/拒识、或对延迟敏感（SAM ViT-H 重）的场景；纯靠短语指代的任务用专用指代分割模型更省。</li>
+</ul>
+<h3 id="sec-5-4">后续工作谱系（&quot;类似方案&quot;的演化主线）</h3>
+<blockquote>
+<p>这部分是本文重点。LISA 之后两年，<code>&lt;SEG&gt;</code>-token / embedding-as-mask 路线分化出五条支线。下表的 arxiv id 均已逐条核验。</p>
+</blockquote>
+<p><strong>A. 同组直系 &amp; 范式补全</strong></p>
+<ul>
+<li><strong>LISA++</strong>（<code>2312.17240</code>，原班人马）：不改架构，纯靠<strong>重构指令微调数据</strong>，补上两个能力——<strong>实例分割</strong>（原版只能出区域、分不开同类实例）和 <strong>Segmentation-in-Dialogue</strong>（把掩码自然嵌进多轮对话里）。</li>
+<li><strong>GSVA</strong>（<code>2312.10103</code>，清华）：针对<strong>广义指代分割 (GRES)</strong>——一句话指多个物体、或指向<strong>不存在</strong>的物体。做法：复用多个 <code>[SEG]</code> token 处理多目标，新增一个 <strong><code>[REJ]</code> token 显式拒识空目标</strong>，直接补 LISA 的&quot;不会说不&quot;。</li>
+<li><strong>GROUNDHOG</strong>（<code>2402.16846</code>，UMich）：不再用位置 token，而是先把图切成&quot;视觉实体 token&quot;，LLM 通过<strong>检索+合并实体掩码</strong>来 grounding，减少物体幻觉。</li>
+</ul>
+<p><strong>B. 像素级 grounding MLLM（把 <code>&lt;SEG&gt;</code> 思想做大/做强）</strong></p>
+<ul>
+<li><strong>GLaMM</strong>（<code>2311.03356</code>，MBZUAI，CVPR24）：开创 <strong>Grounded Conversation Generation</strong>——一段自由文本里<strong>内嵌多个 <code>&lt;SEG&gt;</code></strong> 做稠密 grounding 描述；还加了区域编码器（接受视觉提示）和超大规模 GranD 数据集。是被引最多的直系后继之一。</li>
+<li><strong>PixelLM</strong>（<code>2312.02228</code>，CVPR24）：<strong>扔掉 SAM</strong>，换上轻量像素解码器 + <strong>分割码本</strong>（多个学习 token 编码多尺度/多目标），解决&quot;多目标解码&quot;和&quot;SAM 太重&quot;两个痛点。</li>
+<li><strong>NExT-Chat</strong>（<code>2311.04498</code>，ICML24）：把 embedding-as-output 推广成 <strong>pix2emb</strong>——同一个位置 token 经不同的头可解码成<strong>框或掩码</strong>，统一检测+grounding+分割。</li>
+<li><strong>PerceptionGPT</strong> / <strong>u-LLaVA</strong> / <strong>AnyRef</strong> / <strong>PixelLLM</strong>（<code>2311.06612</code> / <code>2311.05348</code> / <code>2403.02969</code> / <code>2312.09237</code>）：分别在&quot;更省参数&quot;、&quot;多任务统一&quot;、&quot;支持文本/区域/图像/<strong>音频</strong>多模态指代&quot;、&quot;逐词像素对齐&quot;几个维度上扩展。</li>
+</ul>
+<p><strong>C. 视频 / 时序扩展</strong></p>
+<ul>
+<li><strong>VideoLISA</strong>（<code>2409.19603</code>，NeurIPS24）：<strong>One-Token-Seg-All</strong>——用单个 <code>&lt;TRK&gt;</code> token 在整段视频里<strong>一致地分割+跟踪</strong>同一物体，配稀疏-稠密采样平衡时空预算。</li>
+<li><strong>VISA</strong>（<code>2407.11325</code>，ECCV24）：提出 <strong>ReasonVOS</strong> 任务（视频版推理分割）和 ReVOS 基准。</li>
+<li><strong>Sa2VA</strong>（<code>2501.04001</code>，2025）：首个把 <strong>SAM-2 与 LLaVA</strong> 在统一 token 空间里融合的模型，一套模型搞定图像+视频的指代分割、对话、grounded caption——2025 年最有影响力的统一像素 grounding 模型之一。</li>
+</ul>
+<p><strong>D. RL 推理分割（&quot;先想后分&quot;，2025–26 前沿）</strong></p>
+<ul>
+<li><strong>Seg-Zero</strong>（<code>2503.06520</code>，正是 LISA 同实验室 dvlab）：转折点。把推理与分割<strong>解耦</strong>——推理 MLLM 先吐<strong>显式 CoT + 位置提示（点/框）</strong>，再由独立分割模型出掩码；<strong>纯 GRPO RL 训练、无 CoT 监督</strong>，测试时推理能力自发涌现，ReasonSeg zero-shot 57.5（比 LISA-7B 高 ~18%）。</li>
+<li><strong>LENS</strong>（<code>2508.14153</code>）：单模型版本，联合 RL 优化推理+分割，统一句/框/段级奖励。</li>
+<li><strong>Veason-R1</strong>（<code>2508.11538</code>，CVPR26）：把 GRPO RL + CoT 带到<strong>视频</strong>推理分割。</li>
+</ul>
+<p><strong>E. 开放词表 / 全景 / 物体级统一</strong></p>
+<ul>
+<li><strong>OMG-LLaVA</strong>（<code>2406.19389</code>，NeurIPS24）：反转 LISA 设计——用通用分割模型 OMG-Seg 当<strong>视觉编码器</strong>喂感知先验给 LLM，一套模型贯通 image/object/pixel 三个粒度。</li>
+</ul>
+<p><strong>一句话总结趋势（2023→2026）</strong>：从&quot;一篇一任务（文本→单掩码）&quot;走向两个方向——(i) <strong>统一像素 grounding 助手</strong>（图像+视频+框+掩码，代表 Sa2VA / OMG-LLaVA / GLaMM）；(ii) <strong>RL 驱动的显式推理</strong>（先想后分，代表 Seg-Zero → LENS → Veason-R1）。LISA 的 §3.2 那句&quot;瓶颈在理解不在分割&quot;，几乎是为第二个方向写的预言。</p>
+<h3 id="sec-5-5">Further reading</h3>
+<ul>
+<li>综述：<em>Reasoning Segmentation for Images and Videos: A Survey</em>（<code>2505.18816</code>）。</li>
+<li>社区清单：<code>github.com/mc-lan/Awesome-MLLM-Segmentation</code>。</li>
+<li>本站相关：<a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>（视觉-语言 grounding 教程）、<a class="wiki-link" data-slug="q-ground-2024" href="../q-ground-2024/index.html">q-ground-2024</a>、<a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a>。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

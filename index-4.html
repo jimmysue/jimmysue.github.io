@@ -53,6 +53,20 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/latent-to-pixel-2026/index.html">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</a></h3>
+  <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
+      <a class="tag-chip" href="concepts/transfer-learning.html">transfer-learning</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/l2p-2026/index.html">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</a></h3>
   <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
   <div class="post-card__tags">
@@ -149,16 +163,17 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2024-09-25</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2024-04-11</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/molmo-2024/index.html">Molmo &amp; PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力</a></h3>
-  <p class="post-card__tldr">AllenAI + UW (arXiv 2409.17146, 2024/09)。当时最强开源 VLM 几乎都靠蒸馏 GPT-4V 合成数据,等于把闭源模型「偷」进开源。Molmo 反其道:**全程不用任何 VLM 生成训练数据**,核心是一套叫 PixMo 的自采数据集。最大创新是 **PixMo-Points**——让未受训标注员「点」图中物体 (语音描述 + 逐实例点击),收了 **2.3M question-point 对 / 223k 图**。Pointing 在 Molmo 里有三个用途:(1) 按文字指代去**点**物体;(2) **数数靠点**——把点序列当成一条 chain-of-thought,逐个点完再求和,counting 直接屠榜;(3) 把点当**视觉解释**塞进回答。模型把点输出成归一化到 0–100 的纯文本坐标 `&lt;point x=&quot;63.5&quot; y=&quot;44.5&quot; alt=&quot;Mt. Rainier&quot;&gt;Mt. Rainier&lt;/point&gt;`。架构是标准 ViT + connector + LLM,但有两个干净的工程点:**overlapping multi-crop** 解决裁剪边界丢上下文,**2×2 mean-query attention pooling** 压视觉 token。72B 版本学术 benchmark 第一、人评仅次于 GPT-4o,counting 任务全场最强。本质上,Molmo 是后来 [[locate-anything-2026]] (bbox 作 first-class **输出**) 和 [[thinking-visual-primitives-2026]] (primitives 作 first-class **思维**) 的共同祖先——这两篇 2026 的工作都直接拿 PixMo/Molmo 当 grounding 数据来源。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-v2-2024/index.html">Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛</a></h3>
+  <p class="post-card__tldr">Ferret-v2 是 Ferret 的重大升级,三招破解&quot;固定低分辨率编码器看不清小物体&quot;:(1) any-resolution——把大图切成子块各自编码,保住 CLIP 预训练知识;(2) 多粒度双编码器——全局图用 CLIP 抓语义、局部块用 DINOv2 抓细节;(3) 三阶段训练,中间插一个&quot;高分辨率密集对齐&quot;阶段。
+它把 [[ferret-2023|Ferret]] 的输入侧 grounding 推到高分辨率密集感知,也是 Ferret-UI 屏幕理解的技术底座。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
-      <a class="tag-chip" href="concepts/pointing.html">pointing</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
+      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
+      <a class="tag-chip" href="concepts/any-resolution.html">any-resolution</a>
+      <a class="tag-chip" href="concepts/multi-granularity-encoding.html">multi-granularity-encoding</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>
 </div>
@@ -168,7 +183,8 @@
   <a class="pager__item" href="index-2.html">2</a>
   <a class="pager__item" href="index-3.html">3</a>
   <span class="pager__item pager__item--current" aria-current="page">4</span>
-  <span class="pager__nav pager__item--disabled" aria-disabled="true">下一页</span>
+  <a class="pager__item" href="index-5.html">5</a>
+  <a class="pager__nav" href="index-5.html">下一页</a>
 </nav>
 </main>
 </body>

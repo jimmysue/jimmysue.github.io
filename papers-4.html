@@ -46,21 +46,68 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 28 篇论文精读。</p>
+<p class="page__intro">共 31 篇论文精读。</p>
 <div class="post-grid">
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2024-09-25</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/molmo-2024/index.html">Molmo &amp; PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力</a></h3>
-  <p class="post-card__tldr">AllenAI + UW (arXiv 2409.17146, 2024/09)。当时最强开源 VLM 几乎都靠蒸馏 GPT-4V 合成数据,等于把闭源模型「偷」进开源。Molmo 反其道:**全程不用任何 VLM 生成训练数据**,核心是一套叫 PixMo 的自采数据集。最大创新是 **PixMo-Points**——让未受训标注员「点」图中物体 (语音描述 + 逐实例点击),收了 **2.3M question-point 对 / 223k 图**。Pointing 在 Molmo 里有三个用途:(1) 按文字指代去**点**物体;(2) **数数靠点**——把点序列当成一条 chain-of-thought,逐个点完再求和,counting 直接屠榜;(3) 把点当**视觉解释**塞进回答。模型把点输出成归一化到 0–100 的纯文本坐标 `&lt;point x=&quot;63.5&quot; y=&quot;44.5&quot; alt=&quot;Mt. Rainier&quot;&gt;Mt. Rainier&lt;/point&gt;`。架构是标准 ViT + connector + LLM,但有两个干净的工程点:**overlapping multi-crop** 解决裁剪边界丢上下文,**2×2 mean-query attention pooling** 压视觉 token。72B 版本学术 benchmark 第一、人评仅次于 GPT-4o,counting 任务全场最强。本质上,Molmo 是后来 [[locate-anything-2026]] (bbox 作 first-class **输出**) 和 [[thinking-visual-primitives-2026]] (primitives 作 first-class **思维**) 的共同祖先——这两篇 2026 的工作都直接拿 PixMo/Molmo 当 grounding 数据来源。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/asymflow-2026/index.html">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</a></h3>
+  <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2024-04-11</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-v2-2024/index.html">Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛</a></h3>
+  <p class="post-card__tldr">Ferret-v2 是 Ferret 的重大升级,三招破解&quot;固定低分辨率编码器看不清小物体&quot;:(1) any-resolution——把大图切成子块各自编码,保住 CLIP 预训练知识;(2) 多粒度双编码器——全局图用 CLIP 抓语义、局部块用 DINOv2 抓细节;(3) 三阶段训练,中间插一个&quot;高分辨率密集对齐&quot;阶段。
+它把 [[ferret-2023|Ferret]] 的输入侧 grounding 推到高分辨率密集感知,也是 Ferret-UI 屏幕理解的技术底座。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
-      <a class="tag-chip" href="concepts/pointing.html">pointing</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
+      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
+      <a class="tag-chip" href="concepts/any-resolution.html">any-resolution</a>
+      <a class="tag-chip" href="concepts/multi-granularity-encoding.html">multi-granularity-encoding</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2023-10-11</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-2023/index.html">Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型</a></h3>
+  <p class="post-card__tldr">Ferret 用「混合区域表示」（离散坐标 + 连续特征）把用户圈的任意形状区域（点/框/涂鸦/自由形状）编码进 LLM 输入，同时在输出端把名词后接坐标实现定位——一个模型统一了 referring（区域→语义）和 grounding（语义→区域）。
+它是 LISA「文本→掩码」的**输入侧对偶**：LISA 解决&quot;想哪打哪&quot;的输出，Ferret 解决&quot;圈哪问哪&quot;的输入。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
+      <a class="tag-chip" href="concepts/region-input.html">region-input</a>
+      <a class="tag-chip" href="concepts/hybrid-region-representation.html">hybrid-region-representation</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2023-08-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/lisa-2023/index.html">LISA：用大语言模型做「推理分割」</a></h3>
+  <p class="post-card__tldr">LISA 给多模态大模型加一个 `&lt;SEG&gt;` token，把这个 token 的最后一层隐藏向量当作 SAM 的「文本提示」直接解码成掩码（embedding-as-mask），端到端用 LoRA 训练。
+由此首次让 LLM 能根据「需要推理的隐式指令」输出分割掩码，并开创了一整条 `&lt;SEG&gt;`-token 像素级多模态大模型的研究路线。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/reasoning-segmentation.html">reasoning-segmentation</a>
+      <a class="tag-chip" href="concepts/embedding-as-mask.html">embedding-as-mask</a>
+      <a class="tag-chip" href="concepts/multimodal-llm.html">multimodal-llm</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>
 </div>

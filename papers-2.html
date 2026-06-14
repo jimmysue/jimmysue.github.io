@@ -46,8 +46,22 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 28 篇论文精读。</p>
+<p class="page__intro">共 31 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/worldforge-2026/index.html">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</a></h3>
+  <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -156,20 +170,6 @@
       <a class="tag-chip" href="concepts/llm.html">llm</a>
       <a class="tag-chip" href="concepts/alignment.html">alignment</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/qwen-image-2-2026/index.html">Qwen-Image-2.0 Technical Report</a></h3>
-  <p class="post-card__tldr">Qwen 75 人团队:Qwen3-VL 当冻结 condition encoder + MMDiT + 自研 f16c64 高压缩 VAE (latent 体积 4× 少,重建跟 f8c16 持平)。1k token 中文长文本渲染 + RLHF + DMD 4-NFE 蒸馏。LMArena T2I 中文 #1。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/qwen.html">qwen</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </div>
 </div>

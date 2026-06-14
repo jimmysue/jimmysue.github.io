@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉：坐标负责&quot;在哪&quot;，连续特征负责&quot;长啥样&quot;</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 空间感知视觉采样器：把&quot;任意形状&quot;当点云处理</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 输出端：名词后直接吐坐标</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 GRIT 数据集与 Ferret-Bench</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">后续工作谱系（输入侧 region grounding 的对偶线）</a></li>
+    <li class="h3"><a href="#sec-5-5">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Ferret: Refer and Ground Anything Anywhere at Any Granularity</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2023-10-11</strong></span> · <span class="post-meta__paper-date">论文日期: 2023-10-11</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Haoxuan You, Haotian Zhang, Zhe Gan, Xianzhi Du, Bowen Zhang, Zirui Wang, Liangliang Cao, Shih-Fu Chang, Yinfei Yang</span> · <span class="post-meta__venue">ICLR 2024</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2310.07704">arXiv:2310.07704</a> · <a class="post-meta__link" href="https://github.com/apple/ml-ferret">项目页</a> · <a class="post-meta__link" href="https://github.com/apple/ml-ferret">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/referring-grounding.html">referring-grounding</a> <a class="concept-chip" href="../../concepts/region-input.html">region-input</a> <a class="concept-chip" href="../../concepts/hybrid-region-representation.html">hybrid-region-representation</a> <a class="concept-chip" href="../../concepts/spatial-aware-visual-sampler.html">spatial-aware-visual-sampler</a> <a class="concept-chip" href="../../concepts/multimodal-llm.html">multimodal-llm</a> <a class="concept-chip" href="../../concepts/visual-prompt.html">visual-prompt</a> <a class="concept-chip" href="../../concepts/object-hallucination.html">object-hallucination</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="Ferret 的输入指代与输出定位示例">
+  <figcaption>
+    <strong>Fig. 1</strong> — Ferret 把空间理解的两半合到一个模型里。<strong>左（输入指代 Referring）</strong>：用户用点/框/任意自由形状圈出 <code>region0</code>，问"这块区域里是什么动物"。<strong>右（输出定位 Grounding）</strong>：Ferret 回答时把每个可定位名词后面紧跟坐标框 <code>[box0]</code>。下例还能基于圈出的食物区域做带定位的多步推理（turkey/cheese/knife 各自标框）。（论文 Fig. 1）
+  </figcaption>
+</figure>
+<blockquote>
+<p>上一篇 <a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 解决的是<strong>输出</strong>：文本 → 掩码（&quot;想哪打哪&quot;）。Ferret 解决的是<strong>对偶的输入</strong>：区域 → 语义（&quot;圈哪问哪&quot;）。你终于可以在图上画一笔，问&quot;这玩意儿是什么、怎么用&quot;。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>空间理解有两个互为对偶的能力:</p>
+<ul>
+<li><strong>Referring（指代）</strong>：给定一块区域,模型要读懂它的语义——&quot;这块[region0]是什么&quot;。</li>
+<li><strong>Grounding（定位）</strong>：给定一句描述,模型要框出对应区域——&quot;corgi 在哪&quot; → <code>corgi [box0]</code>。</li>
+</ul>
+<p>论文的核心观察：<strong>这两件事需要的是同一种知识</strong>——空间与语义的对齐。可现有工作几乎都把它们<strong>分开学</strong>（指代分割一套、检测定位一套）。而人类能从一个任务学到的东西无缝迁移到另一个,还能把指代/定位自然糅进日常对话和推理里。</p>
+<p>于是论文盯住三个问题:</p>
+<ol>
+<li><strong>能否在一个框架里统一指代和定位,且让两者互相增益?</strong></li>
+<li><strong>怎么表示人类真正会用的&quot;各种形状&quot;的区域?</strong>——不只是点和框,还有涂鸦、划线、多边形、自由形状。</li>
+<li><strong>怎么让指代/定位是开放词表、可指令跟随、且鲁棒的?</strong></li>
+</ol>
+<p>痛点很具体:之前的 Kosmos-2、Shikra、GPT4RoI、PVIT 等<strong>只支持框</strong>(Shikra 多了点),都没法处理自由形状。而框有个根本缺陷——<strong>两个形状迥异的物体可能共享几乎相同的框</strong>:</p>
+<blockquote>
+<p>论文 Fig. 2 的例子:一把<strong>手枪</strong>和一把<strong>刀</strong>叠放,二者的外接框几乎完全重合。只给框,模型根本分不清你指的是哪个。必须有一种能贴合任意形状的区域表示。</p>
+</blockquote>
+<p>Ferret 就是冲着这三个问题来的,并且——按论文自己的说法——是<strong>第一个能处理自由形状区域输入的 MLLM</strong>。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="Ferret 架构：混合区域表示 + 空间感知视觉采样器 + LLM">
+  <figcaption>
+    <strong>Fig. 2</strong> — Ferret 架构。<strong>左</strong>：混合区域表示 = <code>区域名 + [坐标] + &lt;feature&gt;</code>,对点/框/自由形状统一适用;连续特征由<strong>空间感知视觉采样器</strong>产生(采样 → KNN 聚邻 → 融合 → 池化的点云式级联)。<strong>右</strong>：图像编码器 + 采样器 + LLM 联合建模图像、文本、区域三种信息;输出时在名词后直接生成坐标 <code>[80, 590, 450, 920]</code> 实现定位。除图像编码器冻结外,其余全部可训。（论文 Fig. 3）
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 直觉：坐标负责&quot;在哪&quot;，连续特征负责&quot;长啥样&quot;</h3>
+<p>只用坐标表示区域,就像用&quot;经纬度&quot;描述一个物体——能定位,但说不清形状(回到手枪/刀的例子)。只用连续特征(像 GPT4RoI 的 RoIAlign),又丢了精确的位置数值,且只能处理矩形框。</p>
+<p>Ferret 的答案是<strong>两者都要</strong>——<strong>混合区域表示 (hybrid region representation)</strong>:</p>
+<div class="math block">
+\[\langle \text{region name} \rangle \;\; \langle \text{coordinates} \rangle \;\; \langle \text{SPE} \rangle\]
+</div>
+<p class="math-translation">—— 翻译：例如 "a cat [100, 50, 200, 300] &lt;SPE&gt;"。前面是区域名(不知道就写 "region"/"area"),中间是离散坐标(负责"在哪"),最后一个占位 token &lt;SPE&gt; 会被一段连续视觉特征替换(负责"长啥样")。这样区域就能像普通词一样混进句子里。</p>
+<p>两个关键设计:</p>
+<ul>
+<li><strong>坐标当普通文本数字处理</strong>:每个坐标量化到 <span class="math inline">\(n_{bins}=1000\)</span> 个离散桶里,但<strong>不引入任何新词表 token</strong>(区别于 Pix2Seq / Kosmos-2 那种专门的 location token)。量化是&quot;输入无关&quot;的——任意输入分辨率都映射到同一套坐标,所以对分辨率鲁棒。</li>
+<li><strong>占位 token 承载连续特征</strong>:<code>&lt;SPE&gt;</code> 这个位置的 embedding,会被空间感知视觉采样器抽出的区域特征替换。</li>
+</ul>
+<h3 id="sec-2-2">2.2 空间感知视觉采样器：把&quot;任意形状&quot;当点云处理</h3>
+<p>怎么从一个<strong>任意形状</strong>的区域里抽特征?卷积、patch attention 这种网格化操作处理不了不规则形状。论文的灵感来自 <strong>3D 点云学习</strong>(PointNet++ / PointMLP)——点云本来就是不规则、稀疏度不均的。</p>
+<p>给定图像特征图 <span class="math inline">\(Z \in \mathbb{R}^{H \times W \times C}\)</span> 和区域二值掩码 <span class="math inline">\(M\)</span>,流程是:</p>
+<ol>
+<li>在掩码 <span class="math inline">\(M\)</span> 内<strong>随机采 <span class="math inline">\(N=512\)</span> 个正点</strong>,每个点的特征用双线性插值得到;</li>
+<li>级联两个 block,每个 block 三步——<strong>采样 → 聚集 → 池化</strong>:
+<ul>
+<li><strong>采样</strong>:用最远点采样 (FPS) 选 <span class="math inline">\(N_r\)</span> 个点,保证覆盖均匀;</li>
+<li><strong>聚集</strong>:对每个采样点 <span class="math inline">\(x_i\)</span>,找它的 <span class="math inline">\(k=24\)</span> 个最近邻,按 PointMLP 方式融合邻居特征:</li>
+</ul>
+</li>
+</ol>
+<div class="math block">
+\[h_{ik} = \sigma\big([\,\theta([Z(x_{ik}) - Z(x_i);\, C(x_{ik}) - C(x_i)]);\; Z(x_i);\; C(x_i)\,]\big)\]
+</div>
+<p class="math-translation">—— 翻译：对采样点 x_i 和它的某个邻居 x_ik,把"邻居相对它的特征差 Z(x_ik)−Z(x_i)"和"相对坐标差 C(x_ik)−C(x_i)"拼起来过一层 θ,再和中心点自身的特征 Z(x_i)、坐标 C(x_i) 拼起来过一层 σ。说白了:用"邻居相对中心的位置和特征差异"来刻画这块局部的几何。</p>
+<ul>
+<li><strong>池化</strong>:对 <span class="math inline">\(k\)</span> 个邻居特征做池化,得到该采样点的最终特征:</li>
+</ul>
+<div class="math block">
+\[h_i = \max_{k:\,(x_{ik}) \in \text{KNN of } x_i} h_{ik}\]
+</div>
+<p class="math-translation">—— 翻译：把一个采样点周围 k 个邻居的特征汇成一个(论文公式写的是 max 池化)。两个 block 跑完,512 个点压成 32 个点,每个点都吸收了局部邻域的几何信息。</p>
+<ol start="3">
+<li>最后把 32 个点的特征 flatten 成一个向量,投影到 LLM 的 embedding 维度,<strong>替换掉 <code>&lt;SPE&gt;</code> 占位 token</strong>。</li>
+</ol>
+<p>这套采样器的代码就是标准的点云级联——FPS + KNN + 融合 + 池化:</p>
+<p class="code-source">repo/ferret/model/ferret_arch.py:L276-L317 — 空间感知视觉采样器的两段级联(对应公式 1、2)</p>
+<pre><code class="language-python">for stage_i in range(len(self.num_sub_point)):
+    cur_num_sub_point = self.num_sub_point[stage_i]
+    cur_num_neighbor = self.num_neighbor[stage_i]
+    fps_idx = farthest_point_sample(all_points, cur_num_sub_point).long()   # 采样
+    new_points = index_points(all_points, fps_idx)
+    new_points_fea = index_points(all_points_fea, fps_idx)
+    idx = knn_point(cur_num_neighbor, all_points, new_points)               # 聚集邻居
+    grouped_points = index_points(all_points, idx)
+    grouped_points_fea = index_points(all_points_fea, idx)
+    local_points_fea = torch.cat([grouped_points_fea, grouped_points], dim=-1)
+    anchor_points_fea = torch.cat([new_points_fea, new_points], dim=-1).unsqueeze(-2)
+    diff_points_fea = local_points_fea - anchor_points_fea                  # 相对差(公式1的核心)
+    diff_points_fea = self.diff_projector_list[stage_i](diff_points_fea)
+    gather_points_fea = torch.cat([diff_points_fea, anchor_points_fea.repeat(1,1,cur_num_neighbor,1)], dim=-1)
+    ...
+    gather_points_fea = self.pooler_list[stage_i](gather_points_fea)        # 池化(公式2)
+    all_points, all_points_fea = new_points, gather_points_fea
+x = all_points_fea.flatten(1, -1)
+all_region_fea = self.dim_projector(self.flatten_projector(x))             # → LLM embedding 维度
+</code></pre>
+<h3 id="sec-2-3">2.3 输出端：名词后直接吐坐标</h3>
+<p>输入侧解决了,输出侧的定位更简单:Ferret 在生成文本时,<strong>在每个可定位名词后面直接生成框坐标文本</strong>,比如 &quot;There is a dog [100, 150, 300, 200] in the figure.&quot;。模型隐式地学会&quot;什么是可定位的、它在哪&quot;。注意这里 Ferret 输出的是<strong>框坐标</strong>,不是 <a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 那种像素掩码——这正是后续 GLaMM / Osprey 要补的&quot;输出掩码&quot;那一步。</p>
+<h3 id="sec-2-4">2.4 GRIT 数据集与 Ferret-Bench</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-grit.png" alt="GRIT 数据集的五类数据：物体、关系、区域、细节+推理、鲁棒性">
+  <figcaption>
+    <strong>Fig. 3</strong> — GRIT 数据集概览。三大来源、五类数据:<strong>物体 / 关系 / 区域描述</strong>(前三行,由 Visual Genome、RefCOCO、Flickr30k 等公开数据用模板转成指令);<strong>细节+推理</strong>(第四行,GPT 生成);<strong>鲁棒性</strong>(末行,空间负样本挖掘——问图里有没有其实不存在的"cat",逼模型学会说"没有但有 dog [box0]")。每类都覆盖"区域进-文本出 / 文本进-区域出 / 图文区域混合"三种格式。（论文 Fig. 4）
+  </figcaption>
+</figure>
+<ul>
+<li><strong>GRIT</strong>(Ground-and-Refer Instruction-Tuning):<strong>110 万</strong>条多模态对话。三类来源——(i) 把现成视觉任务(检测、短语定位、Visual Genome)用模板转成指令格式;(ii) 用 ChatGPT/GPT-4 生成 <strong>34K</strong> 条带指代-定位的对话;(iii) <strong>空间负样本挖掘 95K</strong> 条(问图里有没有某个其实不存在的物体),专治幻觉。还用 GLIPv2 把 LLaVA-158k 里的名词自动框出来,做成&quot;伪定位&quot;数据。
+<blockquote>
+<p>⚠️ <strong>命名坑</strong>:Ferret 的 GRIT 是 <em>Ground-and-Refer Instruction-Tuning</em>(1.1M 指令);Kosmos-2 的 GRIT 是 <em>GRounded Image-Text pairs</em>(~91M 网络图文对)。同名不同物,引用时务必区分。</p>
+</blockquote>
+</li>
+<li><strong>Ferret-Bench</strong>:三个全新任务——指代描述 (Referring Description)、指代推理 (Referring Reasoning)、对话中定位 (Grounding in Conversation),用 GPT-4 当裁判。</li>
+</ul>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>① 在&quot;需要指代+推理&quot;的对话任务上大幅领先。</strong> Ferret-Bench(GPT-4 评判,越高越好):</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>指代描述</th>
+<th>指代推理</th>
+<th>对话中定位</th>
+<th>平均</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLaVA</td>
+<td>41.4</td>
+<td>31.7</td>
+<td>28.8</td>
+<td>34.0</td>
+</tr>
+<tr>
+<td>Kosmos-2</td>
+<td>51.8</td>
+<td>33.7</td>
+<td>48.4</td>
+<td>44.6</td>
+</tr>
+<tr>
+<td>Shikra-7B</td>
+<td>46.0</td>
+<td>41.6</td>
+<td>50.1</td>
+<td>45.9</td>
+</tr>
+<tr>
+<td><strong>Ferret-7B</strong></td>
+<td><strong>68.7</strong></td>
+<td><strong>67.3</strong></td>
+<td><strong>57.5</strong></td>
+<td><strong>64.5</strong></td>
+</tr>
+<tr>
+<td><strong>Ferret-13B</strong></td>
+<td><strong>70.6</strong></td>
+<td><strong>68.7</strong></td>
+<td><strong>59.7</strong></td>
+<td><strong>66.3</strong></td>
+</tr>
+</tbody>
+</table>
+<p>比最强基线 Shikra 平均高 <strong>+20.4%</strong>(64.5 vs 45.9),指代推理一项几乎翻倍。</p>
+<p><strong>② 指代和定位真的互相增益(验证 Q1)。</strong> 消融(Table 8):去掉定位数据,指代精度从 Point 67.9→65.4、Box 79.4→75.6;去掉指代数据,定位 Flickr30k 80.4→79.8。<strong>两半合起来训,两边都更好</strong>——这是论文最重要的立论。</p>
+<p><strong>③ 采样器比 SEEM 的更适合自由形状(验证 Q2)。</strong> Table 9:Ferret 的空间感知采样器在自由形状指代上 69.8,优于 SEEM 的采样器 68.9;点、框上也更好。</p>
+<p><strong>④ 显著缓解物体幻觉。</strong> POPE 幻觉基准 accuracy:Ferret <strong>90.24</strong> vs Shikra 86.90 vs LLaVA 50.37。空间负样本挖掘起了作用——模型更敢说&quot;图里没有&quot;。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p>把论文落到 <code>apple/ml-ferret</code> 代码,有几处只读论文看不到:</p>
+<p><strong>① 占位 token 论文叫 <code>&lt;SPE&gt;</code>,代码叫 <code>&lt;region_fea&gt;</code>。</strong> 和 LISA 的 <code>&lt;SEG&gt;</code>/<code>[SEG]</code> 一模一样的对不上:</p>
+<p class="code-source">repo/ferret/model/ferret_arch.py:L24, L632-L633 — 占位 token 的真名与注册</p>
+<pre><code class="language-python">DEFAULT_REGION_FEA_TOKEN = &quot;&lt;region_fea&gt;&quot;
+...
+num_region_fea_tokens = tokenizer.add_tokens([DEFAULT_REGION_FEA_TOKEN], special_tokens=True)
+self.config.im_region_fea_token = tokenizer.convert_tokens_to_ids([DEFAULT_REGION_FEA_TOKEN])[0]
+</code></pre>
+<p><strong>② &quot;不引入新词表&quot;这句话只对坐标成立,对连续特征不成立。</strong> 论文第 1 节脚注说 &quot;no additional vocabulary or position encoders introduced&quot;。严格讲这只对<strong>坐标</strong>为真(坐标是纯数字文本 token);上面 L632 明明给词表<strong>加了一个</strong> <code>&lt;region_fea&gt;</code> 特殊 token。准确的说法是:<strong>坐标零新词表,但连续特征路径加了一个占位 token</strong>。</p>
+<p><strong>③ 区域特征注入 = 输入侧的 <code>&lt;SEG&gt;</code> 镜像。</strong> 这是和 LISA 最值得对照的一行。LISA 在<strong>输出</strong>时取 <code>&lt;SEG&gt;</code> 的隐藏向量喂给 SAM;Ferret 在<strong>输入</strong>时,把采样器算出的区域特征<strong>写回</strong> <code>&lt;region_fea&gt;</code> 占位 token 的 embedding:</p>
+<p class="code-source">repo/ferret/model/ferret_arch.py:L567-L572 — 用区域特征替换 &lt;region_fea&gt; 占位 token 的 embedding</p>
+<pre><code class="language-python">if region_flag and region_features[batch_idx] is not None:
+    region_embs = torch.zeros_like(text_input_embeds)
+    region_replace_mask = (cur_input_ids == self.config.im_region_fea_token)
+    region_embs[region_replace_mask] = region_features[batch_idx].to(text_input_embeds.dtype)
+    text_input_embeds = text_input_embeds * (~region_replace_mask).to(text_input_embeds.dtype)[:, None] + region_embs
+</code></pre>
+<blockquote>
+<p>一句话对照:<strong>LISA 是&quot;LLM 吐一个 token,解码成掩码&quot;;Ferret 是&quot;把区域编码成一个 token,塞进 LLM&quot;。</strong> 同一个&quot;token 当桥&quot;的思想,方向相反。</p>
+</blockquote>
+<p><strong>④ 论文公式 2 写 max 池化,代码默认却是 mean 池化。</strong> <code>GeoRegionSampler</code> 的 <code>pooler_mode</code> 默认 <code>'mean'</code>(用 <code>AvgPool1d</code>),而论文公式 (2) 写的是 <span class="math inline">\(\max\)</span>。这是一处 paper-vs-code 不一致——实际训练用的配置可能覆盖成别的,但<strong>默认实现与公式不符</strong>,复现时要留意:</p>
+<p class="code-source">repo/ferret/model/ferret_arch.py:L185, L202-L205 — 池化模式默认 mean,与论文公式 2 的 max 不符</p>
+<pre><code class="language-python">def __init__(self, ..., pooler_mode='mean'):     # 默认 mean,非论文的 max
+    ...
+    if pooler_mode == 'mean':
+        self.pooler_list.append(nn.AvgPool1d(kernel_size=num_neighbor[ii]))
+    elif pooler_mode == 'max':
+        self.pooler_list.append(nn.AdaptiveMaxPool1d(output_size=1))
+</code></pre>
+<p><strong>⑤ 最远点采样 (FPS) 是纯 PyTorch 串行实现。</strong> 没有用 CUDA kernel,就是一个 <code>for</code> 循环逐点迭代选最远点——区域多、点多时会偏慢:</p>
+<p class="code-source">repo/ferret/model/ferret_arch.py:L73-L92 — FPS 的串行实现</p>
+<pre><code class="language-python">def farthest_point_sample(xyz, npoint):
+    B, N, C = xyz.shape
+    centroids = torch.zeros(B, npoint, dtype=torch.long).to(device)
+    distance = torch.ones(B, N).to(device) * 1e10
+    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
+    for i in range(npoint):
+        centroids[:, i] = farthest
+        centroid = xyz[batch_indices, farthest, :].view(B, 1, 2)
+        dist = torch.sum((xyz - centroid) ** 2, -1)
+        distance = torch.min(distance, dist)
+        farthest = torch.max(distance, -1)[1]
+    return centroids
+</code></pre>
+<p><strong>⑥ 除图像编码器外全部可训。</strong> CLIP-ViT-L/14 冻结,采样器、投影层、LLM(Vicuna)全量微调——注意这里<strong>不是</strong> LISA 那种 LoRA,Ferret 是全量微调 LLM。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>把&quot;区域表示&quot;这件事想透了</strong>:hybrid = 离散坐标(精确位置) + 连续特征(任意形状),同时占住&quot;坐标即文本&quot;(无新词表)和&quot;区域即特征&quot;(贴合形状)两个阵营的优点。这是 Ferret 最持久的贡献。</li>
+<li><strong>指代+定位互益的实证</strong>:不是口号,有 Table 8 的消融撑着——统一训练确实双赢。</li>
+<li><strong>第一个吃自由形状输入的 MLLM</strong>:点/框/涂鸦/多边形/掩码通吃,把人机交互的输入面打开了。</li>
+<li><strong>数据与评测的完整性</strong>:GRIT(含 95K 负样本)+ Ferret-Bench,后来被一票区域 MLLM 当 baseline。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>输出只到框,不到像素</strong>:Ferret 定位输出的是 bounding box 坐标,不是掩码。要像素级精度得靠 <a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 那条线(<code>&lt;SEG&gt;</code>→SAM)。GLaMM/AnyRef/Sa2VA 把&quot;输入区域 + 输出掩码&quot;两头都补上了。</li>
+<li><strong>采样器偏重、FPS 串行</strong>:点云式采样 + 纯 PyTorch FPS,区域一多就慢;且采样器引入了不少超参(N=512、k=24、2 block)。</li>
+<li><strong>固定低分辨率 (336px)</strong>:CLIP-ViT-L/14 的输入分辨率,对小物体/密集场景不友好——这正是 <strong>Ferret-v2</strong> 要解决的(any-resolution)。</li>
+<li><strong>坐标回归的精度天花板</strong>:把框写成文本数字,精度受限于 token 化与量化桶;后来 Groma/ChatRex 干脆把定位&quot;外包&quot;给区域提议器,避开坐标回归。</li>
+<li><strong>paper-vs-code 小坑</strong>:<code>&lt;SPE&gt;</code>/<code>&lt;region_fea&gt;</code> 命名不一致、池化默认 mean 与公式 max 不符——复现要小心。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>:需要&quot;用户圈一块区域 → 模型理解/对话&quot;的交互(标注辅助、视觉问答、UI/截图理解);需要带定位的多模态对话;在意物体幻觉的场景。</li>
+<li><strong>不适合</strong>:要像素级掩码输出(用 LISA 线);对延迟极敏感(采样器+全量 LLM 重);只需纯框检测(专用检测器更省)。</li>
+</ul>
+<h3 id="sec-5-4">后续工作谱系（输入侧 region grounding 的对偶线）</h3>
+<blockquote>
+<p>这是本文重点。把区域&quot;喂进&quot; MLLM,历史上有两条机制,Ferret 是它们的合流点;之后又长出 Apple 自己的高分辨率/UI 分支,以及&quot;输入区域+输出掩码&quot;的双向线。下表 arxiv id 均逐条核验。</p>
+</blockquote>
+<p><strong>两种区域表示机制,以及 Ferret 的位置</strong></p>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>区域 = 什么</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>(a) 坐标即文本/token</strong></td>
+<td>一串数字写进文本流</td>
+<td>Shikra(<code>2306.15195</code>,纯十进制文本)、Kosmos-2(<code>2306.14824</code>,离散 location token)</td>
+</tr>
+<tr>
+<td><strong>(b) 连续区域特征</strong></td>
+<td>一个池化/采样出的特征向量</td>
+<td>GPT4RoI(<code>2307.03601</code>,RoIAlign)、PVIT(<code>2308.13437</code>,区域编码器)、RegionGPT(<code>2403.02330</code>,掩码池化)</td>
+</tr>
+<tr>
+<td><strong>(a)+(b) 混合</strong></td>
+<td>坐标 ∥ 连续特征,<strong>同一个区域 token 两者都给</strong></td>
+<td><strong>Ferret</strong>——且唯一支持自由形状输入</td>
+</tr>
+<tr>
+<td><strong>(c) 视觉提示叠加</strong></td>
+<td>直接在像素上画框/箭头/涂鸦</td>
+<td>ViP-LLaVA(<code>2312.00784</code>)</td>
+</tr>
+<tr>
+<td><strong>(d) 提议+索引</strong></td>
+<td>区域提议器出框,LLM 选 index</td>
+<td>Groma(<code>2404.13013</code>)、ChatRex(<code>2411.18363</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>A. Apple 直系</strong></p>
+<ul>
+<li><strong>Ferret-v2</strong>(<code>2404.07973</code>,COLM24):三个升级——<strong>any-resolution</strong>(保宽高比切片,替掉固定 336px)、<strong>多粒度视觉编码</strong>(CLIP 之外加 DINOv2 抓细粒度)、三阶段训练。把 Ferret 推到高分辨率密集感知。</li>
+<li><strong>Ferret-UI</strong>(<code>2404.05719</code>,ECCV24):把 Ferret 搬到<strong>手机 UI 屏幕</strong>,加 &quot;any resolution&quot; 子图切分放大小图标/文字,配 UI 任务指令集(控件分类、图标识别、OCR、找控件、点击目标定位),报告超过 GPT-4V 的 UI 能力。这条线后来喂养了整个 <strong>GUI agent grounding</strong> 方向(SeeClick、ScreenSpot、UI-TARS,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
+<li><strong>Ferret-UI 2</strong>(<code>2410.18967</code>):从手机推广到 <strong>iPhone/Android/iPad/Web/AppleTV 五平台</strong>,自适应高分辨率 + GPT-4o set-of-mark 数据生成,跨平台迁移。</li>
+</ul>
+<p><strong>B. 输入区域 + 输出掩码(双向 grounding)</strong>——补 Ferret&quot;只输出框&quot;的短板</p>
+<ul>
+<li><strong>GLaMM</strong>(<code>2311.03356</code>,CVPR24):接受文本<strong>和可选视觉提示</strong>输入,输出交错的文本 <strong>+ 分割掩码</strong>(Grounded Conversation Generation),配超大 GranD 数据。最被引的双向工作。</li>
+<li><strong>Osprey</strong>(<code>2312.10032</code>,CVPR24):<strong>掩码作为输入</strong>(mask-pooling 区域特征)做像素级理解——最贴近&quot;mask 输入&quot;的对偶。</li>
+<li><strong>AnyRef</strong>(<code>2403.02969</code>,CVPR24):输入扩到<strong>文本/框/图像/音频</strong>四模态,输出掩码 + 区域表达。</li>
+<li><strong>OMG-LLaVA</strong>(<code>2406.19389</code>,NeurIPS24):用通用分割模型 OMG-Seg 当视觉前端,一套模型贯通 image/object/pixel,接受视觉提示、输出掩码。</li>
+<li><strong>Sa2VA</strong>(<code>2501.04001</code>,2025):LLaVA + <strong>SAM-2</strong>,把双向 grounding 推到<strong>视频</strong>(referring VOS),配 Ref-SAV 数据。</li>
+</ul>
+<p><strong>C. 同期输入侧家族</strong>(都只支持框/点,Ferret 用自由形状区分自己):GPT4RoI(RoIAlign 框)、Shikra(坐标文本,点+框)、Kosmos-2(location token,框)、PVIT(区域编码器,框)、ChatSpot(<code>2307.09474</code>,点/框提示)、Groma(提议+region token)、SPHINX(<code>2311.07575</code>,多任务混合)。</p>
+<p><strong>一句话趋势(2023→2026)</strong>:区域表示从&quot;坐标即文本&quot;(Shikra/Kosmos-2,精度有天花板)→&quot;连续区域特征&quot;(GPT4RoI/PVIT,只到框)→ <strong>Ferret 的混合 + 自由形状</strong>(两条线合流)→ 输出端从框升级到掩码(Osprey/GLaMM/Sa2VA)、输入端升级到高分辨率与 UI(Ferret-v2/Ferret-UI)。到 2025,定位机制基本收敛到两个赢家:<strong>掩码 token + 基座分割器</strong>(LISA→GLaMM→Sa2VA)和<strong>提议+索引</strong>(Groma/ChatRex);而 Ferret 的&quot;混合区域 token&quot;则被直接继承进<strong>任意分辨率密集感知</strong>与<strong>任意形状输入</strong>。</p>
+<h3 id="sec-5-5">Further reading</h3>
+<ul>
+<li>输出侧对偶:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">lisa-2023</a>(文本→掩码,<code>&lt;SEG&gt;</code> embedding-as-mask)。</li>
+<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 Shikra/Kosmos-2/GUI 线)、<a class="wiki-link" data-slug="q-ground-2024" href="../q-ground-2024/index.html">q-ground-2024</a>。</li>
+<li>综述与清单:<code>github.com/mc-lan/Awesome-MLLM-Segmentation</code>。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
