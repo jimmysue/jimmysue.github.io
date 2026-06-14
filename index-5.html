@@ -51,33 +51,29 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2023-10-11</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-2023/index.html">Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型</a></h3>
-  <p class="post-card__tldr">Ferret 用「混合区域表示」（离散坐标 + 连续特征）把用户圈的任意形状区域（点/框/涂鸦/自由形状）编码进 LLM 输入，同时在输出端把名词后接坐标实现定位——一个模型统一了 referring（区域→语义）和 grounding（语义→区域）。
-它是 LISA「文本→掩码」的**输入侧对偶**：LISA 解决&quot;想哪打哪&quot;的输出，Ferret 解决&quot;圈哪问哪&quot;的输入。
-</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/awm-2025/index.html">Advantage Weighted Matching: 把扩散模型 RL 拽回到预训练目标</a></h3>
+  <p class="post-card__tldr">UCAS + Adobe + HKU + MIT。一个定理 + 一个简单替换:DDPO/Flow-GRPO 那套 per-step 高斯似然其实是 noisy-$x_s$ 上的 DSM,多出 $d\cdot\kappa(s,t)$ 的目标向量方差,这是它收敛慢的根。AWM 把 RL surrogate 直接换回预训练用的 flow matching loss × advantage,decouple sampler/training,SD3.5-M 上 OCR 23.6× / GenEval 8× / PickScore 10× 加速,同质量。但 release 代码里 $\beta$、$w(t)$、EMA 自蒸馏三处跟论文不一致。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
-      <a class="tag-chip" href="concepts/region-input.html">region-input</a>
-      <a class="tag-chip" href="concepts/hybrid-region-representation.html">hybrid-region-representation</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/grpo.html">grpo</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2023-08-01</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/lisa-2023/index.html">LISA：用大语言模型做「推理分割」</a></h3>
-  <p class="post-card__tldr">LISA 给多模态大模型加一个 `&lt;SEG&gt;` token，把这个 token 的最后一层隐藏向量当作 SAM 的「文本提示」直接解码成掩码（embedding-as-mask），端到端用 LoRA 训练。
-由此首次让 LLM 能根据「需要推理的隐式指令」输出分割掩码，并开创了一整条 `&lt;SEG&gt;`-token 像素级多模态大模型的研究路线。
-</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/asymflow-2026/index.html">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</a></h3>
+  <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/reasoning-segmentation.html">reasoning-segmentation</a>
-      <a class="tag-chip" href="concepts/embedding-as-mask.html">embedding-as-mask</a>
-      <a class="tag-chip" href="concepts/multimodal-llm.html">multimodal-llm</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
 </div>

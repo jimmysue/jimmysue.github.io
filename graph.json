@@ -321,9 +321,9 @@
       "id": "tutorials/vlm-benchmarks-2024",
       "type": "tutorial",
       "slug": "vlm-benchmarks-2024",
-      "title": "VLM 评测 Benchmark 全景:一次看懂业界的「北极星指标」",
+      "title": "VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分",
       "date": "2026-06-14",
-      "tldr": "8 节螺旋结构系统讲透业界 VLM(视觉语言模型)评测 benchmark 的三层地图:通用能力(MMMU/MMBench/MME/SEED-Bench)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。从「分数怎么算出来」(答案提取 + CircularEval)讲到五大指标族(accuracy / relaxed accuracy / ANLS / F1 / IoU·AP / AUROC·PRO·mIoU),每个 benchmark 讲清测什么、指标怎么算、各家把哪个分数当「北极星」。专章拆穿榜单虚高(POPE 幻觉、MMStar 视觉冗余与数据泄漏)。代码 verbatim 引自 open-compass/VLMEvalKit 与 openvinotoolkit/anomalib。读者:VLM 小白。\n",
+      "tldr": "业界常见 VLM(视觉语言模型)评测 benchmark 的速查目录,按三层组织:通用能力(MMMU/MMBench/MME/SEED-Bench)、会读图会算(DocVQA/ChartQA/TextVQA/AI2D/MathVista)、幻觉与诚实(POPE/HallusionBench/MMStar)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。每个 benchmark 做成卡片:测什么能力、测试方法、一个样题(题型示意)、模型如何被喂入+生成+提取+打分、用什么指标。§1 先讲清「任何 VLM 被测试的通用流水线」。真实评分代码 verbatim 引自 open-compass/VLMEvalKit 与 openvinotoolkit/anomalib。\n",
       "url": "tutorials/vlm-benchmarks-2024/index.html"
     },
     {
@@ -1652,12 +1652,12 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/ferret-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -1742,7 +1742,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1752,17 +1757,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1887,12 +1887,12 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/locate-anything-2026",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -1982,12 +1982,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1997,7 +1997,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2047,12 +2047,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2102,12 +2102,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2182,12 +2182,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -2357,7 +2357,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -2367,7 +2367,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2492,12 +2492,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -2612,12 +2612,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -2762,12 +2762,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {

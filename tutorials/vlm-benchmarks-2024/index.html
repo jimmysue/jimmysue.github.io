@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <title>VLM 评测 Benchmark 全景:一次看懂业界的「北极星指标」</title>
+  <title>VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</title>
   <link rel="stylesheet" href="../../assets/style.css">
   <script>
     window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
@@ -79,225 +79,106 @@
 <nav class="toc" aria-label="目录">
   <div class="toc-title">目录 / TOC</div>
   <ul>
-    <li class="h2"><a href="#sec-1">1. 为什么需要 benchmark,以及什么是「北极星指标」</a></li>
-    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
-    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
-    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
-    <li class="h2"><a href="#sec-2">2. 评分的地基:多选题、答案提取与 Circular Eval</a></li>
-    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
-    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
-    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
-    <li class="h2"><a href="#sec-3">3. 通用能力综合卷:MMMU / MMBench / MME / SEED-Bench</a></li>
-    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
-    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
-    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
-    <li class="h2"><a href="#sec-4">4. 会读图会算:VQA 家族与 MathVista</a></li>
-    <li class="h3"><a href="#sec-4-1">4.1 直觉</a></li>
-    <li class="h3"><a href="#sec-4-2">4.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-4-3">4.3 正式化</a></li>
-    <li class="h3"><a href="#sec-4-4">4.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-4-5">4.5 洞察</a></li>
-    <li class="h2"><a href="#sec-5">5. 幻觉与「视觉到底有没有用」:POPE / HallusionBench / MMStar</a></li>
-    <li class="h3"><a href="#sec-5-1">5.1 直觉</a></li>
-    <li class="h3"><a href="#sec-5-2">5.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-5-3">5.3 正式化</a></li>
-    <li class="h3"><a href="#sec-5-4">5.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-5-5">5.5 洞察</a></li>
-    <li class="h2"><a href="#sec-6">6. Grounding 定位:RefCOCO / LVIS / ScreenSpot / PixMo-Points</a></li>
-    <li class="h3"><a href="#sec-6-1">6.1 直觉</a></li>
-    <li class="h3"><a href="#sec-6-2">6.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-6-3">6.3 正式化</a></li>
-    <li class="h3"><a href="#sec-6-4">6.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-6-5">6.5 洞察</a></li>
-    <li class="h2"><a href="#sec-7">7. 细节 / 瑕疵:MVTec-AD / VisA / QGround</a></li>
-    <li class="h3"><a href="#sec-7-1">7.1 直觉</a></li>
-    <li class="h3"><a href="#sec-7-2">7.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-7-3">7.3 正式化</a></li>
-    <li class="h3"><a href="#sec-7-4">7.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-7-5">7.5 洞察</a></li>
-    <li class="h2"><a href="#sec-8">8. 各家北极星对照、怎么读 leaderboard,以及什么时候得自建</a></li>
-    <li class="h3"><a href="#sec-8-1">8.1 直觉</a></li>
-    <li class="h3"><a href="#sec-8-2">8.2 最小 demo</a></li>
-    <li class="h3"><a href="#sec-8-3">8.3 正式化</a></li>
-    <li class="h3"><a href="#sec-8-4">8.4 代码引用</a></li>
-    <li class="h3"><a href="#sec-8-5">8.5 洞察 + 给小白的 checklist</a></li>
-    <li class="h2"><a href="#sec-9">参考文献与数据集</a></li>
-    <li class="h3"><a href="#sec-9-1">通用能力 benchmark</a></li>
-    <li class="h3"><a href="#sec-9-2">会读图会算 / VQA</a></li>
-    <li class="h3"><a href="#sec-9-3">幻觉 / 诚实</a></li>
-    <li class="h3"><a href="#sec-9-4">Grounding 定位</a></li>
-    <li class="h3"><a href="#sec-9-5">细节 / 瑕疵</a></li>
-    <li class="h3"><a href="#sec-9-6">综述与评测框架</a></li>
+    <li class="h2"><a href="#sec-1">1. 一个 VLM 是怎么被测试的:通用评测流水线</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 五步流水线</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 一个评测循环的最小骨架</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 被低估的第④步:答案提取与 CircularEval</a></li>
+    <li class="h2"><a href="#sec-2">2. 通用能力层:MMMU / MMBench / MME / SEED-Bench</a></li>
+    <li class="h3"><a href="#sec-2-1">MMMU — 大学级跨学科多模态推理</a></li>
+    <li class="h3"><a href="#sec-2-2">MMBench — 中英双语 + 防蒙循环评测</a></li>
+    <li class="h3"><a href="#sec-2-3">MME — yes/no 双问 × 14 子任务</a></li>
+    <li class="h3"><a href="#sec-2-4">SEED-Bench — 大规模多选 12 维度</a></li>
+    <li class="h2"><a href="#sec-3">3. 会读图会算层:DocVQA / ChartQA / TextVQA / AI2D / MathVista</a></li>
+    <li class="h3"><a href="#sec-3-1">DocVQA — 文档图像问答(发票 / 表单 / 合同)</a></li>
+    <li class="h3"><a href="#sec-3-2">ChartQA — 图表问答(柱状 / 折线 / 饼图)</a></li>
+    <li class="h3"><a href="#sec-3-3">TextVQA — 场景文字问答(招牌 / 包装)</a></li>
+    <li class="h3"><a href="#sec-3-4">AI2D — 科学示意图多选理解(生命周期 / 食物链)</a></li>
+    <li class="h3"><a href="#sec-3-5">MathVista — 视觉数学推理(既看懂图又算数)</a></li>
+    <li class="h2"><a href="#sec-4">4. 幻觉与诚实层:POPE / HallusionBench / MMStar</a></li>
+    <li class="h3"><a href="#sec-4-1">POPE — 物体幻觉的二分类探针</a></li>
+    <li class="h3"><a href="#sec-4-2">HallusionBench — 语言幻觉 × 视觉错觉的配对诊断</a></li>
+    <li class="h3"><a href="#sec-4-3">MMStar — 视觉冗余与数据泄漏的体检</a></li>
+    <li class="h2"><a href="#sec-5">5. Grounding 定位层:RefCOCO / LVIS / ScreenSpot / PixMo-Points</a></li>
+    <li class="h3"><a href="#sec-5-1">RefCOCO / RefCOCO+ / RefCOCOg — 指代表达定位(referring expression grounding)</a></li>
+    <li class="h3"><a href="#sec-5-2">LVIS — 长尾词表检测(Large Vocabulary Instance Segmentation)</a></li>
+    <li class="h3"><a href="#sec-5-3">ScreenSpot / ScreenSpot-Pro — GUI/屏幕元素定位</a></li>
+    <li class="h3"><a href="#sec-5-4">PixMo-Points — pointing 指向评测</a></li>
+    <li class="h2"><a href="#sec-6">6. 细节 / 瑕疵层:MVTec-AD / VisA / QGround</a></li>
+    <li class="h3"><a href="#sec-6-1">MVTec-AD — 工业异常检测的黄金基准</a></li>
+    <li class="h3"><a href="#sec-6-2">VisA — 更大更难的像素级异常基准</a></li>
+    <li class="h3"><a href="#sec-6-3">Q-Ground / QGround — 画质失真分割</a></li>
+    <li class="h2"><a href="#sec-7">7. 速查对照表 · 怎么读 leaderboard · 什么时候得自建</a></li>
+    <li class="h3"><a href="#sec-7-1">7.1 一张速查对照表</a></li>
+    <li class="h3"><a href="#sec-7-2">7.2 怎么读一张 leaderboard(三大陷阱)</a></li>
+    <li class="h3"><a href="#sec-7-3">7.3 「头版指标」在代码里是怎么被挑出来的</a></li>
+    <li class="h3"><a href="#sec-7-4">7.4 什么时候你得自建 benchmark</a></li>
+    <li class="h2"><a href="#sec-8">参考文献与数据集</a></li>
+    <li class="h3"><a href="#sec-8-1">通用能力 benchmark</a></li>
+    <li class="h3"><a href="#sec-8-2">会读图会算 / VQA</a></li>
+    <li class="h3"><a href="#sec-8-3">幻觉 / 诚实</a></li>
+    <li class="h3"><a href="#sec-8-4">Grounding 定位</a></li>
+    <li class="h3"><a href="#sec-8-5">细节 / 瑕疵</a></li>
+    <li class="h3"><a href="#sec-8-6">评测框架与综述</a></li>
   </ul>
 </nav>
 <main data-pagefind-body>
-<h1>VLM 评测 Benchmark 全景:一次看懂业界的「北极星指标」</h1>
+<h1>VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</h1>
 <aside class="post-meta">
   <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-14</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-06-14</span> · <span class="post-meta__extra">16k 字</span> · <span class="post-meta__extra">90–120 分钟</span></div>
   <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/open-compass/VLMEvalKit">代码</a> · <a class="post-meta__link" href="https://github.com/openvinotoolkit/anomalib">代码</a></div>
   <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/benchmark.html">benchmark</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/evaluation.html">evaluation</a> <a class="concept-chip" href="../../concepts/hallucination.html">hallucination</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/anomaly-detection.html">anomaly-detection</a> <a class="concept-chip" href="../../concepts/image-quality.html">image-quality</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a></div>
 </aside>
 
-<p>你大概率见过这样的发布会海报:一个新模型「在 MMMU 上拿下 XX 分,超越 GPT-X」。但 MMMU 是什么?这个分数怎么算出来的?为什么是 MMMU 而不是别的?换个 benchmark 它还排第一吗?</p>
-<p><strong>benchmark(基准测试)</strong> 就是把「这个 VLM(Vision-Language Model,能看图又能说话的模型)好不好」这种模糊感觉,压成一个可比较数字的尺子。而每家厂商会从一大堆分数里,挑一个最亮眼的当头版招牌——本教程把这个被反复强调的招牌分数,叫 <strong>北极星指标(North Star metric)</strong>。</p>
-<p>这篇教程面向 VLM 小白,用 8 个螺旋结构章节(每节走「直觉 → 最小 demo → 正式化 → 真实代码引用 → 洞察」五步),系统讲透业界 VLM 评测的<strong>三层地图</strong>:</p>
-<ul>
-<li><strong>通用能力</strong>(§3):跨学科智商测试,北极星是 MMMU。</li>
-<li><strong>会读图会算</strong>(§4):文档 / 图表 / 数学,北极星常是 DocVQA/OCR。</li>
-<li><strong>幻觉与诚实</strong>(§5):专门打假——高分≠真看懂。</li>
-<li><strong>grounding 定位</strong>(§6):从「答对文字」到「指对位置」。</li>
-<li><strong>细节 / 瑕疵</strong>(§7):工业质检 / 画质,另一套完全不同的指标。</li>
-</ul>
-<p>开头两节(§1 北极星框架、§2 评分地基)是全篇地基,最后一节(§8)收束成一张对照表 + 读榜 checklist。代码 verbatim 引自最常用的评测框架 <code>open-compass/VLMEvalKit</code> 与工业异常检测库 <code>openvinotoolkit/anomalib</code>。</p>
-<blockquote>
-<p>阅读提示:每节可独立跳读,关键名词首次出现都会就地解释。所有 arxiv 编号与数字均经核验。</p>
-</blockquote>
-<h2 id="sec-1">1. 为什么需要 benchmark,以及什么是「北极星指标」</h2>
-<h3 id="sec-1-1">1.1 直觉</h3>
-<p>想象高考结束,有人问你考得怎么样。你大概率不会把六科分数一科一科报出来,而是说一句「我数学考了 145」——挑出最拿得出手的那一科,当成你的招牌。VLM(Vision-Language Model,视觉语言模型,即「能看图又能说话」的 AI)的世界也是一样:每个模型发布时,厂商会从一大堆评测分数里,挑一个最亮眼的数字放在头版海报上。这个被反复强调的招牌分数,我们就叫它<strong>北极星指标(North Star metric)</strong>——就像夜空里那颗最显眼、所有人都拿来定方向的星。</p>
-<p>但要先有「分数」,才能有「招牌分数」。**benchmark(基准测试)**就是产生分数的那套考卷:一组固定的图 + 问题 + 标准答案,任何模型来做都用同一套题、同一种判分规则,于是「这个模型好不好」这种模糊感觉,被压缩成一个可以直接比较的数字。没有 benchmark,A 模型说自己「看图很准」,B 模型也说自己「看图很准」,谁也说服不了谁;有了 benchmark,大家在同一张考卷上见高下。</p>
-<p>这些考卷不是只有一种。粗看下来,业界的 VLM benchmark 大致落在<strong>三层地图</strong>上:</p>
-<ul>
-<li><strong>通用能力层</strong>:像跨学科综合卷,测模型整体「智商」(代表:MMMU、MMBench)。</li>
-<li><strong>grounding 定位层</strong>(grounding 指「把语言对应到图里的具体位置」):不只答对文字,还要框对、点对目标在哪(代表:RefCOCO、ScreenSpot)。</li>
-<li><strong>细节 / 瑕疵层</strong>:专挑画面里的微小异常、缺陷(代表:工业质检类 MVTec-AD)。</li>
-</ul>
-<figure><img class="zoomable" src="figures/sec1-three-layers.svg" alt="VLM 评测三层地图"><figcaption>图 1.1 三层 benchmark 地图:通用能力 / grounding 定位 / 细节瑕疵,各有不同的指标尺子。</figcaption></figure>
-<p>三层各用不同的「尺子」(指标),不能混着比。把这些分数排成一张大表,按高低排名,就是你常在新闻里看到的 <strong>leaderboard(排行榜)</strong>——一种「谁是第一」的攀比文化。本节先不钻进任何一类考卷,只回答最朴素的问题:分数到底是怎么算出来的,以及为什么一个数字远远不够。</p>
-<h3 id="sec-1-2">1.2 最小 demo</h3>
-<p>最简单的尺子叫 <strong>accuracy(准确率)</strong>:答对的题数 ÷ 总题数。下面这段玩具代码,给一组模型预测和一组标准答案,直接算出准确率。</p>
-<pre class="teaching-demo"><code class="language-python"># 一份玩具评测:模型的预测 vs 标准答案
-predictions = ["B", "A", "C", "B", "D"]   # 模型选的
-answers     = ["B", "C", "C", "B", "A"]   # 标准答案
-
-def accuracy(preds, gts):
-    assert len(preds) == len(gts)
-    correct = sum(p == g for p, g in zip(preds, gts))
-    return correct / len(gts)
-
-acc = accuracy(predictions, answers)
-print(f"答对 {sum(p == g for p, g in zip(predictions, answers))} / {len(answers)} 题")
-print(f"accuracy = {acc:.2%}")   # -> accuracy = 60.00%
+<p>这是一份<strong>常见 VLM 评测 benchmark 的速查目录</strong>。VLM(Vision-Language Model,能看图又能说话的模型)发布时榜单上密密麻麻几十个名字——MMMU、DocVQA、POPE、RefCOCO、MVTec……它们各测一种能力、各用一套判分规则。本文把它们按<strong>三层</strong>整理成卡片,每个 benchmark 回答五件事:</p>
+<ol>
+<li><strong>测什么能力</strong> —— 它考 VLM 的哪一面?</li>
+<li><strong>测试方法</strong> —— 题型是多选、判断、开放问答,还是输出框/点/掩码?</li>
+<li><strong>测试示例</strong> —— 一道样题长什么样(题型示意)?</li>
+<li><strong>模型如何被测试</strong> —— 图和问题怎么喂进去、模型生成什么、答案怎么被提取、怎么判分?</li>
+<li><strong>指标</strong> —— 用什么数衡量,厂商头版常挂哪个?</li>
+</ol>
+<p>三层地图:</p>
+<figure><img class="zoomable" src="figures/sec1-three-layers.svg" alt="VLM 评测三层地图"><figcaption>图 0.1 三层 benchmark 地图:通用能力 / grounding 定位 / 细节瑕疵,各有不同的指标尺子。</figcaption></figure>
+<p>§1 先讲清所有 benchmark 共享的「模型被测试的通用流水线」;§2–§6 是分层目录;§7 给一张速查对照表 + 读榜 checklist。真实评分代码 verbatim 引自最常用的评测框架 <code>open-compass/VLMEvalKit</code> 与工业异常库 <code>openvinotoolkit/anomalib</code>;所有 arxiv 编号与数字均经核验。</p>
+<h2 id="sec-1">1. 一个 VLM 是怎么被测试的:通用评测流水线</h2>
+<p>在钻进各个 benchmark 之前,先看清一件所有 benchmark 共享的事——<strong>一个 VLM 到底是怎么被「考」的</strong>。不管题型是多选还是画框,评测都走同一条五步流水线。</p>
+<h3 id="sec-1-1">1.1 五步流水线</h3>
+<p>一个 benchmark 本质是一组带标准答案的样本(图 + 问题 + 答案)。评测就是对每条样本依次做:</p>
+<pre><code>① 取样本 (image, question, answer)
+   → ② 拼 prompt(把图和问题/选项组织成模型输入)
+   → ③ 模型前向生成(VLM 吃图+文,吐一段自由文本)
+   → ④ 答案提取(从自由文本里抠出最终答案:选项字母 / 数值 / 坐标 / 掩码)
+   → ⑤ 判分(提取结果与标准答案比对,按该 benchmark 的指标算分)
 </code></pre>
-<p>五道题对了三道,准确率 60%。逻辑朴素到一句话能说完:逐题比对,数对的,再除以总数。真实 benchmark 的判分内核就是这个,只是外面包了一层层「怎么判两个答案算相等」的麻烦——这正是后面几节要拆的。</p>
-<h3 id="sec-1-3">1.3 正式化</h3>
-<p>把上面的玩具放大成可信的评测,需要四个要素缺一不可,我们叫它<strong>评测四要素</strong>:</p>
-<ul>
-<li><strong>数据集(dataset)</strong>:固定的图 + 问题 + 标准答案集合,所有模型考同一套。</li>
-<li><strong>任务格式(task format)</strong>:答案长什么样——单选(ABCD)、是非(yes/no)、还是开放式文字。</li>
-<li><strong>指标(metric)</strong>:把「预测」和「答案」映射成分数的函数,比如 accuracy。</li>
-<li><strong>协议(protocol)</strong>:怎么喂题、怎么从模型回答里抠出最终答案、用哪个数据划分(split)——这层最容易被忽视,却决定了分数能不能横向比较。</li>
-</ul>
-<p>最基础的指标 accuracy 形式化如下:</p>
-<div class="math block">
-\[\text{accuracy} = \frac{1}{N}\sum_{i=1}^{N} \mathbb{1}\big[\hat{y}_i = y_i\big]\]
-</div>
-<p>—— 翻译:把 <span class="math inline">\(N\)</span> 道题逐题判断「模型预测 <span class="math inline">\(\hat{y}_i\)</span> 是否等于标准答案 <span class="math inline">\(y_i\)</span>」,相等记 1 不等记 0(这就是指示函数 <span class="math inline">\(\mathbb{1}[\cdot]\)</span> 的含义),求和再除以题数,得到答对的比例。</p>
-<p>公式里藏着一个魔鬼:<span class="math inline">\(\hat{y}_i = y_i\)</span> 这个「相等」到底怎么判?当答案是干净的 ABCD,相等就是字符串相等;但模型实际会回「我觉得应该选 B,因为图里…」,你得先把 <code>B</code> 从一段话里抠出来。能抠出答案的题占比,要求满足 <span class="math inline">\(i \lt N\)</span> 时每一项都成立,否则分数就失真。所以<strong>协议</strong>和指标同样重要:同一份数据、同一个 accuracy 公式,换一种答案提取协议,分数能差出一大截。这也是为什么不同来源报的「同一个模型在同一 benchmark 上」的分数,有时对不上。</p>
-<h3 id="sec-1-4">1.4 代码引用</h3>
-<p>工程上还有一个细节:一个 benchmark 跑完,往往同时产出好几个数字(分维度的、分 split 的、总分…)。那「北极星」——也就是该填进 leaderboard、该上海报的那个<strong>主指标(primary metric)</strong>——是怎么自动选出来的?VLMEvalKit 的做法是给每个候选指标名打分,取分最高的那个:</p>
-<p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/image_base.py:L17-L51 — VLMEvalKit 如何从一堆指标里自动挑出主指标</p>
-<pre><code class="language-python">def _choose_primary_metric_key(metrics: dict[str, Any]) -&gt; str | None:
-    if not metrics:
-        return None
-
-    scored = []
-    for key in metrics:
-        lower_key = str(key).lower()
-        score = 0
-        if lower_key == 'overall':
-            score = 100
-        elif lower_key.endswith('|overall'):
-            score = 95
-        elif 'overall' in lower_key:
-            score = 90
-        elif lower_key == 'acc' or lower_key.endswith('|acc'):
-            score = 80
-        elif 'acc' in lower_key:
-            score = 70
-        elif lower_key == 'score' or lower_key.endswith('|score'):
-            score = 60
-        elif 'score' in lower_key:
-            score = 50
-
-        if 'split=test' in lower_key:
-            score += 4
-        elif 'split=validation' in lower_key:
-            score += 3
-        elif 'split=val' in lower_key:
-            score += 2
-        elif 'split=dev' in lower_key:
-            score += 1
-        scored.append((score, str(key)))
-
-    scored.sort(key=lambda item: (-item[0], item[1]))
-    return scored[0][1]
-</code></pre>
-<p>对照 §1.3 的概念:这段代码就是「从一组指标里钦定北极星」的程序化版本。优先级清清楚楚——<code>Overall</code>(总分,100 分)优于 <code>Acc</code>(准确率,80 分)优于 <code>Score</code>(泛化分数,50 分),也就是 <strong>Overall 优于 Acc 优于 Score</strong> 的打分逻辑;名字越接近这些关键词,得分越高(完全等于 <code>'overall'</code> 给 100,只是包含 <code>overall</code> 给 90)。最后那几行 <code>split=test/validation/val/dev</code> 的小幅加分(+4/+3/+2/+1),对应的正是 §1.3 说的「协议里的 split 选择」:同样是总分,测试集(test)上的比开发集(dev)上的更可信,于是优先当北极星。一句话:<code>_choose_primary_metric_key</code> 把「该把哪个数字放上海报」这件本来很主观的事,固化成了一套可复现的排序规则。</p>
-<h3 id="sec-1-5">1.5 洞察</h3>
-<ul>
-<li><strong>北极星指标是「营销」和「真实能力」的混合体</strong>:它确实反映模型某方面强,但也是厂商精心挑出来最好看的那个数字——招牌科目不等于全科水平。</li>
-<li><strong>单一数字天然危险</strong>:一个分数会把模型在其他维度的短板(幻觉、定位、细节)全部隐藏,高分常常只意味着「擅长这一类题」,而非「真的看懂了图」。</li>
-<li><strong>要看一整组,而不是一个分数</strong>:三层地图各有各的尺子,只有把通用能力 / grounding 定位 / 细节瑕疵的分数摆在一起看,才能判断一个模型是真全面,还是只在自家北极星那一科上偏科。</li>
-</ul>
-<h2 id="sec-2">2. 评分的地基:多选题、答案提取与 Circular Eval</h2>
-<p>上一节我们说,benchmark 的本质是把&quot;模型好不好&quot;压成一个可比较的数字。但这个数字到底怎么算出来?这一节我们就钻进去看「分数的地基」——它比你想的要脏得多。后面 §3(MMMU/MMBench)和 §5(POPE/MMStar)的所有分数,都建立在这一节讲的两件事上:<strong>答案提取</strong>和 <strong>Circular Eval</strong>。</p>
-<h3 id="sec-2-1">2.1 直觉</h3>
-<p>绝大多数 VLM benchmark 长得像高考选择题:给一张图、一个问题,外加 A/B/C/D 四个选项,标准答案是其中一个字母。你可能以为判分超简单——对比一下字母就行了。问题在于:<strong>模型根本不会乖乖只答一个「B」</strong>。</p>
-<p>你问它&quot;图里的动物是什么?(A)猫 (B)狗 (C)兔子 (D)鸟&quot;,它很可能回一大段:&quot;从图中蓬松的毛发和竖起的耳朵来看,我认为最合理的答案应该是 B,也就是狗。&quot;标准答案存的是字母 <code>B</code>,模型吐的是一整段啰嗦的话。判分前必须先<strong>从这段自由文本里把它真正选的那个选项抠出来</strong>——这个步骤就叫<strong>答案提取(answer extraction)</strong>。</p>
-<p>打个比方:你是改卷老师,标准答案卡上写着「B」,但学生没在答题卡涂卡,而是在卷子上写了一篇小作文,你得先从作文里读出他到底选了哪个,才能对答案。这个&quot;读出选项&quot;的环节,就是整条评分流水线里最容易出错、却最常被忽略的一环。</p>
-<figure><img class="zoomable" src="figures/sec2-answer-extraction.svg" alt="答案提取流程"><figcaption>图 2.1 多选题评分流水线:模型自由文本 → 答案提取器 → 抠出选项 → 与标准答案比对。提取器是隐藏的误差源。</figcaption></figure>
-<p>提取出选项之后,剩下的事才是大家想象中的&quot;判分&quot;:提取到的选项 == 标准答案就记 1 分(命中,hit),否则 0 分,最后求平均得到<strong>准确率(accuracy)</strong>。所以一道选择题的真实流程是两段:先提取、再比对。难点几乎全在第一段。</p>
-<h3 id="sec-2-2">2.2 最小 demo</h3>
-<p>先用最朴素的方式做一遍:用正则从一段啰嗦回答里抠出 ABCD,再和标准答案比对算 accuracy。</p>
+<figure><img class="zoomable" src="figures/sec2-answer-extraction.svg" alt="评测流水线与答案提取"><figcaption>图 1.1 评测流水线:模型自由文本 → 答案提取器 → 抠出答案 → 与标准答案比对。第④步「答案提取」是被低估的隐藏误差源。</figcaption></figure>
+<p>不同 benchmark 的区别,几乎只落在第②步(prompt 怎么拼)、第④步(提取什么:字母?坐标?像素图?)、第⑤步(用什么指标)。第③步「模型前向」对所有 benchmark 都一样:<strong>VLM 接收图像 token + 文本 token,自回归地吐出一段自由文本</strong>。这也是为什么第④步答案提取如此关键——模型不会乖乖只回一个「B」,它会回一整段话,你得先把答案从话里抠出来。</p>
+<h3 id="sec-1-2">1.2 一个评测循环的最小骨架</h3>
+<p>把这条流水线写成可运行的代码,核心不到 20 行。下面以多选题为例(其它题型只是换第④步的提取器和第⑤步的指标):</p>
 <pre class="teaching-demo"><code class="language-python">import re
+import numpy as np
 
-# 模型对每道题的自由文本回答
-preds = [
-    "从图中特征看,我认为答案应该是 B,也就是狗。",
-    "The answer is (C).",
-    "这道题我选 a 选项。",
-    "我不太确定,可能是只鸟吧。",   # 没给字母,提取失败
-]
-golds = ["B", "C", "A", "D"]      # 标准答案
+# 一个 benchmark = 一组结构化样本;这里每条是 {image, question, options, answer}
+def build_prompt(item):                                  # ② 拼 prompt
+    opts = "\n".join(f"({k}) {v}" for k, v in item["options"].items())
+    return f"{item['question']}\n{opts}\n请只回答选项字母。"
 
-def extract(s):
-    s = s.upper()
-    m = re.search(r"[ABCD]", s)   # 抓第一个出现的选项字母
-    return m.group(0) if m else ""
+def extract_choice(text, choices="ABCDE"):               # ④ 答案提取
+    text = re.sub(r"(答案是|the answer is|answer:)", "", text, flags=re.I).strip()
+    m = re.search(rf"[{choices}]", text)                 # 抠出第一个选项字母
+    return m.group(0) if m else ""                       # 抠不到 → 空串(判错)
 
-hits = []
-for pred, gold in zip(preds, golds):
-    choice = extract(pred)
-    hits.append(1 if choice == gold else 0)   # 命中记 1,否则 0
-    print(f"抠出={choice or '∅':2}  标准={gold}  {'✓' if hits[-1] else '✗'}")
-
-accuracy = sum(hits) / len(hits)
-print(f"accuracy = {accuracy:.2%}")           # = 75.00%
+def evaluate(model, dataset):                            # 整条流水线
+    hits = []
+    for item in dataset:                                 # ① 遍历样本
+        prompt = build_prompt(item)
+        raw = model.generate(item["image"], prompt)      # ③ VLM 前向:吃图+文,吐自由文本
+        pred = extract_choice(raw)                       # ④ 提取
+        hits.append(int(pred == item["answer"]))         # ⑤ 判分:命中记 1
+    return float(np.mean(hits))                          # accuracy = 命中均值
 </code></pre>
-<p>前 3 题都能抠出字母并答对,第 4 题模型没给字母、正则抓空,直接判错——哪怕它语义上其实答对了&quot;鸟&quot;。这就暴露了核心矛盾:<strong>提取器的能力直接决定分数</strong>。一个太笨的正则会把&quot;语义对、格式不对&quot;的回答误判成错。真实的 harness(评测框架)正是在这个朴素正则之上,叠了一层层补丁来救场。</p>
-<h3 id="sec-2-3">2.3 正式化</h3>
-<p>把上面的玩具流程写成统一形式。设第 <span class="math inline">\(i\)</span> 道题模型的原始回答是 <span class="math inline">\(r_i\)</span>,标准答案是 <span class="math inline">\(g_i\)</span>,提取器是函数 <span class="math inline">\(\mathrm{Ext}(\cdot)\)</span>,共 <span class="math inline">\(N\)</span> 道题。命中指示量与准确率定义为:</p>
-<div class="math block">
-\[h_i = \mathbb{1}\!\left[\mathrm{Ext}(r_i) = g_i\right], \qquad \mathrm{Acc} = \frac{1}{N}\sum_{i=1}^{N} h_i\]
-</div>
-<p>—— 翻译:第 <span class="math inline">\(i\)</span> 题提取出的选项若等于标准答案,<span class="math inline">\(h_i\)</span> 记 1 否则记 0;准确率就是所有题命中量 <span class="math inline">\(h_i\)</span> 的平均值。</p>
-<p>关键在于 <span class="math inline">\(\mathrm{Ext}\)</span> 有两种实现路线。一是 <strong>exact-match 提取</strong>:纯规则,用正则和关键词(&quot;The answer is …&quot;)硬抠字母,快、免费、可复现,但碰到格式古怪的回答就抓瞎(像 demo 第 4 题)。二是 <strong>LLM-judge 提取</strong>:当规则抠不出时,把&quot;题目+选项+模型回答&quot;丢给另一个大模型,让它判断&quot;这段话语义上选了哪个&quot;,更鲁棒但更慢、要花钱、还可能引入裁判模型自己的偏好。VLMEvalKit 采用的正是&quot;先规则、抠不出再退而求其次&quot;的混合策略。</p>
-<p>但即便提取完美,普通 accuracy(下文叫 <strong>vanilla</strong>,即只问一遍)还有个大漏洞:<strong>位置偏好</strong>。模型可能有&quot;无脑选 B&quot;的偏置,或纯靠运气蒙中一道四选一(期望 25% 白送)。MMBench 提出的 <strong>CircularEval(循环评估)</strong> 就是来堵这个漏洞的:把同一道题的 <span class="math inline">\(N\)</span> 个选项<strong>循环移位</strong> <span class="math inline">\(N\)</span> 次,每次都让选项顺序不同(正确答案分别落在第 1、2、…、<span class="math inline">\(N\)</span> 位),问 <span class="math inline">\(N\)</span> 遍;<strong>只有 <span class="math inline">\(N\)</span> 遍全答对,这道题才算对</strong>。</p>
-<p>设第 <span class="math inline">\(i\)</span> 题循环到第 <span class="math inline">\(k\)</span> 个版本时的命中量为 <span class="math inline">\(h_i^{(k)}\)</span>,则该题的 circular 命中与整卷 circular 准确率为:</p>
-<div class="math block">
-\[c_i = \prod_{k=1}^{N} h_i^{(k)}, \qquad \mathrm{Acc}_{\text{circ}} = \frac{1}{M}\sum_{i=1}^{M} c_i\]
-</div>
-<p>—— 翻译:一道题要把 <span class="math inline">\(N\)</span> 个移位版本<strong>全部</strong>答对(<span class="math inline">\(N\)</span> 个 <span class="math inline">\(h\)</span> 连乘,只要有一个为 0,<span class="math inline">\(c_i\)</span> 就为 0),才算这题命中;整卷 circular 准确率是 <span class="math inline">\(M\)</span> 道题里这种&quot;全对题&quot;的占比。</p>
-<p>因为连乘里只要错一个就归零,<span class="math inline">\(\mathrm{Acc}_{\text{circ}}\)</span> 必然不高于 vanilla accuracy——实践中 circular 分数通常比 vanilla 低若干个点(具体差多少视模型而定)。落差越大,说明模型越依赖蒙和位置偏好。</p>
-<h3 id="sec-2-4">2.4 代码引用</h3>
-<p>来看 VLMEvalKit 真实的两段实现,分别对应 §2.3 的 <span class="math inline">\(\mathrm{Ext}\)</span>(提取器)和 <span class="math inline">\(\mathrm{Acc}\)</span>(求 hit 均值)。</p>
+<p><code>model.generate(image, prompt)</code> 就是 VLM 的前向接口(把一张图和一段文字喂进去,拿回一段文字)。整个评测就是这个循环套在不同 benchmark 的数据 + 提取器 + 指标上。换成 grounding,第④步 <code>extract_choice</code> 变成「从文本里解析出框坐标」、第⑤步变成「算 IoU」;换成画质分割,第④步变成「输出像素掩码」、第⑤步变成「算 mIoU」。骨架不变。</p>
+<h3 id="sec-1-3">1.3 被低估的第④步:答案提取与 CircularEval</h3>
+<p>第④步是分数失真的主要来源。真实评测框架在朴素正则之上叠了很多补丁。下面是 VLMEvalKit 的多选答案提取器:</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/multiple_choice.py:L585-L612 — 从模型自由文本里正则抠出 ABCDE 选项的答案提取器</p>
 <pre><code class="language-python">def extract_characters_regex(s, choices=['(A)', '(B)', '(C)', '(D)', '(E)']):
     if type(s) is dict:
@@ -326,7 +207,8 @@ print(f"accuracy = {accuracy:.2%}")           # = 75.00%
         return ''
     return matches[0]
 </code></pre>
-<p>对照 §2.3 的 <span class="math inline">\(\mathrm{Ext}\)</span>:这就是 exact-match 提取器的工业版,比我们 demo 的一行正则讲究得多。它先把&quot;The answer is …&quot;之类的套话前缀删掉(免得正则抓到前缀里的字母),再做一道关键判断——如果回答超过 10 个词却完全找不到 ABCDE,就直接返回空串放弃(对应 demo 第 4 题那种长篇大论又不给字母的情况);否则用 <code>re.search('[ABCDE]')</code> 抠出第一个选项字母。抠不到字母时还有个兜底:看回答是否就是某个选项的文字本身(比如直接答&quot;狗&quot;),命中则返回对应字母。这一整套规则失效时,上层才会调用 LLM-judge 来救。</p>
+<p>它先删掉「The answer is …」之类套话前缀(免得抓到前缀里的字母),再判断:回答超过 10 个词却找不到 ABCDE 就放弃(返回空串);否则抠第一个选项字母;还兜底匹配「回答正好是某个选项的原文」。规则全失效时上层才调 LLM 当裁判。<strong>换一套提取规则,同一个模型的分数就会浮动——这是不同来源分数对不上的常见原因。</strong></p>
+<p>提取之后的判分(第⑤步)最基础的形式就是「命中求均值」:</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/multiple_choice.py:L77-L100 — report_acc:按 split / 能力维度求 hit 均值得到 accuracy</p>
 <pre><code class="language-python">def report_acc(df):
     # assert group in [None, 'category', 'l2-category']
@@ -353,76 +235,118 @@ print(f"accuracy = {accuracy:.2%}")           # = 75.00%
                 res[ab_name] = [np.mean(sub_df[sub_df['split'] == sp]['hit']) for sp in res['split']]
     return pd.DataFrame(res)
 </code></pre>
-<p>对照 §2.3 的 <span class="math inline">\(\mathrm{Acc}=\frac{1}{N}\sum h_i\)</span>:每道题的命中量已经事先算好存进 DataFrame 的 <code>hit</code> 列(circular 题这里的 <code>hit</code> 就是 §2.3 那个连乘 <span class="math inline">\(c_i\)</span>),<code>report_acc</code> 做的就是对 <code>hit</code> 列求 <code>np.mean</code>——这正是&quot;命中量的平均=准确率&quot;的公式落地。它还顺手按 <code>category</code> / <code>l2-category</code> 这些能力维度分组各求一次均值,所以 MMBench 不只给一个总分(<code>Overall</code>),还能给出每个能力维度的细分准确率,这正是 §3 要展开的&quot;能力维度细分&quot;。</p>
-<h3 id="sec-2-5">2.5 洞察</h3>
+<p><code>hit</code> 列是每题 0/1 的命中,<code>report_acc</code> 对它求 <code>np.mean</code> 就是 accuracy,并顺手按能力维度(<code>category</code>/<code>l2-category</code>)各算一次——这就是为什么 MMBench 这类 benchmark 能给出分维度的细分准确率。</p>
+<p>最后一个共享机制:<strong>CircularEval</strong>(MMBench 提出,§2 会再用到)。四选一靠运气能蒙中 25%,模型还可能有「无脑选某个位置」的偏置。CircularEval 把同一题的选项<strong>循环移位</strong>问 N 遍(正确答案轮流落在每个位置),<strong>N 遍全对才算这题对</strong>。它把蒙对概率从 25% 压到约 <span class="math inline">\(0.25^4\)</span>,并让位置偏置无所遁形。后面凡是标「circular」的准确率,都比普通(vanilla)准确率严格。</p>
+<p>记住这条流水线,下面每一层的卡片只需要看它在第②④⑤步上有什么不同。</p>
+<h2 id="sec-2">2. 通用能力层:MMMU / MMBench / MME / SEED-Bench</h2>
+<p>通用能力层的 benchmark 不绑定具体下游任务,目标是用一组覆盖广泛的问题去估计模型「看图 + 推理 + 答题」的综合水平。下面把四个最常被引用的 benchmark 逐个做成卡片:测什么、怎么出题、长什么样、模型怎么被喂入并打分、看哪个指标。</p>
+<h3 id="sec-2-1">MMMU — 大学级跨学科多模态推理</h3>
 <ul>
-<li><strong>circular 更难被蒙,是因为它同时掐死了&quot;位置偏好&quot;和&quot;瞎猜&quot;。</strong> 四选一靠运气能蒙中 25%,但要把 4 个移位版本<strong>全部</strong>蒙对,概率掉到 <span class="math inline">\(0.25^4\)</span>(不到 0.4%);&quot;无脑选 B&quot;的偏置在选项轮转后也会立刻露馅。所以 vanilla 和 circular 的分差,本身就是一把&quot;模型有多虚&quot;的尺子。</li>
-<li><strong>提取器本身是误差源,它让不同 harness 的分数不可直接比。</strong> 同一个模型、同一套题,换一个提取规则或换一个 LLM-judge,分数就会浮动。看到两份榜单分数不一样,先别急着下结论&quot;模型变强了&quot;——很可能只是它们用了不同的 <span class="math inline">\(\mathrm{Ext}\)</span>。</li>
-<li><strong>accuracy 看似简单,其实暗藏协议差异。</strong> &quot;0.85 的准确率&quot;背后,藏着&quot;是不是 circular、提取器是规则还是 LLM、抠不出算错还是重试&quot;等一串没写在表头的约定。读分数前先问清楚协议,是这一节最该带走的习惯——这也是 §3、§5 一切分数能不能横向比较的前提。</li>
+<li>
+<p><strong>测什么能力</strong>:大学考试难度的跨学科理解与推理,要求模型读懂图表/公式/化学结构/乐谱等专业图像并结合学科知识作答,不是日常常识题。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:多选为主(部分填空),共 11.5K 题,横跨 6 大学科(艺术设计 / 商业 / 科学 / 健康医学 / 人文社科 / 技术工程)、30 个科目、183 个子领域,涉及 30 种图像类型(图表、乐谱、化学结构等)。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>学科</strong>:科学 / 化学
+<strong>图像</strong>:一张苯环取代结构式
+<strong>问题</strong>:下图所示分子中,带有 —OH 取代基的碳原子的杂化方式是?
+A. sp  B. sp²  C. sp³  D. 无法确定
+<strong>正确答案</strong>:B
+<strong>这道题在考什么</strong>:把专业图像(化学结构式)识别为结构信息,再调用学科知识(杂化轨道)推理——典型的「看专业图 + 用学科知识」复合能力。</p>
+</blockquote>
+<figure><img class="zoomable" src="figures/sec3-mmmu-grid.png" alt="MMMU 多学科样例"><figcaption>图 2.1 MMMU 跨 6 大学科的真实样题。图源:MMMU 论文 (arxiv 2311.16502)。</figcaption></figure>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:每道题把题干文本与一张或多张图像按位置拼成一个多模态 prompt(图像内嵌在题干对应处),并把选项 A/B/C/D 一并附在问题末尾,要求模型输出选项字母。模型生成一段自由文本回答后,评测脚本用规则/正则从回答里提取被选中的选项(匹配字母或选项原文);提取到的选项与标准答案比对,填空题则做答案串匹配。</p>
+</li>
+<li>
+<p><strong>指标</strong>:accuracy(答对题数 / 总题数)。厂商发布时通常把 MMMU 总分放在头版;发布当时(2023)GPT-4V 约 56%、Gemini Ultra 约 59%。</p>
+</li>
 </ul>
-<h2 id="sec-3">3. 通用能力综合卷:MMMU / MMBench / MME / SEED-Bench</h2>
-<p>如果只能用一个分数告诉别人「这个 VLM 到底聪不聪明」,大多数厂商会选这一类卷子。它们不挑某个具体技能(看图表、识文字、定位),而是想衡量「综合智力」。本节的北极星(沿用 §1 的 north star 概念)毫无悬念地落在 <strong>MMMU</strong> 上。</p>
-<h3 id="sec-3-1">3.1 直觉</h3>
-<p>把这四份卷子想象成给模型设计的几套不同风格的「智力测验」:</p>
+<h3 id="sec-2-2">MMBench — 中英双语 + 防蒙循环评测</h3>
 <ul>
-<li><strong>MMMU = 大学跨学科高考难卷</strong>。它收了 11.5K 道大学级别的题,横跨 6 大学科(艺术设计、商业、科学、健康医学、人文社科、技术工程),细到 30 个科目、183 个子领域,图像类型也有 30 种(图表、乐谱、化学结构式……)。这不是「看图说话」,而是「看着专业图表用专业知识做推理」。难到什么程度?发布当时(2023),连 GPT-4V 也只有约 56%、Gemini Ultra 约 59%——离满分远得很。正因为它够难、够「专家级」,它成了事实上的通用能力北极星。</li>
-<li><strong>MMBench = 按能力维度细分的双语模拟卷</strong>。它是中英双语,把能力拆成一棵细分维度树(粗粒度感知、细粒度推理等),并且用 §2 讲过的 <strong>CircularEval</strong>(把选项循环移位、几次全对才算真的对)来防蒙。</li>
-<li><strong>SEED-Bench = 多维度多选题题库</strong>。大规模多选题,覆盖 12 个评测维度,从单图理解到时序推理都有,胜在维度全、题量大。</li>
-<li><strong>MME = 感知 + 认知双卷,且只考判断题</strong>。它把能力分成 perception(感知,10 类)和 cognition/reasoning(认知,4 类)共 14 个子任务,每张图问两个 yes/no(一正一反),用一套自定义的计分把结果压成分数。</li>
+<li>
+<p><strong>测什么能力</strong>:沿一棵能力维度树系统覆盖从粗粒度感知(物体存在、属性识别)到细粒度推理(关系、逻辑)的多种细分能力,并同时支持中英双语版本。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:多选题,按能力维度树细分组织;每题用 CircularEval 评测——把同一题的选项循环移位若干次(每次正确答案换到不同字母位),模型必须 N 次全部答对该题才算对,以此压制「靠选项位置或先验蒙对」。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>能力维度</strong>:细粒度推理 / 空间关系
+<strong>图像</strong>:桌上一只猫在笔记本电脑左侧
+<strong>问题</strong>:猫相对于笔记本电脑的位置是?
+A. 右侧  B. 左侧  C. 上方  D. 下方
+<strong>正确答案</strong>:B
+<strong>CircularEval</strong>:同题会再循环移位若干轮(如正确答案轮流出现在 A/C/D 位),四轮都答对才计为该题正确。
+<strong>这道题在考什么</strong>:空间关系判断,且要求结论稳定到不随选项顺序变化。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:图像 + 题干 + 当前轮次的选项排列拼成 prompt,模型生成回答后由脚本提取选项字母;同一题在 CircularEval 下重复多轮、每轮选项顺序不同,逐轮提取并比对,全轮命中才记该题为对。中英双语各自独立跑一遍。</p>
+</li>
+<li>
+<p><strong>指标</strong>:accuracy(circular,即循环评测下的准确率)。厂商发布时常用 MMBench(及其中文版)总体准确率作为头版数字。</p>
+</li>
 </ul>
-<p>为什么头版偏偏是 MMMU?因为它最贴近「expert AGI(专家级通用智能)」的叙事——一道题往往需要既看懂专业图,又调用大学课本知识做多步推理,这恰好是厂商发布会最想证明的东西。</p>
-<figure><img class="zoomable" src="figures/sec3-mmmu-grid.png" alt="MMMU 多学科样例"><figcaption>图 3.1 MMMU 跨 6 大学科的样题(艺术/商业/科学/医学/人文/工程),需要专家级知识与推理。图源:MMMU 论文 (arxiv 2311.16502)。</figcaption></figure>
-<h3 id="sec-3-2">3.2 最小 demo</h3>
-<p>先用一个玩具脚本感受 MMMU 风格的评测:每题是带图的多选题,我们沿用 §2 的 hit(命中)定义,并按学科分组求 accuracy(命中均值)。</p>
-<pre class="teaching-demo"><code class="language-python">from collections import defaultdict
-
-# 每道题: 学科 subject, 模型抽取出的选项 pred, 标准答案 gt
-samples = [
-    {"subject": "Art",      "pred": "B", "gt": "B"},  # 命中
-    {"subject": "Art",      "pred": "A", "gt": "C"},  # 未命中
-    {"subject": "Business", "pred": "D", "gt": "D"},  # 命中
-    {"subject": "Science",  "pred": "C", "gt": "C"},  # 命中
-    {"subject": "Science",  "pred": "B", "gt": "A"},  # 未命中
-]
-
-hits = defaultdict(list)
-for s in samples:
-    hit = 1 if s["pred"] == s["gt"] else 0   # §2 的 hit
-    hits[s["subject"]].append(hit)
-
-# 每个学科的 accuracy = 命中均值
-per_subject = {sub: sum(v) / len(v) for sub, v in hits.items()}
-overall = sum(sum(v) for v in hits.values()) / sum(len(v) for v in hits.values())
-
-for sub, acc in per_subject.items():
-    print(f"{sub:10s} acc = {acc:.2f}")
-print(f"{'Overall':10s} acc = {overall:.2f}")
-# Art  0.50 | Business 1.00 | Science 0.50 | Overall 0.60
-</code></pre>
-<p>可以看到,MMMU 的判分本身和 §2 的 accuracy 没有区别——真正的难点在前面的答案提取(从模型自由文本里抠出 <code>pred</code>)以及题目本身够不够难。它没有发明新指标,只是用「跨学科 + 大学级难度」把这把尺子拉长了。</p>
-<h3 id="sec-3-3">3.3 正式化</h3>
-<p><strong>MMMU / MMBench / SEED-Bench</strong> 的主指标(primary metric)都是 §2 定义的 accuracy:对一组 <span class="math inline">\(N\)</span> 道题,</p>
-<div class="math block">
-\[\text{accuracy} = \frac{1}{N}\sum_{i=1}^{N} \text{hit}_i, \qquad \text{hit}_i \in \{0,1\}\]
-</div>
-<p>—— 翻译:把每题是否命中(0 或 1)取平均,就是准确率;MMBench 的 hit 还要叠加 CircularEval(几次移位全对才记 1),SEED 则在 12 个维度上分别这样算再汇总。</p>
-<p><strong>MME 的计分要单独说</strong>,因为它没用裸 accuracy。每张图配两道 yes/no(一正一反),对某一类别(category)<span class="math inline">\(c\)</span> 定义两个量:</p>
-<div class="math block">
-\[\text{acc}_c = \Big(\tfrac{1}{2M_c}\textstyle\sum_{j=1}^{M_c}(y_{j}^{+}+y_{j}^{-})\Big)\times 100, \qquad \text{acc\_plus}_c = \Big(\tfrac{1}{M_c}\textstyle\sum_{j=1}^{M_c} y_{j}^{+}\,y_{j}^{-}\Big)\times 100\]
-</div>
-<p>—— 翻译:<span class="math inline">\(M_c\)</span> 是该类别的图数,<span class="math inline">\(y^{+},y^{-}\)</span> 是同一图正/反两问是否答对(0/1);acc 是「单题正确率×100」,acc_plus 是「一图两问都对(乘积为 1)才记分×100」,后者比前者严苛得多。</p>
-<p>每个类别的得分把这两项相加,满分 200:</p>
-<div class="math block">
-\[\text{score}_c = \text{acc}_c + \text{acc\_plus}_c, \qquad \text{score}_c \in [0, 200]\]
-</div>
-<p>—— 翻译:单题对最多贡献 100,两问全对再额外贡献 100,所以一个类别封顶 200 分;这正是 MME「每类满分 200」的由来。</p>
-<p>最后把类别按 perception / cognition 两组分别求和得到总分:</p>
-<div class="math block">
-\[S_{\text{perc}} = \sum_{c\,\in\,\text{perception}} \text{score}_c, \quad S_{\text{cog}} = \sum_{c\,\in\,\text{cognition}} \text{score}_c, \quad S_{\text{total}} = S_{\text{perc}} + S_{\text{cog}}\]
-</div>
-<p>—— 翻译:感知 10 类求和上限 <span class="math inline">\(10\times200=2000\)</span>,认知 4 类求和上限 <span class="math inline">\(4\times200=800\)</span>,两者相加得到 MME 著名的总分上限 2800;因为量纲是自创的,它很难和别的 benchmark 直接横比。</p>
-<h3 id="sec-3-4">3.4 代码引用</h3>
-<p>VLMEvalKit 把上面三条公式压在一个函数里。注意它如何用 <code>mode='plus'</code> 区分 acc 与 acc_plus,又如何用 <code>super_cates</code> 做 perception/reasoning 分组求和。</p>
+<h3 id="sec-2-3">MME — yes/no 双问 × 14 子任务</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:把综合能力拆成 14 个子任务,分两大组——perception(感知,10 类)与 cognition(认知/推理,4 类),逐类细测。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:判断题(yes/no)。每张图配两个 yes/no 问题(一正一反,正确答案一个 Yes 一个 No),覆盖 14 个子任务。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>子任务</strong>:perception / existence(存在性)
+<strong>图像</strong>:一张街景,画面里有一辆公交车
+<strong>问题 1</strong>:图中是否有一辆公交车?(标准答案:Yes)
+<strong>问题 2</strong>:图中是否有一架飞机?(标准答案:No)
+<strong>这道题在考什么</strong>:同一张图正反两问都要答对,既测「认出存在的物体」也测「不被诱导承认不存在的物体」,杜绝一律答 Yes 蒙分。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:图像 + 单个 yes/no 问题拼成 prompt,模型生成回答后脚本判定其表达为 Yes 还是 No 并与标准答案比对,得到单题 0/1。计分非常规:每类的得分 = acc + acc_plus,其中 acc = 单题正确率 × 100,acc_plus = 「同一张图的两个问题都答对」的比率 × 100;因此每类满分 200。再把 10 个感知类汇总得 perception(上限 2000)、4 个认知类汇总得 cognition(上限 800),总分上限 2800(这是 MME 自定义量纲,不是百分比)。</p>
+</li>
+<li>
+<p><strong>指标</strong>:perception 分 / cognition 分 / 总分(均为上述自定义量纲)。厂商发布时头版常用 MME 总分(满分 2800)或 perception 分。</p>
+</li>
+</ul>
+<h3 id="sec-2-4">SEED-Bench — 大规模多选 12 维度</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:在 12 个评测维度上覆盖从单图理解到时序推理的多层次能力(单图的场景/实例/属性理解,以及跨帧的动作/时序推理等)。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:大规模多选题,按 12 个维度组织,题量大、可自动判分。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>评测维度</strong>:时序推理(Action Recognition)
+<strong>输入</strong>:一段短视频的若干帧
+<strong>问题</strong>:视频中人物正在做的动作是?
+A. 倒水  B. 切菜  C. 擦桌子  D. 洗手
+<strong>正确答案</strong>:A
+<strong>这道题在考什么</strong>:跨帧整合视觉信息做时序/动作推理,而非单帧静态识别。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:图像(或若干帧)+ 题干 + 四个选项拼成 prompt,模型生成回答后脚本从中提取所选选项与标准答案比对;由于全为多选,判分完全自动、无需人工。</p>
+</li>
+<li>
+<p><strong>指标</strong>:accuracy(各维度准确率及总体准确率)。厂商发布时头版常用 SEED-Bench 总体准确率(或其单图子集 SEED-Bench-Image 的准确率)。</p>
+</li>
+</ul>
+<p>▸ 这一层非常规打分:MME 怎么算分</p>
+<p>四个 benchmark 里,只有 MME 不是直接报准确率,而是用「acc + acc_plus、满分 2800」这套自定义量纲。它具体怎么算,看 VLMEvalKit 的实现最清楚:</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/yorn.py:L50-L92 — MME 计分:每图两问都对才算 acc+,最终 score = acc + acc_plus,再汇总 perception/reasoning</p>
 <pre><code class="language-python">def MME_rating(data_file):
     data = load(data_file)
@@ -468,67 +392,145 @@ print(f"{'Overall':10s} acc = {overall:.2f}")
     ret.update(scores)
     ret = d2df(ret)
 </code></pre>
-<p>对照 §3.3 的公式:<code>stats[category][image_path]</code> 把同一张图的两问收进一个列表,正对应 <span class="math inline">\((y^{+}, y^{-})\)</span>;<code>acc(k)</code> 默认 <code>mode='normal'</code> 把所有单题铺平求均值再 ×100,就是 <span class="math inline">\(\text{acc}_c\)</span>;<code>acc(k, 'plus')</code> 用 <code>val[0] * val[1]</code>——只有两问都为 1 乘积才是 1——再求均值 ×100,正是「一图两问都对」的 <span class="math inline">\(\text{acc\_plus}_c\)</span>。<code>scores[k] = acc(k) + acc(k, 'plus')</code> 即 <span class="math inline">\(\text{score}_c = \text{acc}_c + \text{acc\_plus}_c\)</span>;最后 <code>super_cates</code> 把 10 个感知类、4 个认知类各自相加,落成 <span class="math inline">\(S_{\text{perc}}\)</span> 与 <span class="math inline">\(S_{\text{cog}}\)</span>。</p>
-<h3 id="sec-3-5">3.5 洞察</h3>
+<p>对照上面 MME 卡片说的规则,这段代码逐条落地:</p>
 <ul>
-<li><strong>MME 的 2800 是「自定义量纲」,天生难横比</strong>。它把 yes/no 双问、两个 acc 相加、再跨类别求和,得到一个只在 MME 内部有意义的数字。一个模型 MME 拿 1800 分,你无法直接换算成 MMMU 的百分比——跨 benchmark 比较时务必各回各家的尺子,别把 2800 制和百分制混在一张图里。</li>
-<li><strong>MMMU 成为事实北极星,是「难度 + 跨学科 + 叙事」三者共振的结果</strong>。它够难(发布当时顶尖模型也只五六成)、覆盖面够专业(6 学科 30 图种)、又恰好贴合厂商想讲的「专家级通用智能」故事,于是发布会头版几乎必放 MMMU。</li>
-<li><strong>综合卷高分 ≠ 会定位、会看细节</strong>。这一类卷子考的是「跨学科知识 + 推理」,但它基本不考「把目标框在哪、像素级的微小瑕疵」。一个 MMMU 很高的模型,完全可能在 grounding 定位(§6)和细节/瑕疵识别(§7)上摔得很惨——这正是后面两节要拆穿的盲区。</li>
+<li><strong>acc(默认 <code>mode='normal'</code>)</strong>:把每张图的所有单题 0/1 全部摊平(<code>values.extend(val)</code>)取平均再 ×100,就是卡片里的「acc = 单题正确率 × 100」。</li>
+<li><strong>acc_plus(<code>mode='plus'</code>)</strong>:对每张图取 <code>val[0] * val[1]</code>——两个 yes/no 问题都为 1 才得 1,有一个错就是 0,正是「一图两问都对」。</li>
+<li><strong>每类得分</strong>:<code>scores[k] = acc(k) + acc(k, 'plus')</code>,精确对应卡片里的 <code>score = acc + acc_plus</code>(每类满分 200)。</li>
+<li><strong>super_cates 分组求和</strong>:把 10 个感知类(代码里 <code>perception</code> 列表)与 4 个推理类(<code>reasoning</code> 列表)各自 <code>base += scores[c]</code> 求和,得到 perception(上限 2000)与 cognition/reasoning(上限 800),两者相加即总分上限 2800。</li>
 </ul>
-<h2 id="sec-4">4. 会读图会算:VQA 家族与 MathVista</h2>
-<p>到这一节,我们已经会判多选题了(§2 的答案提取 + exact-match)。但真实世界里,很多看图问题没有 ABCD 选项,模型得直接说出答案:&quot;这张图表里销量最高的月份是几月?&quot;&quot;这张发票的总金额是多少?&quot;&quot;这个公式的结果是?&quot;这类<strong>开放式回答</strong>(open-ended)的判分,比多选题棘手得多——本节就讲清楚 VQA(Visual Question Answering)家族怎么把&quot;看图回答&quot;变成一个可比较的数字,以及为什么 ChartQA、DocVQA 各自发明了不同的&quot;宽容&quot;指标。</p>
-<h3 id="sec-4-1">4.1 直觉</h3>
-<p>设想一道图表题,标准答案(gt)是 <code>5%</code>,模型答了 <code>5.0%</code>。按 §2 那种死板的 exact-match,字符串不相等,判错。可这明明是对的——只是写法不同。再设想一道文档题,答案是 <code>Microsoft</code>,模型 OCR 时手抖输出了 <code>Micrsoft</code>,少一个 <code>o</code>。exact-match 又判错——但任何人都看得出模型其实读对了,只是拼写差一个字母。</p>
-<p>问题出在哪?<strong>开放式回答的&quot;对&quot;是有容差的</strong>,而 exact-match 没有容差。如果硬用 exact-match,我们会系统性地冤枉模型,算出来的 accuracy(§1 定义的命中均值)严重偏低,这个数字就失去了意义。</p>
-<p>于是 VQA 家族针对两类典型场景,各发明了一种&quot;宽容&quot;指标:</p>
+<p>可见 MME 那个看上去奇怪的「2800 满分」并非凭空设定,而是 14 类 × 每类 200 的累加结果;读厂商榜单上的 MME 分时,记住它是这套量纲、不能当百分比直接和 MMMU/SEED 的 accuracy 横向比。</p>
+<h2 id="sec-3">3. 会读图会算层:DocVQA / ChartQA / TextVQA / AI2D / MathVista</h2>
+<p>这一层考的不是&quot;图里有什么物体&quot;,而是&quot;图里写了什么、画了什么数据,你能不能据此读出文字、对齐版面、做算术与逻辑推理&quot;。它是商用 VLM 对外宣传时最爱挂在头版的能力区——尤其是 OCR / 文档理解——因为它直接对应发票识别、报表解读、合同抽取这类付费场景。本层的评测共同难点在于:答案是<strong>开放式自由文本</strong>,没有 ABCD 选项,因此判分必须做容差匹配(数值容差或编辑距离),否则一个多余空格、一次 OCR 拼写抖动就会把对的答案判错。</p>
+<figure><img class="zoomable" src="figures/sec4-relaxed-anls.svg" alt="relaxed accuracy 与 ANLS 对照"><figcaption>图 3.1 两种容差指标:relaxed accuracy(数值 5% 容差)与 ANLS(编辑距离容忍 OCR 拼写差)。</figcaption></figure>
+<h3 id="sec-3-1">DocVQA — 文档图像问答(发票 / 表单 / 合同)</h3>
 <ul>
-<li><strong>relaxed accuracy(ChartQA, arxiv 2203.10244)</strong>:针对图表里的<strong>数值答案</strong>。只要预测值和标准值的相对误差在 5% 以内,就算命中(hit);但<strong>非数值答案仍然要求精确匹配</strong>。这样 <code>5%</code> 和 <code>5.0%</code>、<code>0.0498</code> 和 <code>0.05</code> 都能算对,而文字类答案不松口。</li>
-<li><strong>ANLS(DocVQA, arxiv 2007.00398)</strong>:全称 Average Normalized Levenshtein Similarity,即&quot;平均归一化编辑距离相似度&quot;。针对<strong>文档图像</strong>里的文字答案,用编辑距离衡量 <code>Micrsoft</code> 和 <code>Microsoft</code> 有多接近,从而容忍 OCR 带来的小拼写差。DocVQA 上人类水平约 94.36%,可见这任务本身就允许细微出入。</li>
+<li>
+<p><strong>测什么能力</strong>:在扫描或拍照的文档图像上读懂版面文字,把问题定位到表单字段、表格单元格、印刷段落并抽取答案。考的是 OCR + 版面理解的联合能力。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:开放式抽取型问答,答案通常是文档里的一小段原文(日期、金额、姓名、字段值)。判分用 <strong>ANLS(Average Normalized Levenshtein Similarity,归一化编辑距离相似度)</strong>:不要求逐字符精确匹配,而是用编辑距离衡量预测与参考答案的接近程度,从而容忍 OCR 带来的小拼写差(如 <code>O</code>/<code>0</code>、漏一个空格)。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong>
+<strong>图描述</strong>:一张采购发票扫描件,右上角印有 &quot;Invoice Date: 12/03/2019&quot;,底部 &quot;Total Amount Due: $1,420.50&quot;。
+<strong>问题</strong>:What is the total amount due?
+<strong>参考答案</strong>:$1,420.50
+<strong>考点</strong>:在版面中定位&quot;Total Amount Due&quot;字段并抽取其右侧的金额值,容忍 OCR 对货币符号 / 千分位的轻微误读。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:把整张文档图像 + 问题文本一起喂给模型,模型生成一段自由文本回答(没有候选项)。判分时<strong>不做精确字符串相等</strong>,而是对预测串与参考串计算归一化编辑距离,再换算为相似度并过阈值——拼写抖动不致命,语义错位才致命。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>ANLS</strong>;人类水平约 <strong>94.36%</strong>。文档理解是商用模型对外评测最常放上头版的一类(OCR / 文档能力是付费场景的直接卖点)。</p>
+</li>
 </ul>
-<p>另外还有几个本节的常客:<strong>TextVQA</strong>(arxiv 1904.08920,读图中文字回答)、<strong>AI2D</strong>(arxiv 1603.07396,科学示意图多选理解)。而 <strong>MathVista</strong>(arxiv 2310.02255)更进一步——它把<strong>数学推理</strong>叠加到看图上:6,141 道题,要求模型既看懂图(图表、几何图、函数曲线),又算对数。发布当时(2023)GPT-4V 约 49.9%,人类约 60.3%,差距明显,说明&quot;会读图&quot;和&quot;会算&quot;叠在一起时,模型仍力不从心。</p>
-<figure><img class="zoomable" src="figures/sec4-relaxed-anls.svg" alt="relaxed accuracy 与 ANLS 对照"><figcaption>图 4.1 两种「宽容」指标:relaxed accuracy(数值 5% 容差,ChartQA)与 ANLS(编辑距离容忍 OCR 拼写差,DocVQA)。</figcaption></figure>
-<h3 id="sec-4-2">4.2 最小 demo</h3>
-<p>先用 30 行 python 把 relaxed accuracy 的核心逻辑跑通,把上面的直觉落成可执行代码:数值答案走 5% 相对误差容差,非数值答案退回精确匹配。</p>
-<pre class="teaching-demo"><code class="language-python">def to_float(text):
-    text = text.strip()
-    try:
-        if text.endswith("%"):            # "5%" -> 0.05,百分号统一成小数
-            return float(text.rstrip("%")) / 100.0
-        return float(text)
-    except ValueError:
-        return None                       # 非数值,返回 None
-
-def relaxed_hit(pred, gt, tol=0.05):
-    p, g = to_float(pred), to_float(gt)
-    if p is not None and g is not None and g != 0:
-        return abs(p - g) / abs(g) <= tol     # 数值:相对误差 <= 5%
-    return pred.strip().lower() == gt.strip().lower()  # 非数值:精确匹配
-
-samples = [("5.0%", "5%"), ("0.0498", "0.05"),
-           ("Microsoft", "Micrsoft"), ("March", "March")]
-hits = [relaxed_hit(p, g) for p, g in samples]
-print(hits)                               # [True, True, False, True]
-print("relaxed accuracy =", sum(hits) / len(hits))  # 0.75
-</code></pre>
-<p>注意第三个样本:<code>Microsoft</code> vs <code>Micrsoft</code> 是文字答案,relaxed accuracy 对它毫不留情,判 False。这正是 relaxed accuracy 的盲区——它只对数值宽容。要救这种 OCR 拼写差,得换 ANLS,见 4.3。</p>
-<h3 id="sec-4-3">4.3 正式化</h3>
-<p><strong>relaxed correctness(数值容差)</strong>。设预测值 <span class="math inline">\(p\)</span>、标准答案 <span class="math inline">\(g\)</span>(<span class="math inline">\(g \neq 0\)</span>),容差阈值 <span class="math inline">\(\tau = 0.05\)</span>。判定命中的条件是:</p>
-<div class="math block">
-\[\text{hit}(p, g) = \mathbb{1}\!\left[\frac{\lvert p - g \rvert}{\lvert g \rvert} \le \tau\right]\]
-</div>
-<p>—— 翻译:预测与标准答案的相对误差不超过 5% 就算命中(<span class="math inline">\(\mathbb{1}[\cdot]\)</span> 是指示函数,条件成立取 1 否则取 0);若答案不是数值,则退回 §2 的 exact-match。</p>
-<p><strong>ANLS(归一化编辑距离相似度)</strong>。设 <span class="math inline">\(\text{lev}(a, b)\)</span> 为字符串 <span class="math inline">\(a, b\)</span> 的 Levenshtein 编辑距离(最少插入/删除/替换次数),则单题相似度为:</p>
-<div class="math block">
-\[\text{NLS}(p, g) = 1 - \frac{\text{lev}(p, g)}{\max(\lvert p \rvert,\, \lvert g \rvert)}\]
-</div>
-<p>—— 翻译:编辑距离除以两串中较长者的长度得到&quot;差异比例&quot;,用 1 减去它就是&quot;相似比例&quot;,完全相同时为 1,毫不相干时趋近 0。</p>
-<p>ANLS 还有一道阈值门:相似度低于阈值 <span class="math inline">\(\theta\)</span>(DocVQA 取 0.5)时<strong>直接记 0</strong>,不给&quot;半对&quot;的分:</p>
-<div class="math block">
-\[\text{score}(p, g) = \begin{cases} \text{NLS}(p, g), &amp; \text{NLS}(p, g) \ge \theta \\ 0, &amp; \text{NLS}(p, g) \lt \theta \end{cases}\]
-</div>
-<p>—— 翻译:相似度够高(达到 0.5)才按相似度给分,差得太远就当全错,避免给&quot;蒙对一半字符&quot;的答案虚高的分数。最终的 ANLS 是全部测试题 <span class="math inline">\(\text{score}\)</span> 的均值(这正是名字里 Average 的来历,也就是 §1 的命中均值在容差版本下的推广)。</p>
-<h3 id="sec-4-4">4.4 代码引用</h3>
-<p>VLMEvalKit 把这两个指标实现得相当朴素。先看 ChartQA 的 relaxed correctness。</p>
+<h3 id="sec-3-2">ChartQA — 图表问答(柱状 / 折线 / 饼图)</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:看懂图表的坐标轴、图例、数据点,并在其上做算术(求和、求差、比例)与逻辑推理(哪个最大、是否超过某阈值)。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:开放式问答,答案既可能是数值也可能是类别名。判分用 <strong>relaxed accuracy(松弛准确率)</strong>:<strong>数值答案允许 5% 相对误差</strong>(容忍图表数据自动抽取的小偏差),<strong>非数值答案仍要求精确匹配</strong>。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong>
+<strong>图描述</strong>:一张柱状图,2020 年 42,2021 年 58,2022 年 61(单位:百万)。
+<strong>问题</strong>:How much did the value increase from 2020 to 2021?
+<strong>参考答案</strong>:16
+<strong>考点</strong>:读取两根柱子的数值并做减法;判分时预测落在 16 的 ±5% 区间(约 15.2–16.8)即算对。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:把图表图像 + 问题喂入,模型生成自由文本答案。判分先尝试把预测和参考都解析为浮点数:若两者都是数值,按相对误差 ≤ 5% 判对;否则退回大小写无关的精确匹配。没有 ABCD,模型必须自己把数读出来再算。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>relaxed accuracy</strong>;图表读数 + 算术是商用模型展示&quot;会算&quot;能力时常挂头版的一类。</p>
+</li>
+</ul>
+<h3 id="sec-3-3">TextVQA — 场景文字问答(招牌 / 包装)</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:读出自然场景照片里的文字(店招、路牌、商品包装、屏幕),并结合视觉上下文回答问题。考的是场景 OCR + 视觉常识的结合。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:开放式简答,答案多为图中出现的词或短语。判分采用 VQA 式的答案匹配(经文本规范化后比对),而非选择题判定;对自由文本答案做容差化的字符串比对。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong>
+<strong>图描述</strong>:一张街景照片,店铺招牌上写着 &quot;OPEN 24 HOURS&quot;。
+<strong>问题</strong>:How many hours is the store open?
+<strong>参考答案</strong>:24
+<strong>考点</strong>:在场景中定位招牌文字、读出 &quot;24 HOURS&quot; 并抽取数字,而非只识别&quot;这是一家店&quot;。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:整张场景图 + 问题喂入,模型生成短文本回答。判分先做小写化、去标点等规范化,再与参考答案集合比对——重点是它<strong>读没读到图里的字</strong>,而不是描述场景。</p>
+</li>
+<li>
+<p><strong>指标</strong>:基于答案匹配的准确率;属于 OCR 能力的场景化延伸,常和 DocVQA 一并出现在文档 / OCR 头版分组里。</p>
+</li>
+</ul>
+<h3 id="sec-3-4">AI2D — 科学示意图多选理解(生命周期 / 食物链)</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:理解科学教材里的示意图——箭头、标签、流程关系(生命周期、食物链、水循环),并据此回答。考的是图示的结构 / 关系理解,而非读取连续文字。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:<strong>多选题</strong>(给定若干候选项,选一个正确答案)。判分是选项级别的<strong>精确匹配</strong>——本层里唯一的&quot;选择题&quot;,所以反而是最干净的判分方式,只看选中的选项是否等于正确选项。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong>
+<strong>图描述</strong>:一张蝴蝶生命周期示意图,四个阶段用箭头首尾相连:egg → larva → pupa → adult。
+<strong>问题</strong>:Which stage comes immediately after the larva?
+<strong>选项</strong>:(A) egg (B) pupa (C) adult (D) butterfly
+<strong>参考答案</strong>:(B) pupa
+<strong>考点</strong>:沿箭头方向读出阶段间的先后关系,而不是单看哪个标签离 larva 近。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:示意图 + 问题 + 候选项一起喂入,模型输出所选选项(字母或选项文本)。判分做精确匹配——因为有 ABCD,这里<strong>不需要</strong>数值容差或编辑距离,与本层其余 benchmark 形成对照。</p>
+</li>
+<li>
+<p><strong>指标</strong>:多选准确率;它衡量的是结构化图示理解,常和图表 / 文档分到&quot;会读图&quot;大类里。</p>
+</li>
+</ul>
+<h3 id="sec-3-5">MathVista — 视觉数学推理(既看懂图又算数)</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:把视觉理解和数学推理拧在一起——先看懂图(几何图形、函数曲线、统计图、表格),再做数学求解。共 <strong>6,141 题</strong>,覆盖多种图源与题型。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:混合题型(部分多选、部分自由形式数值 / 短答)。自由形式部分需要把模型输出里的最终答案抽取出来,再做容差化比对;多选部分做选项匹配。判分关键在于<strong>答案抽取 + 容差</strong>,因为模型常把推理过程和最终答案混在一段话里。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong>
+<strong>图描述</strong>:一张直角三角形示意图,两直角边标注为 3 和 4。
+<strong>问题</strong>:What is the length of the hypotenuse?
+<strong>参考答案</strong>:5
+<strong>考点</strong>:从图中读出两条直角边的数值,套用勾股定理求斜边;判分时需从模型的长篇推理里抽出 &quot;5&quot; 再比对。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:图像 + 问题喂入,模型生成往往带 CoT 推理的长文本;评测脚本先<strong>抽取最终答案</strong>(常借助规则或一个 LLM 抽取器),再对数值做容差匹配 / 对多选做选项匹配。没有统一 ABCD 入口,抽取这一步本身就是误差来源。</p>
+</li>
+<li>
+<p><strong>指标</strong>:整体准确率(answer-level accuracy)。发布时(2023)GPT-4V 约 <strong>49.9%</strong>,人类约 <strong>60.3%</strong>,差距说明&quot;看懂图再算&quot;远难于单独的读图或单独的算术。</p>
+</li>
+</ul>
+<p>▸ 这一层怎么打分:relaxed accuracy 与 ANLS</p>
+<p>前面五个 benchmark 里,真正决定一个答案算不算对的,是两段几十行的容差逻辑。先看 ChartQA 的 relaxed accuracy(VLMEvalKit 实现):</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/vqa_eval.py:L175-L215 — ChartQA 的 relaxed accuracy:数值答案允许 5% 相对误差,非数值仍需精确匹配</p>
 <pre><code class="language-python">def relaxed_correctness(target: str,
                         prediction: str,
@@ -571,8 +573,8 @@ print("relaxed accuracy =", sum(hits) / len(hits))  # 0.75
     else:
         return prediction.lower() == target.lower()
 </code></pre>
-<p><strong>对照 4.3 公式</strong>:<code>_to_float</code> 把 <code>5%</code> 这样的字符串归一成小数,正是 4.2 demo 里那一步;<code>relative_change &lt;= max_relative_change</code> 一行就是 relaxed correctness 公式 <span class="math inline">\(\lvert p-g\rvert / \lvert g\rvert \le \tau\)</span>;<code>else</code> 分支的 <code>prediction.lower() == target.lower()</code> 就是非数值时退回 exact-match。注意 <code>if prediction_float is not None and target_float:</code> 这个判断隐含了 <span class="math inline">\(g \neq 0\)</span>(因为 <code>0.0</code> 在布尔上下文里为假),刚好对应公式里 <span class="math inline">\(g \neq 0\)</span> 的前提。</p>
-<p>再看 DocVQA 的 ANLS,它拆成两个函数:编辑距离 + 距离比例计算。</p>
+<p>对照:这段把&quot;5% 容差&quot;翻译成了一行 <code>relative_change &lt;= max_relative_change</code>,其中 <code>max_relative_change</code> 默认 <code>0.05</code>,而 <code>relative_change = abs(prediction_float - target_float) / abs(target_float)</code> 正是相对误差。注意两个分支:<strong>只有当预测和参考都能解析成浮点数</strong>(<code>prediction_float is not None and target_float</code>)时才走 5% 容差;否则退回 <code>prediction.lower() == target.lower()</code> 的精确匹配——这就是 ChartQA&quot;数值放宽、非数值仍要精确&quot;规则的全部实现。</p>
+<p>再看 DocVQA 的 ANLS,核心是编辑距离 + 归一化:</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/vqa_eval.py:L217-L240 — DocVQA 的 ANLS:用归一化编辑距离容忍 OCR 小拼写差异</p>
 <pre><code class="language-python">def levenshtein_distance(s1, s2):
     if len(s1) &gt; len(s2):
@@ -598,66 +600,164 @@ def anls_compute(groundtruth, prediction):
     values = 0.0 if length == 0 else float(dist) / float(length)
     return values
 </code></pre>
-<p><strong>对照 4.3 公式</strong>:<code>levenshtein_distance</code> 是标准的动态规划编辑距离,对应公式里的 <span class="math inline">\(\text{lev}(p, g)\)</span>;<code>anls_compute</code> 先做大小写归一与空白折叠(<code>strip().lower().split()</code>),再算 <code>dist / length</code>,其中 <code>length = max(...)</code> 就是公式分母 <span class="math inline">\(\max(\lvert p\rvert, \lvert g\rvert)\)</span>。</p>
-<p><strong>关键一点别看错</strong>:<code>anls_compute</code> 返回的 <code>values</code> 是<strong>距离比例</strong>(<span class="math inline">\(\text{lev}/\max\)</span>),也就是公式里 NLS 表达式中<strong>被 1 减掉的那一项</strong>,而<strong>不是</strong> ANLS 分数本身。真正的相似度是 <span class="math inline">\(1 - \text{values}\)</span>,而最终的 ANLS 分数还要再过一道阈值门:<span class="math inline">\(1 - \text{values} \lt 0.5\)</span> 时整题记 0。换句话说,这个函数只算了一半,调用方拿到 <code>values</code> 后还得做 <code>1 - values</code> 并卡阈值,才是 4.3 里完整的 <span class="math inline">\(\text{score}(p, g)\)</span>。看代码时若把 <code>anls_compute</code> 的返回值当成 ANLS 分数,就会把高分低分彻底读反。</p>
-<h3 id="sec-4-5">4.5 洞察</h3>
+<p>对照:这里 <code>levenshtein_distance</code> 是标准编辑距离;<code>anls_compute</code> 先把两串规范化(小写、压缩空白),算出编辑距离 <code>dist</code>,再除以较长串长度得到 <code>values = dist / length</code>。<strong>关键别读反</strong>:<code>anls_compute</code> 返回的是&quot;归一化编辑<strong>距离</strong>比例&quot;(越小越像),它<strong>不是</strong> ANLS 本身。真正的 ANLS = <code>1 − values</code>(越大越像),且按惯例还要过一个 <strong>0.5 阈值</strong>——即 <code>1 − values ≥ 0.5</code>(等价于 <code>values ≤ 0.5</code>)才记为命中,低于阈值的相似度直接归零。这样设计正好容忍 OCR 级别的小拼写差(几处字符出入仍能保持高相似度),却拦住语义不同的答案。两段代码合起来,就是本层&quot;开放式回答如何被公平判分&quot;的工程答案:<strong>数值看相对误差,文本看编辑距离,都不做朴素的字符串相等。</strong></p>
+<h2 id="sec-4">4. 幻觉与诚实层:POPE / HallusionBench / MMStar</h2>
+<p>前三层(基础感知、综合理解、推理)给出的都是「答对率」分数。但一个高分,可能来自模型真的看懂了图,也可能来自:模型根本没看图、靠语言先验蒙对(视觉冗余),或模型把训练时背过的测试题答了出来(数据泄漏),又或者模型张口就来、把图里没有的物体说成有(物体幻觉)。这一层的三个 benchmark 专门做一件事:把「虚高的分数」从「真实的能力」里拆出来。它们不测新能力,而是审计前几层分数的诚实度。</p>
+<h3 id="sec-4-1">POPE — 物体幻觉的二分类探针</h3>
 <ul>
-<li><strong>指标选错 = 分数没意义</strong>。对数值题硬套 exact-match,会因为 <code>5%</code> ≠ <code>5.0%</code> 这种纯格式差异系统性地冤枉模型,算出来的 accuracy 低得离谱却毫无诊断价值。relaxed accuracy 和 ANLS 的存在,本质是承认&quot;开放式回答的对错有容差&quot;——选对指标,数字才对得上人类直觉。</li>
-<li><strong>OCR / 文档是很多商用 VLM 的真北极星</strong>。DocVQA、ChartQA、TextVQA 这类任务直接对应发票识别、报表解析、合同抽取等落地场景,商业价值极高。所以厂商发布商用模型时,往往把 DocVQA/OCR 类分数放在头版当北极星指标——它不是炫技,而是真金白银的能力凭证。</li>
-<li><strong>&quot;容差&quot;设计背后是工程现实</strong>。relaxed accuracy 的 5% 来自图表数据自动抽取的固有噪声,ANLS 的编辑距离来自 OCR 的拼写抖动——两者都是在&quot;判分要严谨&quot;和&quot;别被无关的表层差异淹没真实能力&quot;之间做工程折中。再叠上 MathVista 把数学推理压到看图之上(发布当时 GPT-4V 49.9% vs 人类 60.3%),你会发现:VQA 家族的判分演化,始终在追问同一个问题——怎样让一个数字,既公平又有区分度。</li>
+<li>
+<p><strong>测什么能力</strong>:模型描述图像时是否会「无中生有」——把图里根本不存在的物体说成存在。专测物体级幻觉(object hallucination)。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:Polling-based Object Probing Evaluation。不让模型自由生成描述,而是抛出大量「图里有 X 吗?」的 yes/no 探测题,X 一半是图中真实存在的物体、一半是不存在的物体。关键在于「不存在物体」的三种负采样策略,难度递增:</p>
+<ul>
+<li><strong>random</strong>:随机挑一个图里没有的物体来问;</li>
+<li><strong>popular</strong>:挑数据集中高频出现的物体来问(模型容易因先验答「有」);</li>
+<li><strong>adversarial</strong>:挑与图中真实物体高频共现的物体来问(例如图里有「桌子」就问「有没有椅子」),最难,直接攻击模型的共现先验。</li>
 </ul>
-<h2 id="sec-5">5. 幻觉与「视觉到底有没有用」:POPE / HallusionBench / MMStar</h2>
-<p>前面几节我们一直在教模型「怎么拿高分」,这一节反过来——专门<strong>打假</strong>。它没有单一的「北极星指标」,因为它的使命恰恰是揭穿别的北极星:<strong>榜单高分,不等于模型真的看懂了图</strong>。这是小白最该记住的一课。</p>
-<h3 id="sec-5-1">5.1 直觉</h3>
-<p>设想一场开卷考试。你以为考的是「读材料的能力」,结果发现两个尴尬真相。</p>
-<p><strong>第一个尴尬:考生会一本正经地胡说八道。</strong> 你给一张只有猫的照片,问模型「图里有狗吗?」,它信誓旦旦地回答「有,一只棕色的狗趴在猫旁边」——图里根本没有狗。这就是<strong>物体幻觉(object hallucination)</strong>:模型把不存在的东西描述得活灵活现。POPE 这个 benchmark 就是专门抓这种瞎编:它问一大堆「图里有没有 X?」的 yes/no 题,其中一半的 X 真实存在、一半根本不存在,看模型会不会把「没有」答成「有」。</p>
-<p><strong>第二个尴尬:很多「看图题」其实盖住图也能蒙对。</strong> 就像有些高考题,你不用读阅读材料,光凭常识和选项排除法就能选对答案——那这道题还测得出「阅读能力」吗?MMStar 论文实测发现:把图整个盖住、只给模型问题和选项,GeminiPro 在 MMMU 上居然还能答对 42.9%。这说明很多题存在<strong>视觉冗余(visual redundancy)</strong>:视觉信息根本不必要。更糟的是<strong>数据泄漏(leakage)</strong>:模型在训练时背过了测试题,等于考试前偷看了答案。</p>
-<figure><img class="zoomable" src="figures/sec5-mmstar-leakage.png" alt="MMStar 视觉冗余与泄漏案例"><figcaption>图 5.1 MMStar 揭示的「视觉冗余/数据泄漏」案例:不看图也能答对。图源:MMStar 论文 (arxiv 2403.20330)。</figcaption></figure>
-<figure><img class="zoomable" src="figures/sec5-pope-cases.png" alt="POPE 物体幻觉案例"><figcaption>图 5.2 POPE 的物体幻觉案例:模型把图中不存在的物体说成存在。图源:POPE 论文 (arxiv 2305.10355)。</figcaption></figure>
-<p>HallusionBench 把这两件事揉在一起做得更刁钻:它人工精心构造了 346 张图、1129 个问题,故意纠缠「语言幻觉」(模型不看图、凭语言先验下结论,比如「冰是冷的」)和「视觉错觉」(模型看了图却被误导)。结果有多惨?发布当时(2023),即便是 GPT-4V,它的 question-pair(配对)准确率也只有约 31%。这个极低的数字告诉我们:在「会不会被幻觉和错觉骗」这件事上,当年最强的模型也几乎是瞎蒙。</p>
-<h3 id="sec-5-2">5.2 最小 demo</h3>
-<p>先用一个玩具版的 POPE 式 probing,把「抓幻觉」这件事跑通。我们准备几道 yes/no 题,有真有假,然后把模型回答当成二分类来算 precision / recall / F1。</p>
-<pre class="teaching-demo"><code class="language-python"># 玩具版 POPE：yes/no probing 抓物体幻觉
-# 约定：Yes=1（说"图里有 X"），No=0（说"图里没有 X"）
-gold = ["Yes", "No", "No", "Yes", "No", "Yes"]   # 标准答案：X 是否真实存在
-pred = ["Yes", "Yes", "No", "Yes", "Yes", "No"]  # 模型回答（两个把"没有"答成"有"=幻觉）
-
-def f1_report(gold, pred):
-    y_true = [1 if g == "Yes" else 0 for g in gold]
-    y_pred = [1 if p == "Yes" else 0 for p in pred]
-    tp = sum(t == 1 and p == 1 for t, p in zip(y_true, y_pred))  # 真有，且答有
-    fp = sum(t == 0 and p == 1 for t, p in zip(y_true, y_pred))  # 真没有，却答有 = 幻觉
-    fn = sum(t == 1 and p == 0 for t, p in zip(y_true, y_pred))  # 真有，却答没有
-    precision = tp / (tp + fp) if tp + fp else 0
-    recall    = tp / (tp + fn) if tp + fn else 0
-    f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0
-    acc = sum(t == p for t, p in zip(y_true, y_pred)) / len(y_true)
-    return precision, recall, f1, acc
-
-p, r, f1, acc = f1_report(gold, pred)
-print(f"precision={p:.2f} recall={r:.2f} F1={f1:.2f} acc={acc:.2f}")
-# 输出: precision=0.50 recall=1.00 F1=0.67 acc=0.67
-</code></pre>
-<p>注意那两个 <code>fp</code>:模型把「没有」答成「有」,这正是幻觉。它们把 precision 拉到了 0.5。如果只看 accuracy(0.67)感觉还行,但 F1 立刻暴露出「这模型爱瞎说有」的毛病——这就是下面要正式化的核心。</p>
-<h3 id="sec-5-3">5.3 正式化</h3>
-<p>POPE 把每道 yes/no 题当成一个<strong>二分类</strong>问题:「图里有 X」记为正类(1),「图里没有 X」记为负类(0)。对照模型预测和标准答案,得到三个计数:TP(真有且答有)、FP(真没有却答有)、FN(真有却答没有)。在此之上定义两个指标:</p>
-<div class="math block">
-\[precision=\frac{TP}{TP+FP}\]
-</div>
-<p>—— 翻译:精确率衡量「模型说『有』的时候,有多少次是真的有」。FP 是「凭空捏造」的幻觉,幻觉越多,precision 越低。</p>
-<div class="math block">
-\[recall=\frac{TP}{TP+FN}\]
-</div>
-<p>—— 翻译:召回率衡量「真实存在的物体,模型认出了多少」。FN 是「该看见却漏了」,漏报越多,recall 越低。</p>
-<p>精确率和召回率往往此消彼长,于是用它们的调和平均来综合:</p>
-<div class="math block">
-\[F1=\frac{2PR}{P+R}\]
-</div>
-<p>—— 翻译:F1 是 precision(P)与 recall(R)的调和平均,只有两者都高它才高;任何一方很低都会把 F1 拽下来,所以它比单看 accuracy 更难被偏科蒙混。</p>
-<p>POPE 还设计了<strong>三种负样本采样</strong>,让任务从易到难:<strong>random</strong>(随机挑一个图里不存在的物体来问,最简单);<strong>popular</strong>(专挑数据集里高频出现的物体,模型容易因「常见就猜有」而中招);<strong>adversarial</strong>(专挑那些和图中物体高频共现的物体——比如图里有桌子就问「有没有椅子」,最难,直击模型的共现先验)。同一个模型在三种采样下分数依次下降,adversarial 最能照出真本事。</p>
-<p>MMStar 则换了个角度量化「视觉到底有没有用」。它的核心思想是对比同一道题在<strong>给图</strong>和<strong>不给图</strong>两种条件下的准确率:如果不给图也能答对,说明这道题视觉不必要(视觉冗余);如果不给图准确率骤降,说明视觉是不可或缺的。MMStar 据此人工精选出 1500 道「视觉不可或缺(vision-indispensable)」的题,并提出两个度量:一是<strong>视觉必要性</strong>(给图与不给图的准确率之差,差越大说明越依赖视觉),二是<strong>数据泄漏度</strong>(若模型在不给图、甚至完全没见过该图的情况下都答得异常好,就高度怀疑训练数据里混进了测试题)。</p>
-<h3 id="sec-5-4">5.4 代码引用</h3>
-<p>VLMEvalKit 里 POPE 的真实计分长这样,和我们的玩具版几乎一一对应:</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图内容</td>
+<td>一张餐桌照片:桌上有一个盘子、一把叉子</td>
+</tr>
+<tr>
+<td>问题(adversarial)</td>
+<td>「图中有刀吗?」</td>
+</tr>
+<tr>
+<td>期望答案</td>
+<td>No(图里只有叉子,没有刀)</td>
+</tr>
+<tr>
+<td>在考什么</td>
+<td>刀与叉/盘子高频共现,模型若靠先验脑补「餐具配套」就会答 Yes → 暴露幻觉</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>题型示意,非数据集原题。</p>
+</blockquote>
+<figure><img class="zoomable" src="figures/sec5-pope-cases.png" alt="POPE 物体幻觉案例"><figcaption>图 4.1 POPE 真实案例:模型把图中不存在的物体说成存在。图源:POPE 论文 (arxiv 2305.10355)。</figcaption></figure>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:对每张图、每种负采样策略,生成大量 yes/no 探测题轮番发问;收集模型对全部探测题的 Yes/No 回答,把它当成一个二分类任务(「有」=正类)来统计。不依赖自由文本解析,只看 Yes/No,因此评测稳定、可大规模自动化。</p>
+</li>
+<li>
+<p><strong>指标</strong>:把 Yes/No 当二分类,算 precision / recall / F1 / accuracy 四个指标。<strong>主指标是 F1</strong>——因为正负样本设计上各半且模型存在「倾向答 Yes」的系统性偏置,单看 accuracy 会被偏置掩盖,F1 同时约束 precision 与 recall,更能反映「既不漏报也不虚报」。</p>
+</li>
+</ul>
+<h3 id="sec-4-2">HallusionBench — 语言幻觉 × 视觉错觉的配对诊断</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:区分并量化两类失败——「语言幻觉」(language hallucination:不看图、凭语言先验就下结论)和「视觉错觉」(visual illusion:看了图却被图本身误导)。它把这两种纠缠在一起的失败模式拆开诊断。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:人工构造,共 <strong>346 张图 / 1129 个问题</strong>。核心设计是<strong>配对</strong>:同一个问题会搭配「原图」与「经过编辑/对照的图」,或同一张图搭配正反两问,形成 question-pair。只有当模型在配对的两端都答对,才算这一对通过——单端蒙对不得分,从而堵死「靠先验单边猜」的路。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图内容</td>
+<td>一张被刻意编辑过的图:常识里「左边那杯水更满」,但图中实际右边更满</td>
+</tr>
+<tr>
+<td>配对问题</td>
+<td>Q1:「左边的杯子比右边满吗?」 / Q2:「右边的杯子比左边满吗?」</td>
+</tr>
+<tr>
+<td>期望答案</td>
+<td>Q1: No / Q2: Yes(必须以图为准,不能靠常识)</td>
+</tr>
+<tr>
+<td>在考什么</td>
+<td>若模型不看图、套用「先问的更可能为真」之类语言先验 → 配对必有一端错;考的是「真看图」而非「猜」</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>题型示意,非数据集原题。</p>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:逐对发问,记录模型在每一端的对错,再按 question-pair 级与 figure 级聚合成配对准确率(一对全对才计分)。这种配对口径远比单题准确率严格。</p>
+</li>
+<li>
+<p><strong>指标</strong>:配对准确率(question-pair accuracy / figure accuracy)。其严格程度可由发布时的数据体现:<strong>2023 年发布时,GPT-4V 的 question-pair 准确率仅约 31%</strong>——在常规单题 benchmark 上拿高分的顶级模型,一旦上配对口径就大幅滑落,正说明许多「高分」依赖单边先验而非真正的图文对齐。</p>
+</li>
+</ul>
+<h3 id="sec-4-3">MMStar — 视觉冗余与数据泄漏的体检</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:不测模型「会不会」,而是体检 benchmark 分数「靠不靠谱」。它揭示两个让分数虚高的系统性问题:<strong>视觉冗余</strong>(很多题盖住图、只看问题+选项就能答对)和<strong>数据泄漏</strong>(模型在训练中背过了测试题)。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:先用「无图也能答对」来量化现有 benchmark 的视觉冗余——实测 <strong>GeminiPro 在 MMMU 上完全不给图时仍能答对 42.9%</strong>,说明近半题目并不真正依赖图像。基于这一发现,MMStar 人工精选出 <strong>1500 道「视觉不可或缺」的题</strong>:每题都要求必须看图才能作答。同时提出两个量化指标来审计模型与数据。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图内容</td>
+<td>一张柱状图,显示 A 城降水量高于 B 城</td>
+</tr>
+<tr>
+<td>问题</td>
+<td>「哪个城市降水量更高?A / B」</td>
+</tr>
+<tr>
+<td>期望答案</td>
+<td>A(答案只能从图里读出)</td>
+</tr>
+<tr>
+<td>在考什么</td>
+<td>删去图后题面无任何线索 → 不看图必然只能瞎猜;这类题才算「视觉不可或缺」,反衬出那些「不给图也能蒙对」的冗余题</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>题型示意,非数据集原题。</p>
+</blockquote>
+<figure><img class="zoomable" src="figures/sec5-mmstar-leakage.png" alt="MMStar 视觉冗余/泄漏案例"><figcaption>图 4.2 MMStar 揭示的视觉冗余/数据泄漏:不看图也能答对。图源:MMStar 论文 (arxiv 2403.20330)。</figcaption></figure>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:核心是<strong>对比给图 / 不给图两种条件下的准确率</strong>。同一批题,一次正常给图作答,一次盖住图(只留问题+选项)作答,两次准确率之差即为「视觉增益」;此外比较模型在「训练前/纯文本」条件下的异常高分来估计泄漏。</p>
+</li>
+<li>
+<p><strong>指标</strong>:</p>
+<ul>
+<li><strong>视觉必要性(multi-modal gain)= acc(有图) − acc(无图)</strong>:差值越大,说明题目/模型越真正依赖视觉,是主审计指标;</li>
+<li><strong>泄漏度(data leakage)</strong>:衡量模型在不应答对的条件下(如无图、纯文本)异常答对的程度,用以揭示训练集污染。</li>
+</ul>
+</li>
+</ul>
+<p>一句话:POPE 审「有没有幻觉」,HallusionBench 审「是不是真看图、还是靠先验」,MMStar 审「分数本身是不是题目和数据集的虚高」。三者合起来,才能判断前几层的高分是真本事还是水分。</p>
+<p>▸ <strong>POPE 怎么打分:把 Yes/No 当二分类算 F1</strong></p>
+<p>下面是 VLMEvalKit 中 POPE 的计分实现。注意它没有简单地数「答对几道」,而是把每条 Yes/No 回答映射成二分类标签,再算 precision / recall / F1。</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/utils/yorn.py:L148-L186 — POPE 计分:把 Yes/No 当二分类,算 precision / recall / F1(北极星是 F1)</p>
 <pre><code class="language-python">def POPE_rating(data_file):
     def cal_f1_score(y_true, y_pred):
@@ -699,75 +799,115 @@ print(f"precision={p:.2f} recall={r:.2f} F1={f1:.2f} acc={acc:.2f}")
 
     ret = pd.DataFrame(res)
 </code></pre>
-<p><strong>对照 §5.3</strong>:<code>cal_f1_score</code> 里的 <code>tp / fp / fn</code> 就是 §5.3 的三个计数——<code>fp = (y_true==0) &amp; (y_pred==1)</code> 精确对应「真没有却答有」的幻觉。算出的 <code>precision</code>、<code>recall</code>、<code>f1_score</code> 一一对上三个公式。关键看赋值顺序:<code>res['Overall']</code> 装的是 <code>f1_score</code>,而 accuracy 只被放进次要的 <code>res['acc']</code>。也就是说,<strong>POPE 的北极星是 F1,不是 accuracy</strong>。原因正是类别不平衡:POPE 里 Yes 题和 No 题各占一半看似平衡,但模型一旦养成「拿不准就答 Yes」的偏好,accuracy 仍可能虚高,而 F1 会因 FP 暴涨被立刻拉低——F1 更诚实地反映了「这模型是不是在瞎编」。</p>
-<h3 id="sec-5-5">5.5 洞察</h3>
+<p><strong>对照</strong>:</p>
 <ul>
-<li><strong>榜单高分要打折看。</strong> 视觉冗余 + 数据泄漏意味着:一个 MMMU/MMBench 上的漂亮分数,可能有相当一部分来自「不看图也能蒙」或「背过题」,而非真实的视觉理解。看到一个高分,先问一句——这分里有多少是视觉真的在出力?</li>
-<li><strong>数据泄漏(contamination)是评测的头号毒药。</strong> 一旦测试题混进了训练数据,benchmark 就从「考试」退化成「默写背过的答案」,分数彻底失去区分力,还会误导后续所有横向对比。这也是为什么 MMStar 要专门量化泄漏度。</li>
-<li><strong>「打假」指标自有其价值。</strong> 选用 vision-indispensable 子集(如 MMStar 1500 题)、用 POPE-F1 这类专门抓幻觉的指标,才能把「真看懂」从「会蒙」里筛出来。这些反向指标不进厂商发布会的头版,却是判断模型是否可靠的试金石——这一类陷阱(污染、泄漏、格式敏感)会在 §8 做系统的总收束。</li>
+<li><code>y_true</code> 来自数据集标注(图里到底有没有该物体),<code>y_pred</code> 来自模型的 Yes/No 回答,二者都被映射成 <code>1=Yes / 0=No</code>,POPE 由此变成一个标准二分类问题。</li>
+<li><code>fp = sum((y_true == 0) &amp; (y_pred == 1))</code> 就是<strong>幻觉的精确定义</strong>:真实标签为「没有」(<code>y_true == 0</code>),模型却答「有」(<code>y_pred == 1</code>)——这一项正是「图里没有却说有」,即物体幻觉的计数。fp 越多,幻觉越严重。</li>
+<li><code>res['Overall']</code> 存的是 <code>f1_score</code>(而不是 <code>acc</code>),这从代码层面坐实了<strong>主指标是 F1 而非 accuracy</strong>。原因:POPE 的正负样本各半且模型常有「偏向答 Yes」的系统性偏置,在这种类别不平衡/有偏置的设定下,accuracy 会被偏置掩盖(全答 Yes 也能拿到约 50% 甚至更高),而 F1 同时惩罚漏报(fn)与虚报(fp),更诚实地反映模型是否真的不产生幻觉。</li>
 </ul>
-<h2 id="sec-6">6. Grounding 定位:RefCOCO / LVIS / ScreenSpot / PixMo-Points</h2>
-<p>前面几节(§1–§5)的北极星指标——MMMU 的 accuracy、DocVQA 的 hit、POPE 的 F1——都建立在同一个前提上:模型给出一段文字,我们判断这段文字答得对不对。本节开始,评测发生一次范式切换:我们不再问「你说对了吗」,而是问「你指对地方了吗」。北极星也随之换脸——这一层看的是 <strong>RefCOCO Acc@0.5</strong> 和 <strong>ScreenSpot 命中率</strong>。这一层和「双向多粒度 grounding」这类前沿方向直接相关,可以说是它的主场。</p>
-<h3 id="sec-6-1">6.1 直觉</h3>
-<p>设想三种新任务。第一种:给一张街景图和一句话「最左边那个穿红衣服的人」,模型要画一个<strong>框</strong>把那个人圈出来——这就是 RefCOCO 这一类 referring expression grounding。第二种:给一张软件界面截图和一句指令「打开设置」,模型要<strong>点</strong>中那个设置按钮——这就是 ScreenSpot 类 GUI 定位。第三种:给一张图和「图里有几只羊」,模型用<strong>点坐标</strong>逐个戳出每只羊——这就是 Molmo 的 PixMo-Points pointing。</p>
-<figure><img class="zoomable" src="figures/sec6-screenspot.png" alt="ScreenSpot GUI 定位"><figcaption>图 6.1 ScreenSpot 类 GUI 定位:给指令,模型要点中界面元素。</figcaption></figure>
-<figure><img class="zoomable" src="figures/sec6-pixmo-pointing.png" alt="PixMo pointing"><figcaption>图 6.2 Molmo / PixMo-Points 的 pointing:模型用点坐标指出目标。图源:Molmo (arxiv 2409.17146)。</figcaption></figure>
-<p>怎么判这种题对不对?文字题可以做字符串比对,位置题不行。核心直觉只有两条:</p>
+<h2 id="sec-5">5. Grounding 定位层:RefCOCO / LVIS / ScreenSpot / PixMo-Points</h2>
+<p>前几层考的是「把文字答对」:看一张图、读一段题,输出一串文本,再用字符串或选项去对答案。这一层换了一个动作——<strong>答案不再是文字,而是位置</strong>。模型要么框出一个矩形(bounding box),要么点出一个坐标(point)。判分也随之改变:不再比较字符串,而是比较几何重叠。下面逐个 benchmark 做卡片,看清「输入指代语/指令 → 输出框/点 → 怎么判对」这条链路。</p>
+<p>更细的 grounding benchmark 盘点见教程《VLM Grounding 全景》<a href="../vlm-grounding-2025/">../vlm-grounding-2025/</a>;PixMo 的数据构造细节见 Molmo 精读 <a href="../../papers/molmo-2024/">../../papers/molmo-2024/</a>。</p>
+<h3 id="sec-5-1">RefCOCO / RefCOCO+ / RefCOCOg — 指代表达定位(referring expression grounding)</h3>
 <ul>
-<li><strong>框得准 = 框和答案重叠多少。</strong> 模型画的框和标准答案框,如果几乎完全重合,就是准;如果只蹭到一个角,就是不准。衡量「重合多少」的尺子叫 <strong>IoU</strong>(交并比):两个框重叠区域占它们并起来总面积的比例。IoU 越接近 1 越准。RefCOCO 约定 IoU ≥ 0.5 就算「指对了」。</li>
-<li><strong>点得准 = 点有没有落进目标里。</strong> GUI 定位和 pointing 输出的是一个坐标点,不是框。判定更简单粗暴:这个点落在目标元素的框内,就命中;落在框外,就没中。ScreenSpot 的命中率就是这么数出来的。</li>
-</ul>
-<p>一句话:这一层把「答案」从一段文字变成了几何对象(框或点),把「判对」从文本比对变成了<strong>几何重叠判定</strong>。</p>
-<h3 id="sec-6-2">6.2 最小 demo</h3>
-<p>先手写一个 IoU 函数,再用 0.5 阈值判命中,跑几个例子建立手感。</p>
-<pre class="teaching-demo"><code class="language-python">def iou(a, b):
-    # 框用 [x1, y1, x2, y2] 表示(左上角、右下角)
-    ix1, iy1 = max(a[0], b[0]), max(a[1], b[1])   # 交集左上角
-    ix2, iy2 = min(a[2], b[2]), min(a[3], b[3])   # 交集右下角
-    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1) # 交集面积(不重叠则为 0)
-    area_a = (a[2] - a[0]) * (a[3] - a[1])
-    area_b = (b[2] - b[0]) * (b[3] - b[1])
-    union = area_a + area_b - inter               # 并集 = 两框之和 - 交集
-    return inter / union if union > 0 else 0.0
-
-gt = [10, 10, 50, 50]                  # 标准答案框
-preds = [[12, 12, 52, 52],             # 几乎重合 → 高 IoU
-         [30, 30, 70, 70],             # 只蹭一半 → 中等 IoU
-         [80, 80, 100, 100]]           # 完全不沾边 → IoU = 0
-
-hits = 0
-for p in preds:
-    score = iou(gt, p)
-    hit = score >= 0.5                 # RefCOCO 的命中判定
-    hits += hit
-    print(f"pred={p}  IoU={score:.3f}  命中={hit}")
-
-print(f"Acc@0.5 = {hits / len(preds):.3f}")  # 命中均值
+<li>
+<p><strong>测什么能力</strong>:给一句指代某个物体的自然语言(referring expression),模型要在图中框出对应的那个物体。考的是「语言描述 → 唯一目标 → 精确框位」的对齐能力。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:输出形态是一个 bounding box(框)。判定用 IoU 阈值:预测框与标准框的 IoU ≥ 0.5 即算命中,然后对所有样本求命中均值。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<pre><code>输入图:一张桌子上放着两个杯子,左红右蓝
+指代语:&quot;the blue cup on the right&quot;
+期望输出:[x1, y1, x2, y2] = [612, 240, 758, 430]   # 蓝杯子的框
+判对方式:与标注框算 IoU,≥ 0.5 记为命中(Acc@0.5)
 </code></pre>
-<p>运行后第一个框 IoU 约 0.81(命中),第二个约 0.39(未命中),第三个为 0(未命中),<code>Acc@0.5 = 0.333</code>。可以看到 RefCOCO 的打分本质就是两步:<strong>每条样本算一个 IoU,再用阈值把它压成 0/1,最后求均值</strong>。把阈值调高到 0.75,第一个框还能过,整体就会更严。</p>
-<h3 id="sec-6-3">6.3 正式化</h3>
-<p><strong>IoU(交并比)。</strong> 给定预测框 <span class="math inline">\(A\)</span> 与标准框 <span class="math inline">\(B\)</span>:</p>
-<div class="math block">
-\[IoU = \frac{|A \cap B|}{|A \cup B|}\]
-</div>
-<p>—— 翻译:两个框相交的面积,除以它们合起来覆盖的总面积;完全重合得 1,毫无重叠得 0,是衡量「框得多准」的连续尺子。</p>
-<p><strong>RefCOCO Acc@0.5。</strong> 设第 <span class="math inline">\(i\)</span> 条样本的最佳预测框与标准框的交并比为 <span class="math inline">\(IoU_i\)</span>,阈值 <span class="math inline">\(\tau = 0.5\)</span>,全集 <span class="math inline">\(N\)</span> 条:</p>
-<div class="math block">
-\[\text{Acc@}\tau = \frac{1}{N}\sum_{i=1}^{N}\mathbb{1}\!\left[IoU_i \ge \tau\right]\]
-</div>
-<p>—— 翻译:逐条样本判断「IoU 是否达到阈值」,达到记 1、不达记 0,再求平均;Acc@0.5 就是「IoU 至少 0.5 的样本占比」,这正是 RefCOCO / RefCOCO+ / RefCOCOg 发布时的北极星。</p>
-<p><strong>检测 AP / mAP(LVIS)。</strong> LVIS 是上千类的长尾检测数据集,类别分布极不均,不能只数命中率,而要兼顾「找全」(recall)与「找准」(precision)。其思想是:按某个 IoU 阈值把预测判为 TP/FP,沿置信度从高到低扫描,画出 precision-recall 曲线,取曲线下面积作为某一类的 AP,再对所有类求平均得 mAP。形式上某类的 AP 可写作:</p>
-<div class="math block">
-\[AP = \int_{0}^{1} p(r)\, dr, \qquad mAP = \frac{1}{C}\sum_{c=1}^{C} AP_c\]
-</div>
-<p>—— 翻译:<span class="math inline">\(p(r)\)</span> 是召回率为 <span class="math inline">\(r\)</span> 时的精确率,积分即 PR 曲线下面积(单类的综合得分);对 <span class="math inline">\(C\)</span> 个类别的 AP 求平均得到 mAP,长尾数据里这样才不会被头部大类掩盖尾部小类。</p>
-<p><strong>ScreenSpot 点命中。</strong> GUI 定位输出一个坐标点 <span class="math inline">\(\hat{p}=(\hat{x},\hat{y})\)</span>,目标元素框为 <span class="math inline">\(B=[x_1,y_1,x_2,y_2]\)</span>,命中当且仅当点落入框内:</p>
-<div class="math block">
-\[\text{hit} = \mathbb{1}\!\left[x_1 \le \hat{x} \le x_2 \;\wedge\; y_1 \le \hat{y} \le y_2\right]\]
-</div>
-<p>—— 翻译:预测点的横纵坐标都落在目标框的左右、上下边界之间就算命中;ScreenSpot / ScreenSpot-Pro 的命中率就是所有指令上 hit 的均值。PixMo-Points 的 pointing 评测同理,只是目标从界面元素换成图中物体。</p>
-<h3 id="sec-6-4">6.4 代码引用</h3>
-<p>VLMEvalKit 的 <code>groundingme.py</code> 是这层评分的脊柱。第一段就是 §6.3 里 IoU 公式的逐行实现。</p>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:把图像 + 指代语一起喂给模型,prompt 通常要求模型直接吐出坐标(如 <code>[x1,y1,x2,y2]</code>,常归一化到 0–1000 或像素值)。评测脚本用正则/解析器从模型输出里抽出四个数,还原成框,再与 ground-truth 框算 IoU,按阈值判命中。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>Acc@0.5</strong>(IoU≥0.5 的命中率均值),头版最常引用;部分报告也给 Acc@0.75 等更严阈值。</p>
+</li>
+</ul>
+<h3 id="sec-5-2">LVIS — 长尾词表检测(Large Vocabulary Instance Segmentation)</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:上千个类别的检测/实例数据集,类别分布极不均衡(少数头部类样本极多,大量尾部类样本极少)。考模型在长尾词表下「不只认识常见物体,也能检出稀有类」的覆盖能力。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:输出形态是一组带类别的 bounding box(检测框)。判定用 AP / mAP:按 IoU 阈值判定每个预测框是否为 TP(true positive),画出 precision-recall 曲线,取曲线下面积得 AP,再跨类别平均得 mAP。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<pre><code>输入图:厨房场景
+任务:检出图中所有属于词表类别的物体
+期望输出:
+  {label: &quot;spatula(锅铲,尾部稀有类)&quot;, box: [120, 88, 196, 240]}
+  {label: &quot;bowl&quot;,                      box: [300, 410, 520, 600]}
+  ...
+判对方式:每个预测框与同类标注框算 IoU,达阈值且类别对 → TP;
+         按 PR 曲线下面积求 AP,再跨类平均 → mAP
+</code></pre>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:给模型图 + 词表(或开放词表设置),模型输出若干 (类别, 框) 预测。评测把预测按置信度排序,逐个与标注做 IoU 匹配判 TP/FP,累积出每个类的 PR 曲线并积分为 AP,最后跨全部类别(常额外按头/中/尾分组报告)平均成 mAP。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>AP / mAP</strong>(precision-recall 曲线下面积,按 IoU 阈值判 TP 后跨类平均)。</p>
+</li>
+</ul>
+<h3 id="sec-5-3">ScreenSpot / ScreenSpot-Pro — GUI/屏幕元素定位</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:给一条操作指令,模型要在屏幕截图里点中对应的界面元素(按钮、图标、菜单项等)。这是 GUI agent 的底层能力——「看懂界面 → 定位可操作控件」。ScreenSpot-Pro 面向更专业/高分辨率的软件界面,难度更高。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:输出形态是一个点坐标(point)。判定用「点命中」:预测点是否落在目标元素的标注框内,落入即命中。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<pre><code>输入图:某 App 的设置界面截图
+指令:&quot;打开通知设置&quot;
+期望输出:point = (x, y) = (884, 312)   # 落在&quot;通知&quot;那一项的框内
+判对方式:看 (x,y) 是否落入目标元素的标注框 → 落入记命中
+</code></pre>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:把截图 + 指令喂给模型,要求输出一个坐标(常归一化)。评测解析出 (x, y),取目标元素的标注框,判断点是否在框内;命中数 / 总数即得命中率。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>点命中率</strong>(预测点落在目标元素框内的比例)。</p>
+</li>
+</ul>
+<figure><img class="zoomable" src="figures/sec6-screenspot.png" alt="ScreenSpot GUI 定位"><figcaption>图 5.1 ScreenSpot 类 GUI 定位:给指令,模型点中界面元素。</figcaption></figure>
+<h3 id="sec-5-4">PixMo-Points — pointing 指向评测</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:来自 Molmo(arxiv 2409.17146)的 pointing 评测,模型用点坐标「指出」图中的物体。它考的不是框得多准,而是「能否用一个点准确指向被问到的目标」,贴近人类用手指点东西的交互方式。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:输出形态是点坐标(point,可能是一个或多个点)。判定看预测点是否指中目标(点落在目标对象区域内即算正确)。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<pre><code>输入图:一张含多只动物的图
+指代语:&quot;point to the dog&quot;
+期望输出:point = (x, y) = (430, 660)   # 指在狗身上
+判对方式:看该点是否落在目标对象区域内 → 落入记正确
+</code></pre>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:给模型图 + 指向类指令,模型输出点坐标(Molmo 用专门的 pointing 输出格式)。评测解析坐标后,判断点是否命中目标对象,统计命中比例。</p>
+</li>
+<li>
+<p><strong>指标</strong>:pointing 命中率(预测点指中目标的比例)。</p>
+</li>
+</ul>
+<figure><img class="zoomable" src="figures/sec6-pixmo-pointing.png" alt="PixMo pointing"><figcaption>图 5.2 Molmo/PixMo-Points 的 pointing:模型用点坐标指出目标。图源:Molmo (arxiv 2409.17146)。</figcaption></figure>
+<p>▸ 怎么打分:IoU 与命中阈值</p>
+<p>上面所有「框」类判分都绕不开一个量——<strong>IoU(交并比)= 两框交集面积 / 并集面积</strong>。下面这段就是它的实现:先求两框相交矩形的左上/右下角,算出交集面积;再用两框面积之和减去交集得到并集;最后相除。</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/groundingme.py:L39-L56 — IoU:两个框的交集面积 / 并集面积</p>
 <pre><code class="language-python">def compute_iou(box1, box2):
     &quot;&quot;&quot;Compute Intersection over Union (IoU) of two bounding boxes.&quot;&quot;&quot;
@@ -786,8 +926,7 @@ print(f"Acc@0.5 = {hits / len(preds):.3f}")  # 命中均值
 
     return intersection / union if union &gt; 0 else 0
 </code></pre>
-<p>对照:<code>x_left/y_top/x_right/y_bottom</code> 算的就是交集矩形的左上、右下角,<code>intersection</code> 即 <span class="math inline">\(|A\cap B|\)</span>,<code>union = area1 + area2 - intersection</code> 即 <span class="math inline">\(|A\cup B|\)</span>,最后一行就是 <span class="math inline">\(IoU=\frac{|A\cap B|}{|A\cup B|}\)</span>。开头对 <code>[0,0,0,0]</code> 的特判处理「标准答案本就是空框」的退化情形——和我们 demo 里手写的逻辑一模一样,只是更鲁棒。</p>
-<p>第二段是从 IoU 走到北极星分数的那一步。</p>
+<p>有了 IoU,Acc@x 就是「设一个阈值,过线算 1 分,不过算 0 分,再对全集求均值」。下面这段对每个样本取多个候选框里 IoU 最高的那个(<code>best_iou</code>),分别与 0.5 / 0.75 / 0.9 比较得到 <code>acc_50/75/90</code>,最后用 <code>.mean()</code> 把这些 0/1 命中聚合成命中率。</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/groundingme.py:L146-L175 — Grounding 命中:best_iou ≥ 0.5/0.75/0.9 得 ACC@x,再对全集求均值</p>
 <pre><code class="language-python">            ious = [compute_iou(gt_bbox, pred) for pred in pred_candidates]
             best_idx = ious.index(max(ious))
@@ -820,64 +959,92 @@ print(f"Acc@0.5 = {hits / len(preds):.3f}")  # 命中均值
             'ACC@0.9': results_df['acc_90'].mean(),
         }
 </code></pre>
-<p>对照:<code>best_iou</code> 取多个候选框里最大的那个 IoU,正对应 §6.3 公式里「第 <span class="math inline">\(i\)</span> 条样本的最佳预测框」。三行 <code>acc_50/75/90 = float(best_iou &gt;= τ)</code> 就是指示函数 <span class="math inline">\(\mathbb{1}[IoU_i \ge \tau]\)</span> 的三个阈值版本;末尾的 <code>.mean()</code> 就是对全集求 <span class="math inline">\(\frac{1}{N}\sum\)</span>。为什么同时报 ACC@0.5/0.75/0.9?<strong>阈值越高越严</strong>:0.5 只要求框「大致对」,0.9 要求几乎完美贴合。只看 0.5 的模型可能框得松松垮垮也拿高分;把 0.75、0.9 一起摆出来,才能区分「能找到目标」和「能精确贴合目标」——这正是从粗定位走向精定位时,评测必须暴露的梯度。</p>
-<h3 id="sec-6-5">6.5 洞察</h3>
+<p>对照着看两段:<code>compute_iou</code> 给出「交 / 并」这一个连续的几何重叠分数;<code>acc_50/75/90</code> 把这个连续分数按阈值二值化成命中,<code>.mean()</code> 再把命中聚合成命中均值。阈值越高越严——Acc@0.9 要求框几乎完全压在标准框上,远比 Acc@0.5 难刷。RefCOCO 头版报的 Acc@0.5,本质就是这条流水线在阈值 0.5 处的那个数;ScreenSpot 的点命中率则是把「点是否落框内」代替了「IoU 是否过阈值」,聚合方式一模一样。</p>
+<h2 id="sec-6">6. 细节 / 瑕疵层:MVTec-AD / VisA / QGround</h2>
+<p>到这一层,benchmark 的形态彻底变了。前面几层的题目都能归约成「给一道题、读模型的一段答案、判对错」,指标是 accuracy / 命中率这一套。但工业异常与画质瑕疵这类任务,关心的不是「答对了吗」,而是「能不能把异常从正常里区分排序出来」「能不能把缺陷的像素精确圈出来」。于是指标体系换成了 <strong>AUROC / PRO / mIoU</strong>——这些是排序质量与区域重叠度的度量,<strong>与前面的 accuracy 体系不可直接通约</strong>:一个模型可以在 VQA 上拿 80% 准确率,但在 MVTec 上的 image-AUROC 跟它的 VQA 分数没有任何换算关系。</p>
+<p>更要紧的一点:<strong>这一层榜单上刷分的主力大多还不是 VLM,而是专用异常检测模型</strong>(PatchCore、PaDiM、EfficientAD 等)。它们不走对话接口,而是吃一张图、吐一个异常分或一张异常热力图。把通用 VLM 拉进来比,往往要专门设计 prompt 或额外训练分割头,接口本身就不对齐。读这一层榜单时务必看清:跑在前列的是不是「VLM」。</p>
+<p>工业异常指标的完整全貌可参见教程《VLM 工业质检》<a href="../vlm-industrial-2024/">../vlm-industrial-2024/</a>;Q-Ground 的方法细节见 <a href="../../papers/q-ground-2024/">Q-Ground 精读</a>。</p>
+<h3 id="sec-6-1">MVTec-AD — 工业异常检测的黄金基准</h3>
 <ul>
-<li><strong>box→mask,指标随之升级。</strong> 本节判的是框和点,衡量尺子是 IoU 和点命中率。当任务从「框出物体」细到「逐像素抠出物体轮廓」(分割),IoU 就升级为 mIoU(对每个目标算掩码 IoU 再求平均)——这正是下一节 §7 在像素级细节/瑕疵定位里要接手的指标,本节的几何直觉会被原样复用。</li>
-<li><strong>这一层的北极星是 RefCOCO Acc@0.5 与 ScreenSpot 命中率。</strong> 厂商发布带 grounding / GUI agent 能力的模型时,头版往往摆这两个数;读榜时要分清它报的是 Acc@0.5(宽松)还是更高阈值(严格)。仓库内更细的 grounding benchmark 盘点详见教程《VLM Grounding 全景》§8(<a href="../vlm-grounding-2025/">../vlm-grounding-2025/</a>);PixMo-Points 的 pointing 范式细节见 Molmo 精读(<a href="../../papers/molmo-2024/">../../papers/molmo-2024/</a>)。</li>
-<li><strong>这一层只是「指对位置」的正向一半。</strong> RefCOCO / ScreenSpot / PixMo 测的都是<strong>正向</strong>:给一句话,输出位置。但完整的「双向 grounding」还有反向的一半——给一个位置,生成对它的描述——以及跨粒度(框/点/掩码)的统一评测。这些是现有 benchmark 没有覆盖、需要研究者自建的部分(呼应 §8 的「缺口即自建信号」)。</li>
+<li>
+<p><strong>测什么能力</strong>:在「只见过正常样本」的前提下,判断一张工业件图是否有缺陷(图级),并把缺陷区域定位到像素(像素级)。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:任务是无监督异常检测——<strong>训练集只给正常样本</strong>,测试集才混入划痕、缺失、错位、污染等多种缺陷。共 15 类(10 个物体 + 5 个纹理)。模型/算法对每张图输出一个异常分(用于图级判定),对每个像素输出一个异常分(用于缺陷定位)。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong></p>
+<ul>
+<li>输入图:一张螺丝(metal nut)的俯拍图,其中一颗螺纹处有一道划痕。</li>
+<li>期望输出:① 图级异常分 = 一个标量(越高越像异常);② 缺陷掩码 = 一张与原图同尺寸的二值/热力图,划痕处像素为高分,其余为低分。</li>
+<li>怎么判好坏:图级——所有测试图按异常分排序,看异常图是否排在正常图前面(算 image-AUROC);像素级——把每个像素当一个样本,看缺陷像素的分是否高于背景像素(算 pixel-AUROC),并用 PRO 检查小缺陷有没有被漏掉。</li>
 </ul>
-<h2 id="sec-7">7. 细节 / 瑕疵:MVTec-AD / VisA / QGround</h2>
-<h3 id="sec-7-1">7.1 直觉</h3>
-<p>前面 §1–§6 的整套尺子,底层都是「答对没有」——把模型的回答和标准答案比一比,对了记一分,这就是 accuracy 体系。可是一旦走进<strong>找瑕疵</strong>这一层,这把尺子突然不灵了。</p>
-<p>想象工厂质检:一条产线上 99.9% 的产品是好的,真正的缺陷又小又罕见。如果还用「对/错分类」,模型只要永远说「没缺陷」,准确率就接近 100%——分数高得离谱,却毫无用处。所以这个社区换了一套完全不同的评分哲学:不看「判得对不对」,而看「<strong>异常分数排得好不好</strong>」。</p>
-<p>打个比方,这更像体检报告里的<strong>风险排序</strong>,而不是一刀切的「健康/不健康」。医生不会武断地给你贴标签,而是把所有人按风险高低排个队,真正高危的排在前面。衡量这种「排序质量」的指标就是 <strong>AUROC</strong>:只要所有异常样本的分数都比正常样本高,排序就完美(AUROC = 1.0);完全乱排则等于瞎猜(0.5)。它和阈值无关,因此回避了「99.9% 正常」带来的偏差。</p>
-<p>到了像素级,问题升级为「缺陷在图上哪个位置」。这时把每个像素当作一个待排序的样本,算 <strong>pixel-AUROC</strong>;或者用 <strong>PRO</strong>(Per-Region Overlap),对每块缺陷区域单独计覆盖率,避免大缺陷淹没小缺陷。而画质失真这类任务(QGround)又回到分割,沿用 §6 的 IoU 思路,用 <strong>mIoU</strong> 评分。</p>
-<figure><img class="zoomable" src="figures/sec7-mvtec-defects.png" alt="工业缺陷样例"><figcaption>图 7.1 工业缺陷检测样例(MVTec-AD 风格):正常 vs 各类缺陷,需像素级定位。</figcaption></figure>
-<p>关键反差有两点。其一,这套 AUROC / pixel-AUROC / PRO / mIoU 指标和 §1–§6 的 accuracy 体系<strong>根本不兼容</strong>——一边是「答对计分」,一边是「排序面积」,没法放进同一张榜单横比。其二,在 MVTec-AD、VisA 这些黄金基准上刷分的,<strong>大多还不是 VLM</strong>,而是工业界专门设计的异常检测模型(只学正常样本、推理时找偏离)。这一层离「双向多粒度 grounding」这类前沿方向的细节粒度最近,却也最难被现有 VLM 范式收编。</p>
-<h3 id="sec-7-2">7.2 最小 demo</h3>
-<p>AUROC 听起来玄乎,其实就是「按异常分数排序后,异常样本排在正常样本前面的比例」。下面给每张图一个异常分和真实标签(1 = 异常,0 = 正常),用最朴素的「逐对比较」算 image-AUROC,再和 sklearn 对照:</p>
-<pre class="teaching-demo"><code class="language-python">scores = [0.1, 0.4, 0.35, 0.8, 0.2, 0.9]   # 模型给每张图的异常分
-labels = [0,   0,   1,    1,   0,   1]       # 1=真异常, 0=正常
-
-# AUROC = 随机取一个异常样本、一个正常样本，异常分更高的概率
-pos = [s for s, y in zip(scores, labels) if y == 1]   # 异常分
-neg = [s for s, y in zip(scores, labels) if y == 0]   # 正常分
-
-wins = 0.0
-for p in pos:
-    for n in neg:
-        if p > n:
-            wins += 1          # 异常排在正常前面，赢一分
-        elif p == n:
-            wins += 0.5        # 平手算半分
-auroc = wins / (len(pos) * len(neg))
-print(f"toy image-AUROC = {auroc:.3f}")      # 0.889
-
-from sklearn.metrics import roc_auc_score
-print(f"sklearn AUROC   = {roc_auc_score(labels, scores):.3f}")  # 0.889
-</code></pre>
-<p>两者完全一致。这个「逐对比较」的视角揭穿了 AUROC 的本质:它就是<strong>异常分大于正常分的概率</strong>,根本不需要选阈值。注意全程没有「预测对错」这回事——分数本身从不被判对错,只被拿来排序。</p>
-<h3 id="sec-7-3">7.3 正式化</h3>
-<p>ROC 曲线建立在两个随阈值变化的量上。给定阈值 <span class="math inline">\(t\)</span>,预测为「异常」当且仅当分数 <span class="math inline">\(s \gt t\)</span>,于是:</p>
-<div class="math block">
-\[\mathrm{TPR}(t)=\frac{TP(t)}{TP(t)+FN(t)},\qquad \mathrm{FPR}(t)=\frac{FP(t)}{FP(t)+TN(t)}\]
-</div>
-<p>—— 翻译:TPR 是真异常里被抓出来的比例(查全),FPR 是正常样本里被误报的比例(误杀)。阈值 <span class="math inline">\(t\)</span> 从高到低滑动,两者各自从 0 爬到 1。</p>
-<p>把每个阈值对应的点 <span class="math inline">\((\mathrm{FPR},\mathrm{TPR})\)</span> 连成曲线,曲线下面积即 AUROC:</p>
-<div class="math block">
-\[\mathrm{AUROC}=\int_0^1 \mathrm{TPR}\,\mathrm{d}(\mathrm{FPR})\]
-</div>
-<p>—— 翻译:对所有可能的误报率积分查全率;面积越接近 1,说明在任意误报水平下都能抓到更多异常,0.5 等于随机瞎猜。</p>
-<p><strong>pixel-AUROC</strong> 不改公式,只换样本粒度:把整张测试集里每一个像素当成一个独立样本,用模型输出的「该像素异常分」和「该像素是否落在缺陷掩码内」算同一个 AUROC,从而衡量缺陷<strong>定位</strong>质量。</p>
-<p><strong>PRO</strong>(Per-Region Overlap)针对像素级 AUROC 被大缺陷主导的毛病。设真值掩码由若干连通缺陷区域 <span class="math inline">\(\{R_1,\dots,R_K\}\)</span> 组成,在某阈值下的预测异常区域为 <span class="math inline">\(P\)</span>,则:</p>
-<div class="math block">
-\[\mathrm{PRO}=\frac{1}{K}\sum_{k=1}^{K}\frac{\lvert P\cap R_k\rvert}{\lvert R_k\rvert}\]
-</div>
-<p>—— 翻译:对每块缺陷单独算「被预测覆盖的比例」再求平均;一块巨大缺陷和一块微小缺陷权重相同,小缺陷因此不会被忽略。</p>
-<p>QGround 的画质失真分割则直接沿用 §6 的 IoU,推广到分割掩码上用 <strong>mIoU</strong>(各失真类别 IoU 的平均),衡量「失真区域圈得准不准」。</p>
-<h3 id="sec-7-4">7.4 代码引用</h3>
-<p>工业界最常用的开源实现是 <strong>anomalib</strong>(Intel / OpenVINO 官方异常检测库)。它的 image-AUROC 指标核心只有几行:</p>
+</blockquote>
+<figure><img class="zoomable" src="figures/sec7-mvtec-defects.png" alt="工业缺陷样例"><figcaption>图 6.1 工业缺陷检测样例(MVTec-AD 风格):正常 vs 各类缺陷,需像素级定位。</figcaption></figure>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:对每张测试图算一个图级异常分,把全部测试图按分数排序求 image-AUROC;对每张图的每个像素算异常分,把所有像素汇在一起按分数排序求 pixel-AUROC。<strong>主流方法是非对话、非 VLM 接口的专用检测器</strong>(吃图吐分/吐热力图),通用 VLM 要接入需额外改造。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>image-AUROC</strong>(图级:是否异常)、<strong>pixel-AUROC</strong>(像素级:缺陷定位)。</p>
+</li>
+</ul>
+<h3 id="sec-6-2">VisA — 更大更难的像素级异常基准</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:与 MVTec 同属工业异常检测,但样本量更大、分辨率更高、缺陷更细微,考验方法在更难分布上的异常排序与定位能力。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:12 类、共 10,821 张高分辨率图,带<strong>像素级异常标注</strong>。沿用「只给正常样本训练、测试含缺陷」的无监督异常检测设定;输出形态同 MVTec(图级异常分 + 像素级异常图)。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong></p>
+<ul>
+<li>输入图:一块 PCB 的高分辨率图,某处贴片元件有极小的偏位。</li>
+<li>期望输出:① 图级异常分;② 像素级异常图,偏位元件处高亮。</li>
+<li>怎么判好坏:与 MVTec 一致——图级看排序(image-AUROC),像素级把每像素当样本看排序(pixel-AUROC),小缺陷用 PRO 兜底。因图更大、缺陷更小,pixel 级别更吃精度。</li>
+</ul>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:同 MVTec——逐图一个异常分排序算 image-AUROC,逐像素一个异常分排序算 pixel-AUROC。榜单上仍以专用异常检测模型为主,多为非对话接口。</p>
+</li>
+<li>
+<p><strong>指标</strong>:<strong>image-AUROC</strong>、<strong>pixel-AUROC</strong>(辅以 <strong>PRO</strong> 保护小缺陷)。</p>
+</li>
+</ul>
+<h3 id="sec-6-3">Q-Ground / QGround — 画质失真分割</h3>
+<ul>
+<li>
+<p><strong>测什么能力</strong>:不止判断「图像有没有画质问题」,而要把画质失真(模糊、噪声、压缩伪影等)在图上<strong>分割出来</strong>,定位到具体区域。</p>
+</li>
+<li>
+<p><strong>测试方法</strong>:任务形态是像素级分割——对输入图输出一张失真区域的分割掩码。配套数据集为 <strong>QGround-100K</strong>。与 MVTec/VisA 的「异常打分排序」不同,这里直接评分割质量。</p>
+</li>
+<li>
+<p><strong>测试示例(题型示意,非数据集原题)</strong>:</p>
+<blockquote>
+<p><strong>题型示意,非数据集原题</strong></p>
+<ul>
+<li>输入图:一张局部模糊、其余清晰的照片。</li>
+<li>期望输出:一张分割掩码,模糊区域标为前景,清晰区域标为背景。</li>
+<li>怎么判好坏:把预测掩码与人工标注掩码逐像素比对,算交并比(mIoU)——重叠越大分越高。</li>
+</ul>
+</blockquote>
+</li>
+<li>
+<p><strong>模型如何被测试</strong>:模型对每张图输出失真区域的分割掩码,与 ground-truth 掩码计算 IoU,在所有图/类别上取平均得 mIoU。这一任务更贴近分割模型/具备分割头的多模态模型,而非纯对话式 VLM 接口。</p>
+</li>
+<li>
+<p><strong>指标</strong>:分割 <strong>mIoU</strong>。</p>
+</li>
+</ul>
+<p>▸ <strong>怎么打分:image-AUROC</strong></p>
+<p>上面反复出现的 AUROC,定义是 ROC 曲线(纵轴 TPR、横轴 FPR)下的面积:它衡量「把异常排在正常前面」的排序能力,<strong>与阈值无关</strong>——0.5 等于随机猜,1.0 等于完美排序。pixel-AUROC 只是把统计单位从「每张图一个分」换成「每个像素一个分」。下面是 anomalib(Intel/OpenVINO 官方异常检测库)里 image-AUROC 的核心实现:</p>
 <p class="code-source">sources/repos/openvinotoolkit-anomalib/src/anomalib/metrics/auroc.py:L82-L92 — 异常检测的 image-AUROC:先算 ROC 曲线 (fpr,tpr),再取曲线下面积</p>
 <pre><code class="language-python">    def compute(self) -&gt; torch.Tensor:
         &quot;&quot;&quot;First compute ROC curve, then compute area under the curve.
@@ -891,109 +1058,69 @@ print(f"sklearn AUROC   = {roc_auc_score(labels, scores):.3f}")  # 0.889
         fpr, tpr = self._compute()
         return auc(fpr, tpr, reorder=True)
 </code></pre>
-<p><strong>对照</strong>:<code>self._compute()</code> 先把所有样本的分数与标签整理成 ROC 曲线上的一串点 <code>(fpr, tpr)</code>,<code>auc(fpr, tpr)</code> 再对这条曲线做数值积分求面积——正是 §7.3 里 <span class="math inline">\(\mathrm{AUROC}=\int_0^1 \mathrm{TPR}\,\mathrm{d}(\mathrm{FPR})\)</span> 的逐字落地(梯形法离散积分)。这里的 <code>AUROC</code> 类本质是对 torchmetrics <code>BinaryROC</code> 的一层封装:anomalib 只负责把异常分喂进去,排序与积分都交给底层。换 pixel-AUROC 时,喂进来的就从「每图一个分」变成「每像素一个分」,同一段代码原封不动复用——这也解释了为什么 pixel-AUROC 在 §7.3 里只是「换样本粒度」。</p>
-<h3 id="sec-7-5">7.5 洞察</h3>
-<ul>
-<li><strong>指标体系天然排斥 VLM 范式</strong>。这一层的评分要么是纯排序(AUROC / pixel-AUROC / PRO),要么是纯分割(mIoU),既没有对话、也没有自然语言答案可判——而 §1–§6 的 VLM benchmark 全靠「从文本里抠出答案再比对」。一个只会输出文字的 VLM,根本接不上「给每个像素一个异常分」这种接口。如何把这种细节粒度统一进 VLM 的语言输出,正是「双向多粒度 grounding」方向要啃的硬骨头。</li>
-<li><strong>非 VLM 专用模型在这层抢跑</strong>。MVTec-AD(15 类,训练只给正常样本)、VisA(12 类、10,821 张高分辨率图)这些黄金基准的高分,几乎都被工业界专门设计的异常检测模型拿走——它们「只学正常、推理找偏离」的范式天然契合 AUROC,通用 VLM 在这里暂时不占优。</li>
-<li><strong>像素 / mask 标注成本极高</strong>。pixel-AUROC、PRO、mIoU 都依赖逐像素真值掩码,而画一张缺陷掩码远比写一个选择题答案昂贵,这直接限制了细节级数据集的规模与覆盖面,也是把这层能力规模化进 VLM 的现实瓶颈。</li>
-</ul>
-<p>工业异常这条线的指标全貌与实操,详见教程《VLM 工业质检》(<a href="../vlm-industrial-2024/">../vlm-industrial-2024/</a>);画质失真分割 QGround 的方法与 QGround-100K 数据集,可参阅 <a href="../../papers/q-ground-2024/">Q-Ground 精读</a>,它把失真分割从纯指标推向了「VLM + 分割」的融合尝试,正是本层与主流 VLM 接轨的一个早期样本。</p>
-<h2 id="sec-8">8. 各家北极星对照、怎么读 leaderboard,以及什么时候得自建</h2>
-<h3 id="sec-8-1">8.1 直觉</h3>
-<p>走到这里,你已经见过五大指标族:命中均值(accuracy)、relaxed accuracy / ANLS、F1、IoU / Acc@0.5 / AP / 点命中率,以及 AUROC / pixel-AUROC / PRO / mIoU。每一族背后都有一个被厂商挑出来「上海报」的那个数——这就是 §1 说的北极星。</p>
-<p>现在假设你打开任意一张 OpenVLM Leaderboard,密密麻麻几十列分数。<strong>正确的读法不是先看谁第一,而是先问三件事</strong>:这一列在测什么能力?它用的是哪个指标(量纲是百分制还是 2800 制)?这个分数会不会是「虚高」出来的?第三个问题最要命,因为榜单上最漂亮的那个数,往往恰恰是被某种陷阱放大的。</p>
-<p>把全文压成一张矩阵,就是下面这张图:横轴是「能力层 → 测什么 → 指标 → 北极星」,旁边挂着读榜必须警惕的三大陷阱。</p>
-<figure><img class="zoomable" src="figures/sec8-northstar-matrix.svg" alt="各家北极星对照矩阵"><figcaption>图 8.1 三层 benchmark × 指标 × 北极星对照矩阵,以及读榜要警惕的三大陷阱。</figcaption></figure>
-<p>记住一句话:<strong>任何单一数字都不可信,你要看的是一整组数字的「形状」。</strong> 一个文档模型 DocVQA 95 分但 POPE-F1 只有 70,说明它会读字却爱瞎编;一个模型 MMMU 很高但 MMStar 上「盖住图也能答对」的比例很大,说明它的高分有水分。</p>
-<h3 id="sec-8-2">8.2 最小 demo</h3>
-<p>把多个 benchmark 分数汇总成一个排名,听起来只是「加起来除以个数」,但这里藏着 §3 的教训:MME 是 2800 制,MMMU 是百分制,<strong>直接相加等于让 MME 一票否决其他所有维度</strong>。所以必须先归一化到同一量纲。</p>
-<pre class="teaching-demo"><code class="language-python"># 玩具版 leaderboard 汇总:务必先归一化,再加权
-models = {
-    "Model-A": {"MMMU": 58.0, "DocVQA": 90.1, "MME": 2050.0, "POPE_F1": 86.0},
-    "Model-B": {"MMMU": 61.0, "DocVQA": 84.0, "MME": 1900.0, "POPE_F1": 79.0},
-}
-# 每个 benchmark 的理论满分(量纲),用来归一化到 [0,1]
-full_marks = {"MMMU": 100.0, "DocVQA": 100.0, "MME": 2800.0, "POPE_F1": 100.0}
-weights    = {"MMMU": 0.4, "DocVQA": 0.3, "MME": 0.1, "POPE_F1": 0.2}
-
-def aggregate(scores):
-    total = 0.0
-    for bench, raw in scores.items():
-        norm = raw / full_marks[bench]      # 关键:2800 制不能直接和百分制相加
-        total += weights[bench] * norm
-    return round(total * 100, 2)            # 折回 0-100 便于阅读
-
-ranking = sorted(models.items(), key=lambda kv: aggregate(kv[1]), reverse=True)
-for name, scores in ranking:
-    print(f"{name}: {aggregate(scores)}  细分={scores}")
-# Model-A: 80.6  ...
-# Model-B: 78.5  ...
-</code></pre>
-<p>去掉 <code>norm = raw / full_marks[bench]</code> 这一行,MME 的 2050 会把加权和彻底带偏,Model-A 直接「赢」在它根本没多强的维度上。归一化是把不同尺子换算成同一把尺的最低门槛——这也是为什么严肃榜单从不简单地「求和」。</p>
-<h3 id="sec-8-3">8.3 正式化</h3>
-<p><strong>总对照表</strong>(三层能力 × 代表 benchmark × 指标 × 北极星):</p>
+<p>对照来看:<code>_compute()</code> 先吐出 ROC 曲线上的一串 <code>(fpr, tpr)</code> 点,<code>auc(fpr, tpr)</code> 再对这条曲线求积分得到曲线下面积,就是 AUROC。这个 <code>AUROC</code> 类本质是 torchmetrics <code>BinaryROC</code> 的封装——拿到曲线点后求面积。要从 image-AUROC 切到 <strong>pixel-AUROC</strong>,代码逻辑不变,只是把「每张图一个预测分 + 一个标签」换成「每个像素一个预测分 + 一个标签」喂进来即可。至于 <strong>PRO</strong>(Per-Region Overlap),它不走这条「全部样本一起排序」的路:它对每个真实缺陷的连通区域<strong>单独</strong>算覆盖率再求平均,从而避免大缺陷在整体面积上主导分数、保护那些面积虽小却关键的缺陷。</p>
+<h2 id="sec-7">7. 速查对照表 · 怎么读 leaderboard · 什么时候得自建</h2>
+<h3 id="sec-7-1">7.1 一张速查对照表</h3>
+<p>把前六层收成一张表,看到任意一个 benchmark 名字都能立刻定位它在测什么、用什么判分:</p>
 <table>
 <thead>
 <tr>
 <th>能力层</th>
 <th>代表 benchmark</th>
-<th>主指标</th>
-<th>被挑成北极星的那个数</th>
+<th>题型 / 输出</th>
+<th>指标</th>
+<th>头版常用</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>通用综合</td>
-<td>MMMU / MMBench / MME / SEED</td>
+<td>MMMU / MMBench / MME / SEED-Bench</td>
+<td>多选 / yes-no</td>
 <td>accuracy(MME 用 2800 制)</td>
-<td>MMMU 准确率</td>
+<td>MMMU</td>
 </tr>
 <tr>
-<td>文档 / OCR</td>
-<td>DocVQA / ChartQA / TextVQA</td>
-<td>ANLS / relaxed accuracy</td>
-<td>DocVQA ANLS</td>
-</tr>
-<tr>
-<td>数学推理</td>
-<td>MathVista</td>
-<td>accuracy(含数值容差)</td>
-<td>MathVista 准确率</td>
+<td>会读图会算</td>
+<td>DocVQA / ChartQA / TextVQA / AI2D / MathVista</td>
+<td>开放问答 / 多选</td>
+<td>ANLS / relaxed acc / accuracy</td>
+<td>DocVQA、MathVista</td>
 </tr>
 <tr>
 <td>幻觉 / 诚实</td>
 <td>POPE / HallusionBench / MMStar</td>
-<td>precision / recall / F1</td>
+<td>yes-no / 配对 / 给图vs不给图</td>
+<td>F1 / 配对准确率 / 视觉必要性</td>
 <td>POPE-F1</td>
 </tr>
 <tr>
-<td>定位 grounding</td>
-<td>RefCOCO / LVIS / ScreenSpot</td>
-<td>IoU / Acc@0.5 / AP / 点命中率</td>
+<td>Grounding 定位</td>
+<td>RefCOCO / LVIS / ScreenSpot / PixMo-Points</td>
+<td>输出框 / 点</td>
+<td>IoU·Acc@0.5 / AP·mAP / 点命中率</td>
 <td>RefCOCO Acc@0.5、ScreenSpot 命中率</td>
 </tr>
 <tr>
 <td>细节 / 瑕疵</td>
 <td>MVTec-AD / VisA / QGround</td>
-<td>AUROC / pixel-AUROC / PRO / mIoU</td>
-<td>pixel-AUROC、PRO(多为非 VLM 专用模型)</td>
+<td>异常分排序 / 像素分割</td>
+<td>image-/pixel-AUROC / PRO / mIoU</td>
+<td>pixel-AUROC(多为非 VLM 专用模型)</td>
 </tr>
 </tbody>
 </table>
-<p><strong>三大陷阱的形式化</strong>。第一,视觉冗余——一个题真正需要看图的程度可以定义为:</p>
-<div class="math block">
-\[\text{VisualNecessity} = \text{acc}_{\text{有图}} - \text{acc}_{\text{无图}}\]
-</div>
-<p>—— 翻译:把图盖住后模型还能答对多少,差值越小说明这道题越「不看图也能蒙」,§5 的 MMStar 正是靠筛掉这类题来还原真实视觉能力。</p>
-<p>第二,数据污染 / 泄漏。设测试集与训练语料的重叠比例为 <span class="math inline">\(r\)</span>,污染会让观测到的分数虚高:</p>
-<div class="math block">
-\[\text{acc}_{\text{观测}} = (1-r)\cdot \text{acc}_{\text{真实}} + r\cdot \text{acc}_{\text{背答案}},\quad \text{acc}_{\text{背答案}} \gt \text{acc}_{\text{真实}}\]
-</div>
-<p>—— 翻译:只要有一部分测试题被模型「背过」,加权平均就会高于它的真实泛化能力,<span class="math inline">\(r\)</span> 越大水分越大,这就是 MMStar 强调要清洗泄漏题的原因。</p>
-<p>第三,格式敏感 / 答案提取误差。同一个模型在两套 harness 下的分数满足 <span class="math inline">\(\text{score}_{A} \neq \text{score}_{B}\)</span>,差异来自答案提取器与协议不同(§2)。结论:<strong>不同 harness 跑出来的分数不可直接横比</strong>,跨榜比较前必须确认是同一套评测协议。</p>
-<h3 id="sec-8-4">8.4 代码引用</h3>
-<p>那么「北极星」在代码里到底怎么从一堆指标里被抽出来?VLMEvalKit 在每个数据集算完所有指标后,用一个 <code>report_primary_metric</code> 只挑一个对外汇报:</p>
+<figure><img class="zoomable" src="figures/sec8-northstar-matrix.svg" alt="各家头版指标对照矩阵"><figcaption>图 7.1 三层 benchmark × 指标 × 头版指标对照矩阵,以及读榜要警惕的三大陷阱。</figcaption></figure>
+<h3 id="sec-7-2">7.2 怎么读一张 leaderboard(三大陷阱)</h3>
+<p>看到一张排名密密麻麻的榜单,别先看谁第一,先按 §5 的教训过三道筛:</p>
+<ol>
+<li><strong>数据污染 / 泄漏</strong>:测试题是否可能进过训练语料?进过的话分数就从「考试」退化成「默写背过的答案」。越新、越冷门的 benchmark 越可信。</li>
+<li><strong>视觉冗余</strong>:这列有没有「盖住图也能答对」的对照(如 MMStar)?没有的话,纯靠语言先验可蒙的高分要打折看。形式上:视觉必要性 = acc(有图) − acc(无图)。</li>
+<li><strong>格式敏感 / 答案提取差异</strong>:这分是哪套 harness、哪个答案提取器跑的?(§1 讲过)换一套提取规则同一个模型分数就会浮动——<strong>不同 harness 的分数不可直接横比</strong>。</li>
+</ol>
+<p>还有一条贯穿全文:<strong>量纲不统一不能相加</strong>。MME 是 2800 制、MMMU 是百分制、AUROC 是 0–1——把它们塞进一个「总分」前必须先各自归一化。</p>
+<h3 id="sec-7-3">7.3 「头版指标」在代码里是怎么被挑出来的</h3>
+<p>一个 benchmark 跑完往往同时产出十几个数(总分、各子类、precision/recall…),但榜单上只显示一个。VLMEvalKit 用一个函数从中钦定那个对外汇报的主指标:</p>
 <p class="code-source">sources/repos/open-compass-VLMEvalKit/vlmeval/dataset/image_base.py:L393-L407 — report_primary_metric:发布时只抽出主指标对外汇报</p>
 <pre><code class="language-python">    def report_primary_metric(cls, metrics: dict[str, Any] | None) -&gt; dict[str, float | int]:
         if not isinstance(metrics, dict) or not metrics:
@@ -1011,25 +1138,18 @@ for name, scores in ranking:
                 primary_metrics[str(key)] = to_number(value)
         return primary_metrics
 </code></pre>
-<p><strong>对照</strong>:<code>metrics</code> 是一个完整字典——可能同时含 Overall、各子类 accuracy、precision/recall 等十几个数。但 <code>_choose_primary_metric_key</code>(就是 §1.4 那段优先级逻辑)按固定优先级(Overall 优于 Acc 优于 Score)只选出一个键,函数最后只回传这一个 <code>primary_metrics</code>。这正是 §1 那句话的代码版:<strong>北极星 = 被框架从一堆数里挑出来、放上 leaderboard 头版的那个数</strong>。换句话说,你在榜上看到的那一列,背后早被某段优先级逻辑替你做了「该看哪个」的决定——而它替你扔掉的其他指标,往往才是暴露短板的地方。</p>
-<h3 id="sec-8-5">8.5 洞察 + 给小白的 checklist</h3>
+<p><code>_choose_primary_metric_key</code> 按固定优先级(Overall 优于 Acc 优于 Score)从一堆指标里选出一个键,<code>report_primary_metric</code> 只回传它。换句话说:<strong>你在榜上看到的那一列,是框架替你做了「该看哪个」的决定,而被它扔掉的其他指标,往往才是暴露短板的地方</strong>——所以 §7.2 才强调要主动去看头版之外的诚实/定位维度。</p>
+<h3 id="sec-7-4">7.4 什么时候你得自建 benchmark</h3>
+<p>这份目录覆盖的都是已经成熟、被反复刷过的能力。如果你做的是更前沿的方向——比如双向 grounding、多粒度定位、few-shot pointing——会发现几乎找不到对口的公开评测。这类能力目前没有现成 benchmark,需要自建,而自建时同样套用 §1 的四要素:</p>
 <ul>
-<li><strong>没有任何单一指标可信,要看一整组。</strong> 北极星是营销与真实能力的混合体;真正的诊断来自把同一模型在通用 / 文档 / 幻觉 / 定位多族指标上的分数摆成一行,看它的「形状」哪里塌陷。</li>
-<li><strong>量纲不统一时,先归一化再比较。</strong> 2800 制的 MME 不能和百分制相加;不同 harness 的分数因答案提取与协议不同也不能直接横比——跨榜比较前永远先确认协议一致。</li>
-<li><strong>前沿能力常常没有公开 benchmark,需要自建。</strong> 现成榜单覆盖的是已经成熟、被反复刷过的能力。如果你在做双向 grounding、多粒度定位、few-shot pointing 这类前沿方向,会发现几乎找不到现成、对口的公开评测——这类能力目前没有公开 benchmark,前沿团队往往需要自建评测来量化进展,而自建时同样要复用本文这套「数据 / 任务格式 / 指标 / 协议」四要素,并主动设计去污染、查视觉必要性的子集。</li>
+<li><strong>数据</strong>:凑齐(图,问题/指令,标准答案)三元组,并主动设计去污染(测试题不进训练)、查视觉必要性(给图 vs 不给图)的对照子集。</li>
+<li><strong>任务格式</strong>:答案是文本、框、点还是掩码?决定第④步提取器。</li>
+<li><strong>指标</strong>:对应选 accuracy / F1 / IoU·mIoU / AUROC。</li>
+<li><strong>协议</strong>:固定 prompt 模板与答案提取规则,否则分数不可复现、不可横比。</li>
 </ul>
-<p><strong>小白实操 checklist——拿到一个模型 / 一张榜该怎么核验</strong>:</p>
-<ol>
-<li><strong>认能力层</strong>:先把每列归到「通用 / 文档 / 数学 / 幻觉 / 定位 / 细节」哪一层,别把不同能力当成一个总分。</li>
-<li><strong>认指标与量纲</strong>:这列是 accuracy、ANLS、F1、IoU 还是 AUROC?满分是 100 还是 2800?量纲不同先归一化。</li>
-<li><strong>认协议</strong>:是哪套 harness、哪个答案提取器跑的?不同协议的分数不可直接比。</li>
-<li><strong>查视觉冗余</strong>:有没有「盖住图也能答对」的对照(如 MMStar 子集)?没有就对纯文本可蒙的高分打个折。</li>
-<li><strong>查污染 / 泄漏</strong>:测试集是否可能进过训练语料?越新、越冷门的 benchmark 越可信。</li>
-<li><strong>看一整组而非一个数</strong>:对比北极星之外的诚实(POPE-F1)、定位(Acc@0.5)等维度,找塌陷点。</li>
-<li><strong>缺口即自建信号</strong>:如果你关心的能力在所有公开榜上都没有对口列,这本身就是要自建 benchmark 的信号——而怎么建,正是前面七节给你的全部工具。</li>
-</ol>
-<h2 id="sec-9">参考文献与数据集</h2>
-<h3 id="sec-9-1">通用能力 benchmark</h3>
+<p><strong>给小白的读榜 checklist</strong>:① 认能力层(别把不同能力当一个总分);② 认指标与量纲(满分 100 还是 2800?先归一化);③ 认协议(哪套 harness);④ 查视觉冗余;⑤ 查污染/泄漏;⑥ 看一整组而非一个数;⑦ 关心的能力榜上没有对口列 = 该自建的信号。</p>
+<h2 id="sec-8">参考文献与数据集</h2>
+<h3 id="sec-8-1">通用能力 benchmark</h3>
 <ul>
 <li><strong>MMMU</strong> — A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark for Expert AGI. arxiv <a href="https://arxiv.org/abs/2311.16502">2311.16502</a> (CVPR 2024)</li>
 <li><strong>MMBench</strong> — Is Your Multi-modal Model an All-around Player? arxiv <a href="https://arxiv.org/abs/2307.06281">2307.06281</a></li>
@@ -1037,7 +1157,7 @@ for name, scores in ranking:
 <li><strong>SEED-Bench</strong> — Benchmarking Multimodal LLMs with Generative Comprehension. arxiv <a href="https://arxiv.org/abs/2307.16125">2307.16125</a></li>
 <li><strong>MM-Vet</strong> — Evaluating Large Multimodal Models for Integrated Capabilities. arxiv <a href="https://arxiv.org/abs/2308.02490">2308.02490</a></li>
 </ul>
-<h3 id="sec-9-2">会读图会算 / VQA</h3>
+<h3 id="sec-8-2">会读图会算 / VQA</h3>
 <ul>
 <li><strong>ChartQA</strong> — A Benchmark for Question Answering about Charts. arxiv <a href="https://arxiv.org/abs/2203.10244">2203.10244</a></li>
 <li><strong>DocVQA</strong> — A Dataset for VQA on Document Images. arxiv <a href="https://arxiv.org/abs/2007.00398">2007.00398</a></li>
@@ -1045,29 +1165,29 @@ for name, scores in ranking:
 <li><strong>AI2D</strong> — A Diagram Is Worth A Dozen Images. arxiv <a href="https://arxiv.org/abs/1603.07396">1603.07396</a></li>
 <li><strong>MathVista</strong> — Evaluating Mathematical Reasoning of Foundation Models in Visual Contexts. arxiv <a href="https://arxiv.org/abs/2310.02255">2310.02255</a> (ICLR 2024)</li>
 </ul>
-<h3 id="sec-9-3">幻觉 / 诚实</h3>
+<h3 id="sec-8-3">幻觉 / 诚实</h3>
 <ul>
 <li><strong>POPE</strong> — Evaluating Object Hallucination in Large Vision-Language Models. arxiv <a href="https://arxiv.org/abs/2305.10355">2305.10355</a> (EMNLP 2023)</li>
 <li><strong>HallusionBench</strong> — An Advanced Diagnostic Suite for Entangled Language Hallucination and Visual Illusion. arxiv <a href="https://arxiv.org/abs/2310.14566">2310.14566</a> (CVPR 2024)</li>
 <li><strong>MMStar</strong> — Are We on the Right Way for Evaluating Large Vision-Language Models? arxiv <a href="https://arxiv.org/abs/2403.20330">2403.20330</a> (NeurIPS 2024)</li>
 </ul>
-<h3 id="sec-9-4">Grounding 定位</h3>
+<h3 id="sec-8-4">Grounding 定位</h3>
 <ul>
 <li><strong>Molmo &amp; PixMo</strong>(PixMo-Points pointing). arxiv <a href="https://arxiv.org/abs/2409.17146">2409.17146</a>;仓库精读 <a href="../../papers/molmo-2024/">molmo-2024</a></li>
 <li>更细的 grounding benchmark 盘点见教程 <a href="../vlm-grounding-2025/">VLM Grounding 全景</a> §8(覆盖 RefCOCO / LVIS / ScreenSpot-Pro 等 18+)</li>
 </ul>
-<h3 id="sec-9-5">细节 / 瑕疵</h3>
+<h3 id="sec-8-5">细节 / 瑕疵</h3>
 <ul>
 <li><strong>MVTec-AD</strong> — A Comprehensive Real-World Dataset for Unsupervised Anomaly Detection (CVPR 2019)</li>
 <li><strong>VisA</strong> — SPot-the-Difference Self-Supervised Pre-training for Anomaly Detection. arxiv <a href="https://arxiv.org/abs/2207.14315">2207.14315</a></li>
 <li><strong>Q-Ground</strong> — Image Quality Grounding with Large Multi-modality Models. arxiv <a href="https://arxiv.org/abs/2407.17035">2407.17035</a> (ACM MM 2024 Oral);仓库精读 <a href="../../papers/q-ground-2024/">q-ground-2024</a>;工业异常教程 <a href="../vlm-industrial-2024/">VLM 工业质检</a></li>
 </ul>
-<h3 id="sec-9-6">综述与评测框架</h3>
+<h3 id="sec-8-6">评测框架与综述</h3>
 <ul>
-<li><strong>A Survey on Benchmarks of Multimodal Large Language Models</strong>. arxiv <a href="https://arxiv.org/abs/2408.08632">2408.08632</a></li>
-<li><strong>VLMEvalKit</strong>(代码引用脊柱)— <a href="https://github.com/open-compass/VLMEvalKit">github.com/open-compass/VLMEvalKit</a></li>
+<li><strong>VLMEvalKit</strong>(评分代码引用脊柱)— <a href="https://github.com/open-compass/VLMEvalKit">github.com/open-compass/VLMEvalKit</a></li>
 <li><strong>lmms-eval</strong> — <a href="https://github.com/EvolvingLMMs-Lab/lmms-eval">github.com/EvolvingLMMs-Lab/lmms-eval</a></li>
-<li><strong>anomalib</strong>(AUROC 代码引用)— <a href="https://github.com/openvinotoolkit/anomalib">github.com/openvinotoolkit/anomalib</a></li>
+<li><strong>anomalib</strong>(AUROC 评分代码引用)— <a href="https://github.com/openvinotoolkit/anomalib">github.com/openvinotoolkit/anomalib</a></li>
+<li><strong>A Survey on Benchmarks of Multimodal Large Language Models</strong>. arxiv <a href="https://arxiv.org/abs/2408.08632">2408.08632</a></li>
 <li><strong>OpenVLM Leaderboard</strong> — <a href="https://huggingface.co/spaces/opencompass/open_vlm_leaderboard">huggingface.co/spaces/opencompass/open_vlm_leaderboard</a></li>
 </ul>
 <section class="comments" data-pagefind-ignore>
