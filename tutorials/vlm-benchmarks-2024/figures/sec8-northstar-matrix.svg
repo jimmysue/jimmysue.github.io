@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 470" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0" y="0" width="920" height="470" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="460" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#1f2937">各家把哪个分数当「北极星」——一张对照表</text>
+
+  <!-- header -->
+  <rect x="30" y="62" width="250" height="40" fill="#1f2937"/>
+  <rect x="280" y="62" width="300" height="40" fill="#1f2937"/>
+  <rect x="580" y="62" width="200" height="40" fill="#1f2937"/>
+  <rect x="780" y="62" width="110" height="40" fill="#fa541c"/>
+  <text x="46" y="88" font-size="14" font-weight="700" fill="#fff">能力层 / 场景</text>
+  <text x="296" y="88" font-size="14" font-weight="700" fill="#fff">代表 benchmark</text>
+  <text x="596" y="88" font-size="14" font-weight="700" fill="#fff">指标</text>
+  <text x="796" y="88" font-size="14" font-weight="700" fill="#fff">北极星</text>
+
+  <!-- rows -->
+  <g font-size="13" fill="#374151">
+    <rect x="30" y="102" width="860" height="46" fill="#fff7ed"/>
+    <text x="46" y="130" font-weight="700" fill="#c2410c">通用智商</text>
+    <text x="296" y="130">MMMU / MMBench / MME</text>
+    <text x="596" y="130">accuracy（多选）</text>
+    <text x="796" y="130" font-weight="700" fill="#c2410c">MMMU</text>
+
+    <rect x="30" y="148" width="860" height="46" fill="#ffffff"/>
+    <text x="46" y="176" font-weight="700" fill="#c2410c">文档 / OCR</text>
+    <text x="296" y="176">DocVQA / ChartQA / TextVQA</text>
+    <text x="596" y="176">ANLS / relaxed acc</text>
+    <text x="796" y="176" font-weight="700" fill="#c2410c">DocVQA</text>
+
+    <rect x="30" y="194" width="860" height="46" fill="#fff7ed"/>
+    <text x="46" y="222" font-weight="700" fill="#c2410c">数学推理</text>
+    <text x="296" y="222">MathVista</text>
+    <text x="596" y="222">accuracy</text>
+    <text x="796" y="222" font-weight="700" fill="#c2410c">MathVista</text>
+
+    <rect x="30" y="240" width="860" height="46" fill="#ffffff"/>
+    <text x="46" y="268" font-weight="700" fill="#b91c1c">幻觉 / 诚实</text>
+    <text x="296" y="268">POPE / HallusionBench / MMStar</text>
+    <text x="596" y="268">F1 / 配对准确率</text>
+    <text x="796" y="268" font-weight="700" fill="#b91c1c">POPE-F1</text>
+
+    <rect x="30" y="286" width="860" height="46" fill="#eff6ff"/>
+    <text x="46" y="314" font-weight="700" fill="#1d4ed8">定位 / 指向</text>
+    <text x="296" y="314">RefCOCO / LVIS / ScreenSpot</text>
+    <text x="596" y="314">IoU / AP / 命中率</text>
+    <text x="796" y="314" font-weight="700" fill="#1d4ed8">Acc@0.5</text>
+
+    <rect x="30" y="332" width="860" height="46" fill="#f0fdf4"/>
+    <text x="46" y="360" font-weight="700" fill="#15803d">细节 / 瑕疵</text>
+    <text x="296" y="360">MVTec-AD / VisA / QGround</text>
+    <text x="596" y="360">AUROC / PRO / mIoU</text>
+    <text x="796" y="360" font-weight="700" fill="#15803d">pixel-AUROC</text>
+  </g>
+
+  <line x1="280" y1="62" x2="280" y2="378" stroke="#e5e7eb"/>
+  <line x1="580" y1="62" x2="580" y2="378" stroke="#e5e7eb"/>
+  <line x1="780" y1="62" x2="780" y2="378" stroke="#e5e7eb"/>
+
+  <text x="460" y="410" text-anchor="middle" font-size="13" fill="#6b7280">读榜口诀:先看「测的是哪层」,再看「指标对不对得上场景」,最后才看绝对分数。</text>
+  <text x="460" y="438" text-anchor="middle" font-size="12.5" fill="#9ca3af">三大陷阱:数据污染(泄漏) · 视觉冗余(不看图也对) · 格式敏感(换个提问就掉分)</text>
+</svg>

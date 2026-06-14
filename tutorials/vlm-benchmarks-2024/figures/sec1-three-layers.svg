@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 480" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0" y="0" width="920" height="480" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="460" y="40" text-anchor="middle" font-size="23" font-weight="700" fill="#1f2937">VLM 评测 benchmark 的三层地图</text>
+  <text x="460" y="66" text-anchor="middle" font-size="14" fill="#6b7280">从「答对文字」到「指对位置」到「看清细节」——指标越往下越不一样</text>
+
+  <!-- Layer 1 -->
+  <rect x="40" y="92" width="840" height="108" rx="10" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="60" y="124" font-size="18" font-weight="700" fill="#c2410c">① 通用能力（语言+理解）</text>
+  <text x="60" y="150" font-size="13.5" fill="#374151">MMMU · MMBench · MME · SEED-Bench · MM-Vet · ScienceQA</text>
+  <text x="60" y="174" font-size="13" fill="#6b7280">问题形态：多选题 / 开放问答　·　指标：accuracy（答对比例）　·　北极星：MMMU</text>
+
+  <!-- Layer 2 -->
+  <rect x="40" y="214" width="840" height="108" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="60" y="246" font-size="18" font-weight="700" fill="#1d4ed8">② Grounding 定位（指对位置）</text>
+  <text x="60" y="272" font-size="13.5" fill="#374151">RefCOCO/+/g · LVIS · ScreenSpot(-Pro) · PixMo-Points</text>
+  <text x="60" y="296" font-size="13" fill="#6b7280">问题形态：输出框/点/掩码　·　指标：IoU / AP / 命中率　·　北极星：RefCOCO Acc@0.5</text>
+
+  <!-- Layer 3 -->
+  <rect x="40" y="336" width="840" height="108" rx="10" fill="#f0fdf4" stroke="#86efac"/>
+  <text x="60" y="368" font-size="18" font-weight="700" fill="#15803d">③ 细节 / 瑕疵（看清纹理）</text>
+  <text x="60" y="394" font-size="13.5" fill="#374151">MVTec-AD · VisA · QGround（画质失真分割）</text>
+  <text x="60" y="418" font-size="13" fill="#6b7280">问题形态：异常打分/像素分割　·　指标：AUROC / pixel-AUROC / PRO / mIoU　·　常非 VLM 范式</text>
+
+  <text x="460" y="466" text-anchor="middle" font-size="12.5" fill="#9ca3af">同一个模型,三层各有一把不同的尺子;不弄清指标,分数就读不懂。</text>
+</svg>

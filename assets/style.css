@@ -706,16 +706,17 @@ footer {
    table styles inside <pre> and style the number gutter */
 table.hljs-ln { border-collapse: collapse; margin: 0; width: auto; font-size: inherit; }
 table.hljs-ln td { border: none; padding: 0; vertical-align: top; }
-td.hljs-ln-numbers {
+/* must out-specify the td reset above (0,2,2 > 0,1,2), or the gutter loses its border/padding */
+table.hljs-ln td.hljs-ln-numbers {
   user-select: none;
   -webkit-user-select: none;
   text-align: right;
   color: var(--text-tertiary);
-  border-right: 1px solid var(--rule);
+  border-right: 1px solid var(--border);
   padding-right: 0.7em;
   white-space: nowrap;
 }
-td.hljs-ln-code { padding-left: 0.9em; }
+table.hljs-ln td.hljs-ln-code { padding-left: 0.9em; }
 
 /* ===== §3 Comments (Giscus) ===== */
 .comments {

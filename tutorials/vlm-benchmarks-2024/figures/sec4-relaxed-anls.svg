@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 380" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <rect x="0" y="0" width="920" height="380" rx="14" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="460" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#1f2937">开放式回答怎么判对:两种「宽容」的指标</text>
+
+  <!-- relaxed accuracy -->
+  <rect x="40" y="66" width="400" height="280" rx="10" fill="#fff7ed" stroke="#fdba74"/>
+  <text x="60" y="96" font-size="17" font-weight="700" fill="#c2410c">Relaxed Accuracy（ChartQA）</text>
+  <text x="60" y="122" font-size="13" fill="#6b7280">用于数值答案:允许 5% 相对误差</text>
+
+  <rect x="60" y="140" width="360" height="44" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="74" y="167" font-size="13" fill="#374151">标准答案 5.0%　模型答 5.2%　→ 差 4% ✅ 对</text>
+  <rect x="60" y="194" width="360" height="44" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="74" y="221" font-size="13" fill="#374151">标准答案 5.0%　模型答 8.0%　→ 差 60% ❌ 错</text>
+
+  <text x="60" y="266" font-size="12.5" fill="#374151">公式: |pred − gt| / |gt| ≤ 0.05</text>
+  <text x="60" y="294" font-size="12.5" fill="#9ca3af">非数值答案 → 退回精确匹配(大小写无关)</text>
+  <text x="60" y="322" font-size="12" fill="#9ca3af">解决:图表读数难免有小数点误差</text>
+
+  <!-- ANLS -->
+  <rect x="480" y="66" width="400" height="280" rx="10" fill="#eff6ff" stroke="#93c5fd"/>
+  <text x="500" y="96" font-size="17" font-weight="700" fill="#1d4ed8">ANLS（DocVQA）</text>
+  <text x="500" y="122" font-size="13" fill="#6b7280">用于文档文字:容忍 OCR 小拼写差</text>
+
+  <rect x="500" y="140" width="360" height="44" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="514" y="167" font-size="13" fill="#374151">gt “Microsoft”　pred “Micrsoft” → 1 字差,几乎满分</text>
+  <rect x="500" y="194" width="360" height="44" rx="8" fill="#ffffff" stroke="#e5e7eb"/>
+  <text x="514" y="221" font-size="13" fill="#374151">gt “Microsoft”　pred “Apple” → 差太多,0 分</text>
+
+  <text x="500" y="266" font-size="12.5" fill="#374151">公式: 1 − 编辑距离/max(len)，低于阈值记 0</text>
+  <text x="500" y="294" font-size="12.5" fill="#9ca3af">NLS = Normalized Levenshtein Similarity</text>
+  <text x="500" y="322" font-size="12" fill="#9ca3af">解决:不该因一个字母全盘判错</text>
+</svg>

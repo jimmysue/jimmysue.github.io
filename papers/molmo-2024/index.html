@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Molmo &amp; PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 架构:刻意标准,但有两个干净的工程点</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 PixMo 数据:全部不靠 VLM</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 PixMo-Points:pointing 数据怎么收、为什么收三种</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 Pointing 的输出格式 (代码实锤)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 训练:两阶段,pointing 要上采样</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key Findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation Notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 优点</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 不足 / 疑点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 谱系对比:Molmo → LocateAnything → Thinking-with-Visual-Primitives</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 适用 vs 不适用</a></li>
+    <li class="h3"><a href="#sec-5-5">5.5 进一步阅读</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Molmo &amp; PixMo: 把「指」做成一等公民</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2024-09-25</strong></span> · <span class="post-meta__paper-date">论文日期: 2024-09-25</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Matt Deitke, Christopher Clark, Sangho Lee, Rohun Tripathi, Yue Yang, … Ranjay Krishna, Noah A. Smith, Hannaneh Hajishirzi, Ross Girshick, Ali Farhadi, Aniruddha Kembhavi (Allen Institute for AI + University of Washington)</span> · <span class="post-meta__venue">CVPR 2025 (arXiv 2409.17146v2)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2409.17146">arXiv:2409.17146</a> · <a class="post-meta__link" href="https://molmo.allenai.org/blog">项目页</a> · <a class="post-meta__link" href="https://github.com/allenai/molmo">代码</a> · <a class="post-meta__link" href="https://huggingface.co/allenai/Molmo-7B-D-0924">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/pointing.html">pointing</a> <a class="concept-chip" href="../../concepts/multimodal.html">multimodal</a> <a class="concept-chip" href="../../concepts/chain-of-thought.html">chain-of-thought</a> <a class="concept-chip" href="../../concepts/open-data.html">open-data</a> <a class="concept-chip" href="../../concepts/vision-encoder.html">vision-encoder</a> <a class="concept-chip" href="../../concepts/counting.html">counting</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-pixmo-overview.png" alt="PixMo 数据集与 Molmo 能力总览">
+  <figcaption>
+    Fig. 1 — 左边 PixMo 的 7 个数据集 (3 个人工标注:绿色 Captions / AskModelAnything / Pointing;4 个合成:蓝色 Clocks / Docs / Count 等),右边对应点亮 Molmo 的能力 (细粒度理解、用户交互、<strong>Pointing & Counting</strong>、视觉技能)。关键:整套数据<strong>没用任何 VLM 生成</strong>——captions 来自标注员 60–90 秒口述,pointing 来自人工点击。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>2024 年的开源 VLM 有一个公开的秘密:<strong>它们大多是闭源模型的蒸馏品</strong>。</p>
+<p>像 LLaVA 这类早期工作权重 + 数据全开,但落后 SOTA 太多;而更强的开源权重模型 (如 ShareGPT4V 系) 的训练数据要么干脆不公开,要么大量依赖 GPT-4V 合成的 caption。结果是:<strong>社区缺失了「如何从零造一个强 VLM」的基础知识</strong>——你拿到的开源模型其实是把 GPT-4V 装进了另一个壳子里。</p>
+<p>Molmo 的目标就是堵这个洞:<strong>全程不蒸馏任何 VLM</strong>,从预训练 caption 到 fine-tuning 指令数据全部自采。论文的论点是——卡脖子的不是模型架构 (架构他们刻意用最标准的),而是<strong>高质量、非蒸馏的多模态数据</strong>。这套数据叫 <strong>PixMo (Pixels for Molmo)</strong>。</p>
+<p>其中最有原创性、也是本文要重点讲的,是一个全新的数据 modality:<strong>pointing (用点指代)</strong>。</p>
+<p>为什么是「点」而不是框 (bounding box) 或掩码 (mask)?论文给的理由非常实际:</p>
+<blockquote>
+<p>Using points enables us to collect grounding data much faster than would be possible using bounding boxes or segmentation masks since it is much easier to annotate. — §1</p>
+</blockquote>
+<p>一个未受训的众包标注员,让他画一个紧贴物体的框很难 (要对齐四条边),画 mask 更是噩梦;但让他**「点一下这个物体」**几乎零门槛。Molmo 利用这个差异,收集了 <strong>230 万</strong> 条 grounding 标注。更重要的是,点这个 modality 解锁了三件别的格式做不到的事——指代、计数、视觉解释,这正是 §2 的核心。</p>
+<p>而当我们站在 2026 年回看,会发现 Molmo 的 pointing 是一条技术路线的<strong>起点</strong>:后来 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 把 grounding 升级成「bbox 作为不可分割的输出原子」,<a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 进一步把它升级成「primitives 作为思维原子」。这两篇都直接复用了 PixMo/Molmo 的数据。我们在 §5 会把这条谱系讲透。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>Molmo 的方法可以拆成两半:<strong>一个刻意保守的架构</strong> + <strong>一套激进创新的数据 (尤其是 pointing)</strong>。论文反复强调「成败 90% 在数据」,所以我们也把重心放在 pointing。</p>
+<h3 id="sec-2-1">2.1 架构:刻意标准,但有两个干净的工程点</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture.png" alt="Molmo 架构图 + Point to Mt. Rainier 示例">
+  <figcaption>
+    Fig. 2 — Molmo 走最标准的 VLM 结构:图像 → 多尺度多裁剪 → ViT 逐 crop 编码 → connector 池化投影 → decoder-only LLM。右边的 "Point to Mt. Rainier" 例子展示 pointing 输出:模型直接吐出纯文本坐标 <code>&lt;point x="63.5" y="44.5" alt="Mt. Rainier"&gt;Mt. Rainier&lt;/point&gt;</code>——坐标和语言在**同一个 token 流**里,不需要额外的检测头。
+  </figcaption>
+</figure>
+<p>整体是四件套:(1) 预处理器把图切成多尺度多裁剪,(2) ViT 逐 crop 编码,(3) connector 池化 + 投影到 LLM 嵌入空间,(4) decoder-only LLM。主力用 OpenAI CLIP ViT-L/14 336px + Qwen2 72B,但也放出基于全开的 MetaCLIP + OLMo 的 100% 可复现版本。</p>
+<p>两个值得记住的工程点:</p>
+<p><strong>(a) Overlapping multi-crop (重叠裁剪)。</strong> 高分辨率图被切成多个方形 crop 平铺,每个 crop 独立过 ViT。问题:<strong>裁剪边界的 patch 丢失了相邻上下文</strong>。Molmo 让 crop 之间<strong>重叠</strong>,使边界 patch 至少能看到一些邻居;但重叠区的 patch 特征<strong>不传给 LLM</strong> (只传刚好平铺原图的那些),避免重复。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-overlap-crops.png" alt="No Overlap vs Overlap 裁剪对比">
+  <figcaption>
+    Fig. 3 — 无重叠 (左) vs 重叠 (右)。粉色框是真正喂给 LLM 的区域。重叠保证中心 patch 的编码带上了邻居上下文 (比如自行车品牌字样不会被切断)。消融里 overlap 显著优于 no-overlap (Table 2d:62.8 → 75.7 → 76.9)。
+  </figcaption>
+</figure>
+<p><strong>(b) 2×2 mean-query attention pooling (connector)。</strong> ViT 出来的 patch 特征太多,要压。Molmo 不简单 concat,而是把每个 2×2 patch 窗口用一个 <strong>multi-head attention</strong> 池化成一个向量,<strong>query 取这 4 个 patch 的均值</strong>:</p>
+<div class="math block">
+\[q = \frac{1}{4}\sum_{i=1}^{4} h_i, \qquad z = \mathrm{MHA}\big(q,\; \{h_1,h_2,h_3,h_4\},\; \{h_1,h_2,h_3,h_4\}\big)\]
+</div>
+<p class="math-translation">—— 翻译: 把 4 个相邻 patch 特征 $h_i$ 的平均当作"提问者" $q$,让它对这 4 个 patch 做一次注意力,得到一个融合向量 $z$ 代表这 2×2 区域。比直接把 4 个特征拼起来 (stacking) 好——消融里 76.1 → 76.9 (Table 2f)。</p>
+<p>这两点配合 connector 还有一个反常识结论:<strong>不需要单独的「只训 connector」热身阶段</strong>。只要预训练在高质量 dense caption 上做,直接给 connector 一个更高学习率 + 更短 warmup 就够了,省掉了一整个训练 stage 和它依赖的噪声网络数据。</p>
+<h3 id="sec-2-2">2.2 PixMo 数据:全部不靠 VLM</h3>
+<p>PixMo 有 7 个数据集 (Fig 1)。三个人工标注:</p>
+<ul>
+<li><strong>PixMo-Cap (712k 图)</strong>:预训练用的稠密 caption。诀窍是<strong>让标注员对着图口述 60–90 秒</strong>而不是打字——人说话比打字描述得更细更快,而且口述录音是「没用 VLM」的天然回执 (audio receipt)。平均 196 词/caption,而 COCO 只有 11 词。</li>
+<li><strong>PixMo-AskModelAnything (162k QA / 73k 图)</strong>:标注员写问题,用纯语言 LLM (喂 OCR + caption) 起草答案,标注员反复修订到满意。</li>
+<li><strong>PixMo-Points</strong>:本文主角,下一小节细讲。</li>
+</ul>
+<p>四个合成 (但仍<strong>不用 VLM</strong>):PixMo-CapQA、PixMo-Docs (用 LLM 写代码渲染图表再据代码生成 QA)、PixMo-Clocks (渲染表盘)、PixMo-Count (用非 VLM 检测器在网图上造计数 QA)。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-data-mixture.png" alt="Fine-tuning 数据混合比例饼图">
+  <figcaption>
+    Fig. 4 — Fine-tuning 数据混合 (按采样率)。绿=自采人工标注,蓝=自采合成,紫=已有学术集。注意:<strong>"Points" 是整个 annotated 区里最大的一块单一来源</strong>——因为论文发现「pointing 任务比 QA 任务学得慢」,所以<strong>显著上采样 pointing 数据</strong>。这张图直观说明 pointing 在 Molmo 训练里的分量。
+  </figcaption>
+</figure>
+<h3 id="sec-2-3">2.3 PixMo-Points:pointing 数据怎么收、为什么收三种</h3>
+<p>这是 Molmo 最核心的贡献。论文明确说 pointing 服务<strong>三个目标</strong>:</p>
+<blockquote>
+<p>(1) enable the model to point to items described by text, (2) enable the model to count by pointing, and (3) use pointing as a form of visual explanation when answering questions. — §3</p>
+</blockquote>
+<p><strong>收集方式</strong>:标注员被要求「点一个物体,描述它,然后<strong>逐个点出图中这个物体的每一个实例</strong>,确保穷尽覆盖」。还专门收了 <strong>&quot;not present&quot; (物体不在图里)</strong> 的数据,让模型学会说「图里没有」。最终:</p>
+<ul>
+<li><strong>2.3M question-point 对 / 223k 图</strong> (指代 + 计数)</li>
+<li><strong>79k point-explanation 标注 / 14k 图</strong> (点作为视觉解释)——这部分把 AskModelAnything 流程改造,把「带文字标注的点列表」喂给 LLM,让它在回答里引用这些点</li>
+</ul>
+<p><strong>最妙的设计——count by pointing (数数即指点):</strong></p>
+<blockquote>
+<p>Pointing data also naturally supports answering counting questions with a chain-of-thought formed by the sequence of points. — §3</p>
+</blockquote>
+<p>这句话信息量极大。传统 VLM 数数靠「一眼扫过去报个数」,密集场景必然出错。Molmo 让模型<strong>逐个点出每一个实例,点的序列本身就是一条 chain-of-thought</strong>,最后点的数量就是答案:</p>
+<div class="math block">
+\[\hat{n} \;=\; \big|\{p_1, p_2, \ldots, p_{\hat n}\}\big|,\qquad p_i = (x_i, y_i)\ \text{由 LLM 自回归逐个生成}\]
+</div>
+<p class="math-translation">—— 翻译: 模型不是直接「猜」出数字 $\hat n$,而是先一个一个地把点 $p_i$ 吐出来 (像人用手指着一个个数),数完了取点的个数作为计数。把"数数"这个易错的整体判断,拆成"逐个定位"这个可分解、可自我核对的过程。</p>
+<p>这个 count-by-pointing 就是后来 <a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 把 visual primitives 当「思维原子」的<strong>最早雏形</strong>——只不过 Molmo 只把它用在计数这一个窄任务上,2026 那篇把它推广到迷宫、路径追踪、空间推理。</p>
+<h3 id="sec-2-4">2.4 Pointing 的输出格式 (代码实锤)</h3>
+<p>点怎么变成 token?Molmo <strong>不用任何特殊检测头</strong>,直接把坐标当<strong>纯文本</strong>输出,归一化到 0–100。核心就是这个 <code>points_to_text</code>:</p>
+<p class="code-source">repo/olmo/data/data_formatter.py:L308-L323 — 把像素点转成模型要生成/读取的文本坐标</p>
+<pre><code class="language-python">def points_to_text(self, points, scale, label_text, alt_text):
+    if isinstance(scale, (tuple, list)):
+        points /= np.array(scale)[None, :]
+    else:
+        points *= (100/scale)
+    points = [[round(x, 1), round(y, 1)] for x, y in points]
+    points.sort(key=lambda x: x[0]*10000 + x[1])
+    if len(points) == 1:
+        x_str, y_str = points[0]
+        return f&quot;&lt;point x=\&quot;{x_str:0.1f}\&quot; y=\&quot;{y_str:0.1f}\&quot; alt=\&quot;{alt_text}\&quot;&gt;{label_text}&lt;/point&gt;&quot;
+    point_text = []
+    for ix, (x, y) in enumerate(points, start=1):
+        point_text.append(f&quot;x{ix}=\&quot;{x:0.1f}\&quot;&quot;)
+        point_text.append(f&quot;y{ix}=\&quot;{y:0.1f}\&quot;&quot;)
+    point_text = &quot; &quot;.join(point_text)
+    return f&quot;&lt;points {point_text} alt=\&quot;{alt_text}\&quot;&gt;{label_text}&lt;/points&gt;&quot;
+</code></pre>
+<p>三个细节直接对应论文正文:</p>
+<ol>
+<li><strong>归一化到 0–100、保留 1 位小数</strong> (<code>points *= (100/scale)</code> + <code>round(x, 1)</code>):坐标与图像绝对分辨率解耦,1 位小数让有效分辨率约等于 0–1000。这对应论文「outputs points as plain-text coordinates normalized between 0 and 100」。</li>
+<li><strong>排序 <code>x*10000 + y</code></strong> (即先按 x 再按 y,近似从左到右、从上到下):多个点有<strong>确定顺序</strong>,训练目标不会因为点的排列歧义而抖动。</li>
+<li><strong>单点用 <code>&lt;point&gt;</code>,多点用 <code>&lt;points x1=.. y1=.. x2=.. ..&gt;</code></strong>:都带 <code>alt</code> (无障碍描述) 和包在标签里的 <code>label</code>。坐标活在普通 token 流里,所以同一个 LLM 既能说话又能指点。</li>
+</ol>
+<p>而 count-by-pointing 的「点完求和」也在数据格式里写死——<code>format_points</code> 在 <code>point_count</code> 风格下直接把总数拼进监督文本:</p>
+<p class="code-source">repo/olmo/data/data_formatter.py:L334-L359 — 计数样本的监督文本 = 点列表 + 总数</p>
+<pre><code class="language-python">def format_points(self, example):
+    ...
+    if &quot;point_scale&quot; in example:                       # 点已归一化
+        point_txt = self.points_to_text(points, example[&quot;point_scale&quot;], label, label)
+    else:                                               # 点是像素坐标
+        h, w = example[&quot;image&quot;].shape[:2]
+        point_txt = self.points_to_text(points, [w/100, h/100], label, label)
+
+    if style == &quot;point_count&quot;:
+        return f&quot;Counting the {point_txt} shows a total of {len(points)}.&quot;
+    else:
+        return point_txt
+</code></pre>
+<p>注意监督文本 <code>Counting the &lt;points ...&gt; shows a total of {len(points)}</code>——<strong>点序列在前,总数 <code>len(points)</code> 在后</strong>,逼模型先定位再计数,这就是 count-by-pointing 的 CoT 在数据层面的实现。<code>len(points)==0</code> 时返回 <code>&quot;There are none.&quot;</code>,对应「not present」负样本。</p>
+<p>至于「~100 个 question 模板」的说法,也直接对得上代码里的模板表:</p>
+<p class="code-source">repo/olmo/data/data_formatter.py:L113-L166 — pointing / point_count 的提问模板 (节选)</p>
+<pre><code class="language-python">&quot;pointing&quot;: [
+    &quot;Point to {label}\nPlease say 'This isn't in the image.' if it is not in the image.&quot;,
+    &quot;Point to all occurrences of \&quot;{label}\&quot;&quot;,
+    &quot;Show me where {label} is&quot;,
+    &quot;Generate a list of points showing where the {label} are.&quot;,
+    &quot;Can you point out all {label} in this image?&quot;,
+    ...
+],
+&quot;point_count&quot;: [
+    &quot;Tell me how many {label} there are and point to them.&quot;,
+    &quot;Generate list of points showing where the {label} are and output the total count.&quot;,
+    &quot;Can you point out all {label} in this image? How many are there?&quot;,
+    ...
+],
+</code></pre>
+<p>随机采样这些模板,让模型学会无论用户怎么问「在哪/有几个」都能输出点 + 计数。</p>
+<h3 id="sec-2-5">2.5 训练:两阶段,pointing 要上采样</h3>
+<p>训练只有两阶段 (比常见的三阶段少一个 connector 热身):</p>
+<ul>
+<li><strong>预训练</strong>:全参数在 PixMo-Cap 上学「生成 caption / 口述转录」。90% 的时候给一个<strong>长度提示</strong> (length hint) 引导输出长度。还有个 trick:<strong>预训练时只对文本 token 加 dropout</strong>,逼模型多依赖图像而非语言先验 (消融 Table 2c)。</li>
+<li><strong>Fine-tuning</strong>:在 PixMo 各集 + 一堆学术集 (VQA v2 / ChartQA / DocVQA / AI2D / TallyQA…) 上混训。用 <code>vqa2:</code> 这类<strong>风格标签</strong>告诉模型该用哪种答案风格,避免学术集的怪癖 (如 ChartQA 数字不带逗号) 污染面向用户的回答。<strong>pointing 数据显著上采样</strong>,因为它学得比 QA 慢。</li>
+</ul>
+<p>视觉 connector 那边对应的池化实现:</p>
+<p class="code-source">repo/olmo/model.py:L1551-L1566 — 2×2 窗口 mean-query attention pooling</p>
+<pre><code class="language-python">image_features = einops.rearrange(
+    image_features,
+    'b n (h dh) (w dw) c -&gt; (b n h w) (dh dw) c',
+    dh=cfg.image_pooling_h,            # 2
+    dw=cfg.image_pooling_w,            # 2
+)
+
+if cfg.image_pooling_2d == ImagePooling2DType.attention_meanq:
+    query = image_features.mean(-2, keepdim=True)   # 4 个 patch 的均值作 query
+    image_features = self.image_pooling_2d(query, image_features)
+</code></pre>
+<p><code>rearrange</code> 把每个 2×2 patch 窗口拢到一起,<code>query = mean</code> 正是 §2.1 公式里的 <span class="math inline">\(q=\frac14\sum h_i\)</span>,然后一层 attention 池化。代码与论文一字不差。</p>
+<h2 id="sec-3">3. 结论 (Key Findings)</h2>
+<p>Molmo 在 <strong>11 个学术 benchmark + 一个 870 人参与的 325k 次成对人评</strong> 上评测。核心数字:</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>类别</th>
+<th style="text-align:right">11 项均分</th>
+<th style="text-align:right">Elo 排名</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-4o-0513</td>
+<td>闭源 API</td>
+<td style="text-align:right">78.5</td>
+<td style="text-align:right"><strong>1</strong></td>
+</tr>
+<tr>
+<td><strong>Molmo-72B</strong> (Qwen2-72B)</td>
+<td>全开</td>
+<td style="text-align:right"><strong>81.2</strong></td>
+<td style="text-align:right"><strong>2</strong></td>
+</tr>
+<tr>
+<td>Gemini 1.5 Pro</td>
+<td>闭源 API</td>
+<td style="text-align:right">78.3</td>
+<td style="text-align:right">3</td>
+</tr>
+<tr>
+<td>Claude 3.5 Sonnet</td>
+<td>闭源 API</td>
+<td style="text-align:right">76.7</td>
+<td style="text-align:right">4</td>
+</tr>
+<tr>
+<td>Molmo-7B-D</td>
+<td>全开</td>
+<td style="text-align:right">77.3</td>
+<td style="text-align:right">6</td>
+</tr>
+<tr>
+<td>Qwen2-VL-72B</td>
+<td>开权重/闭数据</td>
+<td style="text-align:right">79.4</td>
+<td style="text-align:right">12</td>
+</tr>
+<tr>
+<td>GPT-4V</td>
+<td>闭源 API</td>
+<td style="text-align:right">71.1</td>
+<td style="text-align:right">10</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关键发现:</strong></p>
+<ol>
+<li><strong>Molmo-72B 学术均分全场第一 (81.2)</strong>,人评 Elo 第二、仅次于 GPT-4o——而且<strong>完全不蒸馏</strong>任何 VLM。最小的 MolmoE-1B 就逼近 GPT-4V。</li>
+<li><strong>Counting 屠榜</strong>:在 CountBenchQA 和更难的新基准 PixMo-Count 上,Molmo <strong>领先所有模型</strong> (包括所有闭源),论文直接归功于「new pointing data and chain-of-thought point-and-count abilities」。这是 pointing 价值最硬的证据。</li>
+<li><strong>强在哪、弱在哪很诚实</strong>:自然图问答 (RealWorldQA / VQA v2)、OCR 类、时钟读取强;但 <strong>MMMU / MathVista 这类高阶推理偏弱</strong>,因为训练 mix 缺推理数据。</li>
+<li><strong>Pointing 还能驱动 action</strong>:Molmo-72B 在 AndroidControl 上 low-level 88.7% / high-level 69.0%,接近专门工作——暗示「点 UI 按钮 = 操作界面」这条 agent 路线。</li>
+</ol>
+<p>消融 (Table 2/3) 也支撑了架构选择:overlap 裁剪 (62.8→76.9)、attention 池化 (&gt;stacking)、文本-only dropout、length hint 都有正贡献,且 <strong>DINOv2 (纯图像、无文本监督) 居然和 CLIP 打平</strong>,说明 caption 质量比视觉编码器的语言对齐更关键。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation Notes)</h2>
+<p>代码 + 权重 + 数据全开 (<code>github.com/allenai/molmo</code>,HF 有 Molmo-7B-D/O、MolmoE-1B、Molmo-72B)。交叉阅读 repo 后的实现要点:</p>
+<ul>
+<li><strong>点坐标是纯文本不是特殊 token</strong> (<code>data_formatter.py:L317</code>):Molmo 用 <code>&lt;point x=&quot;..&quot; y=&quot;..&quot;&gt;</code> 这种<strong>字面字符串</strong>,坐标数字走普通 tokenizer。这和 2026 的后辈不同——<a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 用量化到 0–1000 的整体坐标 token,<a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 用 <code>&lt;|box|&gt;</code>/<code>&lt;|point|&gt;</code> 专用词表 token。Molmo 的纯文本路线实现最简单,但坐标精度受 tokenizer 切分影响。</li>
+<li><strong>多点排序键 <code>x*10000+y</code></strong> (<code>data_formatter.py:L314</code>):近似「左→右、上→下」。这个确定性排序对训练稳定性关键——否则同一组点的任意排列都是合法目标,梯度会打架。</li>
+<li><strong>count-by-pointing 写死在监督文本里</strong> (<code>data_formatter.py:L356-357</code>):<code>Counting the {points} shows a total of {len}</code>——点在前数在后。模型不是学「看一眼报数」,是学「逐点定位再求和」。</li>
+<li><strong>negative / not-present 样本</strong> (<code>data_formatter.py:L343-347</code>):<code>len(points)==0</code> → <code>&quot;There are none.&quot;</code>,显式教模型 abstain,降低 grounding 幻觉。</li>
+<li><strong>points-as-explanation 用占位符注入</strong> (<code>data_formatter.py:L325-332</code>):<code>format_annotated_text</code> 把回答里的 <code>&lt;|POINT|&gt;</code> 占位符替换成真实点文本,让点能内联进自由回答。这是三个 pointing 目标里的第 (3) 个。</li>
+<li><strong>多标注图共享一次图像编码</strong> (论文 §2 + 训练代码):同一张图的多条标注拼成一条长序列,用 attention mask 隔离 (每条标注只看图 token + 自己),省掉 2/3 的图像重复编码,训练时间砍半。</li>
+<li><strong>评测时 crop 数要和训练一致</strong> (论文 §5):一般评测用 36 crop,但<strong>计数任务必须用训练时的 crop 数</strong>——「pointing capabilities do not generalize well with different numbers of test crops」。这是 pointing 的一个脆弱点。</li>
+<li><strong>paper ↔ code 一致性</strong>:核心 pointing 格式、attention 池化、count-by-pointing 都能在 repo 找到逐行对应,<strong>未发现明显出入</strong>。唯一「论文略而代码详」的是排序键的具体形式 (<code>x*10000+y</code>),论文只说「top-down, left-to-right」。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical Assessment)</h2>
+<h3 id="sec-5-1">5.1 优点</h3>
+<ul>
+<li><strong>「点比框便宜」是个真正可规模化的洞见</strong>。把 grounding 的标注成本从「画框/画 mask」降到「点一下」,直接换来 2.3M 量级、未受训众包就能产出的数据。这是工程上最聪明的一步。</li>
+<li><strong>count-by-pointing 把易错的整体判断拆成可分解的过程</strong>,在 counting 上拿到了对所有闭源模型的领先——这是 pointing 价值的硬证据,不是「我们也支持这个功能」的口头宣称。</li>
+<li><strong>不蒸馏的工程纪律</strong>:口述 + audio receipt、LLM 改写而非 VLM 生成,整套数据管线是「如何从零造 VLM 数据」的完整 recipe,对社区的知识贡献大于单个模型分数。</li>
+<li><strong>架构刻意保守 + 消融详尽</strong>:把变量集中在数据上,overlap 裁剪 / attention 池化 / dropout / length hint 每个都有消融背书,可信度高。</li>
+<li><strong>全开 (权重+数据+代码+评测)</strong>,且给了 100% 可复现的 MetaCLIP+OLMo 版本——这正是它能成为 2026 年两篇后辈数据源的原因。</li>
+</ul>
+<h3 id="sec-5-2">5.2 不足 / 疑点</h3>
+<ul>
+<li><strong>点坐标用纯文本,精度天花板受 tokenizer 限制</strong>。<code>&lt;point x=&quot;63.5&quot;&gt;</code> 里的 <code>63.5</code> 怎么被切分、小数位如何泛化,论文没分析。这正是 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 用整体量化坐标 token 要解决的问题。</li>
+<li><strong>pointing 对 test-time crop 数敏感</strong>,换 crop 数就退化 (§5 自己承认),需要额外高分辨率后训练补救——说明 pointing 能力没有完全和分辨率解耦,稳健性存疑。</li>
+<li><strong>高阶推理 (MMMU/MathVista) 偏弱</strong>:Molmo 强在感知 + 定位 + 计数,但在需要多步抽象推理的任务上落后。pointing 解决的是「指代/计数」,不是「推理」——这恰恰是 <a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 想补的缺口。</li>
+<li><strong>count-by-pointing 只用在计数一个任务</strong>。Molmo 已经有了「点序列即 CoT」的形态,却没把它推广到空间推理 / 拓扑 / 路径——这步留给了 2026 的后辈,也算是错失的一个方向。</li>
+<li><strong>「点」缺几何信息</strong>。点只有位置,没有大小/形状/范围。对「这个物体多大」「两物体是否重叠」这类问题,点不如 box——这是 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> 坚持用 bbox 的核心理由之一 (bbox = 2 个点,信息严格更多)。</li>
+<li><strong>2D pointing 没有深度 / 3D</strong>,论文设想的机器人 waypoint / pick 在真实 3D 操作里还差一层。</li>
+</ul>
+<h3 id="sec-5-3">5.3 谱系对比:Molmo → LocateAnything → Thinking-with-Visual-Primitives</h3>
+<p>这是本文最值得展开的部分,也是用户关心的核心。三篇工作其实是<strong>同一条「让 VLM 用坐标说话」主线上的三代</strong>,而 Molmo 是公认的祖先 (后两篇都直接拿 PixMo/Molmo 当数据)。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th><strong>Molmo (2024)</strong></th>
+<th><strong><a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a></strong> (LocateAnything)</th>
+<th><strong><a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a></strong> (Thinking-VP)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一句话定位</td>
+<td>点是<strong>答案</strong></td>
+<td>bbox 是<strong>一等输出</strong></td>
+<td>point/bbox 是<strong>一等思维</strong></td>
+</tr>
+<tr>
+<td>原语</td>
+<td>point (位置)</td>
+<td>bounding box (位置+几何)</td>
+<td>point + bbox</td>
+</tr>
+<tr>
+<td>坐标编码</td>
+<td>纯文本 0–100,<code>&lt;point x=..&gt;</code></td>
+<td>量化整体 token 0–1000,<code>&lt;box&gt;</code> 原子块</td>
+<td>专用词表 <code>&lt;|box|&gt;</code>/<code>&lt;|point|&gt;</code> 0–999</td>
+</tr>
+<tr>
+<td>解码方式</td>
+<td>标准自回归逐 token</td>
+<td><strong>并行</strong> (Parallel Box Decoding,一次出整框)</td>
+<td>自回归,但穿插进 CoT</td>
+</tr>
+<tr>
+<td>坐标出现位置</td>
+<td>在最终回答里</td>
+<td>在最终输出里</td>
+<td>在<strong>思考过程</strong>里 (interleave CoT)</td>
+</tr>
+<tr>
+<td>核心诉求</td>
+<td>grounding 数据可规模化</td>
+<td>精度 + <strong>吞吐</strong> (12.7× 加速)</td>
+<td><strong>推理</strong> (计数/拓扑/空间)</td>
+</tr>
+<tr>
+<td>与 Molmo 的关系</td>
+<td>起点</td>
+<td>数据引擎<strong>直接用 Molmo 出点</strong>;训练含 PixmoPoints (2.2%)</td>
+<td>把 PixMo/Molmo 列为 6 个 grounding 集之一</td>
+</tr>
+</tbody>
+</table>
+<p><strong>读这张表的三条主线:</strong></p>
+<ol>
+<li>
+<p><strong>输出单元在升级</strong>:点 (Molmo) → 框 (LocateAnything) → 点和框都当思维原子 (Thinking-VP)。Molmo 选点是为了<strong>标注便宜</strong>;LocateAnything 回到框是为了<strong>几何信息更全</strong>且能并行解码;Thinking-VP 两者都要,因为思考时既要精确指点 (point) 又要框住区域 (box)。</p>
+</li>
+<li>
+<p><strong>坐标在序列里的位置在「前移」</strong>:Molmo 和 LocateAnything 的坐标都出现在<strong>最终输出</strong>,区别只是「答案里」vs「结构化输出里」、串行 vs 并行;而 Thinking-VP 把坐标<strong>前移到思考过程中</strong>——模型一边推理一边「点」,坐标成了中间产物而非终点。这是最大的范式跳跃。</p>
+</li>
+<li>
+<p><strong>Molmo 的 count-by-pointing 是 Thinking-VP 的种子</strong>。回看 §2.3:Molmo 早就让「点的序列构成一条 chain-of-thought」来数数。Thinking-VP 的 <em>Reference Gap</em> framing (语言无法精确指代密集空间,所以让模型「用手指点」着思考) 本质上是把 Molmo 这个<strong>只用于计数的窄 CoT</strong>,推广成了<strong>通用推理范式</strong> (迷宫、路径追踪、多跳空间推理)。换句话说:Molmo 发明了「指着数」,Thinking-VP 把它变成「指着想」。</p>
+</li>
+<li>
+<p><strong>数据的血缘是实打实的,不是比喻</strong>。LocateAnything 的多目标 grounding 数据引擎里,有一步是「Qwen3-VL 出 query → <strong>Molmo 出候选点</strong> → SAM 3 把点转框」,并且 LocateAnything-Data 直接含 PixmoPoints 子集;Thinking-VP 在专项 primitive 能力上补的 6 个公开集第一个就是 <strong>PixMo/Molmo</strong>。所以这不是「思想上的致敬」,是 Molmo 的标注数据<strong>物理地流进</strong>了 2026 这两个模型的训练集。</p>
+</li>
+</ol>
+<p><strong>一句话总结这条谱系</strong>:Molmo 证明了「让 VLM 用坐标说话」可以靠便宜的人工点击规模化;LocateAnything 把「说」的单元和效率做到极致 (框 + 并行);Thinking-VP 把坐标从「说的内容」变成「想的工具」。三者不冲突,理论上可以是同一个模型的三种能力。</p>
+<h3 id="sec-5-4">5.4 适用 vs 不适用</h3>
+<ul>
+<li>✅ <strong>适用</strong>:需要 grounding / 计数 / 指代 / UI 定位能力,且要<strong>全开可复现</strong>的团队。Molmo 是 2024 年起最干净的开源 VLM baseline,数据管线本身就是教材。</li>
+<li>✅ <strong>适用</strong>:想低成本自建 grounding 数据的人——「点击 + 语音描述」这套众包 recipe 可直接抄。</li>
+<li>✅ <strong>适用</strong>:研究「坐标如何进入语言模型」演化史的人——配合 <a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> / <a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 一起读,能看清一条完整技术路线。</li>
+<li>⚠️ <strong>谨慎</strong>:要高阶视觉推理 (MMMU/MathVista) 的场景,Molmo 偏弱,需补推理数据或换更新模型。</li>
+<li>❌ <strong>不适用</strong>:要 3D / 深度 / 紧致 mask 的任务——Molmo 只有 2D 点,几何信息最少。</li>
+<li>❌ <strong>不适用</strong>:对坐标精度要求极高且 batch 推理吞吐敏感的生产线——纯文本坐标 + 串行解码,效率不如 LocateAnything 的并行框解码。</li>
+</ul>
+<h3 id="sec-5-5">5.5 进一步阅读</h3>
+<ul>
+<li><strong>同主线后辈 (本文重点对比对象)</strong>:
+<ul>
+<li><a class="wiki-link" data-slug="locate-anything-2026" href="../locate-anything-2026/index.html">locate-anything-2026</a> (LocateAnything) — bbox 当原子、并行解码,把 grounding 的精度+吞吐做到极致;数据引擎直接用 Molmo 出点</li>
+<li><a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> (Thinking with Visual Primitives) — primitives 当思维原子穿插 CoT,把 Molmo 的 count-by-pointing 推广成通用推理范式</li>
+</ul>
+</li>
+<li><strong>structured generation in VLM 旁支</strong>:<a class="wiki-link" data-slug="mrt-2026" href="../mrt-2026/index.html">mrt-2026</a> (regional latent + RoPE 编 bbox)、<a class="wiki-link" data-slug="rep-forcing-2026" href="../rep-forcing-2026/index.html">rep-forcing-2026</a> (representation token 自回归)</li>
+<li><strong>Molmo 的底座</strong>:Qwen2 / OLMo (LLM)、OpenAI CLIP / MetaCLIP / DINOv2 (视觉编码器,消融里有横比)</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

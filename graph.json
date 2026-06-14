@@ -120,6 +120,15 @@
       "url": "papers/locate-anything-2026/index.html"
     },
     {
+      "id": "papers/molmo-2024",
+      "type": "paper",
+      "slug": "molmo-2024",
+      "title": "Molmo & PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力",
+      "date": "2024-09-25",
+      "tldr": "AllenAI + UW (arXiv 2409.17146, 2024/09)。当时最强开源 VLM 几乎都靠蒸馏 GPT-4V 合成数据,等于把闭源模型「偷」进开源。Molmo 反其道:**全程不用任何 VLM 生成训练数据**,核心是一套叫 PixMo 的自采数据集。最大创新是 **PixMo-Points**——让未受训标注员「点」图中物体 (语音描述 + 逐实例点击),收了 **2.3M question-point 对 / 223k 图**。Pointing 在 Molmo 里有三个用途:(1) 按文字指代去**点**物体;(2) **数数靠点**——把点序列当成一条 chain-of-thought,逐个点完再求和,counting 直接屠榜;(3) 把点当**视觉解释**塞进回答。模型把点输出成归一化到 0–100 的纯文本坐标 `<point x=\"63.5\" y=\"44.5\" alt=\"Mt. Rainier\">Mt. Rainier</point>`。架构是标准 ViT + connector + LLM,但有两个干净的工程点:**overlapping multi-crop** 解决裁剪边界丢上下文,**2×2 mean-query attention pooling** 压视觉 token。72B 版本学术 benchmark 第一、人评仅次于 GPT-4o,counting 任务全场最强。本质上,Molmo 是后来 [[locate-anything-2026]] (bbox 作 first-class **输出**) 和 [[thinking-visual-primitives-2026]] (primitives 作 first-class **思维**) 的共同祖先——这两篇 2026 的工作都直接拿 PixMo/Molmo 当 grounding 数据来源。\n",
+      "url": "papers/molmo-2024/index.html"
+    },
+    {
       "id": "papers/mrt-2026",
       "type": "paper",
       "slug": "mrt-2026",
@@ -280,6 +289,15 @@
       "date": "2026-06-11",
       "tldr": "8 节螺旋系统讲透\"把 1000 步扩散/flow matching teacher 压到 1–4 步\"的四大家族:轨迹蒸馏(Progressive\nDistillation 逐次砍半 + ReFlow 拉直轨迹)、一致性家族(CM → 可直接复跑的 LCM-LoRA → 连续时间 sCM)、\n分布匹配(DMD/DMD2,real/fake score 差 = reverse-KL 梯度)、对抗蒸馏(官方未开源,用 DMD2 的 GAN\n分支佐证可实践)。覆盖 2025–2026 前沿(sCM/TrigFlow、MeanFlow 的 JVP 恒等式、NVIDIA rCM 视频蒸馏),\n每个主讲方法都配经 diff 逐行验证的开源训练代码(diffusers / openai CM / DMD2 / RectifiedFlow /\nMeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑清单。\n",
       "url": "tutorials/step-distillation-2022/index.html"
+    },
+    {
+      "id": "tutorials/vlm-benchmarks-2024",
+      "type": "tutorial",
+      "slug": "vlm-benchmarks-2024",
+      "title": "VLM 评测 Benchmark 全景:一次看懂业界的「北极星指标」",
+      "date": "2026-06-14",
+      "tldr": "8 节螺旋结构系统讲透业界 VLM(视觉语言模型)评测 benchmark 的三层地图:通用能力(MMMU/MMBench/MME/SEED-Bench)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。从「分数怎么算出来」(答案提取 + CircularEval)讲到五大指标族(accuracy / relaxed accuracy / ANLS / F1 / IoU·AP / AUROC·PRO·mIoU),每个 benchmark 讲清测什么、指标怎么算、各家把哪个分数当「北极星」。专章拆穿榜单虚高(POPE 幻觉、MMStar 视觉冗余与数据泄漏)。代码 verbatim 引自 open-compass/VLMEvalKit 与 openvinotoolkit/anomalib。读者:VLM 小白。\n",
+      "url": "tutorials/vlm-benchmarks-2024/index.html"
     },
     {
       "id": "tutorials/vlm-grounding-2025",
@@ -660,6 +678,62 @@
       "url": "concepts/speculative-decoding.html"
     },
     {
+      "id": "concepts/pointing",
+      "type": "concept",
+      "slug": "pointing",
+      "name": "pointing",
+      "has_file": false,
+      "url": "concepts/pointing.html"
+    },
+    {
+      "id": "concepts/multimodal",
+      "type": "concept",
+      "slug": "multimodal",
+      "name": "multimodal",
+      "has_file": false,
+      "url": "concepts/multimodal.html"
+    },
+    {
+      "id": "concepts/chain-of-thought",
+      "type": "concept",
+      "slug": "chain-of-thought",
+      "name": "chain-of-thought",
+      "has_file": false,
+      "url": "concepts/chain-of-thought.html"
+    },
+    {
+      "id": "concepts/open-data",
+      "type": "concept",
+      "slug": "open-data",
+      "name": "open-data",
+      "has_file": false,
+      "url": "concepts/open-data.html"
+    },
+    {
+      "id": "concepts/vision-encoder",
+      "type": "concept",
+      "slug": "vision-encoder",
+      "name": "vision-encoder",
+      "has_file": false,
+      "url": "concepts/vision-encoder.html"
+    },
+    {
+      "id": "concepts/counting",
+      "type": "concept",
+      "slug": "counting",
+      "name": "counting",
+      "has_file": false,
+      "url": "concepts/counting.html"
+    },
+    {
+      "id": "repos/allenai/molmo",
+      "type": "repo",
+      "url": "https://github.com/allenai/molmo",
+      "host": "github.com",
+      "owner": "allenai",
+      "name": "molmo"
+    },
+    {
       "id": "concepts/layered-image",
       "type": "concept",
       "slug": "layered-image",
@@ -732,14 +806,6 @@
       "name": "Q-Ground"
     },
     {
-      "id": "concepts/multimodal",
-      "type": "concept",
-      "slug": "multimodal",
-      "name": "multimodal",
-      "has_file": false,
-      "url": "concepts/multimodal.html"
-    },
-    {
       "id": "concepts/unified-model",
       "type": "concept",
       "slug": "unified-model",
@@ -786,14 +852,6 @@
       "name": "world-model",
       "has_file": false,
       "url": "concepts/world-model.html"
-    },
-    {
-      "id": "concepts/chain-of-thought",
-      "type": "concept",
-      "slug": "chain-of-thought",
-      "name": "chain-of-thought",
-      "has_file": false,
-      "url": "concepts/chain-of-thought.html"
     },
     {
       "id": "concepts/moe",
@@ -988,12 +1046,44 @@
       "name": "SiD"
     },
     {
-      "id": "concepts/pointing",
+      "id": "concepts/evaluation",
       "type": "concept",
-      "slug": "pointing",
-      "name": "pointing",
+      "slug": "evaluation",
+      "name": "evaluation",
       "has_file": false,
-      "url": "concepts/pointing.html"
+      "url": "concepts/evaluation.html"
+    },
+    {
+      "id": "concepts/hallucination",
+      "type": "concept",
+      "slug": "hallucination",
+      "name": "hallucination",
+      "has_file": false,
+      "url": "concepts/hallucination.html"
+    },
+    {
+      "id": "concepts/anomaly-detection",
+      "type": "concept",
+      "slug": "anomaly-detection",
+      "name": "anomaly-detection",
+      "has_file": false,
+      "url": "concepts/anomaly-detection.html"
+    },
+    {
+      "id": "repos/open-compass/VLMEvalKit",
+      "type": "repo",
+      "url": "https://github.com/open-compass/VLMEvalKit",
+      "host": "github.com",
+      "owner": "open-compass",
+      "name": "VLMEvalKit"
+    },
+    {
+      "id": "repos/openvinotoolkit/anomalib",
+      "type": "repo",
+      "url": "https://github.com/openvinotoolkit/anomalib",
+      "host": "github.com",
+      "owner": "openvinotoolkit",
+      "name": "anomalib"
     },
     {
       "id": "concepts/referring-expression",
@@ -1034,22 +1124,6 @@
       "host": "github.com",
       "owner": "QwenLM",
       "name": "Qwen2.5-VL"
-    },
-    {
-      "id": "repos/allenai/molmo",
-      "type": "repo",
-      "url": "https://github.com/allenai/molmo",
-      "host": "github.com",
-      "owner": "allenai",
-      "name": "molmo"
-    },
-    {
-      "id": "concepts/anomaly-detection",
-      "type": "concept",
-      "slug": "anomaly-detection",
-      "name": "anomaly-detection",
-      "has_file": false,
-      "url": "concepts/anomaly-detection.html"
     },
     {
       "id": "concepts/industrial",
@@ -1284,22 +1358,22 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/dapo-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -1379,12 +1453,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1395,11 +1474,6 @@
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1514,13 +1588,78 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/vlm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/pointing",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/multimodal",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/chain-of-thought",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/open-data",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/vision-encoder",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "concepts/counting",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/molmo-2024",
       "to": "papers/mrt-2026",
       "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "repos/allenai/molmo",
+      "kind": "implements"
     },
     {
       "from": "papers/mrt-2026",
@@ -1564,12 +1703,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1619,12 +1758,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -1699,12 +1838,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -1869,7 +2008,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -1884,7 +2023,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -2004,12 +2143,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -2173,6 +2312,66 @@
       "kind": "implements"
     },
     {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/benchmark",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/vlm",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/evaluation",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/hallucination",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/anomaly-detection",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/image-quality",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "concepts/multimodal",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "papers/q-ground-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "papers/molmo-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "repos/open-compass/VLMEvalKit",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/vlm-benchmarks-2024",
+      "to": "repos/openvinotoolkit/anomalib",
+      "kind": "implements"
+    },
+    {
       "from": "tutorials/vlm-grounding-2025",
       "to": "concepts/grounding",
       "kind": "mentions"
@@ -2219,12 +2418,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
