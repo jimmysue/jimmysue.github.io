@@ -21,6 +21,15 @@
       "url": "papers/awm-2025/index.html"
     },
     {
+      "id": "papers/boogu-image-2026",
+      "type": "paper",
+      "slug": "boogu-image-2026",
+      "title": "Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）",
+      "date": "2026-06-16",
+      "tldr": "Boogu-Image-0.1 是一个 Apache-2.0 开源的「统一文生图 + 图像编辑」模型族（Base / Edit / Turbo，均 10B），主打照片级真实感和中英双语文字渲染，号称用比同类开源模型少约一个数量级的训练数据做到接近闭源（GPT-Image-2 / Nano-Banana-Pro）的水平。\n架构是 Lumina-Image-2 谱系的 DiT（noise/context/ref 三套 refiner + 双流/单流 MMDiT 块），文本条件来自一个 Qwen3-VL 多模态大模型（既当指令编码器、又当 prompt 改写/推理器）；Turbo 变体用 Decoupled DMD 蒸馏到 4 步、无 CFG。\n⚠️ 正式技术报告尚未发布（仓库标注 \"Coming Soon\"），本文是基于 README + 推理代码的交叉精读，非官方报告解读。\n",
+      "url": "papers/boogu-image-2026/index.html"
+    },
+    {
       "id": "papers/d-opsd-2026",
       "type": "paper",
       "slug": "d-opsd-2026",
@@ -93,6 +102,15 @@
       "url": "papers/flow-opd-2026/index.html"
     },
     {
+      "id": "papers/ggt-100k-2026",
+      "type": "paper",
+      "slug": "ggt-100k-2026",
+      "title": "GGT-100K：用多模态大模型「生成」真实世界修复的 Ground Truth",
+      "date": "2026-06-01",
+      "tldr": "真实世界图像修复（IR）卡在「没有成对训练数据」：合成退化不像真的，真实成对数据又贵又难采。GGT-100K 的思路是——既然没有干净参考图，那就让生成式多模态大模型（MFM）「画」一张出来当 ground truth。\n作者系统评测了 9 个 MFM × 4 种提示策略，发现 Nano-Banana-2 + Gemini 自适应提示在「保真 + 感知 + 无幻觉」上最均衡；再用它配合「指标过滤 → VLM 复检改写 → 人工验收」三级质控，构建出 103,707 对 LQ-HQ 训练对 + 500 对测试集。用它训各类 IR 模型都涨点，对生成式修复模型（FLUX/Qwen-Image-Edit）增益尤其大。\n",
+      "url": "papers/ggt-100k-2026/index.html"
+    },
+    {
       "id": "papers/ideogram-4-2026",
       "type": "paper",
       "slug": "ideogram-4-2026",
@@ -163,6 +181,24 @@
       "date": "2026-05-26",
       "tldr": "Canva Research (arXiv 2026/05/26, CVPR'26 poster)。多层 RGBA 图生成长期落后于平面图生成,是因为 (1) 缺大规模数据,(2) 缺一个能复用 SOTA 平面图先验的架构。MRT 同时解决两件事:从 Canva 设计平台拿 10M 多语言分层设计样本 + 在 Qwen-Image 20B 上做 full-parameter fine-tune(不再是 LoRA),用一个 masked region transformer 把三个任务(text→layers / image→layers / layers→layers 编辑)塞进同一个模型——核心机制是 adaptive masking 决定每个 region token 是\"干净条件\"还是\"加噪去噪目标\"。沿用 ART [38] 的 regional latents(每层独立 VAE 编码,token 数 = O(层面积) 而非 O(全画布)),加一个 overflow-aware canvas layer 让超出边界的元素保持完整。DMD2 蒸馏到 8 步,推理在 20 层时比同期 Qwen-Image-Layered 快 100×、省 50-90% 显存。**注意:论文 5 月 26 日上传,官方代码尚未公开**(Canva GitHub org 无 repo)。\n",
       "url": "papers/mrt-2026/index.html"
+    },
+    {
+      "id": "papers/oftsr-2024",
+      "type": "paper",
+      "slug": "oftsr-2024",
+      "title": "OFTSR：一步超分 + 可调「保真度↔真实感」的整条曲线",
+      "date": "2024-12-12",
+      "tldr": "OFTSR 用两阶段方案做单步图像超分：先训一个「噪声增广的条件 rectified flow」当教师，再蒸馏出一个一步学生网络——蒸馏的约束是「学生从不同时间 t、s 的预测必须落在教师同一条 PF-ODE 轨迹上」。\n关键好处：一步推理时只需调一个超参 t，就能在「高 PSNR / 高保真」和「低 LPIPS / 高真实感」之间连续滑动，把感知-失真权衡的整条曲线塞进单步模型，而过去的单步蒸馏只能锁死在曲线上的一个点。\n",
+      "url": "papers/oftsr-2024/index.html"
+    },
+    {
+      "id": "papers/osprey-2023",
+      "type": "paper",
+      "slug": "osprey-2023",
+      "title": "Osprey:把「掩码」喂进 MLLM 的像素级区域理解",
+      "date": "2023-12-15",
+      "tldr": "Osprey 把 referring 的输入从「框」升级到「掩码」:用 mask-aware visual extractor 在卷积 CLIP(ConvNeXt-L)的多尺度特征图上做 mask-average-pooling 抽语义、再把掩码本身展平投影成 spatial token,两者替换文本里的 <region> 占位符喂给 LLM。配 724K 掩码-文本指令数据(Osprey-724K),在开放词表分割、部件级分类、区域描述上全面超过 box 级方法和 Ferret。\n它是 [[ferret-2023|Ferret]]「自由形状区域输入」的掩码精化版,也是 [[lisa-2023|LISA]] 输出侧掩码的输入侧对偶。\n",
+      "url": "papers/osprey-2023/index.html"
     },
     {
       "id": "papers/q-ground-2024",
@@ -415,6 +451,86 @@
       "name": "theory",
       "has_file": false,
       "url": "concepts/theory.html"
+    },
+    {
+      "id": "concepts/unified-multimodal",
+      "type": "concept",
+      "slug": "unified-multimodal",
+      "name": "unified-multimodal",
+      "has_file": false,
+      "url": "concepts/unified-multimodal.html"
+    },
+    {
+      "id": "concepts/text-to-image",
+      "type": "concept",
+      "slug": "text-to-image",
+      "name": "text-to-image",
+      "has_file": false,
+      "url": "concepts/text-to-image.html"
+    },
+    {
+      "id": "concepts/image-editing",
+      "type": "concept",
+      "slug": "image-editing",
+      "name": "image-editing",
+      "has_file": false,
+      "url": "concepts/image-editing.html"
+    },
+    {
+      "id": "concepts/diffusion-transformer",
+      "type": "concept",
+      "slug": "diffusion-transformer",
+      "name": "diffusion-transformer",
+      "has_file": false,
+      "url": "concepts/diffusion-transformer.html"
+    },
+    {
+      "id": "concepts/distribution-matching-distillation",
+      "type": "concept",
+      "slug": "distribution-matching-distillation",
+      "name": "distribution-matching-distillation",
+      "has_file": false,
+      "url": "concepts/distribution-matching-distillation.html"
+    },
+    {
+      "id": "concepts/mllm-conditioning",
+      "type": "concept",
+      "slug": "mllm-conditioning",
+      "name": "mllm-conditioning",
+      "has_file": false,
+      "url": "concepts/mllm-conditioning.html"
+    },
+    {
+      "id": "concepts/text-rendering",
+      "type": "concept",
+      "slug": "text-rendering",
+      "name": "text-rendering",
+      "has_file": false,
+      "url": "concepts/text-rendering.html"
+    },
+    {
+      "id": "concepts/rope",
+      "type": "concept",
+      "slug": "rope",
+      "name": "rope",
+      "has_file": false,
+      "url": "concepts/rope.html"
+    },
+    {
+      "id": "concepts/classifier-free-guidance",
+      "type": "concept",
+      "slug": "classifier-free-guidance",
+      "name": "classifier-free-guidance",
+      "has_file": false,
+      "url": "concepts/classifier-free-guidance.html"
+    },
+    {
+      "id": "repos/boogu-project/Boogu-Image",
+      "type": "repo",
+      "url": "https://github.com/boogu-project/Boogu-Image",
+      "host": "github.com",
+      "owner": "boogu-project",
+      "name": "Boogu-Image"
     },
     {
       "id": "concepts/distillation",
@@ -689,12 +805,76 @@
       "url": "concepts/sd3.html"
     },
     {
-      "id": "concepts/text-to-image",
+      "id": "concepts/image-restoration",
       "type": "concept",
-      "slug": "text-to-image",
-      "name": "text-to-image",
+      "slug": "image-restoration",
+      "name": "image-restoration",
       "has_file": false,
-      "url": "concepts/text-to-image.html"
+      "url": "concepts/image-restoration.html"
+    },
+    {
+      "id": "concepts/real-world-restoration",
+      "type": "concept",
+      "slug": "real-world-restoration",
+      "name": "real-world-restoration",
+      "has_file": false,
+      "url": "concepts/real-world-restoration.html"
+    },
+    {
+      "id": "concepts/dataset-construction",
+      "type": "concept",
+      "slug": "dataset-construction",
+      "name": "dataset-construction",
+      "has_file": false,
+      "url": "concepts/dataset-construction.html"
+    },
+    {
+      "id": "concepts/multimodal-foundation-models",
+      "type": "concept",
+      "slug": "multimodal-foundation-models",
+      "name": "multimodal-foundation-models",
+      "has_file": false,
+      "url": "concepts/multimodal-foundation-models.html"
+    },
+    {
+      "id": "concepts/generative-ground-truth",
+      "type": "concept",
+      "slug": "generative-ground-truth",
+      "name": "generative-ground-truth",
+      "has_file": false,
+      "url": "concepts/generative-ground-truth.html"
+    },
+    {
+      "id": "concepts/vlm-evaluation",
+      "type": "concept",
+      "slug": "vlm-evaluation",
+      "name": "vlm-evaluation",
+      "has_file": false,
+      "url": "concepts/vlm-evaluation.html"
+    },
+    {
+      "id": "concepts/controlnet",
+      "type": "concept",
+      "slug": "controlnet",
+      "name": "controlnet",
+      "has_file": false,
+      "url": "concepts/controlnet.html"
+    },
+    {
+      "id": "concepts/data-quality-control",
+      "type": "concept",
+      "slug": "data-quality-control",
+      "name": "data-quality-control",
+      "has_file": false,
+      "url": "concepts/data-quality-control.html"
+    },
+    {
+      "id": "repos/PolyU-VCLab/GGT-100K",
+      "type": "repo",
+      "url": "https://github.com/PolyU-VCLab/GGT-100K",
+      "host": "github.com",
+      "owner": "PolyU-VCLab",
+      "name": "GGT-100K"
     },
     {
       "id": "concepts/dit",
@@ -921,12 +1101,100 @@
       "url": "concepts/layered-image.html"
     },
     {
-      "id": "concepts/image-editing",
+      "id": "concepts/image-super-resolution",
       "type": "concept",
-      "slug": "image-editing",
-      "name": "image-editing",
+      "slug": "image-super-resolution",
+      "name": "image-super-resolution",
       "has_file": false,
-      "url": "concepts/image-editing.html"
+      "url": "concepts/image-super-resolution.html"
+    },
+    {
+      "id": "concepts/rectified-flow",
+      "type": "concept",
+      "slug": "rectified-flow",
+      "name": "rectified-flow",
+      "has_file": false,
+      "url": "concepts/rectified-flow.html"
+    },
+    {
+      "id": "concepts/diffusion-distillation",
+      "type": "concept",
+      "slug": "diffusion-distillation",
+      "name": "diffusion-distillation",
+      "has_file": false,
+      "url": "concepts/diffusion-distillation.html"
+    },
+    {
+      "id": "concepts/one-step-generation",
+      "type": "concept",
+      "slug": "one-step-generation",
+      "name": "one-step-generation",
+      "has_file": false,
+      "url": "concepts/one-step-generation.html"
+    },
+    {
+      "id": "concepts/perception-distortion-tradeoff",
+      "type": "concept",
+      "slug": "perception-distortion-tradeoff",
+      "name": "perception-distortion-tradeoff",
+      "has_file": false,
+      "url": "concepts/perception-distortion-tradeoff.html"
+    },
+    {
+      "id": "concepts/pf-ode",
+      "type": "concept",
+      "slug": "pf-ode",
+      "name": "pf-ode",
+      "has_file": false,
+      "url": "concepts/pf-ode.html"
+    },
+    {
+      "id": "concepts/noise-augmentation",
+      "type": "concept",
+      "slug": "noise-augmentation",
+      "name": "noise-augmentation",
+      "has_file": false,
+      "url": "concepts/noise-augmentation.html"
+    },
+    {
+      "id": "repos/yuanzhi-zhu/OFTSR",
+      "type": "repo",
+      "url": "https://github.com/yuanzhi-zhu/OFTSR",
+      "host": "github.com",
+      "owner": "yuanzhi-zhu",
+      "name": "OFTSR"
+    },
+    {
+      "id": "concepts/mask-pooling",
+      "type": "concept",
+      "slug": "mask-pooling",
+      "name": "mask-pooling",
+      "has_file": false,
+      "url": "concepts/mask-pooling.html"
+    },
+    {
+      "id": "concepts/convolutional-clip",
+      "type": "concept",
+      "slug": "convolutional-clip",
+      "name": "convolutional-clip",
+      "has_file": false,
+      "url": "concepts/convolutional-clip.html"
+    },
+    {
+      "id": "concepts/pixel-level-understanding",
+      "type": "concept",
+      "slug": "pixel-level-understanding",
+      "name": "pixel-level-understanding",
+      "has_file": false,
+      "url": "concepts/pixel-level-understanding.html"
+    },
+    {
+      "id": "repos/CircleRadon/Osprey",
+      "type": "repo",
+      "url": "https://github.com/CircleRadon/Osprey",
+      "host": "github.com",
+      "owner": "CircleRadon",
+      "name": "Osprey"
     },
     {
       "id": "concepts/iqa",
@@ -1402,6 +1670,76 @@
       "kind": "mentions"
     },
     {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/unified-multimodal",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/image-editing",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/diffusion-transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/distribution-matching-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/mllm-conditioning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/text-rendering",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/rope",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "concepts/classifier-free-guidance",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "papers/ggt-100k-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "papers/oftsr-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "repos/boogu-project/Boogu-Image",
+      "kind": "implements"
+    },
+    {
       "from": "papers/d-opsd-2026",
       "to": "concepts/diffusion",
       "kind": "mentions"
@@ -1558,17 +1896,17 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/awm-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -1613,17 +1951,17 @@
     },
     {
       "from": "papers/ferret-2023",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
       "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
       "to": "papers/q-ground-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-2023",
-      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
@@ -1668,7 +2006,7 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
@@ -1678,7 +2016,7 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/lisa-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -1710,6 +2048,66 @@
       "from": "papers/flow-opd-2026",
       "to": "concepts/sd3",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/image-restoration",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/real-world-restoration",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/dataset-construction",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/multimodal-foundation-models",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/generative-ground-truth",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/vlm-evaluation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/controlnet",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "concepts/data-quality-control",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "papers/oftsr-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ggt-100k-2026",
+      "to": "repos/PolyU-VCLab/GGT-100K",
+      "kind": "implements"
     },
     {
       "from": "papers/ideogram-4-2026",
@@ -1758,22 +2156,22 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -1998,12 +2396,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2013,7 +2411,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -2077,6 +2475,106 @@
       "kind": "cites"
     },
     {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/image-super-resolution",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/rectified-flow",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/diffusion-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/one-step-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/perception-distortion-tradeoff",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/pf-ode",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "concepts/noise-augmentation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/oftsr-2024",
+      "to": "repos/yuanzhi-zhu/OFTSR",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/referring-grounding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/region-input",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/mask-pooling",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/convolutional-clip",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/pixel-level-understanding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/multimodal-llm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "concepts/object-hallucination",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "papers/ferret-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "papers/ferret-v2-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
+      "to": "repos/CircleRadon/Osprey",
+      "kind": "implements"
+    },
+    {
       "from": "papers/q-ground-2024",
       "to": "concepts/iqa",
       "kind": "mentions"
@@ -2118,12 +2616,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -2368,22 +2866,22 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -2508,12 +3006,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -2723,12 +3221,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
@@ -2793,12 +3291,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {

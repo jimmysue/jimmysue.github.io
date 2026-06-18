@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)：从代码反推架构</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 文本条件：用 MLLM 当&quot;会推理的编码器&quot;</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 生成主干：Lumina-Image-2 谱系的 DiT</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 采样：分辨率自适应的时间步偏移</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 Turbo：Decoupled DMD 蒸馏到 4 步、无 CFG</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Boogu-Image-0.1: Boosting Open-Source Unified Multimodal Understanding and Generation</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-16</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-16</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Boogu Project</span> · <span class="post-meta__venue">开源模型发布 / 技术报告 Coming Soon (2026-06)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://boogu.org">项目页</a> · <a class="post-meta__link" href="https://github.com/boogu-project/Boogu-Image">代码</a> · <a class="post-meta__link" href="https://huggingface.co/Boogu">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/unified-multimodal.html">unified-multimodal</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/image-editing.html">image-editing</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/mllm-conditioning.html">mllm-conditioning</a> <a class="concept-chip" href="../../concepts/text-rendering.html">text-rendering</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a></div>
+</aside>
+
+<blockquote>
+<p><strong>⚠️ 关于&quot;技术报告&quot;</strong>：截至本文撰写，Boogu 的正式技术报告仍是 &quot;Technical Report (Coming Soon)&quot;，arxiv 上尚无论文。本文据<strong>仓库 README + 推理代码</strong>做交叉精读——架构结论全部来自代码（<code>repo/boogu/...</code>），性能数字来自 README 的 Boogu Arena 图表。涉及训练细节（数据规模、蒸馏配方、损失函数）的部分，代码未开源，只能复述 README 的声明并明确标注&quot;未公开&quot;。等正式报告出来需要复核。</p>
+</blockquote>
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="Boogu-Image-0.1 生成示例：写实人像、国风山水、双语书法文字">
+  <figcaption>
+    <strong>Fig. 1</strong> — 官方 teaser。三张挂画分别展示三类核心能力：<strong>照片级写实人像</strong>（左）、<strong>国风水墨/岩彩山水</strong>（中）、<strong>中文书法文字渲染</strong>（右，"星星之火可以燎原"）。这恰好对应 README 强调的三个 Highlights：精准摄影、稳定文字渲染、多样化风格。（仓库 assets/boogu-infinity-teaser.png）
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>闭源的统一多模态系统（GPT-Image-2、Nano-Banana-Pro、Seedream 5.0）能同时做高质量文生图、图像编辑、双语文字渲染，且效果惊人。README 的核心观点是：<strong>这些系统的强大不来自单个模型，而来自一整套高度统一的系统能力</strong>（理解 + 数据 + 训练流程）。</p>
+<p>Boogu 想验证一个务实的假设：<strong>在算力和数据都远不如闭源的条件下，靠系统性地提升&quot;理解能力 + 数据质量 + 训练流程&quot;，能不能把开源生成/编辑模型推到接近闭源？</strong> 它声称训练数据规模比某些现有开源模型小约一个数量级，却拿到了有竞争力的结果。</p>
+<p>这是一篇<strong>工程系统型的模型发布</strong>，不是方法创新论文——它的价值在于把&quot;MLLM 做理解前端 + DiT 做生成后端 + DMD 做少步蒸馏&quot;这套现代统一架构，用开源、可跑的代码完整地交付出来。所以本文的精读重心放在<strong>架构如何在代码里落地</strong>，而非某个新公式。</p>
+<h2 id="sec-2">2. 方法 (Method)：从代码反推架构</h2>
+<p>整个 pipeline 三个部件，CPU offload 顺序 <code>mllm -&gt; transformer -&gt; vae</code> 一句话点明了数据流：</p>
+<p class="code-source">repo/boogu/pipelines/boogu/pipeline_boogu.py:L143-L170 — pipeline 三部件与职责</p>
+<pre><code class="language-python">class BooguImagePipeline(DiffusionPipeline, BooguImageLoraLoaderMixin):
+    # the MLLM encodes text instructions and optional reference-image context,
+    # ... runtime orchestration around prompt rewriting, classifier-free guidance ...
+    model_cpu_offload_seq = &quot;mllm-&gt;transformer-&gt;vae&quot;
+    def __init__(self, mllm: Qwen3VLForConditionalGeneration, ...):
+</code></pre>
+<p>即：<strong>Qwen3-VL（MLLM）→ Boogu DiT（transformer）→ FLUX.1 VAE</strong>。下面逐个拆。</p>
+<h3 id="sec-2-1">2.1 文本条件：用 MLLM 当&quot;会推理的编码器&quot;</h3>
+<p>传统文生图用 CLIP/T5 当文本编码器。Boogu 用一个<strong>多模态大模型 Qwen3-VL</strong> 当编码器——这是&quot;统一理解+生成&quot;的关键。它把&quot;系统提示 + （可选参考图）+ 用户指令&quot;交错编码，取<strong>最后一层隐状态</strong>作为送给 DiT 的条件特征：</p>
+<p class="code-source">repo/boogu/pipelines/boogu/pipeline_boogu.py:L1399-L1432 — MLLM 交错编码，取末层隐状态作条件</p>
+<pre><code class="language-python">text_encoder_outputs = self.mllm(
+    **vlm_inputs, output_hidden_states=True, return_dict=True
+)
+all_hidden_states = text_encoder_outputs.hidden_states  # 各层 [B, seq, dim]
+# 默认只取最后一层（num_instruction_feat_layers=1），与训练对齐
+instruction_feats = all_hidden_states[-1]
+</code></pre>
+<p>为什么这样更强？因为同一个 Qwen3-VL 还<strong>身兼指令改写/推理器</strong>（rewriter / reasoner）：</p>
+<p class="code-source">repo/boogu/pipelines/boogu/pipeline_boogu.py:L194-L213 — 编码器与改写器复用同一个 MLLM</p>
+<pre><code class="language-python">if hasattr(mllm, &quot;lm_head&quot;):
+    _rewriter_processor = processor
+    _text_rewriter_model = mllm        # 整模型（带 lm_head）当&quot;改写器/推理器&quot;
+    mllm = mllm.model                  # 内部 backbone 当&quot;编码器&quot;
+...
+self.text_instruction_rewriter = _text_rewriter_model
+</code></pre>
+<p>用户写&quot;画只猫&quot;，改写器先把它扩写成富含细节的指令（甚至带 chain-of-thought 推理，对应 ELO 图里的 &quot;Turbo-Thinking&quot; 变体），再编码进 DiT。<strong>理解能力直接转化为生成质量</strong>——这就是 README 说&quot;靠提升理解来提升生成&quot;的落点。编辑任务（TI2I）则把参考图<strong>交错进 MLLM 上下文</strong>做 in-context 条件，系统提示明确要求&quot;先描述输入图特征，再说明如何按指令修改&quot;（<code>pipeline_boogu.py:L231</code>）。</p>
+<h3 id="sec-2-2">2.2 生成主干：Lumina-Image-2 谱系的 DiT</h3>
+<p>DiT 主类 <code>BooguImageTransformer2DModel</code>，结构上是 Lumina-Image-2 的扩展。它有<strong>三套 refiner + 双流/单流主干块</strong>：</p>
+<p class="code-source">repo/boogu/models/transformers/transformer_boogu.py:L858-L966 — 三套 refiner + 双流/单流主干</p>
+<pre><code class="language-python">self.noise_refiner = nn.ModuleList([...num_refiner_layers...])     # 精炼噪声图 token
+self.ref_image_refiner = nn.ModuleList([...])                     # 精炼参考图 token（编辑用）
+self.context_refiner = nn.ModuleList([...])                        # 精炼 MLLM 文本 token
+...
+self.layers = list(self.double_stream_layers) + list(self.single_stream_layers)
+</code></pre>
+<p>数据流（见 <code>transformer_boogu.py:L1010-L1080</code> 的 forward）：图像 patch 经 <code>x_embedder</code> 线性嵌入 → <code>noise_refiner</code> 先单独精炼图像 token；参考图经 <code>ref_image_patch_embedder</code> + 加 <code>image_index_embedding</code>（区分多张参考图）→ <code>ref_image_refiner</code> 精炼；文本特征经 <code>context_refiner</code> 精炼。三者精炼后，进入<strong>双流块</strong>（图像流、文本流各自走 QKV 再联合注意力，类 FLUX/MMDiT）和<strong>单流块</strong>（拼成一条序列做自注意力）。</p>
+<p>调制用 AdaLN-Zero（<code>LuminaRMSNormZero</code>，从 timestep 嵌入算出 scale/gate），位置编码用 RoPE（<code>rope.py</code>），注意力是 GQA（KV 头数 &lt; Q 头数）。</p>
+<p class="code-source">repo/boogu/models/transformers/block_lumina2.py:L39-L71 — AdaLN-Zero 风格的 RMSNorm 调制</p>
+<pre><code class="language-python">class LuminaRMSNormZero(nn.Module):
+    def forward(self, x, emb=None):
+        # emb 来自 timestep，切成 4 份：注意力的 scale/gate + MLP 的 scale/gate
+        scale_msa, gate_msa, scale_mlp, gate_mlp = emb.chunk(4, dim=1)
+        x = self.norm(x) * (1 + scale_msa[:, None])
+        return x, gate_msa, scale_mlp, gate_mlp
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>维度别被代码默认值骗了</strong>：<code>transformer_boogu.py:L786-L800</code> 的签名默认 <code>hidden_size=2304, num_layers=26, num_double_stream_layers=2, num_attention_heads=24, num_kv_heads=8, instruction_feat_dim=1024</code>。但 README 标称 <strong>10B 参数</strong>——2304×26 远不到 10B。这些是<strong>占位默认值</strong>，真实结构由 checkpoint 里的 <code>transformer/config.json</code> 决定（随权重下载）。所以&quot;26 层 / 2 双流&quot;是代码骨架，不是发布模型的真实层数。</p>
+</blockquote>
+<h3 id="sec-2-3">2.3 采样：分辨率自适应的时间步偏移</h3>
+<p>调度器是 flow-matching Euler，但带<strong>分辨率自适应的动态时间偏移</strong>（dynamic time-shift）——高分辨率（token 多）时把更多采样步分配到高噪声段：</p>
+<div class="math block">
+\[t' = \frac{t}{m - m\,t + t}, \qquad m = \text{lin}(\text{numtokens}),\ \ \text{lin}: 256\mapsto 0.5,\ 4096\mapsto 1.15\]
+</div>
+<p class="math-translation">—— 翻译：把均匀的时间步 $t$ 用一个由「图像 token 数」决定的系数 $m$ 重新拉伸。token 越多（图越大），$m$ 越大（最高 1.15），曲线越把步数往高噪声端推——因为大图细节多，早期去噪需要更多步。这是 SD3/FLUX 同款的"分辨率越大、shift 越大"策略。</p>
+<p class="code-source">repo/boogu/schedulers/scheduling_flow_match_euler_discrete_time_shifting.py:L136-L158 — 分辨率→shift 的线性映射 + v2 偏移</p>
+<pre><code class="language-python">def _get_lin_function(x1=256, y1=0.5, x2=4096, y2=1.15):   # token 数 → shift 系数
+    m = (y2 - y1) / (x2 - x1); b = y1 - m * x1
+    return lambda x: m * x + b
+
+@staticmethod
+def _time_shift_v2(t_np, m):
+    return (t_np / (m - m * t_np + t_np)).astype(np.float32)  # t' = t/(m - m t + t)
+</code></pre>
+<h3 id="sec-2-4">2.4 Turbo：Decoupled DMD 蒸馏到 4 步、无 CFG</h3>
+<p>Turbo 变体把 25~50 步蒸馏到 <strong>4 步</strong>，且 <strong>CFG=0</strong>（text/image guidance 都=1，empty-instruction guidance=0），用的是 <strong>DMD（Distribution Matching Distillation）学生</strong>采样路径——README 称之为 &quot;Decoupled DMD&quot;（解耦的 DMD，但具体&quot;解耦&quot;了什么，训练代码未开源，无从在代码里验证）。</p>
+<p>少步采样本身在代码里很干净：每步先用速度场预测干净图 <span class="math inline">\(x_0\)</span>，再 renoise 到下一个 sigma：</p>
+<p class="code-source">repo/boogu/pipelines/boogu/pipeline_boogu_turbo.py:L73-L116 — DMD 学生：预测 x0 + renoise</p>
+<pre><code class="language-python">def _predict_dmd_student_step(self, latents, sigma, ...):
+    model_pred = self.predict(t=torch.tensor(sigma, ...), ...)     # 速度场
+    sigma_expanded = torch.full(..., sigma, ...)
+    return latents + (1 - sigma_expanded) * model_pred            # 还原干净 x0
+
+def _renoise_dmd_latents(self, latents, sigma, noise, ...):
+    sigma_expanded = torch.full(..., sigma, ...)
+    return (1 - sigma_expanded) * noise + sigma_expanded * latents  # 重新加噪到下一 sigma
+</code></pre>
+<p class="math-translation">—— 翻译：约定 sigma=1 是干净图、sigma=0 是纯噪声。已知带噪 latent 和模型预测的速度场，$x_0 = \text{latent} + (1-\sigma)\cdot v$ 得到干净估计；renoise 则按 $(1-\sigma)\cdot\text{noise} + \sigma\cdot x_0$ 把它打回下一个噪声水平。4 步 = predict→renoise 循环 4 次。这是 DMD 类少步学生的标准采样形态（与 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a> 的一步 flow 蒸馏思路同源）。</p>
+<p>DMD 路径明确不走普通调度器、不用 CFG、不支持参考图（<code>pipeline_boogu_turbo.py:L13-L15</code> 注释写明）——它自建 sigma schedule，所以 4 步极快。</p>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p>性能数字来自 README 的 <strong>Boogu Arena</strong>（自建的 LM-Arena 风格人类偏好评测，1K+ persona 生成的 prompt，ELO 打分）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-arena-elo.png" alt="Boogu Arena ELO 排行榜">
+  <figcaption>
+    <strong>Fig. 2</strong> — Boogu Arena ELO 排行榜（橙=Boogu，绿=开源，蓝=闭源）。GPT-Image-2 (1196) 与 Nano-Banana-Pro (1087) 领跑；<strong>Boogu-Image-0.1-Turbo-Thinking (1048) 与 Seedream-5.0-Lite 并列，Boogu-Image-0.1-Turbo (≈1025) 紧随</strong>，位列开源第一梯队，领先 Qwen-Image-2512、Z-Image-Turbo、Qwen-Image、HiDream 等。（仓库 assets/arena_elo_chart.svg）
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig3-ci.png" alt="Boogu Arena ELO 的 bootstrap 95% 置信区间">
+  <figcaption>
+    <strong>Fig. 3</strong> — 同一排名的 bootstrap 95% 置信区间（Overall）。置信区间相互重叠较多，说明中段模型（Boogu / Seedream-Lite / Qwen-2512）之间的差距在统计上并不显著——排名要谨慎解读。（仓库 assets/ci_chart.svg）
+  </figcaption>
+</figure>
+<ul>
+<li><strong>总体排名</strong>：在 Boogu Arena 上，Boogu-Image-0.1 家族进入第一梯队——开源模型里排名最高，整体仅次于 GPT-Image-2 和 Nano-Banana-Pro 两个闭源旗舰。</li>
+<li><strong>&quot;Thinking&quot; 变体更强</strong>：带推理改写的 Turbo-Thinking (1048) 明显高于普通 Turbo (≈1025)，印证&quot;提升理解→提升生成&quot;的主张。</li>
+<li><strong>数据效率</strong>：核心卖点是&quot;训练数据约为某些开源模型的 1/10&quot;却拿到上述排名——主张数据质量 + 训练流程比堆数据更重要。</li>
+<li><strong>能力面</strong>：照片级摄影、中英双语文字渲染（海报/印章/文档/手写板）、多样化风格（微缩 3D、国风鎏金、动漫），均在 teaser 与 Highlights 中展示。</li>
+<li><strong>⚠️ 评测自建</strong>：Boogu Arena 是作者自建评测（&quot;无法直接上 LM Arena&quot;），prompt 集和评判都由作者方控制——README 自己也呼吁社区联系以做更客观可复现的评测。这一点必须打折看待。</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ul>
+<li><strong>⚠️ 训练代码与技术报告均未开源</strong>。仓库只有<strong>推理代码 + 权重</strong>：<code>grep</code> 全仓没有训练脚本、损失函数、DMD 蒸馏配方、数据构建。所谓 &quot;Decoupled DMD&quot; 在代码里只看得到<strong>学生采样路径</strong>（<code>pipeline_boogu_turbo.py</code>），看不到蒸馏训练。README 的 Limitations 也直言&quot;无法开源每个训练和系统细节&quot;。</li>
+<li><strong>MLLM = Qwen3-VL</strong>，类型硬编码为 <code>Qwen3VLForConditionalGeneration</code>（<code>pipeline_boogu.py:L164,L177</code>）。同一模型复用为编码器 + 改写器（<code>L194-L198</code>），靠是否有 <code>lm_head</code> 区分。</li>
+<li><strong>条件特征默认取末层、单层</strong>：<code>num_instruction_feat_layers=1</code>，<code>instruction_feats = all_hidden_states[-1]</code>（<code>pipeline_boogu.py:L1432</code>）。代码也支持取多层（<code>L1410</code>），但默认单层，注释强调&quot;与训练对齐&quot;。</li>
+<li><strong>VAE 是开源 FLUX.1 VAE</strong>（README Limitations 明说）——并坦承这是小脸、小肢体、眼睛、文字易出 artifact 的原因（重建损失偏大）。是个诚实的架构取舍。</li>
+<li><strong>CFG 是&quot;双重引导&quot;</strong>：文本引导 + 图像引导分开（<code>text_guidance_scale</code> / <code>image_guidance_scale</code>），编辑时空指令用 <code>SYSTEM_PROMPT_DROP</code> 做负样本（<code>pipeline_boogu.py:L235</code>）。Base/Edit 推荐 CFG 2~5，Turbo 则 CFG=0。</li>
+<li><strong>模型骨架配置默认值 ≠ 发布模型</strong>：代码默认 <code>hidden_size=2304, num_layers=26</code>（<code>transformer_boogu.py:L786</code>）对不上 10B，真实 config 随 checkpoint 下载。读代码估架构规模会被误导。</li>
+<li><strong>三套 refiner 是 Lumina2 的扩展</strong>：原版 Lumina-Image-2 有 noise/context refiner，Boogu 额外加 <code>ref_image_refiner</code> + <code>image_index_embedding</code> 支持多参考图编辑（<code>transformer_boogu.py:L888,L1011-L1019</code>）。这是为 TI2I 编辑做的结构改动。</li>
+<li><strong>工程&quot;全家桶&quot;</strong>：仓库自带 FP8 量化（<code>utils/quantize_transformer.py</code>）、TeaCache/TaylorSeer 缓存加速（<code>boogu/cache_functions/</code>、<code>taylorseer_utils/</code>）、多档 CPU/group offload、flash-attn 自动安装——明显是为&quot;消费级显卡也能跑 10B&quot;做的落地工程（12GB 显存即可跑）。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>完整、可跑、Apache-2.0</strong>：把&quot;MLLM 理解前端 + Lumina2-DiT 生成后端 + DMD 少步蒸馏&quot;这套现代统一架构，以可运行的开源推理代码 + 10B 权重 + FP8/offload 工程完整交付，消费级显卡可跑。对开源社区是实打实的资产。</li>
+<li><strong>架构选型清晰且现代</strong>：用 Qwen3-VL 当条件编码器并复用为推理改写器，是&quot;理解驱动生成&quot;的干净落地；三套 refiner 对编辑任务的结构支持考虑周到。</li>
+<li><strong>诚实的 Limitations</strong>：README 罕见地坦白世界知识差距、图像一致性不如 Seedream/Nano-Banana、文字渲染在长文本/小字会崩、用 FLUX VAE 导致小脸瑕疵——比多数&quot;报喜不报忧&quot;的发布可信。</li>
+<li><strong>数据效率主张有意义</strong>：若 1/10 数据的说法成立，对&quot;数据质量 &gt; 数据规模&quot;是有价值的经验证据。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>没有技术报告，关键主张无法验证</strong>。&quot;1/10 数据&quot;、&quot;Decoupled DMD&quot;、训练流程、数据质量如何提升——全是 README 声明，代码里看不到训练侧，arxiv 上没有论文。在正式报告发布前，这些都只能算<strong>待证主张</strong>。</li>
+<li><strong>评测是自建的，且置信区间重叠</strong>。Boogu Arena 的 prompt 与评判由作者方掌控，Fig. 3 的 bootstrap CI 显示中段模型差距不显著——&quot;开源第一梯队&quot;成立，但&quot;具体名次&quot;不宜当真。缺少 GenEval / DPG-Bench / 第三方 Arena 等外部可复现 benchmark。</li>
+<li><strong>&quot;Decoupled DMD&quot; 名实存疑</strong>：代码里只有标准 DMD 学生采样（predict→renoise），看不到&quot;解耦&quot;在训练中指什么。这个命名在没有报告时无法核实，可能只是营销标签。</li>
+<li><strong>架构非原创</strong>：本质是 Lumina-Image-2 谱系 DiT + Qwen3-VL 条件 + FLUX VAE + DMD 蒸馏，每一块都来自现有开源工作（README 致谢里也列了 Qwen-Image、Z-Image、OmniGen2、FLUX）。创新在系统整合与数据/训练流程，而那部分恰恰没开源。</li>
+<li><strong>FLUX VAE 是已知短板</strong>：作者自己承认小脸/小字/眼睛瑕疵源于此。换更强 VAE 是显而易见的改进方向，但受开源生态制约。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>：需要开源、可商用（Apache-2.0）、可在消费级显卡部署的中英文生图/编辑；尤其看重照片级写实和中文文字渲染；想在强 base 上做微调/下游开发（Base 变体专为此设计）。</li>
+<li><strong>不适合</strong>：要求严格主体/身份/版面一致性的编辑（作者承认不如 Seedream 5.0 / Nano-Banana-Pro）；依赖丰富世界知识/真实品牌人物地标的生成；需要可复现第三方 benchmark 背书的严肃评测场景；以及想复现训练（训练代码未开源）。</li>
+</ul>
+<h3 id="sec-5-4">Further reading</h3>
+<ul>
+<li>架构血缘：Lumina-Image-2（noise/context refiner + 双流块的来源）、FLUX（MMDiT 双流 + VAE）、<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a>（Qwen-Image，同属 MLLM 条件的生成模型，README 致谢列出）。</li>
+<li>少步蒸馏：DMD / Distribution Matching Distillation；一步 flow 蒸馏对照见 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a>。</li>
+<li>数据侧（本文未开源但相关）：用生成模型造训练数据的思路见 <a class="wiki-link" data-slug="ggt-100k-2026" href="../ggt-100k-2026/index.html">ggt-100k-2026</a>。</li>
+<li>采样加速：TeaCache、TaylorSeer（仓库已集成）。</li>
+<li>待发布：Boogu 正式技术报告（arxiv，Coming Soon）——届时需复核本文所有&quot;据 README 声明&quot;的部分。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

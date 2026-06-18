@@ -46,8 +46,22 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 31 篇论文精读。</p>
+<p class="page__intro">共 35 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sensenova-u1/index.html">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</a></h3>
+  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -151,27 +165,15 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/flow-opd-2026/index.html">Flow-OPD: On-Policy Distillation for Flow Matching Models</a></h3>
-  <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ggt-100k-2026/index.html">GGT-100K：用多模态大模型「生成」真实世界修复的 Ground Truth</a></h3>
+  <p class="post-card__tldr">真实世界图像修复（IR）卡在「没有成对训练数据」：合成退化不像真的，真实成对数据又贵又难采。GGT-100K 的思路是——既然没有干净参考图，那就让生成式多模态大模型（MFM）「画」一张出来当 ground truth。
+作者系统评测了 9 个 MFM × 4 种提示策略，发现 Nano-Banana-2 + Gemini 自适应提示在「保真 + 感知 + 无幻觉」上最均衡；再用它配合「指标过滤 → VLM 复检改写 → 人工验收」三级质控，构建出 103,707 对 LQ-HQ 训练对 + 500 对测试集。用它训各类 IR 模型都涨点，对生成式修复模型（FLUX/Qwen-Image-Edit）增益尤其大。
+</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/deepseek-v4-2026/index.html">DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</a></h3>
-  <p class="post-card__tldr">1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
-      <a class="tag-chip" href="concepts/attention.html">attention</a>
-      <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
+      <a class="tag-chip" href="concepts/image-restoration.html">image-restoration</a>
+      <a class="tag-chip" href="concepts/real-world-restoration.html">real-world-restoration</a>
+      <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>

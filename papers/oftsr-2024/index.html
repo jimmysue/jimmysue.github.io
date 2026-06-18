@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>OFTSR：一步超分 + 可调「保真度↔真实感」的整条曲线</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 背景：rectified flow 是什么</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 第一阶段：噪声增广的条件 flow（教师）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 第二阶段：ODE 轨迹对齐蒸馏（核心创新）</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 对齐损失与边界损失</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 推理：一次前向 + 一个旋钮</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>One-Step Flow for Image Super-Resolution with Tunable Fidelity-Realism Trade-offs</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2024-12-12</strong></span> · <span class="post-meta__paper-date">论文日期: 2024-12-12</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Yuanzhi Zhu, Ruiqing Wang, Shilin Lu, Junnan Li, Hanshu Yan, Kai Zhang</span> · <span class="post-meta__venue">ICLR 2026</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2412.09465">arXiv:2412.09465</a> · <a class="post-meta__link" href="https://github.com/yuanzhi-zhu/OFTSR">项目页</a> · <a class="post-meta__link" href="https://github.com/yuanzhi-zhu/OFTSR">代码</a> · <a class="post-meta__link" href="https://huggingface.co/Yuanzhi/OFTSR">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/image-super-resolution.html">image-super-resolution</a> <a class="concept-chip" href="../../concepts/rectified-flow.html">rectified-flow</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/diffusion-distillation.html">diffusion-distillation</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/perception-distortion-tradeoff.html">perception-distortion-tradeoff</a> <a class="concept-chip" href="../../concepts/pf-ode.html">pf-ode</a> <a class="concept-chip" href="../../concepts/noise-augmentation.html">noise-augmentation</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="OFTSR 输入拼接示意与 ImageNet 上的 FID-PSNR 对比气泡图">
+  <figcaption>
+    <strong>Fig. 1</strong> — <strong>(a)</strong> 模型输入是「低清图 LR」与其「加噪版本 Augmented LR」沿通道拼接，单步模型一次前向就能输出高清图；调整插值参数 <code>t</code> 即可在 <code>t=0</code>（高保真，PSNR 25.9）和 <code>t=1</code>（高真实感，LPIPS 0.133）之间切换。<strong>(b)</strong> ImageNet 256×256 上各类扩散/flow 超分方法的 FID-PSNR 对比，气泡半径表示所需 NFE（函数求值次数）——OFTSR（橙色）用 1 次 NFE 就贴着帕累托前沿走完整条曲线。（论文 Fig. 1）
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>图像超分（super-resolution, SR）这几年被扩散 / flow 模型统治，因为它们生成的细节比传统回归式 CNN 更「真」。但这类方法卡在两个互相矛盾的需求之间：</p>
+<ul>
+<li><strong>要质量就得多步</strong>。扩散/flow 要几十上百步迭代采样才有好的感知质量，算力开销大；步数砍到个位数，输出就会「回归到均值」——变糊、变保守。</li>
+<li><strong>要单步就得牺牲灵活性</strong>。为了提速，大家把多步采样<strong>蒸馏</strong>成一步（如 BOOT、SinSR、DAVI、OSEDiff）。但这些单步蒸馏方法都把「保真度-真实感」权衡<strong>锁死成一个固定点</strong>：你拿到的一步模型要么偏锐利、要么偏保真，没法在推理时调。</li>
+</ul>
+<p>这里的「保真度-真实感权衡」（perception-distortion tradeoff, Blau &amp; Michaeli 2018）是图像复原的根本矛盾：<strong>数学上已证明不可能同时把「像 ground truth」（低失真、高 PSNR）和「看起来真实」（低 LPIPS/FID）都做到最好</strong>。医学影像、遥感、影视修复等不同场景对这两者的偏好截然不同——医学影像宁可保真也不要模型「脑补」，而影视修复要的就是细节真实。所以一个<strong>能在推理时调权衡</strong>的单步模型才有实用价值。</p>
+<p>多步扩散其实<strong>天然</strong>能调这个权衡：调 NFE 就行（步数少→偏保真，步数多→偏真实感）。OFTSR 想问的问题是：<strong>能不能把多步模型里「沿采样轨迹滑动」的这个连续权衡能力，原封不动地压进一个单步网络，用一个超参 <code>t</code> 来调？</strong></p>
+<p>答案是两阶段方案：(1) 先训一个<strong>噪声增广的条件 rectified flow</strong>当教师；(2) 用一个特制蒸馏约束，把教师沿 ODE 轨迹的「整条权衡曲线」蒸进一步学生里。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 背景：rectified flow 是什么</h3>
+<p>Rectified flow（Liu et al. 2022）是一类基于 ODE 的生成模型。给定初始分布 <span class="math inline">\(p_0\)</span> 和目标分布 <span class="math inline">\(p_1\)</span>，它训练一个神经网络去拟合一个<strong>速度场</strong> <span class="math inline">\(v_\theta\)</span>：</p>
+<div class="math block">
+\[\mathcal{L}_{rf}(\theta) := \mathbb{E}_{x_1\sim p_1, x_0\sim p_0}\left[\int_0^1 \|v_\theta(x_t, t) - (x_1 - x_0)\|^2\, dt\right], \quad x_t = (1-t)x_0 + t x_1.\]
+</div>
+<p class="math-translation">—— 翻译：在 $x_0$（起点）和 $x_1$（终点）之间画一条直线，$x_t$ 是这条线上 $t$ 处的点。网络要学会在每个 $x_t$ 处预测「指向终点的方向和速度」，而这个真值就是直线的常数斜率 $x_1 - x_0$。训练好后，从 $x_0$ 出发解 ODE $\frac{dx_t}{dt} = v_\theta(x_t,t)$ 走到 $t=1$ 就生成了样本。</p>
+<p>相比扩散模型，flow 的关键优势是：<strong>初始分布 <span class="math inline">\(p_0\)</span> 不必是高斯</strong>。这就给超分留了空间——能不能直接学一条从「LR 图分布」到「HR 图分布」的 flow？</p>
+<h3 id="sec-2-2">2.2 第一阶段：噪声增广的条件 flow（教师）</h3>
+<p>直接学 LR→HR 的 flow 会<strong>崩塌</strong>：训练时每个 LR 被强行拉向唯一的 HR，模型学成确定性映射，丢掉了「一个 LR 对应多个合理 HR」的多样性（论文 Tab. 7 验证了直接做效果差）。</p>
+<p>OFTSR 的修法是给 LR 加噪，<strong>扩展初始分布的支撑集</strong>。用 Variance-Preserving（VP）方式加噪：</p>
+<div class="math block">
+\[x_0 = \sqrt{1 - \sigma_p^2}\, x_{LR} + \sigma_p\, \epsilon, \quad \epsilon \sim \mathcal{N}(0, I).\]
+</div>
+<p class="math-translation">—— 翻译：把 LR 图按 $\sqrt{1-\sigma_p^2}$ 缩一下，再掺进强度为 $\sigma_p$ 的高斯噪声当作 flow 的起点 $x_0$。$\sigma_p$ 越大，起点越「随机」，模型能脑补的多样性越大，但 LR 里的信息也丢得越多。VP 形式保证总方差不变。</p>
+<p>这个 VP 公式在代码里是一行 <code>GaussianNoise</code>，与 Eq. (4) 一字不差：</p>
+<p class="code-source">repo/fm/measurements.py:L168-L174 — gaussian_VP 加噪算子，即论文 Eq. (4)</p>
+<pre><code class="language-python">@register_noise(name='gaussian_VP')
+class GaussianNoise(Noise):
+    def __init__(self, sigma, **kwargs):
+        self.sigma = sigma
+
+    def forward(self, data):
+        return np.sqrt(1 - self.sigma**2) * data + self.sigma * torch.randn_like(data, device=data.device)
+</code></pre>
+<p>加噪丢了信息怎么办？把原始 <span class="math inline">\(x_{LR}\)</span> <strong>沿通道维拼回去</strong>当条件输入。于是教师的训练目标是：</p>
+<div class="math block">
+\[\mathcal{L}_{flow}(\theta) = \mathbb{E}_{x_1\sim p_1}\left[\int_0^1 D\big(v_\theta(x_{t,LR}, t),\, (x_1 - x_0)\big)\, dt\right], \quad x_{t,LR} = \text{concat}(x_t, x_{LR}).\]
+</div>
+<p class="math-translation">—— 翻译：和普通 rectified flow 一样学速度场，只是把「噪声起点 $x_0$ → 高清图 $x_1$」当作要走的路径，并且每一步都把干净的 LR 图 $x_{LR}$ 拼在输入里当条件。$D$ 是 ℓ1 或 ℓ2 距离（论文发现 ℓ1 更好）。</p>
+<p>这个 VP 公式很「统一」：<span class="math inline">\(\sigma_p = 0\)</span> 退化成 InDI 的最小增广，<span class="math inline">\(\sigma_p = 1\)</span> 就变成 SR3 的训练方式。代码里加噪 + 拼通道的逻辑在这里：</p>
+<p class="code-source">repo/fm/flow_matching.py:L100-L111 + L84-L99 — get_train_tuple_IR 加噪 + model_forward_wrapper 拼通道条件</p>
+<pre><code class="language-python">def get_train_tuple_IR(self, batch, mask=None, **kwargs):
+    x = batch['gt'].to(self.device)          # x1 = HR
+    yn_ = batch['lq'].to(self.device)        # LR
+    self.cond = yn_.detach().clone()         # 保留干净 LR 当条件
+    yn = self.noiser_pertub(yn_)             # Eq.(4): VP 加噪得到 x0
+    self.x1 = x
+    self.x0 = yn
+
+def model_forward_wrapper(self, model, x, t, **kwargs):
+    # 把 x 与条件 LR 沿通道拼接后再喂模型
+    x = torch.cat([x, self.cond], dim=1) if self.flow_config.use_cond else x
+    model_output = model(x, t*999, label, augment_labels)
+    return model_output[:, :3]
+</code></pre>
+<h3 id="sec-2-3">2.3 第二阶段：ODE 轨迹对齐蒸馏（核心创新）</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-distill-loss.png" alt="OFTSR 蒸馏损失示意图">
+  <figcaption>
+    <strong>Fig. 2</strong> — 蒸馏损失的核心思路。一步学生 $v_\phi$ 从同一个输入 $x_0$，在两个不同时刻 $t$ 和 $s$（$s>t$）各做一次预测，得到 $x_t$ 和 $x_s$。约束是：用教师 $v_\theta$ 从 $x_t$ 走 $(s-t)$ 步应该正好到达 $x_s$——也就是「学生的两个预测必须落在教师的同一条 PF-ODE 轨迹上」。（论文 Fig. 2，图中省略了 LR 条件）
+  </figcaption>
+</figure>
+<p>为什么这样设计能保住「整条权衡曲线」？关键观察（Fig. 6 与前人工作）：<strong>沿 ODE 轨迹，从中间态 <span class="math inline">\(x_t\)</span> 一步估计终点 <span class="math inline">\(x_{t_1}\)</span>，估计值本身就躺在一条保真-真实感曲线上</strong>——<span class="math inline">\(t\)</span> 越大（越接近 1）细节越丰富、LPIPS 越低（真实感好）；<span class="math inline">\(t\)</span> 越小（越接近 0）越糊但 PSNR 越高（保真好）。所以只要让学生<strong>忠实复现教师的整条轨迹</strong>，学生就自动继承了用 <span class="math inline">\(t\)</span> 调权衡的能力。</p>
+<p>形式化：给定同一输入 <span class="math inline">\(x_{0,LR}\)</span>，对 <span class="math inline">\(s &gt; t\)</span>，要求学生产生的 <span class="math inline">\(x_t, x_s\)</span> 落在教师定义的同一 ODE 轨迹上：</p>
+<div class="math block">
+\[x_s = x_t + (s-t)\, v_\theta(x_{t,LR}, t). \tag{6}\]
+</div>
+<p class="math-translation">—— 翻译：教师视角下，从轨迹上的 $x_t$ 出发，沿教师速度 $v_\theta$ 走 $(s-t)$ 这么长的一步，应该到达 $x_s$。这就是一阶 Euler 离散的 PF-ODE。</p>
+<p>而 <span class="math inline">\(x_t, x_s\)</span> 都由一步学生算出（注意学生<strong>永远从 <span class="math inline">\(x_0\)</span> 出发</strong>，只是把目标时刻当输入）：</p>
+<div class="math block">
+\[x_t = x_0 + t\, v_\phi(x_{0,LR}, t). \tag{7}\]
+</div>
+<p class="math-translation">—— 翻译：学生不沿轨迹爬，而是「一步到位」——从固定起点 $x_0$ 直接预测时刻 $t$ 处的状态 $x_t$。这正是单步模型的本质：把任意目标时刻 $t$ 当成可调旋钮。</p>
+<p>把 (7) 代入 (6)，整理出对学生的约束（这是代码里实际优化的 v 空间形式）：</p>
+<div class="math block">
+\[s\big(v_\phi(x_{0,LR}, s) - v_\phi(x_{0,LR}, t)\big) = (s-t)\big(v_\theta(x_{t,LR}, t) - v_\phi(x_{0,LR}, t)\big). \tag{8}\]
+</div>
+<p class="math-translation">—— 翻译：把「学生两个时刻的速度差」和「教师速度与学生速度的差」用 $(s-t)/s$ 这个比例系数挂钩。它是 Eq.(6) 轨迹约束的等价改写，只是写成速度（$v$）而非状态（$x$）的关系，数值上更稳。</p>
+<p>设 <span class="math inline">\(dt = s - t\)</span>，加上 stop-gradient，得到最终蒸馏损失：</p>
+<div class="math block">
+\[\mathcal{L}_{distill}(\phi) = \mathbb{E}_{x_1, t}\left[\left\| v_\phi(x_{0,LR}, s) - \text{SG}\Big[v_\phi(x_{0,LR}, t) + \tfrac{dt}{s}\big(v_\theta(x_{t,LR}, t) - v_\phi(x_{0,LR}, t)\big)\Big]\right\|^2_2\right]. \tag{9}\]
+</div>
+<p class="math-translation">—— 翻译：让学生在时刻 $s$ 的速度，去匹配一个「目标速度」——这个目标速度是「学生在 $t$ 的速度」朝「教师速度」方向修正 $dt/s$ 比例后的结果。SG[·] 是停梯度，只让 $s$ 这一支回传梯度，防止训练塌掉。$t>0$ 保证 $dt/s$ 不会除零。</p>
+<p>代码里这正是默认的 <code>v_boot</code> 分支，与 Eq. (9) 完全对应（<code>delta_lambda = dt/s</code>）：</p>
+<p class="code-source">repo/distill_fm.py:L390-L423 — 学生双时刻预测 + 教师 RK2 求速度 + v_boot 蒸馏损失（Eq. 8/9）</p>
+<pre><code class="language-python">v_pred_t = flow.model_forward_wrapper(flow.model, x_0, t)   # 学生在 t 的速度
+v_pred_s = flow.model_forward_wrapper(flow.model, x_0, s)   # 学生在 s 的速度
+xt = x_0 + torch.einsum('b,bijk-&gt;bijk', t, v_pred_t.detach())  # Eq.(7): 学生算出 x_t
+
+with torch.no_grad():                                       # 教师不回传梯度
+    v_teacher_t = flow.model_forward_wrapper(flow.teacher, xt, t)
+    if boot_config.teacher_solver == 'rk2':
+        # r=0.5 -&gt; midpoint；r=1 -&gt; Heun；r=2/3 -&gt; Ralston
+        pred = v_teacher_t.clone()
+        x_2 = xt + boot_config.rk2_r * torch.einsum('b,bijk-&gt;bijk', t_step, pred)
+        t_2 = boot_config.rk2_r * s + (1 - boot_config.rk2_r) * t
+        pred_2 = flow.model_forward_wrapper(flow.teacher, x_2, t_2)
+        v_teacher_t = (pred + 1/(2*boot_config.rk2_r) * (pred_2 - pred))
+# v_boot: Eq.(9)，delta_lambda = dt/s
+delta_lambda = (t_step / s)[..., None, None, None]
+loss_distil = F.mse_loss(v_pred_s,
+                         (v_pred_t + delta_lambda*(v_teacher_t - v_pred_t)).detach(),
+                         reduction='mean')
+</code></pre>
+<h3 id="sec-2-4">2.4 对齐损失与边界损失</h3>
+<p>光有蒸馏损失还不够稳。OFTSR 再加两项（借鉴 BOOT 的边界条件思想）：</p>
+<ul>
+<li><strong>对齐损失</strong> <span class="math inline">\(\mathcal{L}_{align}\)</span>：让学生从 <span class="math inline">\(x_0\)</span> 的预测，与教师从 <span class="math inline">\(x_t\)</span> 的预测在「预测的终点」上一致，权重 <span class="math inline">\((1-t)^2\)</span>：</li>
+</ul>
+<div class="math block">
+\[\mathcal{L}_{align}(\phi) = \mathbb{E}_{x_1, t}\left[(1-t)^2\,\big\| v_\phi(x_{0,LR}, t) - v_\theta(x_{t,LR}, t)\big\|^2_2\right]. \tag{10}\]
+</div>
+<p class="math-translation">—— 翻译：学生（从起点看 $t$）和教师（从轨迹上的 $x_t$ 看 $t$）都该指向同一个终点 $x_1$；把两者速度拉近，权重 $(1-t)^2$ 是因为换算到终点空间时会乘这个系数。$t=0$ 时它退化成 BOOT 的边界损失。</p>
+<ul>
+<li><strong>边界损失</strong> <span class="math inline">\(\mathcal{L}_{BC}\)</span>：在 <span class="math inline">\(t=0\)</span> 处强制学生 = 教师（因为训练时几乎采不到 <span class="math inline">\(t=0\)</span>，单独补一项）。</li>
+</ul>
+<p>总目标：<span class="math inline">\(\mathcal{L}(\phi) = \mathcal{L}_{distill} + \lambda_{align}\mathcal{L}_{align} + \lambda_{BC}\mathcal{L}_{BC}\)</span>，默认 <span class="math inline">\(\lambda_{align}=0.01\)</span>、<span class="math inline">\(\lambda_{BC}=0.1\)</span>。</p>
+<h3 id="sec-2-5">2.5 推理：一次前向 + 一个旋钮</h3>
+<p>训练完，单步学生 <span class="math inline">\(v_\phi\)</span> 一次前向就出 HR，权衡由 <span class="math inline">\(t\)</span> 控制：</p>
+<div class="math block">
+\[x_{t_1} = x_0 + v_\phi(x_0, x_{LR}, t). \tag{13}\]
+</div>
+<p class="math-translation">—— 翻译：从加噪起点 $x_0$ 出发，加上学生预测的「残差速度」，直接得到高清图。想保真就把 $t$ 调小（输出偏向 LR 的均值，PSNR 高），想真实感就把 $t$ 调大（细节丰富，LPIPS 低）。整个推理 NFE = 1。</p>
+<p class="code-source">repo/fm/flow_matching.py:L232-L244 — 单步推理，对应 Eq. (13)</p>
+<pre><code class="language-python">def image_restoration_t_(self, x_0, yn, t):
+    samples = []
+    for i in range(int(np.ceil(x_0.shape[0] / self.psnr_batch_size))):
+        batch_x0 = x_0[i*self.psnr_batch_size:(i+1)*self.psnr_batch_size]
+        vec_t = torch.ones(batch_x0.shape[0],).to(self.device) * t   # 旋钮 t
+        self.cond = yn.detach()[...]
+        with torch.no_grad():
+            v_pred = self.model_forward_wrapper(self.model, batch_x0, vec_t)
+            sample = batch_x0 + (self.T - self.eps) * v_pred         # x_0 + (T-t)*v
+        samples.append(sample.cpu())
+    return torch.cat(samples, dim=0)
+</code></pre>
+<figure>
+  <img class="zoomable" src="figures/fig3-transition.png" alt="OFTSR 在 t 从 1 到 0 时输出的连续过渡">
+  <figcaption>
+    <strong>Fig. 3</strong> — 同一个单步模型，仅调 <code>t</code>：从 <code>t=1</code>（真实感最高，LPIPS 0.055 / PSNR 27.66）连续滑到 <code>t=0</code>（保真最高，LPIPS 0.160 / PSNR 30.03）。注意 PSNR 单调升、LPIPS 单调降——这正是把多步扩散「调 NFE 换权衡」的能力压进了单步推理。（论文 Fig. 3）
+  </figcaption>
+</figure>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p>在 FFHQ 256×256、DIV2K、ImageNet 256×256 和多个真实世界 SR 数据集上（4× 超分）：</p>
+<ul>
+<li><strong>单步达到甚至超过多步 SOTA</strong>。FFHQ 上 OFTSR 蒸馏版（<span class="math inline">\(t=1\)</span>，NFE=1）FID 36.02、LPIPS 0.055，优于需要 100 NFE 的 DiffPIR（FID 44.49）和 20 NFE 的 SITCOM（FID 43.00）。ImageNet 上 <span class="math inline">\(t=1\)</span> 单步 LPIPS 0.135 / FID 52.69，是表中单步方法的最佳之一。</li>
+<li><strong>整条权衡曲线可调</strong>。同一个单步模型在 FFHQ 上：<span class="math inline">\(t=0\)</span> 时 PSNR 31.25（保真最高），<span class="math inline">\(t=1\)</span> 时 LPIPS 0.055（真实感最高），<span class="math inline">\(t=0.5\)</span> 居中（PSNR 29.95 / LPIPS 0.093）。这是其他单步蒸馏方法做不到的。</li>
+<li><strong>蒸馏几乎无损 + 通用</strong>。把蒸馏套到 ResShift 教师上，单步学生 FID 60.64 反超原版 SinSR（FID 94.90）；套到 SD3.5 的 DiT4SR 教师上，RealLQ250 的 CLIPIQA 0.7252、LIQE 4.1122 与最新 SOTA（TSDSR）竞争。</li>
+<li><strong>训练 + 推理都便宜</strong>。蒸馏 ResShift 仅需 ~0.39 天（A100），远少于 SinSR 的 2.57 天；单步推理 0.09s，与 SinSR 同档。</li>
+<li><strong>关键消融</strong>：(i) 加噪是必须的（<span class="math inline">\(\sigma_p=0\)</span> 时 FID 110），但 <span class="math inline">\(\sigma_p\)</span> 过大会让 PF-ODE 更弯、需要更多 NFE；FFHQ 选 <span class="math inline">\(\sigma_p=0.1\)</span>。(ii) 步长 <span class="math inline">\(dt\)</span> 不是越小越好，选 <span class="math inline">\(dt=0.05\)</span>。(iii) 自家蒸馏损失比 BOOT 损失 LPIPS 好 0.1 以上（BOOT 0.483 vs Ours 0.065）。</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ul>
+<li><strong>论文 Eq. (9) 写在 <span class="math inline">\(v\)</span> 空间，但与 BOOT 推导路径同源</strong>。代码 <code>distil_loss</code> 有三个分支：<code>boot</code>（x 空间，对应原始 BOOT）、<code>v_boot</code>（v 空间，论文 Eq. 9）、<code>pinn</code>（PINN 式残差损失）。<strong>默认配置用的是 <code>v_boot</code></strong>（<code>configs/dis_fm_ffhq.yml:L119</code>），不是名字里带 boot 就等于跑 BOOT——别被分支名误导。<code>repo/distill_fm.py:L389-L429</code>。</li>
+<li><strong>教师默认用 midpoint（RK2, r=0.5）解一步</strong>，而非 Euler。配置 <code>teacher_solver: rk2</code> + <code>rk2_r: 0.5</code>（<code>dis_fm_ffhq.yml:L117-L118</code>）。论文正文也说主实验用 midpoint，但 Tab. 8 消融里 Euler 在 <span class="math inline">\(t=1\)</span> 的 LPIPS（0.065）反而略好于 midpoint（0.056 是另一指标方向）——RK2 主要在对齐/边界损失开启时更稳。</li>
+<li><strong>学生从教师权重初始化</strong>，不是从头训（<code>flow.teacher = copy.deepcopy(unet)</code> 后 <code>requires_grad_(False)</code>，学生 <code>unet</code> 继续训）。<code>distill_fm.py:L241-L242</code>。</li>
+<li><strong>stop-gradient 的位置很关键</strong>：<code>v_pred_t.detach()</code> + 整个目标 <code>.detach()</code>，只让 <span class="math inline">\(s\)</span> 那一支 <code>v_pred_s</code> 回传。漏 detach 会让两支互相追逐、训练发散。<code>distill_fm.py:L394-L423</code>。</li>
+<li><strong>时间 <span class="math inline">\(t\)</span> 喂进网络前乘了 999</strong>（<code>model(x, t*999, ...)</code>，<code>flow_matching.py:L98</code>）——这是为了复用 Guided-Diffusion / DDPM 那套以「0–1000 整数步」为条件的 UNet，把连续 <span class="math inline">\(t\in[0,1]\)</span> 映射回离散步索引区间。</li>
+<li><strong>⚠️ 配置里的 <code>sigma_pertubation</code> 与论文最优值不一致</strong>：<code>dis_fm_ffhq.yml:L33</code> 写的是 <code>sigma_pertubation: 1.</code>，但论文 Tab. 7 在 FFHQ 上选的是 <span class="math inline">\(\sigma_p=0.1\)</span>（FID 30.54 最优）。仓库里发布的 distill 配置用 <span class="math inline">\(\sigma_p=1\)</span>，复现论文表格数字时需注意对齐到对应教师 checkpoint 实际训练用的 <span class="math inline">\(\sigma_p\)</span>，否则结果会偏。</li>
+<li><strong>ℓ1 比 ℓ2 好</strong>用在第一阶段（<code>loss_type: l1</code>，<code>dis_fm_ffhq.yml:L73</code>），但蒸馏阶段消融默认用 ℓ2。两阶段损失类型不同，照搬会踩坑。</li>
+<li><strong>训练用 Adam + 1k 步线性 warmup + lr 1e-4</strong>，两阶段相同；梯度做了 <code>nan_to_num</code> 清洗（<code>losses.py:L65</code>），说明 flow 蒸馏数值上确实容易出 NaN。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>「整条曲线 vs 一个点」是真正的差异化</strong>。绝大多数单步蒸馏（SinSR/OSEDiff/DAVI）只能给你曲线上固定一点；OFTSR 用一个超参 <span class="math inline">\(t\)</span> 在推理时连续滑动，且 PSNR/LPIPS 单调变化（Fig. 3），这个能力在医学/遥感等场景有实打实的价值。</li>
+<li><strong>蒸馏算法与教师解耦，通用性强</strong>。同一套损失能套自训 flow、ResShift、SD3.5-based DiT4SR 三种教师，且都拿到有竞争力的单步结果——说明这不是针对某个架构调出来的 trick。</li>
+<li><strong>训练极省</strong>。蒸馏 ResShift 只要 5k 步 / 0.39 天就超过 SinSR，因为不需要像 SinSR 那样在线模拟教师 ODE 轨迹，也不像 DAVI 那样额外训一个 fake score。</li>
+<li><strong>数学推导干净</strong>。从 Eq.(6) 轨迹约束到 Eq.(9) 损失，每步都能对上代码，paper↔code 一致性高。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong><span class="math inline">\(t\)</span> 与权衡的对应关系是经验性的、非校准的</strong>。Fig. 3 显示 <span class="math inline">\(t\)</span> 单调控制权衡，但论文没给「想要某个目标 LPIPS/PSNR 该取哪个 <span class="math inline">\(t\)</span>」的解析关系；不同数据集/教师上 <span class="math inline">\(t\)</span> 的「甜点」不同（FFHQ 与 ImageNet 的 <span class="math inline">\(t=0.5\)</span> 数字差异很大），实际用还得手动扫。</li>
+<li><strong><span class="math inline">\(\sigma_p\)</span> 与 NFE 的耦合是个隐性成本</strong>。加噪强度大→PF-ODE 更弯→第一阶段教师采样要更多 NFE（Tab. 7：<span class="math inline">\(\sigma_p=1\)</span> 需 44 NFE）。教师本身的质量上限会传导给学生，但论文没深入分析「教师越弯、蒸馏越难」这条链路。</li>
+<li><strong>真实世界 SR 上 <span class="math inline">\(t&lt;1\)</span> 退化明显</strong>。Tab. 4 里 RealSR 上 <span class="math inline">\(t=0.5\)</span>、<span class="math inline">\(t=0\)</span> 的无参考指标（MUSIQ/MANIQA/CLIPIQA）掉得很厉害（如 CLIPIQA 从 0.589 跌到 0.313）——可调权衡在真实退化场景下，偏保真端基本不可用，实际只有 <span class="math inline">\(t\approx1\)</span> 那一端有竞争力。这与「整条曲线可用」的卖点有张力。</li>
+<li><strong>结论部分单薄</strong>。Conclusion 只有一段套话，没有 limitation/future work 的诚实讨论，对一篇方法论文略可惜。</li>
+<li><strong>配置与论文数值的不一致</strong>（见 §4 的 <span class="math inline">\(\sigma_p\)</span> 问题）会增加复现摩擦。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>：需要单步快速超分、且希望在部署时按场景调「保真 vs 真实感」的应用（影视上采样、可交互修图）；想把已有扩散/flow 超分教师压成一步又不想丢调节能力。</li>
+<li><strong>不适合</strong>：只追求单一指标（要么纯 PSNR、要么纯感知）的场景——那直接训一个对应目标的单步模型更简单；以及对真实世界强退化要求「高保真端也可用」的场景（<span class="math inline">\(t&lt;1\)</span> 在真实数据上退化大）。</li>
+</ul>
+<h3 id="sec-5-4">Further reading</h3>
+<ul>
+<li>蒸馏思路的直接前身：BOOT（Gu et al. 2023，signal-ODE 自举蒸馏）、PINN 式蒸馏（Tee et al. 2024）。</li>
+<li>同期相关的 flow map / 自蒸馏：MeanFlow（Geng et al. 2025）、AlignYourFlow（Sabour et al. 2025）——论文 §B.2 说自家损失是其离散时间对应。</li>
+<li>超分单步蒸馏对照组：SinSR（蒸 ResShift）、DAVI（VSD + 数据一致性）、OSEDiff / TSDSR（SD-based 单步）。</li>
+<li>理论根基：Blau &amp; Michaeli 2018 的 perception-distortion tradeoff。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

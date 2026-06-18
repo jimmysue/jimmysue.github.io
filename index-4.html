@@ -51,6 +51,20 @@
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">12k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/rlhf-evolution-2024/index.html">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</a></h3>
+  <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/llm.html">llm</a>
+      <a class="tag-chip" href="concepts/ppo.html">ppo</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10.8k 字</span> · <span class="post-card__extra">80–110 分钟</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/rl-for-diffusion-2023/index.html">扩散模型强化学习: 从 DDPO 到 AWM 的方法演进与代码实现</a></h3>
@@ -123,6 +137,22 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ggt-100k-2026/index.html">GGT-100K：用多模态大模型「生成」真实世界修复的 Ground Truth</a></h3>
+  <p class="post-card__tldr">真实世界图像修复（IR）卡在「没有成对训练数据」：合成退化不像真的，真实成对数据又贵又难采。GGT-100K 的思路是——既然没有干净参考图，那就让生成式多模态大模型（MFM）「画」一张出来当 ground truth。
+作者系统评测了 9 个 MFM × 4 种提示策略，发现 Nano-Banana-2 + Gemini 自适应提示在「保真 + 感知 + 无幻觉」上最均衡；再用它配合「指标过滤 → VLM 复检改写 → 人工验收」三级质控，构建出 103,707 对 LQ-HQ 训练对 + 500 对测试集。用它训各类 IR 模型都涨点，对生成式修复模型（FLUX/Qwen-Image-Edit）增益尤其大。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/image-restoration.html">image-restoration</a>
+      <a class="tag-chip" href="concepts/real-world-restoration.html">real-world-restoration</a>
+      <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/flow-opd-2026/index.html">Flow-OPD: On-Policy Distillation for Flow Matching Models</a></h3>
   <p class="post-card__tldr">USTC/UCLA/CUHK/小红书:把 LLM 的 OPD 范式严格搬到 flow matching — SDE 共方差结构让 reverse-KL 退化为速度场 L2,多教师 dense 监督 + MAR 美学锚定。SD-3.5-M 上 GenEval 63→92, OCR 59→94。</p>
   <div class="post-card__tags">
@@ -144,34 +174,6 @@
       <a class="tag-chip" href="concepts/attention.html">attention</a>
       <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/dapo-2025/index.html">DAPO: An Open-Source LLM Reinforcement Learning System at Scale</a></h3>
-  <p class="post-card__tldr">字节 + 清华 AIR 的 R1 复现:Qwen2.5-32B base 上 4 个工程修复 (Clip-Higher / Dynamic Sampling / Token-Level Loss / Overlong Reward Shaping) 把 GRPO 从 30 推到 50 AIME24,只用 R1-Zero 50% step。代码+数据+权重全开源。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
-      <a class="tag-chip" href="concepts/grpo.html">grpo</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/d-opsd-2026/index.html">D-OPSD: On-Policy Self-Distillation for Continuously Tuning Step-Distilled Diffusion Models</a></h3>
-  <p class="post-card__tldr">HKUST/阿里 Z-Image Team:让 Z-Image-Turbo (8 步) 和 FLUX.2-klein (4 步) 能&quot;边用边学&quot;新概念 — 同一模型分饰 student (text) 和 teacher (text+target_img),在 student 自采轨迹上 self-distill,无需 reward。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
 </div>

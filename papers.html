@@ -46,8 +46,25 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 31 篇论文精读。</p>
+<p class="page__intro">共 35 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-16</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/boogu-image-2026/index.html">Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）</a></h3>
+  <p class="post-card__tldr">Boogu-Image-0.1 是一个 Apache-2.0 开源的「统一文生图 + 图像编辑」模型族（Base / Edit / Turbo，均 10B），主打照片级真实感和中英双语文字渲染，号称用比同类开源模型少约一个数量级的训练数据做到接近闭源（GPT-Image-2 / Nano-Banana-Pro）的水平。
+架构是 Lumina-Image-2 谱系的 DiT（noise/context/ref 三套 refiner + 双流/单流 MMDiT 块），文本条件来自一个 Qwen3-VL 多模态大模型（既当指令编码器、又当 prompt 改写/推理器）；Turbo 变体用 Decoupled DMD 蒸馏到 4 步、无 CFG。
+⚠️ 正式技术报告尚未发布（仓库标注 &quot;Coming Soon&quot;），本文是基于 README + 推理代码的交叉精读，非官方报告解读。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -169,21 +186,6 @@
       <a class="tag-chip" href="concepts/grounding.html">grounding</a>
       <a class="tag-chip" href="concepts/vlm.html">vlm</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ideogram-4-2026/index.html">Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间</a></h3>
-  <p class="post-card__tldr">Ideogram 首个开源权重 (2026-06-03 同日 release 代码 + weights, **9.3B 参数, 非任何已有模型微调**)。技术报告无 arxiv,只有 blog (ideogram.ai/blog/ideogram-4.0) + GitHub repo (ideogram-oss/ideogram4) 里的 docs。架构亮点:**单流 DiT** (跟 SD3/FLUX 的 MMDiT 双流相反),34 层 transformer 把&quot;text token + image latent token&quot;拼成一根 sequence,共享 self-attention; text encoder 用 **frozen Qwen3-VL-8B-Instruct**,从第 0/3/6/9/12/15/18/21/24/27/30/33/35 层共 13 层 hidden state **沿 feature 维拼接** (得到 4096×13 = 53248 维 text feature);**MRoPE 3D 位置编码** (section 24/20/20: 时间/高/宽,text token 用 1D position 广播到 3 轴) 让两类 token 处于统一空间,无需 cross-attention; flow matching + Euler sampler + logit-normal noise schedule (按分辨率自适应 mu = mu_base + 0.5·log(N_pixels / 512²));**asymmetric CFG** (unconditional pass 只走 image token, 省计算)。训练数据完全是**结构化 JSON caption** (high_level / style / compositional_deconstruction with bbox)。基准: Design Arena open-weight 第一,ContraLabs 排版 47.9% 一胜率超过 Nano Banana 2 / FLUX.2 [max] / Grok Imagine 1.0,7Bench layout / X-Omni OCR 上是 9.3B 级最强。**License**: Ideogram 4 Non-Commercial (不能商用)。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>

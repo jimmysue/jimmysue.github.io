@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Osprey:把「掩码」喂进 MLLM 的像素级区域理解</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉:一块区域 = 「它是什么」+「它长什么形状」</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 卷积 CLIP:换掉 ViT 才敢上高分辨率</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Mask-Aware Visual Extractor:核心两步</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 &lt;region&gt; → &lt;mask&gt;&lt;pos&gt;:两个 token 塞进句子</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 三阶段训练</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 Osprey-724K 数据集</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">谱系衔接:输入侧区域表示的三条路</a></li>
+    <li class="h3"><a href="#sec-5-5">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Osprey: Pixel Understanding with Visual Instruction Tuning</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2023-12-15</strong></span> · <span class="post-meta__paper-date">论文日期: 2023-12-15</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Yuqian Yuan, Wentong Li, Jian Liu, Dongqi Tang, Xinjie Luo, Chi Qin, Lei Zhang, Jianke Zhu</span> · <span class="post-meta__venue">CVPR 2024</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2312.10032">arXiv:2312.10032</a> · <a class="post-meta__link" href="https://github.com/CircleRadon/Osprey">项目页</a> · <a class="post-meta__link" href="https://github.com/CircleRadon/Osprey">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/referring-grounding.html">referring-grounding</a> <a class="concept-chip" href="../../concepts/region-input.html">region-input</a> <a class="concept-chip" href="../../concepts/mask-pooling.html">mask-pooling</a> <a class="concept-chip" href="../../concepts/convolutional-clip.html">convolutional-clip</a> <a class="concept-chip" href="../../concepts/pixel-level-understanding.html">pixel-level-understanding</a> <a class="concept-chip" href="../../concepts/multimodal-llm.html">multimodal-llm</a> <a class="concept-chip" href="../../concepts/object-hallucination.html">object-hallucination</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-mask-vs-box.png" alt="掩码级 Osprey 对比框级方法,以及用 SAM 掩码喂 Osprey">
+  <figcaption>
+    <strong>Fig. 1</strong> — <strong>(a)</strong> 框级方法(Shikra / GPT4RoI)用稀疏框作 referring 输入,框里混进大量背景,语义会偏(一支笔的框里把"纸"也圈进去);<strong>掩码级 Osprey</strong> 贴合物体,区域理解更准。<strong>(b)</strong> 把现成 SAM 的 class-agnostic 掩码直接喂给 Osprey,它能对每块掩码吐出语义标签 + 细节描述——SAM 负责"切",Osprey 负责"说是什么"。(论文 Fig. 1)
+  </figcaption>
+</figure>
+<blockquote>
+<p><a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 解决<strong>输出</strong>侧的掩码(文本→<code>&lt;SEG&gt;</code>→SAM),<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 解决<strong>输入</strong>侧的自由形状区域(坐标⊕点云采样特征)。Osprey 走的是 Ferret 那条<strong>输入</strong>线,但把&quot;区域怎么编码&quot;换了一套:<strong>掩码 + 卷积 CLIP 多尺度 mask-pooling</strong>,把精度从&quot;框&quot;推到&quot;像素&quot;。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>现有区域级 MLLM(Kosmos-2 / Shikra / PVIT / GPT4RoI)都用<strong>框</strong>当 referring 输入,论文指出两个硬伤:</p>
+<ul>
+<li><strong>框太粗,混进背景</strong>:稀疏的外接框会把无关背景特征卷进来,导致 region-text 对齐不准、推理时语义偏移(Fig. 1a:笔的框里混进&quot;纸&quot;)。这和 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 提的&quot;手枪/刀共享同一个框&quot;是同一类问题——框无法表达形状。</li>
+<li><strong>分辨率太低</strong>:这些模型多用 224×224 的 ViT-CLIP,密集小区域的细节根本看不清。而提分辨率又被 ViT 全局注意力的计算量卡住。</li>
+</ul>
+<p>另一边,SAM 能用框/点提示切出<strong>高质量掩码</strong>,但它<strong>只会切、不会命名</strong>——给不出类别、属性、描述。于是论文盯住一个空档:</p>
+<blockquote>
+<p><strong>能不能让 MLLM 直接吃「掩码」作输入,既有像素级精度、又能说出语义(类别/属性/描述/推理)?</strong></p>
+</blockquote>
+<p>Osprey 的答案是 <strong>mask-text instruction tuning</strong>:(1) 造一份 <strong>724K 掩码-文本指令数据</strong>;(2) 设计 <strong>mask-aware visual extractor</strong> 把像素级表示注入 LLM;(3) 用<strong>卷积 CLIP</strong> 扛高分辨率。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig4-architecture.png" alt="Osprey 架构:卷积 CLIP 多尺度特征 + mask-aware visual extractor + LLM">
+  <figcaption>
+    <strong>Fig. 2</strong> — Osprey 架构。<strong>左</strong>:图像走 Image Encoder 出 image token,referring 掩码走 <strong>Mask-Aware Visual Extractor</strong> 出区域 token,两者与文本 token 交错喂 Vicuna。<strong>右上</strong>:Image Encoder = 卷积 CLIP(ConvNeXt-L),出**多尺度特征** + MLP connector。<strong>右下</strong>:Mask-Aware Visual Extractor 对每块掩码,在多尺度特征上做 <strong>Mask Pooling</strong> → 逐级线性投影 + 相加 → MLP → <strong>mask token</strong>(语义);掩码本身经 Location Extractor(展平+投影)→ <strong>spatial token</strong>(形状)。(论文 Fig. 4)
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 直觉:一块区域 = 「它是什么」+「它长什么形状」</h3>
+<p>Osprey 给每块输入区域生成<strong>两个 token</strong>:</p>
+<ul>
+<li><strong>mask token <code>t</code></strong>:这块区域的<strong>语义内容</strong>——从卷积 CLIP 的多尺度特征图里,把掩码盖住的像素特征<strong>平均池化</strong>出来。回答&quot;它是什么&quot;。</li>
+<li><strong>spatial token <code>s</code></strong>:这块区域的<strong>几何形状</strong>——把二值掩码本身展平投影。回答&quot;它长什么样、在哪&quot;。</li>
+</ul>
+<p>为什么要分两路?池化会把&quot;形状&quot;抹平(只剩一个语义向量),所以单独留一路专门编码掩码的像素级位置关系。这和 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 的&quot;坐标(在哪)⊕采样特征(长啥样)&quot;是同一种二分思想,只是 Osprey 的&quot;长啥样&quot;直接来自掩码本身。</p>
+<h3 id="sec-2-2">2.2 卷积 CLIP:换掉 ViT 才敢上高分辨率</h3>
+<p>Osprey 把视觉编码器从 <strong>ViT-CLIP 换成卷积 CLIP(ConvNeXt-L)</strong>,输入 <strong>512×512</strong>。原因:</p>
+<ul>
+<li>ViT 的全局注意力随分辨率平方增长,512 太贵;ConvNeXt 是卷积,<strong>对更大输入分辨率泛化好、又快</strong>。</li>
+<li>卷积主干天然产出<strong>多尺度特征图</strong>(res2–res5),正好喂给后面的 mask-pooling 抽不同粒度的区域特征。</li>
+</ul>
+<blockquote>
+<p>图像级 token 用 <strong>res4</strong> 那一级的特征;mask-aware extractor 则用 <strong>res2–res5 全部四级</strong>(下文公式 2 的 <span class="math inline">\(j=1..4\)</span>)。</p>
+</blockquote>
+<h3 id="sec-2-3">2.3 Mask-Aware Visual Extractor:核心两步</h3>
+<p><strong>第一步——多尺度 mask pooling(公式 1)</strong>。对区域 <span class="math inline">\(R_i\)</span> 和第 <span class="math inline">\(j\)</span> 级特征图 <span class="math inline">\(\mathbf{Z}(x)_j\)</span>,把掩码盖住的所有像素特征做平均:</p>
+<div class="math block">
+\[V_{ij} = \mathcal{MP}(\mathbf{R}_i, \mathbf{Z}(x)_j)\]
+</div>
+<p class="math-translation">—— 翻译:$\mathcal{MP}$ 就是 mask-average-pooling。把第 $j$ 级特征图里、落在掩码 $R_i$ 内的那些像素特征求平均,得到这一级上这块区域的特征向量 $V_{ij}$。说白了:用掩码当"勺子",从特征图里把这块区域的特征"舀"出来取均值。</p>
+<p><strong>第二步——多尺度融合成 mask token(公式 2)</strong>。每一级 <span class="math inline">\(V_{ij}\)</span> 过一个该级专属的线性投影 <span class="math inline">\(\mathbf{P}_j\)</span> 对齐维度,<strong>四级相加</strong>,再过一个 MLP <span class="math inline">\(\sigma\)</span>:</p>
+<div class="math block">
+\[t_i = \sigma\!\left(\sum_{j=1}^{4} \mathbf{P}_j(V_{ij})\right)\]
+</div>
+<p class="math-translation">—— 翻译:把四个尺度(粗到细)的区域特征各自投影到同一维度后加起来,融合成一个向量,再过 MLP 适配到 LLM 的词嵌入维度,得到 mask token $t_i$。为什么要多尺度:大物体靠粗尺度(res5)抓整体语义,小部件靠细尺度(res2)抓细节,加起来兼顾。</p>
+<p><strong>spatial token</strong>:把掩码 <span class="math inline">\(M_i\)</span> resize 后展平、过 MLP 投影成 <span class="math inline">\(s_i\)</span>,专门保住像素级形状。代码实现把这两路都写在 <code>MaskExtractor</code> 里——<code>query_feats</code> 是 mask token、<code>pos_feats</code> 是 spatial token:</p>
+<p class="code-source">repo/osprey/model/layer.py:L53-L91 — Mask-Aware Visual Extractor:多尺度 mask-pooling 求和(公式 1+2)+ 掩码展平投影(spatial token)</p>
+<pre><code class="language-python">for i, name in enumerate(self.feature_name):       # res2..res5 四级
+    feat = feats[name][idx].unsqueeze(0)
+    mask_feat_raw = self.mask_pooling(feat, mask)   # 公式1:MP(R_i, Z_j)
+    mask_feat_flatten = mask_feat_raw.reshape(-1, mask_feat_raw.shape[-1])
+    if name=='res2':   mask_feat = self.res2(mask_feat_flatten)   # 逐级线性投影 P_j
+    elif name=='res3': mask_feat = self.res3(mask_feat_flatten)
+    elif name=='res4': mask_feat = self.res4(mask_feat_flatten)
+    else:              mask_feat = self.res5(mask_feat_flatten)
+    mask_feats[i] = mask_feat.reshape(*mask_feat_raw.shape[:2], -1)[0]
+mask_feats = mask_feats.sum(0)                       # 公式2:四级相加
+mask_feats_linear = self.feat_linear(mask_feats)     # σ(·) 适配 LLM 维度 → mask token
+query_feats.append(mask_feats_linear)
+# spatial token:掩码 resize→展平→MLP
+mask = F.interpolate(mask, size=self.mask_shape, mode='bilinear', align_corners=False)
+pos_feat = self.mask_linear(mask.reshape(mask.shape[1], -1))
+pos_feats.append(pos_feat)
+</code></pre>
+<p>mask pooling 本身就是一行 <code>einsum</code> 的掩码加权平均(<code>mask/denorm</code> 把掩码归一化成&quot;区域内均值&quot;):</p>
+<p class="code-source">repo/osprey/model/layer.py:L108-L113 — MaskPooling:掩码归一化后对特征图做加权平均(即 mask-average-pooling)</p>
+<pre><code class="language-python">mask = (mask &gt; 0).to(mask.dtype)
+denorm = mask.sum(dim=(-1, -2), keepdim=True) + 1e-8
+mask_pooled_x = torch.einsum(&quot;bchw,bqhw-&gt;bqc&quot;, x, mask / denorm)   # Σ(特征·掩码)/掩码面积
+</code></pre>
+<h3 id="sec-2-4">2.4 <code>&lt;region&gt;</code> → <code>&lt;mask&gt;&lt;pos&gt;</code>:两个 token 塞进句子</h3>
+<p>文本里用占位符 <code>&lt;region&gt;</code> 引用一块区域(写在区域名后,如 &quot;region1&lt;region&gt;&quot;),tokenize 后被替换成两个特殊 token <code>&lt;mask&gt;</code> 和 <code>&lt;pos&gt;</code>,它们的 embedding 分别被 mask token <span class="math inline">\(t_i\)</span> 和 spatial token <span class="math inline">\(s_i\)</span> <strong>写回</strong>。这是 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> <code>&lt;region_fea&gt;</code> 注入的镜像,只是每区域换成两个 token:</p>
+<p class="code-source">repo/osprey/model/osprey_arch.py:L177-L193 — 找到 &lt;mask&gt; 占位符,把 mask 特征 + spatial 特征顺次写回 embedding,并把这 2 个位置的 label 置为 IGNORE</p>
+<pre><code class="language-python">mask_idx = torch.nonzero(cur_input_ids==self.tokenizer.convert_tokens_to_ids(['&lt;mask&gt;'])[0])
+for i, idx in enumerate(mask_idx):
+    cur_raw_new_input_embeds = self.get_model().embed_tokens(cur_input_ids[_l:idx[0]])
+    cur_new_input_embeds.append(cur_raw_new_input_embeds)
+    cur_new_input_embeds.append(mask_feats[batch_idx][i:i+1]...)   # &lt;mask&gt; ← mask token t_i
+    cur_new_input_embeds.append(pos_feats[batch_idx][i:i+1]...)    # &lt;pos&gt;  ← spatial token s_i
+    if labels is not None:
+        cur_labels[idx[0]:idx[0]+2] = IGNORE_INDEX                 # 这两个注入位不计 loss
+    _l = idx[0]+2
+</code></pre>
+<blockquote>
+<p>注意 <code>cur_labels[idx:idx+2] = IGNORE_INDEX</code>:<code>&lt;mask&gt;</code> 和 <code>&lt;pos&gt;</code> 是<strong>输入</strong>注入位,不参与 next-token 预测的 loss——和 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 的 <code>&lt;region_fea&gt;</code> 一样,它们是 condition,不是生成目标。</p>
+</blockquote>
+<h3 id="sec-2-5">2.5 三阶段训练</h3>
+<ol>
+<li><strong>Stage 1 图文对齐</strong>:只训 image-level projector(MLP connector),冻结卷积 CLIP + LLM,用 LLaVA 过滤的 CC3M。</li>
+<li><strong>Stage 2 掩码-文本对齐</strong>:加入 Mask-Aware Visual Extractor,训它把掩码特征对齐到语言嵌入;数据是 COCO/RefCOCO/Pascal-Part/PartImageNet 转的指令。</li>
+<li><strong>Stage 3 端到端微调</strong>:固定视觉编码器,放开 projector + extractor + LLM,用 Osprey-724K + VG + VCR(VG 没掩码,用 <strong>HQ-SAM</strong> 拿框提示生成高质量掩码补上)。</li>
+</ol>
+<h3 id="sec-2-6">2.6 Osprey-724K 数据集</h3>
+<figure>
+  <img class="zoomable" src="figures/tab1-dataset-stats.png" alt="Osprey-724K 数据构成表与分布饼图">
+  <figcaption>
+    <strong>Fig. 3</strong> — Osprey-724K 构成:<strong>对象级</strong>(描述 70K + 对话 127K,由 COCO/RefCOCO(+/g)/LLaVA-115K 经 GPT-4 生成,共 197K)、<strong>部件级</strong>(类别 99K + 属性 207K,来自 PACO-LVIS,共 306K)、<strong>鲁棒性&灵活性</strong>(正/负样本 64K/64K + 短答 99K)。负样本和短答是抗幻觉、抗过拟合的关键。(论文 Table 1 + Fig. 3)
+  </figcaption>
+</figure>
+<p>三个亮点(都喂进 Stage 3):</p>
+<ul>
+<li><strong>对象级 + 部件级</strong>:用 GPT-4 把框 + 短描述扩成区域级<strong>详细描述/对话</strong>(对象级 197K),用 PACO-LVIS 的 456 个部件类 + 55 种属性造<strong>部件级</strong> QA(306K)。</li>
+<li><strong>负样本挖掘(抗幻觉)</strong>:<strong>空间感知</strong>(找空间上最近的混淆类)+ <strong>类别感知</strong>(用 SentenceBERT 取语义最相似的 top-8 里随机选一个当负类),问&quot;这块是不是 X&quot;答 Yes/No,正负各 64K。</li>
+<li><strong>短答指令(抗过拟合)</strong>:在问题尾部<strong>显式</strong>加&quot;用一个词/短语回答&quot;,避免模型被短答数据带偏成只会蹦短词。</li>
+</ul>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>① 开放词表分割识别,大幅领先(Table 2)。</strong> 用 GT 掩码作输入、句子输出再算与词表的语义相似度。Cityscapes 上 Osprey-7B <strong>PQ 50.64 / AP 29.17 / mIoU 49.78</strong>,对比掩码级 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>-7B(35.57 / 26.94 / 38.40)和框级 GPT4RoI(34.70 / 21.93 / 36.73)——<strong>PQ 比 Ferret 高 +15.07</strong>。</p>
+<p><strong>② 部件级分类碾压(Table 3)。</strong> 指代对象分类,语义相似度 SS / 语义 IoU:</p>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th>指标</th>
+<th>GPT4RoI</th>
+<th>Ferret-7B</th>
+<th><strong>Osprey-7B</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LVIS(对象级)</td>
+<td>SS / S-IoU</td>
+<td>51.32 / 11.99</td>
+<td>63.78 / 36.57</td>
+<td><strong>65.24 / 38.19</strong></td>
+</tr>
+<tr>
+<td>PACO(部件级)</td>
+<td>SS / S-IoU</td>
+<td>48.04 / 12.08</td>
+<td>58.68 / 25.96</td>
+<td><strong>73.06 / 52.72</strong></td>
+</tr>
+</tbody>
+</table>
+<p>PACO 上 S-IoU 比 Ferret 高 <strong>+26.76</strong>——掩码 + 多尺度池化对<strong>小部件</strong>的优势最明显。</p>
+<p><strong>③ 详细描述 / 推理 / 区域caption 全面更好。</strong> 详细区域描述(GPT-4 评)Osprey <strong>77.54</strong>(GPT4RoI 49.97);叠加 LLaVA-665K 数据后 <strong>83.78</strong>。Ferret-Bench:指代描述 <strong>72.2</strong> / 指代推理 <strong>67.8</strong>,均超 Ferret-7B(68.7 / 67.3)。区域级 caption(RefCOCOg)METEOR/CIDEr 超过 GLaMM(+0.4 / +3.3)。</p>
+<p><strong>④ 抗幻觉(POPE,Table 6)。</strong> Random 设置 accuracy <strong>89.47</strong>(接近 Ferret 90.24);更难的 Popular/Adversarial 设置反超此前最好(87.83 vs LLaVA-1.5 85.83)——归功于负样本挖掘 + 掩码精度。</p>
+<p><strong>⑤ 消融验证两个设计(Table 8/9)。</strong> 卷积 CLIP 完胜 ViT-L(Cityscapes PQ 50.64 vs 38.58);输入分辨率从 224 升到 512,SS/S-IoU 持续涨——印证&quot;卷积主干 + 高分辨率&quot;的判断。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p>把论文落到 <code>CircleRadon/Osprey</code> 代码,几处只读论文看不到:</p>
+<p><strong>① spatial token 的 resize 尺寸,论文写 224、代码默认 112(paper-vs-code 不一致)。</strong> 论文 §4.1.2 明说&quot;resize each <span class="math inline">\(M_i\)</span> to 224×224&quot;;但代码 <code>MaskExtractor(mask_shape=112)</code> 默认值是 <strong>112</strong>,且 <code>osprey_llama.py</code> 直接 <code>MaskExtractor()</code> 用默认值实例化:</p>
+<p class="code-source">repo/osprey/model/layer.py:L22-L28 + language_model/osprey_llama.py:L49 — spatial token 的掩码 resize 尺寸默认 112,与论文 224 不符</p>
+<pre><code class="language-python">class MaskExtractor(nn.Module):
+    def __init__(self, mask_shape=112, embed_dim=1024, out_dim=4096):   # 默认 112,非论文的 224
+        self.mask_linear = MLP(mask_shape*mask_shape, embed_dim, out_dim, 3)
+# osprey_llama.py:
+self.mask_extractor = MaskExtractor()    # 用默认 mask_shape=112
+</code></pre>
+<blockquote>
+<p>复现时要留意:spatial token 的 MLP 输入维度 = <code>mask_shape²</code>,112 与 224 对应 12544 vs 50176,权重 shape 不同,不能混用 checkpoint。</p>
+</blockquote>
+<p><strong>② 每块区域占 2 个 token,且都不计 loss。</strong> <code>&lt;mask&gt;</code> + <code>&lt;pos&gt;</code> 两个位置(§2.4 代码),label 显式 <code>IGNORE_INDEX</code>——它们是输入注入位。这与论文&quot;interleave&quot;的描述一致,但&quot;一区域两 token&quot;这个细节论文正文没强调。</p>
+<p><strong>③ mask pooling = 掩码归一化加权平均,一行 einsum。</strong> <code>mask/denorm</code>(denorm=掩码面积)把求和变均值(§2.3 代码),掩码与特征图尺寸不匹配时先 <code>F.interpolate</code> 双线性对齐。</p>
+<p><strong>④ 图像级特征用 res4,mask extractor 用 res2–res5。</strong> 论文 §4.1.1 &quot;adopt the output at res4 stage as image-level features&quot;;而 <code>MaskExtractor.feature_name = ['res2','res3','res4','res5']</code> 用全四级。两者特征来源不同,别混。</p>
+<p><strong>⑤ VG 的掩码是 HQ-SAM 补的伪标注。</strong> VG 只有框,Stage 3 用 <strong>HQ-SAM</strong> 拿框当提示生成高质量掩码(论文 §4.2)。即一部分训练掩码并非人工 GT,而是 SAM 系模型的输出——质量依赖 HQ-SAM。</p>
+<p><strong>⑥ 负类挖掘靠 SentenceBERT top-8 随机。</strong> 类别感知负样本不是取最相似那个,而是 top-8 语义近邻里<strong>随机选一个</strong>,以增加负类多样性(论文 §3.3),数据集 = LVIS 约 1200 类。</p>
+<p><strong>⑦ 卷积 CLIP 各级有独立线性层(res2..res5),非共享。</strong> 代码里 <code>self.res2..res5</code> 是四个独立 <code>nn.Linear</code>(192/384/768/1536 → 1024),对应公式 2 的 <span class="math inline">\(\mathbf{P}_j\)</span> 逐级投影,且这些层在 forward 里临时 <code>.to(device/dtype)</code>——工程上略糙(每次前向搬一次),但功能等价。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>把 referring 输入从框推到掩码,且给出干净机制</strong>:多尺度 mask-average-pooling(语义)+ 掩码展平(形状)两路 token,简单、可复现、效果硬——尤其<strong>部件级</strong>(PACO S-IoU +26.76)体现像素精度价值。</li>
+<li><strong>卷积 CLIP 是关键工程判断</strong>:用 ConvNeXt 换 ViT 才让 512 高分辨率可行,消融(Table 8/9)实证了它对区域理解的增益,而不是拍脑袋。</li>
+<li><strong>数据集设计有的放矢</strong>:对象级+部件级覆盖粒度,负样本挖掘治幻觉,短答指令治过拟合——Osprey-724K 后来被一票区域 MLLM 当 baseline。</li>
+<li><strong>即插 SAM</strong>:输入吃掩码 → 天然能接 SAM 的 class-agnostic 掩码,补上 SAM&quot;只切不说&quot;的短板(Fig. 1b),工程落地友好。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>只到「输入掩码 + 输出文本」,不输出掩码</strong>:Osprey 是&quot;喂掩码→说语义&quot;,<strong>自己不产掩码</strong>。要&quot;文本→掩码&quot;还得靠 <a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 线;两头都做的是 GLaMM / Sa2VA。它解决的是 Ferret 那半(输入侧),不是 LISA 那半。</li>
+<li><strong>依赖外部掩码</strong>:推理时要么有 GT 掩码、要么得先跑 SAM。掩码质量直接决定上限(评测用 GT 掩码,实际部署要叠一个分割器,误差会传递)。</li>
+<li><strong>mask-average-pooling 抹掉区域内结构</strong>:平均池化把区域内的空间分布压成一个向量,spatial token 又只编码二值形状、不含内部纹理。对&quot;区域内部细粒度差异&quot;(同一块布的两种瑕疵)未必够——正是 detail 级粒度的隐患。</li>
+<li><strong>paper-vs-code 坑</strong>:spatial token 112 vs 224(§4①)会绊复现者;forward 里临时搬层 device/dtype 也不优雅。</li>
+<li><strong>掩码 token 数固定为 1(池化后)</strong>:每区域池化成单个 mask token,信息瓶颈明显;相比 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 采样 32 点保留更多结构,Osprey 用多尺度求和换了&quot;更省 token 但更压缩&quot;。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>:有掩码(或愿意叠 SAM)、要<strong>像素级精度</strong>的区域理解(部件级分类、细粒度属性、开放词表识别、区域 caption);想用 SAM 的掩码做&quot;切了再命名&quot;。</li>
+<li><strong>不适合</strong>:要模型<strong>输出</strong>掩码(用 LISA/GLaMM 线);没有掩码且不想叠分割器(直接用 <a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a> 的自由形状采样,或框级方法);区域<strong>内部</strong>细粒度差异是重点(平均池化会抹平)。</li>
+</ul>
+<h3 id="sec-5-4">谱系衔接:输入侧区域表示的三条路</h3>
+<blockquote>
+<p>把 Osprey 放进区域-MLLM 谱系最清楚。</p>
+</blockquote>
+<ul>
+<li><strong>输入侧区域怎么编码</strong>:框坐标即文本(Shikra/Kosmos-2)→ RoIAlign 框特征(GPT4RoI)→ <strong>自由形状点云采样</strong>(<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>,坐标⊕32 点特征)→ <strong>掩码多尺度池化</strong>(Osprey,像素级)。Osprey 是这条线上精度最高的&quot;机制 I 直接注入&quot;。</li>
+<li><strong>和 LISA 的对偶</strong>:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 输出 <code>&lt;SEG&gt;</code>→SAM 出掩码(文本→掩码);Osprey 输入掩码→说语义(掩码→文本)。两者正交,<strong>GLaMM / Sa2VA</strong> 把两头缝起来(输入区域 + 输出掩码)。</li>
+<li><strong>对高分辨率的回答</strong>:Osprey 用卷积 CLIP(ConvNeXt-L)+512,<a class="wiki-link" data-slug="ferret-v2-2024" href="../ferret-v2-2024/index.html">Ferret-v2</a> 用 any-resolution 切块 + CLIP/DINOv2 双编码器——两条不同的&quot;看清细节&quot;路线,后来高分辨率 MLLM 多走 any-res。</li>
+</ul>
+<h3 id="sec-5-5">Further reading</h3>
+<ul>
+<li>输入侧前作:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">ferret-2023</a>(自由形状区域 + 点云采样,Osprey 的&quot;框→掩码&quot;前一站)、<a class="wiki-link" data-slug="ferret-v2-2024" href="../ferret-v2-2024/index.html">ferret-v2-2024</a>(高分辨率 any-res 路线)。</li>
+<li>输出侧对偶:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">lisa-2023</a>(文本→掩码,<code>&lt;SEG&gt;</code> embedding-as-mask)。</li>
+<li>综述:<code>github.com/mc-lan/Awesome-MLLM-Segmentation</code>。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
