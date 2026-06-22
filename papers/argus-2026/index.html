@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>ARGUS：把「身份」从一张参考图变成扩散同步的动态记忆</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 身份导演：MLLM 当&quot;感知前端&quot;挑证据</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 SMII：扩散同步的身份张量化（核心）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 负时间 + 只读：身份是&quot;前置记忆&quot;，不是&quot;未来帧&quot;</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 TIA：只在&quot;中段&quot;读身份</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 无配对反事实训练 + ASLG</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">Further reading</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Argus: Stacked Multi-View Identity Mosaic Injection for Subject-Preserving Video Generation</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-10</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-10</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Zijie Meng, Jiwen Liu, Yufei Liu, Chengzhuo Tong, Xiaoqiang Liu, Yuanxing Zhang, Yulong Xu, Pengfei Wan</span> · <span class="post-meta__venue">arXiv 2026 (Peking University · Kuaishou · Xiamen University)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.11670">arXiv:2606.11670</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/subject-preserving-video.html">subject-preserving-video</a> <a class="concept-chip" href="../../concepts/identity-preservation.html">identity-preservation</a> <a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a> <a class="concept-chip" href="../../concepts/mllm.html">mllm</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/counterfactual-augmentation.html">counterfactual-augmentation</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a></div>
+</aside>
+
+<blockquote>
+<p><strong>关于代码</strong>：截至本文，论文未提供官方代码仓库（arxiv 摘要页、正文、Papers-with-Code、GitHub 搜索均无）。正文多处指向 Appendix A–H 的实现细节。本文基于<strong>论文 + 公式 + 图</strong>精读，§4 的实现细节引用论文章节/公式而非 <code>repo:Lnn</code>——这是一篇快手的工业论文，代码大概率暂未开源。</p>
+</blockquote>
+<figure>
+  <img class="zoomable" src="figures/fig1-overview.png" alt="ARGUS 总览：MLLM 身份导演 + SMII 注入 + ASLG">
+  <figcaption>
+    <strong>Fig. 1</strong> — ARGUS 总览。<strong>左（MLLM Director）</strong>：Qwen3-VL 身份导演从参考图/视频里挑出信息量大的身份瞬间，输出全局身份 token（经 CLIP 编码首帧、T5 编码改写后的 prompt、导演隐状态投影）+ "key frames for SMII"。<strong>右（SMII）</strong>：身份证据经 Wan VAE 编码成 "ID noise latent"，和主视频的 noise latent 一起 patchify 进 DiT；身份 token 被赋予**负时间位置（-1…-n）**作只读记忆；推理时 ASLG 用"弱模型 vs 全模型"分离文本引导与身份引导。（论文 Fig. 1）
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>主体保持视频生成的目标，不只是&quot;生成一段真实的视频&quot;，而是让视频里的人<strong>始终是同一个人</strong>，同时还要听 prompt、尊重首帧。难点集中在：大角度转头（large yaw）、表情变化、部分遮挡、小脸、配饰、光照漂移，以及&quot;文本 / 首帧 / 身份参考&quot;三者打架。</p>
+<p>论文一针见血地指出瓶颈：<strong>现有方法把身份当成&quot;点参考&quot;（point reference）</strong>——用一张（或几张）参考图通过 adapter / token 拼接 / 受限注意力注入。但一张图不可避免地把&quot;这个人是谁&quot;和&quot;他这一帧恰好的样子&quot;（姿态、表情、眼镜、发型、背景、裁剪、相机风格）纠缠在一起：</p>
+<blockquote>
+<p>模型若<strong>过度信任</strong>参考图 → 照抄 nuisance 细节（连背景配饰一起复制）；若<strong>信任不足</strong> → 身份漂移。</p>
+</blockquote>
+<p>ARGUS 的核心洞察：<strong>人脸身份不是一个点，而是一个分布</strong>。我们认出一个熟人，靠的不只是正脸几何，还有侧脸轮廓、面部不对称、习惯表情、微动作，以及&quot;在各种条件下保持一致&quot;这件事本身。所以目标应该从&quot;静态相似（static resemblance）&quot;转向&quot;动态神似（dynamic likeness）&quot;——不要让模型去匹配一张干净图，而要喂给它<strong>紧凑、多样、且把 nuisance 随机化掉</strong>的身份证据。</p>
+<p>这就引出两个设计原则，构成全文方法骨架：</p>
+<ol>
+<li><strong>把身份变成扩散同步的动态记忆</strong>（SMII），而不是外挂 adapter 或单张参考图；</li>
+<li><strong>可扩展的身份监督不必依赖跨配对视频</strong>——用同片段/同身份 + 强反事实增广，逼模型只认&quot;身份不变量&quot;。</li>
+</ol>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>ARGUS 基于 <strong>Wan 2.1</strong>（14B DiT，Flow Matching 训练）。先回顾 Wan 的 I2V 接口：3D VAE 把视频编码成 <span class="math inline">\(z_0^v\)</span>，加噪样本 <span class="math inline">\(z_t^v=(1-\sigma_t)z_0^v+\sigma_t\epsilon^v\)</span>（<span class="math inline">\(\sigma_t=t/1000\)</span>），再拼成 36 通道张量 <span class="math inline">\(\Phi_t^v=[z_t^v \parallel m^v \parallel y^v]\)</span>（噪声 latent + 时序 mask + 干净条件帧），过 3D patch embedding 进 DiT。<strong>ARGUS 的所有巧思，都是为了让&quot;身份流&quot;和这个 <span class="math inline">\(\Phi_t^v\)</span> 分布对齐</strong>，从而复用 Wan 的原生接口而非外挂新模块。</p>
+<h3 id="sec-2-1">2.1 身份导演：MLLM 当&quot;感知前端&quot;挑证据</h3>
+<p>不是花哨的加字幕，而是给下游注入器<strong>编译最佳证据</strong>。用冻结的 Qwen3-VL，对每个候选帧/片段 <span class="math inline">\(j\)</span> 估计视角覆盖、表情强度、运动信息量、尺度稳定性、光照多样性、可见性、nuisance 风险，打分：</p>
+<div class="math block">
+\[s_j = \alpha_1 c_j^{\text{view}} + \alpha_2 c_j^{\text{expr}} + \alpha_3 c_j^{\text{motion}} + \alpha_4 c_j^{\text{scale}} + \alpha_5 c_j^{\text{illum}} + \alpha_6 c_j^{\text{visible}} - \alpha_7 c_j^{\text{nuisance}}.\]
+</div>
+<p class="math-translation">—— 翻译：给每个候选身份帧打一个加权分——视角/表情/运动/尺度/光照/可见性越丰富越加分，nuisance（背景杂物、遮挡风险等干扰）越多越减分。目的是挑出"对认人有用"的帧。</p>
+<p>但关键不是选 top-9，而是<strong>选一个&quot;多样&quot;的集合</strong>（否则会选出 9 张几乎一样的正脸）：</p>
+<div class="math block">
+\[S^\star = \arg\max_{|S|=9}\ \Big[\sum_{a\in A_{id}}\mathrm{Var}\{c_j^a: j\in S\} + \eta\sum_{j\in S}s_j - \gamma\,\mathrm{Redundancy}(S)\Big].\]
+</div>
+<p class="math-translation">—— 翻译：在所有候选里挑 9 张，使得（a）它们在各身份维度上的方差大（覆盖偏航/表情/尺度/光照/遮挡等不同情况），（b）总分高，（c）彼此冗余小。一句话：要"多样且互补"的 9 张，不要 9 张近乎重复的正脸。</p>
+<p>导演还输出：一段强调稳定面部结构的身份 caption（把 prompt 改写成 <span class="math inline">\(p^+\)</span>）；一个<strong>冲突图</strong>，强制优先级 <strong>首帧布局 ≻ 文本语义 ≻ 身份参考</strong>（身份不能覆盖首帧硬几何）；以及一个全局身份向量 <span class="math inline">\(h_D\)</span>。文本侧条件拼接为 <span class="math inline">\(C_{txt}=[e_p \parallel e_I \parallel e_D]\)</span>（T5 文本、CLIP 首帧、投影后的身份描述），残差门满足 <span class="math inline">\(g_I\ge g_p\ge g_D\)</span> 以保住优先级（论文 Eq. 4–5）。</p>
+<h3 id="sec-2-2">2.2 SMII：扩散同步的身份张量化（核心）</h3>
+<p>身份用 <span class="math inline">\(3\times3\)</span> 马赛克（<span class="math inline">\(C=9\)</span> 格，每格可以是静态图或短微片段），堆成一段短&quot;身份视频&quot; <span class="math inline">\(G^{id}\in\mathbb{R}^{3\times n\times H_{id}\times W_{id}}\)</span>（<span class="math inline">\(n\)</span> 是 VAE 时间压缩后的身份时槽数）。<strong>关键一步</strong>：身份不是以干净 token 注入，而是和目标视频走<strong>同一条 Flow Matching 路径</strong>：</p>
+<div class="math block">
+\[z_t^{id} = (1-\sigma_t)z_0^{id} + \sigma_t\epsilon^{id}, \qquad \Phi_t^{id} = [\,z_t^{id} \parallel \mathbf{1}_4 \parallel z_0^{id}\,].\]
+</div>
+<p class="math-translation">—— 翻译：用和主视频"同一个噪声水平 $\sigma_t$"去给身份 latent 加噪（而不是塞一张干净图）。全 1 的 mask 表示"每个身份 token 都是已知参考"。推理时每一步都按当前 $\sigma_t$ 重建前 16 通道——让身份流的噪声水平始终和视频流同步。</p>
+<p>因为 <span class="math inline">\(\Phi_t^{id}\)</span> 和 <span class="math inline">\(\Phi_t^v\)</span> <strong>通道语义完全相同</strong>，可以直接复用 Wan 原生的 patch embedding，把两者拼成一条序列 <span class="math inline">\(X_t=[X_t^{id}\parallel X_t^v]\)</span>。这一步消除了&quot;干净参考 token 拼接&quot;带来的分布失配（support mismatch），也省掉了额外的 cross-attention adapter——这是 SMII 区别于一切&quot;外挂式&quot;身份注入的本质。消融里，把 SMII 换成朴素 token 拼接，总分掉 <strong>10.52</strong>；用干净（不加噪）身份 token，掉 <strong>7.66</strong>。</p>
+<h3 id="sec-2-3">2.3 负时间 + 只读：身份是&quot;前置记忆&quot;，不是&quot;未来帧&quot;</h3>
+<p>身份 token 不是要生成的视频帧，所以给它们<strong>负时间坐标</strong>：</p>
+<div class="math block">
+\[p_f^{id}\in\{-n,\dots,-1\}, \qquad p_f^v\in\{0,\dots,\tilde T-1\}.\]
+</div>
+<p class="math-translation">—— 翻译：视频帧时间是 0,1,2,…；身份 token 放在 -1,-2,…,-n 这些"负时间"上。$n=1$ 时就是一张静态身份马赛克挂在 -1 时刻；$n>1$ 时身份变成一段"视频开始前的微历史"。空间上把马赛克和首帧 latent 网格中心对齐（Eq. 9）。在 3D RoPE 下，身份离首帧足够近能被读到，但位置上和生成内容分开。</p>
+<p>再用<strong>块注意力 mask</strong> 强制&quot;只读&quot;——身份只能看身份，视频能看身份+视频：</p>
+<div class="math block">
+\[M = \begin{pmatrix} 0 &amp; -\infty \\ 0 &amp; 0 \end{pmatrix}, \quad \text{行=query, 列=key, 顺序}[id, video].\]
+</div>
+<p class="math-translation">—— 翻译：左下/右下两块是 0（视频 query 可读身份和视频）；右上是 $-\infty$（身份 query 读不到视频）。这样生成内容就不会"污染"身份记忆本身——参考永远是干净的参考。</p>
+<h3 id="sec-2-4">2.4 TIA：只在&quot;中段&quot;读身份</h3>
+<p>早期去噪定全局布局，后期去噪修纹理。身份注入若全程均匀，会&quot;早期压垮布局 / 后期过度锐化人脸&quot;。Temporal Identity Annealing 用一个<strong>中段窗口</strong>门控 video→id 注意力：</p>
+<div class="math block">
+\[\lambda_\ell(\sigma_t) = \lambda_\ell^{\max}\,\mathrm{sigmoid}\!\Big(\tfrac{\sigma_{hi}-\sigma_t}{\tau}\Big)\,\mathrm{sigmoid}\!\Big(\tfrac{\sigma_t-\sigma_{lo}}{\tau}\Big).\]
+</div>
+<p class="math-translation">—— 翻译：两个 sigmoid 相乘形成一个"中间高、两头低"的窗口。只有当噪声水平 $\sigma_t$ 落在 $[\sigma_{lo},\sigma_{hi}]$ 的结构生成中段时，身份注意力强度 $\lambda$ 才打开。早期（定布局）和晚期（修纹理）都把身份读弱，避免抢戏。</p>
+<h3 id="sec-2-5">2.5 无配对反事实训练 + ASLG</h3>
+<p><strong>训练故意简单</strong>：身份格子从<strong>同一片段/同一身份</strong>采样，再强增广（背景替换、配饰扰动、前景随机化、色彩/模糊/压缩、发型/眼镜/帽子插入……除了稳定面部区域，其它都能随机化；高层语义反事实用 Nano-Banana-2 配人脸保护 mask）。<strong>从不要求&quot;同人不同条件&quot;的配对视频</strong>。损失就是 Wan 原始 Flow Matching loss，只作用在主视频 token 上：</p>
+<div class="math block">
+\[\mathcal{L}_{FM} = \mathbb{E}_{t,\epsilon}\big[w(t)\,\|\hat u_t^v - (\epsilon^v - z_0^v)\|_2^2\big].\]
+</div>
+<p class="math-translation">—— 翻译：标准 flow-matching 速度回归——让模型预测的速度 $\hat u$ 逼近真值速度（噪声减干净 latent）。没有人脸分类损失、没有身份重建损失、没有跨配对监督。身份不变性靠的是"增广让 nuisance 随机、身份不变"——依赖 nuisance 的预测器跨增广视图会不稳，只有认身份不变量的预测器才稳定（Eq. 14）。</p>
+<p>消融惊人：把这套反事实增广换成 <strong>2K 真实跨配对样本</strong>，总分反而掉 <strong>5.76</strong>——&quot;大规模 nuisance 随机化&quot;比&quot;原始配对&quot;是更强的信号。这呼应了 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a> 之外的另一条数据哲学：合成扰动 &gt; 稀缺真配对。</p>
+<p>推理端 <strong>ASLG（Adaptive Self-Likeness Guidance）</strong> 把文本引导和身份引导分开。它训练一个 &lt;1% 参数的 mask 网络 <span class="math inline">\(\phi_\eta\)</span> 学&quot;该弱化哪些 block&quot;得到弱模型 <span class="math inline">\(u_\theta^\omega\)</span>，然后算三个速度并自校准：</p>
+<div class="math block">
+\[\hat u_t = u_{++} + s_T(u_{++}-u_{-T}) + s_I(\sigma_t)\,\rho_t\,(u_{++}-u_{-I}), \quad \rho_t=\mathrm{clip}\Big(\tfrac{\|u_{++}-u_{-T}\|_2}{\|u_{++}-u_{-I}\|_2+\epsilon},\rho_{\min},\rho_{\max}\Big).\]
+</div>
+<p class="math-translation">—— 翻译：$u_{++}$ 是"有文本有身份"的预测，$u_{-T}$ 去掉文本，$u_{-I}$ 用黑马赛克去掉身份。最终速度 = 基准 + 文本 CFG 项 + 身份引导项；身份项强度 $\rho_t$ 自动按"文本引导的局部尺度"标定（文本拽得猛时身份也跟上），避免身份引导忽强忽弱。身份的 null 分支用"黑马赛克"而非 None，保持序列长度并匹配训练时的 drop 分布。</p>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig2-qualitative.png" alt="身份压力场景下的定性对比">
+  <figcaption>
+    <strong>Fig. 2</strong> — 身份压力场景定性对比。<strong>(a) 大偏航转头</strong>：VACE / Phantom-14B / Jimeng / Stand-In 出现侧脸身份丢失、几何不稳或人脸过度平滑；ARGUS 在转头中保住更锐利的身份细节与动态神似。<strong>(b) 首帧遮挡</strong>：Wan 2.1 无身份注入只能"脑补"被挡的脸，ConsisID 在可见线索少时退化，BindWeave 出现僵硬的"复制粘贴式"参考表情；ARGUS 从堆叠马赛克里恢复身份，表情和动作自然。（论文 Fig. 2）
+  </figcaption>
+</figure>
+<ul>
+<li><strong>OpenS2V-Eval Human-Domain SOTA</strong>：Total 64.38（超最强基线 +4.18）、FaceSim 71.86（+4.55）、NexusScore 51.62（+4.41）、NaturalScore 79.14、Aesthetics 54.06——除原始 Motion 略低于 Jimeng 外全面第一。注意它<strong>击败了闭源系统</strong> Hailuo (60.20) / Jimeng (59.13)。</li>
+<li><strong>HardID-Celeb（自建公众人物压力基准）</strong>：FaceSim 76.80（+6.70）、YawScore 70.80（<strong>+12.60</strong>）、OccScore 64.20（<strong>+15.10</strong>）——大偏航和首帧遮挡这两个&quot;身份最易漂移&quot;的场景上提升最猛，说明 ARGUS 是真从马赛克里<strong>恢复</strong>身份，而非照抄首帧可见线索。</li>
+<li><strong>消融逐项验证</strong>（Table 3，去掉某件→总分变化）：朴素 token 拼接 −10.52、干净身份 token −7.66、2K 跨配对换增广 −5.76、去负时间 −5.50、去只读记忆 −5.17、去 TIA −4.35、去身份导演（随机选格）−4.27、去 ASLG −3.22、去文本侧身份条件 −3.02。<strong>SMII 的&quot;扩散同步 + 负时间只读&quot;是收益大头</strong>。</li>
+<li><strong>新评测工具</strong>：HardID-Celeb 用公众人物（认人判断更敏感、更适合人评）+ YawScore / OccScore 两个鲁棒性指标。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig3-ablation.png" alt="MLLM 身份导演与 ASLG 的消融可视化">
+  <figcaption>
+    <strong>Fig. 3</strong> — 消融可视化。左半：有/无 MLLM 身份导演——有导演（上排）保住更细的身份细节（黄圈处五官结构更准）。右半：有/无 ASLG——有 ASLG 显著改善身份专属纹理与皮肤质感（红箭头处）。（论文 Fig. 3）
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<blockquote>
+<p>⚠️ 无开源代码，以下细节引用论文章节/公式/附录，非 <code>repo:Lnn</code>。</p>
+</blockquote>
+<ul>
+<li><strong>基座是 Wan 2.1（14B DiT）</strong>，3D VAE + Flow Matching，三条独立 1D RoPE（时/高/宽，轴拆分见 Eq. 1：<span class="math inline">\(d_f=d-2\lfloor d/3\rfloor,\ d_h=d_w=\lfloor d/3\rfloor\)</span>）。ARGUS 不改基座接口，只加一条与 <span class="math inline">\(\Phi_t^v\)</span> 同构的 36 通道身份流（§3.1, §3.4）。</li>
+<li><strong>身份流&quot;每步重噪&quot;</strong>：推理时身份张量 <span class="math inline">\(\Phi_t^{id}\)</span> 的前 16 通道在<strong>每个 solver step</strong> 按当前 <span class="math inline">\(\sigma_t\)</span> 重新加噪，而非保持干净 <span class="math inline">\(z_0^{id}\)</span>（§3.4）。这是 SMII 能复用 Wan patch-embedding 先验的前提，容易实现错（若只在 t=0 噪一次就退化成&quot;干净 token&quot;，掉 7.66 分）。</li>
+<li><strong>身份导演是冻结 Qwen3-VL</strong>（§3.3），用分层&quot;审议模板&quot;（完整版在 Appendix B），输出动态证据 + 身份 caption + 冲突图 + 全局向量 <span class="math inline">\(h_D\)</span>。框/掩码用全身姿态、人体运动恢复、开集检测、视频分割工具精修（YOLO-World 等，引用 [3,30,43,45,55]）。</li>
+<li><strong>马赛克几何固定 <span class="math inline">\(3\times3=9\)</span> 格</strong>，每格可为静态图或短微片段；<span class="math inline">\(n\)</span> 为 VAE 时间压缩后的身份时槽数；<span class="math inline">\(n=1\)</span> 退化为静态马赛克（§3.4，几何/格数/微片段长度消融在 Appendix C）。</li>
+<li><strong>高层语义反事实增广用 Nano-Banana-2</strong>（带人脸保护 mask），低层扰动在线施加；&quot;除稳定面部区域外皆可随机&quot;（§3.4，完整增广分类在 Appendix D）。这是个外部闭源 API 依赖。</li>
+<li><strong>null 身份用&quot;黑马赛克&quot;而非 None</strong>（§3.5, Eq. 18）：以概率 <span class="math inline">\(p_{null}\)</span> 在训练时把马赛克替换成同形状黑图，训练出&quot;定长身份-null 条件&quot;，推理时 ASLG 的 <span class="math inline">\(u_{-I}\)</span> 分支复用它以保持序列长度、匹配 drop 分布。</li>
+<li><strong>ASLG mask 网络 &lt;1% 主干参数</strong>（§3.5, Eq. 16–17），用&quot;求散度但受保真约束&quot;的 KL 目标训练弱模型，防止弱分支塌成无关模型。TIA 既可在注意力层实现（Eq. 11–13），也可等价地在张量层用 <span class="math inline">\(\Phi_t^{id}\leftarrow\alpha(\sigma_t)\Phi_t^{id}+(1-\alpha(\sigma_t))\Phi^\varnothing\)</span> 实现（Eq. 21）。</li>
+<li><strong>未见 paper-vs-code 矛盾</strong>（因无代码）；但多处关键实现（导演模板、增广清单、ASLG 拉格朗日形式、马赛克几何）都甩给 Appendix，正文不自足，复现门槛高。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>问题诊断准、方案优雅</strong>：&quot;身份是分布不是点&quot;这个 reframing 直击 point-reference 范式的要害；SMII 用&quot;扩散同步 + 通道同构&quot;把身份注入做成 Wan 原生 token，避免 adapter/拼接的分布失配，是很干净的架构思想。</li>
+<li><strong>负时间只读记忆</strong>是亮点：用 RoPE 负坐标 + 块注意力 mask，让身份&quot;近到能读、又不被生成内容污染、也不被当成要生成的帧&quot;，三个约束一次满足，消融证明每条都值 5 分上下。</li>
+<li><strong>无配对反事实训练有反直觉的说服力</strong>：2K 真配对反而不如大规模 nuisance 随机化（−5.76），对&quot;数据要配对才好&quot;是有力反例，且工程上可扩展性强。</li>
+<li><strong>评测诚实度尚可</strong>：自建 HardID-Celeb + YawScore/OccScore 针对性强，且明确报告了&quot;Motion 略输 Jimeng&quot;这种不利项。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>没有代码、没有 Limitations 章节</strong>。正文戛然止于 Conclusion，无一句对失败案例/边界的诚实讨论；关键实现全在 Appendix。对一篇方法论文，缺独立 Limitations 是明显短板。</li>
+<li><strong>重度依赖闭源组件</strong>：身份导演用 Qwen3-VL、语义反事实增广用 Nano-Banana-2——可复现性和成本都受制于外部闭源 API，&quot;可扩展自监督&quot;的主张要打折。</li>
+<li><strong>HardID-Celeb 是自建基准</strong>：公众人物认人更敏感是优点，但基准、prompt、归一化脚本都由作者方掌控（Appendix F），且用公众人物做身份压力测试有隐私/伦理隐患，论文未讨论。</li>
+<li><strong>优先级规则是硬编码启发式</strong>：首帧 ≻ 文本 ≻ 身份 的冲突消解靠残差门 <span class="math inline">\(g_I\ge g_p\ge g_D\)</span> 写死，没有学习或自适应；遇到&quot;首帧本身就是坏证据&quot;（遮挡/小脸）时这个固定优先级是否最优，存疑。</li>
+<li><strong>9 格 / <span class="math inline">\(3\times3\)</span> 是拍脑袋的</strong>：为什么是 9 不是 16 或 4，正文只说消融在 Appendix C，主文未给出选择逻辑；马赛克分辨率被压缩后小脸细节损失多少也没量化。</li>
+<li><strong>算力与延迟未报告</strong>：身份流让序列变长（+9 格 ×n 时槽），每步还要重噪 + 多分支 ASLG（<span class="math inline">\(u_{++},u_{-T},u_{-I}\)</span> 三次前向），推理成本相比纯 Wan 涨多少完全没提。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>：需要在大偏航/遮挡/表情变化下稳住人物身份的视频生成（数字人、影视角色一致性、可交互人像视频）；手上有多张/多视角参考或参考视频可喂给身份导演；基于 Wan 生态做二次开发。</li>
+<li><strong>不适合</strong>：只有单张正脸参考且场景简单（point-reference 方法已够，SMII 的多视角优势发挥不出来）；对推理延迟/算力极敏感的实时场景（多分支引导 + 加长序列开销未知）；需要完全可复现、不依赖闭源 API 的研究流程；以及强隐私约束、不能用公众人物身份的场景。</li>
+</ul>
+<h3 id="sec-5-4">Further reading</h3>
+<ul>
+<li>基座与同源技术：Wan 2.1（DiT + 3D VAE + Flow Matching）、HunyuanCustom / VACE / Phantom / Stand-In / BindWeave（主体定制视频的对照组）。</li>
+<li>引导方法谱系：CFG（Ho &amp; Salimans）、Perturbed-Attention Guidance（ASLG 的前身，从&quot;手设扰动&quot;进化到&quot;学习该弱化哪些 block&quot;）。</li>
+<li>Flow Matching 与少步/蒸馏视角见 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a>；统一图像生成里 MLLM 当条件编码器的思路见 <a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a>（同样用 Qwen-VL 系做理解前端）。</li>
+<li>评测：OpenS2V-Eval / OpenS2V-Nexus、VBench/VBench++、DreamBench++；身份度量 ArcFace / CurricularFace。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

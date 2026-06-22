@@ -3,6 +3,15 @@
   "generated_at": "unknown",
   "nodes": [
     {
+      "id": "papers/argus-2026",
+      "type": "paper",
+      "slug": "argus-2026",
+      "title": "ARGUS：把「身份」从一张参考图变成扩散同步的动态记忆",
+      "date": "2026-06-10",
+      "tldr": "主体保持的视频生成（让生成视频里的人「还是同一个人」）长期被「点参考」范式卡住——一张参考图把\"这个人是谁\"和\"他这一帧恰好长这样（姿态/配饰/光照/背景）\"纠缠在一起，模型要么照抄噪声细节、要么身份漂移。\nARGUS（快手/北大）提出 SMII：用 MLLM 当\"身份导演\"挑出多视角身份证据，拼成 3×3 马赛克，**和目标视频走同一条 Flow Matching 加噪路径**，再以\"负时间、只读记忆\"的方式注入 Wan 的原生 token 空间。配合无配对反事实训练 + TIA + ASLG，在 OpenS2V-Eval 拿到 64.38 总分、71.86 FaceSim 的 SOTA，大偏航/首帧遮挡鲁棒性分别再涨 12.6 / 15.1 分。\n",
+      "url": "papers/argus-2026/index.html"
+    },
+    {
       "id": "papers/asymflow-2026",
       "type": "paper",
       "slug": "asymflow-2026",
@@ -381,6 +390,78 @@
       "url": "tutorials/vlm-industrial-2024/index.html"
     },
     {
+      "id": "concepts/subject-preserving-video",
+      "type": "concept",
+      "slug": "subject-preserving-video",
+      "name": "subject-preserving-video",
+      "has_file": false,
+      "url": "concepts/subject-preserving-video.html"
+    },
+    {
+      "id": "concepts/identity-preservation",
+      "type": "concept",
+      "slug": "identity-preservation",
+      "name": "identity-preservation",
+      "has_file": false,
+      "url": "concepts/identity-preservation.html"
+    },
+    {
+      "id": "concepts/video-diffusion",
+      "type": "concept",
+      "slug": "video-diffusion",
+      "name": "video-diffusion",
+      "has_file": false,
+      "url": "concepts/video-diffusion.html"
+    },
+    {
+      "id": "concepts/flow-matching",
+      "type": "concept",
+      "slug": "flow-matching",
+      "name": "Flow Matching",
+      "has_file": true,
+      "url": "concepts/flow-matching.html"
+    },
+    {
+      "id": "concepts/classifier-free-guidance",
+      "type": "concept",
+      "slug": "classifier-free-guidance",
+      "name": "classifier-free-guidance",
+      "has_file": false,
+      "url": "concepts/classifier-free-guidance.html"
+    },
+    {
+      "id": "concepts/mllm",
+      "type": "concept",
+      "slug": "mllm",
+      "name": "mllm",
+      "has_file": false,
+      "url": "concepts/mllm.html"
+    },
+    {
+      "id": "concepts/rope",
+      "type": "concept",
+      "slug": "rope",
+      "name": "rope",
+      "has_file": false,
+      "url": "concepts/rope.html"
+    },
+    {
+      "id": "concepts/counterfactual-augmentation",
+      "type": "concept",
+      "slug": "counterfactual-augmentation",
+      "name": "counterfactual-augmentation",
+      "has_file": false,
+      "url": "concepts/counterfactual-augmentation.html"
+    },
+    {
+      "id": "concepts/diffusion-transformer",
+      "type": "concept",
+      "slug": "diffusion-transformer",
+      "name": "diffusion-transformer",
+      "has_file": false,
+      "url": "concepts/diffusion-transformer.html"
+    },
+    {
       "id": "concepts/diffusion",
       "type": "concept",
       "slug": "diffusion",
@@ -411,14 +492,6 @@
       "name": "transfer-learning",
       "has_file": false,
       "url": "concepts/transfer-learning.html"
-    },
-    {
-      "id": "concepts/flow-matching",
-      "type": "concept",
-      "slug": "flow-matching",
-      "name": "Flow Matching",
-      "has_file": true,
-      "url": "concepts/flow-matching.html"
     },
     {
       "id": "concepts/rl",
@@ -477,14 +550,6 @@
       "url": "concepts/image-editing.html"
     },
     {
-      "id": "concepts/diffusion-transformer",
-      "type": "concept",
-      "slug": "diffusion-transformer",
-      "name": "diffusion-transformer",
-      "has_file": false,
-      "url": "concepts/diffusion-transformer.html"
-    },
-    {
       "id": "concepts/distribution-matching-distillation",
       "type": "concept",
       "slug": "distribution-matching-distillation",
@@ -507,22 +572,6 @@
       "name": "text-rendering",
       "has_file": false,
       "url": "concepts/text-rendering.html"
-    },
-    {
-      "id": "concepts/rope",
-      "type": "concept",
-      "slug": "rope",
-      "name": "rope",
-      "has_file": false,
-      "url": "concepts/rope.html"
-    },
-    {
-      "id": "concepts/classifier-free-guidance",
-      "type": "concept",
-      "slug": "classifier-free-guidance",
-      "name": "classifier-free-guidance",
-      "has_file": false,
-      "url": "concepts/classifier-free-guidance.html"
     },
     {
       "id": "repos/boogu-project/Boogu-Image",
@@ -1221,14 +1270,6 @@
       "url": "concepts/segmentation.html"
     },
     {
-      "id": "concepts/mllm",
-      "type": "concept",
-      "slug": "mllm",
-      "name": "mllm",
-      "has_file": false,
-      "url": "concepts/mllm.html"
-    },
-    {
       "id": "concepts/dataset",
       "type": "concept",
       "slug": "dataset",
@@ -1615,6 +1656,61 @@
   ],
   "edges": [
     {
+      "from": "papers/argus-2026",
+      "to": "concepts/subject-preserving-video",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/identity-preservation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/video-diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/classifier-free-guidance",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/mllm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/rope",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/counterfactual-augmentation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "concepts/diffusion-transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/argus-2026",
+      "to": "papers/oftsr-2024",
+      "kind": "cites"
+    },
+    {
       "from": "papers/asymflow-2026",
       "to": "concepts/diffusion",
       "kind": "mentions"
@@ -1891,11 +1987,6 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
@@ -1907,6 +1998,11 @@
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -1951,17 +2047,17 @@
     },
     {
       "from": "papers/ferret-2023",
+      "to": "papers/q-ground-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
       "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
       "to": "tutorials/vlm-grounding-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-2023",
-      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -2011,12 +2107,12 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/ferret-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
@@ -2156,7 +2252,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -2166,17 +2262,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -2296,12 +2392,12 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/q-ground-2024",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -2396,22 +2492,22 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
       "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
       "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -2466,12 +2562,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2556,17 +2652,17 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/ferret-v2-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
       "to": "papers/ferret-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -2696,12 +2792,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -2866,7 +2962,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -2876,12 +2972,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -3001,12 +3097,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
@@ -3221,12 +3317,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
