@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>SeFi-Image：用「语义先行」扩散把 T2I 基础模型的训练成本砍到 1/5（代码精读）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉：扩散本来就是「先粗后细」，那就让语义先去噪</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 复合 latent：语义一路、纹理一路</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 核心机关：让语义时间步「领先」纹理一个固定偏移 Δt</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 双时间步 DiT 与训练目标</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 推理：三阶段异步去噪（论文用二值 mask，代码用 sigma 钳位）</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 算力账：5B 只用 125K A800 GPU·时</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 多基准全面对标（数字说话）</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 为什么省：重建-生成权衡 + 收敛加速 + 更好的 scaling</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 三阶段 mask 在代码里其实是「sigma 钳位让 dt=0」</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 复合 latent 的通道布局：[语义 | 纹理] 沿 channel 维拼接</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 网络入口：时间步在喂进 DiT 前先 ÷1000 再 ×1000</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 推理默认 Δt = 训练上界，且可被覆盖</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 架构与训练栈（散点）</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">优点 (Strengths)</a></li>
+    <li class="h3"><a href="#sec-5-2">局限 / 开放问题 (Limitations / open questions)</a></li>
+    <li class="h3"><a href="#sec-5-3">何时用 / 不用 (When to use / not use)</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>SeFi-Image: A Text-to-Image Foundation Model with Semantic-First Diffusion</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">SeFi Team</span> · <span class="post-meta__venue">arXiv preprint (2026-06)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.22568">arXiv:2606.22568</a> · <a class="post-meta__link" href="https://jmliu206.github.io/sefi-web/">项目页</a> · <a class="post-meta__link" href="https://github.com/jmliu206/SeFi-Image">代码</a> · <a class="post-meta__link" href="https://huggingface.co/SeFi-Image">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/semantic-first-diffusion.html">semantic-first-diffusion</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/repa.html">repa</a> <a class="concept-chip" href="../../concepts/dinov2.html">dinov2</a> <a class="concept-chip" href="../../concepts/asynchronous-denoising.html">asynchronous-denoising</a> <a class="concept-chip" href="../../concepts/reconstruction-generation-tradeoff.html">reconstruction-generation-tradeoff</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/text-rendering.html">text-rendering</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig2-teaser.jpg" alt="SeFi-Image 生成样例画廊">
+  <figcaption>
+    <strong>Fig. 1</strong> — SeFi-Image 的生成样例（论文 Figure 1/2，来自仓库 <code>assets/teaser_canvas.jpg</code>）。覆盖照片级真实感、复杂排版长文字、中英双语文字渲染等场景。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>训练一个文生图基础模型很烧钱。即便是号称「资源友好」的 Z-Image，也报告用了 <strong>314K H800 GPU·时</strong>[§1]。能不能更省？</p>
+<p>学术界早有一条省钱思路：<strong>用预训练视觉编码器（DINOv2 等）的语义信息来加速扩散训练</strong>。这条线上有一堆方法——RAE / VA-VAE 重塑或对齐 latent 空间、REPA 做特征级正则、ReDi / REG 做语义-纹理联合生成、SFD 做语义-纹理异步建模。它们都在 <strong>ImageNet 256×256 类别条件生成</strong>上拿到了显著的收敛加速和更好的 FID。</p>
+<p>但有一个尴尬的鸿沟：<strong>这些结果几乎只在「小模型（通常 &lt;1B）+ 玩具数据集 + 类别条件」的设定下验证过</strong>[§1]。三个真正要紧的问题没人回答：</p>
+<ol>
+<li>语义引导在<strong>更大模型</strong>上还有效吗？</li>
+<li>在<strong>更高分辨率</strong>上还有效吗？</li>
+<li>最关键的——它能迁移到**真正实用的「文生图」**设定（文本条件、开放域、SOTA 级别）吗？</li>
+</ol>
+<p>SeFi-Image 就是来填这个坑的：它以 <strong>Semantic-First Diffusion (SFD)</strong> 为骨架，做出一个能和 Qwen-Image / Z-Image 掰手腕的 T2I 基础模型，并提供 1B / 2B / 5B 三档，系统性地研究 scaling 行为。卖点是**重建-生成权衡（reconstruction-generation trade-off）**做得好：它跑在一个高保真重建的 VAE latent 空间里（利于文字、细节、未来的编辑任务），却依然收敛飞快、最终质量很高。</p>
+<blockquote>
+<p>一句话动机：<strong>过去「语义引导加速扩散」只在 ImageNet 上玩过；SeFi-Image 第一次把它做成了一个工业级、追平 SOTA 的文生图基础模型，而且只花了对手 ~1/5 的算力。</strong></p>
+</blockquote>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 直觉：扩散本来就是「先粗后细」，那就让语义先去噪</h3>
+<p>普通的 latent 扩散 / flow-matching 模型，把图像压成一个 latent，然后<strong>所有信息共用同一个时间步</strong>一起去噪——这隐式地强迫「语义」和「纹理」同步演化。</p>
+<p>但图像生成天然是 <strong>coarse-to-fine（先粗后细）</strong>：全局语义和物体布局通常在高频纹理细节之前就确定了。SFD 的核心 idea 就是顺着这个规律——<strong>把语义和纹理沿扩散时间轴拆开，让语义比纹理早一点被解出来</strong>，于是纹理生成永远是在一个「更干净的语义锚点」条件下进行的。</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-schedule.png" alt="SFD 三阶段异步去噪示意">
+  <figcaption>
+    <strong>Fig. 2</strong>（论文 Fig. 5）— SFD 的三阶段异步去噪。横轴是去噪进度 <em>t</em>。上面虚线是语义流 <strong>s</strong> 的轨迹，下面实线是纹理流 <strong>z</strong> 的轨迹：语义始终领先纹理一个偏移 Δt。<strong>Stage I</strong>（t∈[0,Δt)）只去噪语义、纹理还是纯噪声；<strong>Stage II</strong>（中段）两路一起异步去噪，语义领跑；<strong>Stage III</strong>（末段）语义已干净、只继续精修纹理。最终只解码纹理 latent <strong>z₁</strong> 得到图像。
+  </figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 复合 latent：语义一路、纹理一路</h3>
+<p>给一张图 <span class="math inline">\(x\)</span>，SFD 从两个来源构造一个<strong>复合 latent</strong>：</p>
+<ul>
+<li><strong>纹理 latent</strong> <span class="math inline">\(z_1 = E_z(x)\)</span>：用一个（微调过的 FLUX.2）纹理 VAE 直接编码图像，保留低层重建细节。</li>
+<li><strong>语义 latent</strong> <span class="math inline">\(s_1 = E_s(f_s)\)</span>，其中 <span class="math inline">\(f_s = \Phi(x)\)</span>：先用一个<strong>冻结的视觉基础模型</strong> <span class="math inline">\(\Phi\)</span>（这里是 DINOv2-Large）抽 patch 级语义特征，再用一个 <strong>Semantic VAE</strong> <span class="math inline">\(E_s\)</span> 把高维特征压成一个紧凑的语义 latent，编码物体身份、布局、场景结构。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig6-composite-latent.png" alt="语义与纹理 latent 的构造">
+  <figcaption>
+    <strong>Fig. 3</strong>（论文 Fig. 6）— 复合 latent 的构造。上路：图像 → Texture VAE → 纹理 latent z₁ → 按纹理时间步 t<sub>z</sub> 加噪。下路：图像 → 视觉基础模型 → 语义特征 f<sub>s</sub> → Semantic VAE → 语义 latent s₁ → 按语义时间步 t<sub>s</sub> 加噪。两路加**独立**的高斯噪声、用**不同**的时间步。
+  </figcaption>
+</figure>
+<p>按 flow matching 的线性插值路径，给两路分别加噪：</p>
+<div class="math block">
+\[s_{t_s} = (1 - t_s)\,s_0 + t_s\,s_1, \qquad z_{t_z} = (1 - t_z)\,z_0 + t_z\,z_1\]
+</div>
+<p class="math-translation">—— 翻译: s₀、z₀ 是纯高斯噪声，s₁、z₁ 是干净 latent。时间步 t=0 是纯噪声、t=1 是干净。两路各走各的插值，关键在于它们用不同的 t。</p>
+<h3 id="sec-2-3">2.3 核心机关：让语义时间步「领先」纹理一个固定偏移 Δt</h3>
+<p>怎么保证「语义比纹理干净」？SFD 用一个非常简洁的采样+钳位规则给每张图分配两个时间步：</p>
+<div class="math block">
+\[t_s \sim \mathcal{U}(0,\, 1 + \Delta t), \qquad t_z = \max(0,\, t_s - \Delta t), \qquad t_s = \min(t_s,\, 1)\]
+</div>
+<p class="math-translation">—— 翻译: 先把语义时间步 t_s 从一个「加长」的区间 [0, 1+Δt] 里采样；纹理时间步 t_z 就是它减去固定偏移 Δt 再钳到 ≥0；最后把 t_s 钳到 ≤1。结果保证 t_s ≥ t_z，即语义经历的噪声污染始终不超过纹理——也就是「语义更干净，给纹理当结构向导」。</p>
+<p>把区间从 <span class="math inline">\([0,1]\)</span> 加长到 <span class="math inline">\([0,1+\Delta t]\)</span> 是为了让「偏移 Δt」在两端也不越界（这样三个阶段才能凑齐）。<span class="math inline">\(\Delta t\)</span> 是这套机制唯一的新超参，训练时取 0.1–0.2（见后文训练表）。</p>
+<h3 id="sec-2-4">2.4 双时间步 DiT 与训练目标</h3>
+<p>主干是一个 Transformer <span class="math inline">\(v_\theta(\cdot)\)</span>，吃<strong>复合噪声 latent</strong> <span class="math inline">\([s_{t_s}, z_{t_z}]\)</span>、<strong>两个独立时间步</strong> <span class="math inline">\([t_s, t_z]\)</span>、以及文本条件 <span class="math inline">\(c\)</span>，同时预测两路的速度：</p>
+<div class="math block">
+\[[\hat v_s,\, \hat v_z] = v_\theta\big([s_{t_s}, z_{t_z}],\, [t_s, t_z],\, c\big)\]
+</div>
+<p class="math-translation">—— 翻译: 一个网络同时输出语义速度 v̂_s 和纹理速度 v̂_z；它必须「知道」两路各自处在什么噪声水平（所以要喂两个时间步）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig7-dit.png" alt="SeFi-Image 整体框架 DiT">
+  <figcaption>
+    <strong>Fig. 4</strong>（论文 Fig. 7）— 整体框架。DiT 接收 [复合噪声 latent、双时间步嵌入、文本嵌入]，输出语义和纹理两路的速度。
+  </figcaption>
+</figure>
+<p>训练目标是两路速度预测损失的加权和（flow-matching 的 velocity 目标就是 <span class="math inline">\(v = x_1 - x_0\)</span>）：</p>
+<div class="math block">
+\[\mathcal{L}_{\text{pred}} = \mathbb{E}\Big[\,\lVert \hat v_z - (z_1 - z_0)\rVert^2 + \beta\,\lVert \hat v_s - (s_1 - s_0)\rVert^2\,\Big]\]
+</div>
+<p class="math-translation">—— 翻译: 让网络预测的纹理速度逼近真实纹理速度 (z₁−z₀)，语义速度逼近 (s₁−s₀)；β 是语义损失的权重（训练表里取 1~2）。</p>
+<p>此外还叠加了 <strong>REPA</strong>[11] 的表示对齐损失，把扩散隐藏态对齐到预训练视觉编码器的表示。最终目标是：</p>
+<div class="math block">
+\[\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{pred}} + \lambda\,\mathcal{L}_{\text{REPA}}\]
+</div>
+<p class="math-translation">—— 翻译: 主损失（双路速度预测）+ λ 倍的 REPA 对齐损失。注意 REPA 对齐的目标特征 y*，恰好就是喂给 Semantic VAE 的那个语义特征 f_s——语义信号在这里被「用了两遍」。</p>
+<h4>代码：双时间步嵌入</h4>
+<p>SFD 对 FLUX.2 DiT 最直接的改造，就是把单一时间步嵌入换成<strong>双时间步嵌入</strong>——语义、纹理各过一个独立的 <code>TimestepEmbedding</code>，再 concat。这正是 Eq. (5) 里「网络要同时知道两个 t」在代码里的样子：</p>
+<p class="code-source">repo/sefi/modeling/flux2_sefi_transformer.py:L24-L56 — 双时间步嵌入：concat([emb_sem, emb_tex])</p>
+<pre><code class="language-python">class SEFIDualTimestepEmbeddings(nn.Module):
+    &quot;&quot;&quot;SEFI dual timestep embeddings: concat([emb_sem, emb_tex]).&quot;&quot;&quot;
+
+    def __init__(self, in_channels: int, embedding_dim: int, bias: bool = False):
+        super().__init__()
+        half_dim = embedding_dim // 2
+        self.time_proj = Timesteps(
+            num_channels=int(in_channels), flip_sin_to_cos=True, downscale_freq_shift=0,
+        )
+        self.semantic_embedder = TimestepEmbedding(   # 语义专用
+            in_channels=int(in_channels), time_embed_dim=half_dim, sample_proj_bias=bias,
+        )
+        self.texture_embedder = TimestepEmbedding(    # 纹理专用
+            in_channels=int(in_channels), time_embed_dim=half_dim, sample_proj_bias=bias,
+        )
+
+    def forward(self, timestep_sem: Tensor, timestep_tex: Tensor) -&gt; Tensor:
+        sem_proj = self.time_proj(timestep_sem)
+        tex_proj = self.time_proj(timestep_tex)
+        sem_emb = self.semantic_embedder(sem_proj.to(timestep_sem.dtype))
+        tex_emb = self.texture_embedder(tex_proj.to(timestep_tex.dtype))
+        return torch.cat([sem_emb, tex_emb], dim=-1)   # 两路嵌入拼起来注入 DiT
+</code></pre>
+<p>值得一提的是，FLUX.2 原本的 <code>time_guidance_embed</code> 被直接换成了 <code>nn.Identity()</code>（<code>flux2_sefi_transformer.py:L71</code>）——SFD「自己显式管理语义/纹理两个时间步，不再复用 guidance 那一套」。</p>
+<h3 id="sec-2-5">2.5 推理：三阶段异步去噪（论文用二值 mask，代码用 sigma 钳位）</h3>
+<p>推理时 SFD 用一个三阶段异步去噪表（对应 Fig. 2）。论文用两个<strong>二值 mask</strong> <span class="math inline">\(M_s, M_z\)</span> 来形式化「哪一路在当前阶段更新」：</p>
+<div class="math block">
+\[[M_s, M_z] = \begin{cases} [1, 0], &amp; t_s \in [0, \Delta t),\ t_z = 0 \\ [1, 1], &amp; t_s \in [\Delta t, 1],\ t_z \in [0, 1 - \Delta t] \\ [0, 1], &amp; t_s = 1,\ t_z \in [1 - \Delta t, 1] \end{cases}\]
+</div>
+<p class="math-translation">—— 翻译: Stage I 只更新语义（M_s=1, M_z=0）；Stage II 两路都更新；Stage III 语义冻结、只更新纹理。被 mask 掉的那路速度乘 0，即 v̂ = [M_s⊙v̂_s, M_z⊙v̂_z]。</p>
+<p>一个关键细节：<strong>SFD 不增加推理步数</strong>。它虽然把去噪区间延长了 Δt，但同时按比例拉大每步间隔，总步数不变；所以三阶段是「免费」的。最后只解码完全去噪的纹理 latent <span class="math inline">\(z_1\)</span> 出图。</p>
+<blockquote>
+<p><strong>⚠️ 论文-代码差异（等价但更巧）</strong>：仓库 <code>runner.py</code> 的实现里<strong>根本没有显式的二值 mask 张量</strong>。它用「sigma 钳位让步长 dt 自动变 0」达到同样效果——见 §4.1。这是本文交叉精读最值得记的一处。</p>
+</blockquote>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<h3 id="sec-3-1">3.1 算力账：5B 只用 125K A800 GPU·时</h3>
+<p>最硬的卖点：<strong>5B 模型只用了 125K A800 GPU·时</strong>，约为 Z-Image（314K H800·时）训练算力的 <strong>10–20%</strong>[§Abstract/§1]。换来的是在一票基准上追平甚至反超 Qwen-Image / Z-Image。</p>
+<h3 id="sec-3-2">3.2 多基准全面对标（数字说话）</h3>
+<table>
+<thead>
+<tr>
+<th>基准</th>
+<th>SeFi-5B</th>
+<th>SeFi-2B</th>
+<th>SeFi-1B</th>
+<th>Qwen-Image</th>
+<th>Z-Image</th>
+<th>FLUX.2-Klein-9B</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GenEval</strong> Overall↑</td>
+<td><strong>0.88</strong></td>
+<td>0.87</td>
+<td>0.87</td>
+<td>0.87</td>
+<td>0.84</td>
+<td>0.85</td>
+</tr>
+<tr>
+<td><strong>DPG-Bench</strong> Overall↑</td>
+<td>87.27</td>
+<td>87.31</td>
+<td>87.17</td>
+<td><strong>88.32</strong></td>
+<td>88.14</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>LongTextBench</strong> Avg↑</td>
+<td><strong>0.978</strong></td>
+<td>0.847</td>
+<td>0.855</td>
+<td>0.945</td>
+<td>0.936</td>
+<td>0.541</td>
+</tr>
+<tr>
+<td><strong>CVTG-2K</strong> Word Acc↑</td>
+<td><strong>0.895</strong></td>
+<td>0.773</td>
+<td>0.718</td>
+<td>0.829</td>
+<td>0.867</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>OneIG-EN</strong> Overall↑</td>
+<td><strong>0.5606</strong></td>
+<td>0.5367</td>
+<td>0.5247</td>
+<td>0.5390</td>
+<td>0.5460</td>
+<td>0.5324</td>
+</tr>
+<tr>
+<td><strong>OneIG-ZH</strong> Overall↑</td>
+<td><strong>0.5379</strong></td>
+<td>0.4979</td>
+<td>0.5095</td>
+<td>0.5480</td>
+<td>0.5350</td>
+<td>0.4302</td>
+</tr>
+</tbody>
+</table>
+<p>几个要点：</p>
+<ul>
+<li><strong>GenEval</strong>：连最小的 <strong>1B 模型都追平了大得多的 Qwen-Image（都是 0.87）</strong>，且在 Position（空间理解）和 Colors 上尤其能打；主要差距在 Counting（计数）。</li>
+<li><strong>长文字 / 文字渲染</strong>：5B 在 LongTextBench（0.978，全场最高）和 CVTG-2K 字符级渲染（Word Acc 0.895）上都是第一。论文归因：语义分支提供了强结构骨架，帮模型组织信息密集的长 prompt。</li>
+<li><strong>scaling 不总是单调</strong>：1B/2B 在长文字上明显掉档（0.85 左右），说明长文本理解很吃模型容量；而 2B 在英文上比 1B 强、中文却更弱——非单调，疑似数据分布偏差/训练方差，而非纯容量驱动。</li>
+<li><strong>DPG-Bench</strong> 是少数 SeFi 略逊的基准（5B 的 87.27 vs Qwen 88.32），差距 ~1 分。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig1-performance.png" alt="SeFi-Image 与基线的综合性能对比">
+  <figcaption>
+    <strong>Fig. 5</strong> — 综合性能概览（来自仓库 <code>assets/performance_overview.png</code>）：在显著更低的训练算力下，SeFi-Image 在多个评测轴上达到竞争性或 SOTA 水平。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 为什么省：重建-生成权衡 + 收敛加速 + 更好的 scaling</h3>
+<p>论文 §4 用受控消融论证了 SFD「为什么能又快又好」：</p>
+<p><strong>(a) 更好的 VAE 重建。</strong> 因为纹理生成总是被「更干净的语义 latent」引导，纹理建模负担大幅降低，于是可以<strong>放心地把纹理 VAE 往重建质量方向激进微调</strong>，而不太担心伤害收敛。微调后的 FLUX.2 VAE 在 Kodak 上把 PSNR 从 <strong>33.18 → 36.40</strong>；在文字密集的 OmniDoc-TokenBench 上 PSNR/LPIPS/FID/NED 全面领先（无需任何文字专项训练）。</p>
+<table>
+<thead>
+<tr>
+<th>VAE (Kodak)</th>
+<th>PSNR↑</th>
+<th>SSIM↑</th>
+<th>LPIPS↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FLUX.1</td>
+<td>32.37</td>
+<td>0.9063</td>
+<td>0.0554</td>
+</tr>
+<tr>
+<td>FLUX.2</td>
+<td>33.18</td>
+<td>0.9194</td>
+<td>0.0442</td>
+</tr>
+<tr>
+<td><strong>FLUX.2-finetuned (ours)</strong></td>
+<td><strong>36.40</strong></td>
+<td><strong>0.9565</strong></td>
+<td><strong>0.0235</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>(b) 收敛更快。</strong> 在 50M 样本、256² 的受控对比里，「微调 VAE + SFD」相比「微调 VAE 无 SFD」「原版 VAE 无 SFD」两个基线，在 GenEval/DPG 上从头到尾保持领先、收敛明显更快（Fig. 6）。</p>
+<p><strong>(c) scaling 更好。</strong> 在 0.5B / 2B / 4B 三档上，SFD 的优势全程保持；<strong>带 SFD 的 2B 甚至大幅超过不带 SFD 的 4B</strong>（Fig. 7）——语义先行显著提升了参数效率。</p>
+<figure>
+  <img class="zoomable" src="figures/fig9-convergence.png" alt="SFD 收敛加速对比">
+  <figcaption>
+    <strong>Fig. 6</strong>（论文 Fig. 9）— 收敛对比。蓝（finetuned VAE + SFD）全程领先绿（finetuned VAE 无 SFD）和橙（vanilla VAE 无 SFD），且收敛更快。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig10-scaling.png" alt="SFD 随模型规模的 scaling 对比">
+  <figcaption>
+    <strong>Fig. 7</strong>（论文 Fig. 10）— scaling 对比。在 0.5B/2B/4B 上「带 SFD（绿）」都优于「不带 SFD（灰）」，2B+SFD 反超 4B 无 SFD。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<blockquote>
+<p>以下都对到仓库 <a href="https://github.com/jmliu206/SeFi-Image"><code>jmliu206/SeFi-Image</code></a> 的具体代码行。这是「论文之外」最有信息量的部分。</p>
+</blockquote>
+<h3 id="sec-4-1">4.1 三阶段 mask 在代码里其实是「sigma 钳位让 dt=0」</h3>
+<p>这是最值得记的一处实现细节。论文 Eq. (9)(10) 用二值 mask <span class="math inline">\(M_s,M_z\)</span> 控制「哪一路更新」，但 <code>runner.py</code> 的去噪循环里<strong>没有任何 mask 张量</strong>。它的做法是：构造一条「加长版」的语义进度表 <code>u_sem_raw</code>（终点是 <span class="math inline">\(1+\Delta t\)</span>），纹理进度就是 <code>u_sem_raw - Δt</code> 再钳到 <span class="math inline">\([0,1]\)</span>；语义进度本身钳到 <span class="math inline">\(\le 1\)</span>：</p>
+<p class="code-source">repo/sefi/runner.py:L680-L694 — 三阶段调度：用钳位从单条语义进度表派生双时间步</p>
+<pre><code class="language-python">for step in range(num_inference_steps):
+    u_sem_raw_cur  = torch.full((batch_size,), float(u_sem_raw_schedule[step].item()),     device=self.device)
+    u_sem_raw_next = torch.full((batch_size,), float(u_sem_raw_schedule[step + 1].item()), device=self.device)
+
+    # 纹理时间步 = 语义时间步 - Δt，再钳到 [0,1]；语义时间步钳到 ≤1
+    u_tex_cur  = torch.clamp(u_sem_raw_cur  - self.delta_t, min=0.0, max=1.0)
+    u_sem_cur  = torch.clamp(u_sem_raw_cur,  max=1.0)
+    u_tex_next = torch.clamp(u_sem_raw_next - self.delta_t, min=0.0, max=1.0)
+    u_sem_next = torch.clamp(u_sem_raw_next, max=1.0)
+</code></pre>
+<p>精彩之处在 Euler 更新这一步——每路的步长是 <code>dt = sigma_next - sigma_cur</code>：</p>
+<p class="code-source">repo/sefi/runner.py:L774-L787 — 两路各自用自己的 dt 做 Euler 更新；钳位让被「冻结」那路的 dt 自动为 0</p>
+<pre><code class="language-python">    vel_sem = velocity[:, : self.semantic_channels]
+    vel_tex = velocity[:, self.semantic_channels :]
+    lat_sem = latents[:, : self.semantic_channels]
+    lat_tex = latents[:, self.semantic_channels :]
+
+    dt_sem = sigmas_sem_next - sigmas_sem_cur   # Stage I：语义还没到 Δt，纹理被钳在 0 → dt_tex=0
+    dt_tex = sigmas_tex_next - sigmas_tex_cur   # Stage III：语义已钳在 1 → dt_sem=0
+
+    lat_sem = lat_sem + dt_sem * vel_sem
+    lat_tex = lat_tex + dt_tex * vel_tex
+    latents = torch.cat([lat_sem, lat_tex], dim=1)
+</code></pre>
+<p><strong>为什么这和二值 mask 等价</strong>：Stage I 里纹理时间步被 <code>clamp(..., min=0)</code> 钉死在 0，所以连续两步的 <code>sigma_tex</code> 相等、<code>dt_tex = 0</code>，纹理 latent 原地不动——等价于 <span class="math inline">\(M_z=0\)</span>。Stage III 里语义时间步被 <code>clamp(..., max=1)</code> 钉死在 1，<code>dt_sem=0</code>，语义冻结——等价于 <span class="math inline">\(M_s=0\)</span>。<strong>论文写 mask 是为了讲清楚语义；代码用钳位是因为它更省、且天然兼容变步长。</strong> 这是「论文形式化 ≠ 代码实现，但数学等价」的典型案例。</p>
+<h3 id="sec-4-2">4.2 复合 latent 的通道布局：<code>[语义 | 纹理]</code> 沿 channel 维拼接</h3>
+<p><code>latents</code> 张量就是 <code>torch.cat([lat_sem, lat_tex], dim=1)</code>，前 <code>semantic_channels</code> 个通道是语义、其余是纹理。出图时只取后半段纹理通道解码（<code>runner.py:L789</code>）。纹理通道数的推导也有个易错点——FLUX 系 VAE 的 latent 会做 2×2 packing，所以纹理通道是 VAE latent 通道的 <strong>4 倍</strong>：</p>
+<p class="code-source">repo/sefi/modeling/texture_latent_codec.py:L28-L29 — 纹理通道 = VAE latent 通道 × 4（2×2 patch packing）</p>
+<pre><code class="language-python">self.latent_channels = int(latent_channels)
+self.texture_channels = int(self.latent_channels * 4)
+</code></pre>
+<h3 id="sec-4-3">4.3 网络入口：时间步在喂进 DiT 前先 ÷1000 再 ×1000</h3>
+<p><code>_predict_velocity</code> 把两个时间步都除以 1000 传给 transformer，transformer 内部又乘回 1000（<code>flux2_sefi_transformer.py:L170</code>）——这是为了和 FLUX.2 原始 forward 的数值约定对齐，纯工程兼容性细节，不影响语义：</p>
+<p class="code-source">repo/sefi/runner.py:L588-L595 — 双时间步进入 DiT 前的归一化约定</p>
+<pre><code class="language-python">pred = transformer(
+    hidden_states=packed_latents,
+    timestep_sem=timesteps_sem / 1000,   # 语义时间步
+    timestep_tex=timesteps_tex / 1000,   # 纹理时间步
+    encoder_hidden_states=encoder_hidden_states,
+    txt_ids=txt_ids, img_ids=img_ids,
+)
+</code></pre>
+<h3 id="sec-4-4">4.4 推理默认 Δt = 训练上界，且可被覆盖</h3>
+<p><code>_configure_delta_t</code> 要求 config 里必须给 <code>delta_t_min</code> / <code>delta_t_max</code>；推理默认取 <code>delta_t_max</code>，但允许命令行 <code>--delta-t</code> 覆盖（越界会告警但不报错）。配合训练表里 256px 阶段 Δt=0.2、768px 之后 Δt=0.1，说明 <strong>Δt 是一个随分辨率/阶段调整的超参，不是定死的常数</strong>。</p>
+<h3 id="sec-4-5">4.5 架构与训练栈（散点）</h3>
+<ul>
+<li><strong>文本编码器</strong>：Qwen3-VL（<code>qwen3vl_text_encoder.py</code>）——和近期 Boogu-Image、<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a> 一样走「多模态 LLM 当文本条件」的路线。</li>
+<li><strong>Texture VAE</strong>：微调版 FLUX.2 VAE，32 latent 通道；微调目标 <span class="math inline">\(\mathcal{L} = \mathcal{L}_{\text{MSE}} + 0.1\,\mathcal{L}_{\text{LPIPS}} + 10^{-12}\,\mathcal{L}_{\text{KL}}\)</span>，<strong>几乎无 KL、不加 GAN loss</strong>（已接近无损压缩），8×A800 训 12 小时。</li>
+<li><strong>Semantic VAE</strong>：Transformer 结构，把 DINOv2-Large 的 patch 特征压成紧凑语义 latent；用「重建 + 余弦相似」损失独立预训练，扩散训练时冻结 <span class="math inline">\(\Phi\)</span>、只优化 <span class="math inline">\(E_s,D_s\)</span>。</li>
+<li><strong>训练课程</strong>：分辨率 curriculum 256→512→768→1024，450M 预训练 + 9M continual + 650K SFT，β 从 2 降到 1。</li>
+<li><strong>Turbo 蒸馏</strong>：用 <strong>DMD2</strong> 蒸到 4 步，关键是<strong>蒸馏时保持同样的 Δt=0.1 语义领先规则</strong>，否则 4 步会抹掉「语义先行」的偏移结构。</li>
+<li><strong>RL 后训练</strong>：用 <strong>DiffusionNFT</strong>，把目标改成复合 latent <code>concat(z_semantic, z_texture)</code>，异步去噪表保持不变；每轮对 K=400 组 prompt 各生成 M=12 张共 4800 张，按 reward 方差过滤掉信号弱的组，再 top-bottom 选正负样本。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">优点 (Strengths)</h3>
+<ul>
+<li><strong>把一个「ImageNet 上的学术 trick」真正做成了工业级 T2I 基础模型</strong>——这是论文最大的贡献，回答了「语义引导能否 scale 到实用 T2I」这个开放问题，且给了肯定答案。</li>
+<li><strong>算力效率有说服力</strong>：125K A800·时做到追平 SOTA，并用三组受控消融（重建 / 收敛 / scaling）把「为什么省」讲清楚了，不是只甩一个总数字。</li>
+<li><strong>重建-生成权衡的论证很漂亮</strong>：「因为纹理被干净语义引导、所以能放心把 VAE 推向高保真重建」——这条因果链既解释了为什么文字渲染（CVTG/LongText）特别强，也指明了它对未来<strong>图像编辑</strong>任务的潜在价值。</li>
+<li><strong>代码开源且实现干净</strong>：双时间步嵌入、三阶段钳位调度都能在百行级代码里看明白，复现门槛低。1B 小模型就有强指令跟随，落地友好。</li>
+</ul>
+<h3 id="sec-5-2">局限 / 开放问题 (Limitations / open questions)</h3>
+<ul>
+<li><strong>规模仍然不够</strong>（作者自己列为首要局限）：受 A800-40G 硬件所限，最大只到 5B；而文字渲染、精细布局、细粒度跟随都强依赖模型容量——1B/2B 在 LongTextBench 上的大幅掉档就是证据。scaling 趋势预示更大模型还有空间，但论文没验证。</li>
+<li><strong>DPG-Bench 上反而略逊</strong> Qwen-Image / Z-Image（~1 分），说明「语义先行」并非在所有维度都占优；它更擅长结构/文字，不一定擅长某些密集属性绑定。</li>
+<li><strong>数据偏自然图像</strong>：审美、艺术、设计、UI、信息图类数据稀疏，导致这些风格上的质量天花板和多样性受限；尚未上更复杂的 agent 式合成数据管线。</li>
+<li><strong>多模态/编辑只是「画饼」</strong>：论文一直强调重建-生成权衡对<strong>编辑</strong>的价值，但<strong>完全没有在编辑任务上验证</strong>——而编辑恰恰是对重建保真和内容一致性要求最苛刻的场景。这块是「声称的优势」而非「证明的优势」。</li>
+<li><strong>Δt 缺乏系统消融</strong>：Δt 是整套机制唯一的新超参，训练表里给了几个经验值，但没有「Δt 取多少最优、对不同任务的敏感度」的系统研究。</li>
+<li><strong>非单调 scaling 现象未解释</strong>：2B 英文升、中文降这种非单调，作者只猜测是「数据分布偏差或训练方差」，没有进一步定位，影响对小模型的可信度判断。</li>
+</ul>
+<h3 id="sec-5-3">何时用 / 不用 (When to use / not use)</h3>
+<ul>
+<li><strong>适合</strong>：算力受限但想要 SOTA 级 T2I；强文字渲染 / 长 prompt / 中英双语场景；想要一个高保真 VAE latent 空间（为后续编辑/一致性留余地）；想研究语义引导的 scaling。</li>
+<li><strong>暂不适合</strong>：需要 &gt;5B 容量才能解的极端长文字 / 复杂排版；信息图 / 设计 / UI 风格；当前就要做图像编辑（论文未验证，需自行承担风险）。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<ul>
+<li>同期对标：<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a>、<a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a>（都走「MLLM 文本条件 + DiT + DMD 蒸馏」路线，可横向对比）。</li>
+<li>方法源头：SFD（Semantic-First Diffusion，论文引用 [15]）、REPA（特征对齐，[11]）、DINOv2（语义编码器，[29]）。</li>
+<li>后训练：DMD2（少步蒸馏）、DiffusionNFT（扩散 RL）。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

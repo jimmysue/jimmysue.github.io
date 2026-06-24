@@ -246,6 +246,15 @@
       "url": "papers/rls-razor-2025/index.html"
     },
     {
+      "id": "papers/sefi-image-2026",
+      "type": "paper",
+      "slug": "sefi-image-2026",
+      "title": "SeFi-Image：用「语义先行」扩散把 T2I 基础模型的训练成本砍到 1/5（代码精读）",
+      "date": "2026-06-24",
+      "tldr": "SeFi-Image 是一个文生图（T2I）基础模型族（1B / 2B / 5B），核心是 Semantic-First Diffusion（SFD，语义先行扩散）：把一张图拆成「语义 latent」（DINOv2 特征 → Semantic VAE 压缩）和「纹理 latent」（微调版 FLUX.2 VAE），给两路 latent 各自一个时间步，并强制语义时间步「领先」纹理一个固定偏移 Δt，让语义比纹理早一步去噪、从而给纹理生成提供更干净的结构条件。\n代价：5B 模型只用了 125K A800 GPU·时（约为 Z-Image 的 10–20%），却在 GenEval / LongTextBench / CVTG-2K / OneIG 等多个基准上追平甚至超过 Qwen-Image 和 Z-Image。论文 + 权重 + 推理代码全部开源。\n本文交叉精读：把 SFD 的 4 个核心公式逐一对到 `runner.py` / `flux2_sefi_transformer.py` 的具体实现，并指出一处「论文写二值 mask、代码用 sigma 钳位」的等价但更巧妙的工程实现。\n",
+      "url": "papers/sefi-image-2026/index.html"
+    },
+    {
       "id": "papers/self-flow-2026",
       "type": "paper",
       "slug": "self-flow-2026",
@@ -1318,6 +1327,54 @@
       "url": "concepts/vector-quantization.html"
     },
     {
+      "id": "concepts/semantic-first-diffusion",
+      "type": "concept",
+      "slug": "semantic-first-diffusion",
+      "name": "semantic-first-diffusion",
+      "has_file": false,
+      "url": "concepts/semantic-first-diffusion.html"
+    },
+    {
+      "id": "concepts/latent-diffusion",
+      "type": "concept",
+      "slug": "latent-diffusion",
+      "name": "latent-diffusion",
+      "has_file": false,
+      "url": "concepts/latent-diffusion.html"
+    },
+    {
+      "id": "concepts/repa",
+      "type": "concept",
+      "slug": "repa",
+      "name": "repa",
+      "has_file": false,
+      "url": "concepts/repa.html"
+    },
+    {
+      "id": "concepts/asynchronous-denoising",
+      "type": "concept",
+      "slug": "asynchronous-denoising",
+      "name": "asynchronous-denoising",
+      "has_file": false,
+      "url": "concepts/asynchronous-denoising.html"
+    },
+    {
+      "id": "concepts/reconstruction-generation-tradeoff",
+      "type": "concept",
+      "slug": "reconstruction-generation-tradeoff",
+      "name": "reconstruction-generation-tradeoff",
+      "has_file": false,
+      "url": "concepts/reconstruction-generation-tradeoff.html"
+    },
+    {
+      "id": "repos/jmliu206/SeFi-Image",
+      "type": "repo",
+      "url": "https://github.com/jmliu206/SeFi-Image",
+      "host": "github.com",
+      "owner": "jmliu206",
+      "name": "SeFi-Image"
+    },
+    {
       "id": "concepts/video",
       "type": "concept",
       "slug": "video",
@@ -1822,12 +1879,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -1987,17 +2044,17 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -2102,17 +2159,17 @@
     },
     {
       "from": "papers/ferret-v2-2024",
+      "to": "papers/ferret-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
       "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
       "to": "tutorials/vlm-grounding-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-v2-2024",
-      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
@@ -2192,12 +2249,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -2252,7 +2309,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
       "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2263,16 +2330,6 @@
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -2397,12 +2454,12 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/locate-anything-2026",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -2492,12 +2549,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2557,17 +2614,17 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2652,17 +2709,17 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/ferret-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
       "to": "papers/lisa-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
-      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
@@ -2792,12 +2849,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -2819,6 +2876,81 @@
       "from": "papers/rls-razor-2025",
       "to": "concepts/theory",
       "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/semantic-first-diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/latent-diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/diffusion-transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/repa",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/dinov2",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/asynchronous-denoising",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/reconstruction-generation-tradeoff",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/distribution-matching-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/text-rendering",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "concepts/classifier-free-guidance",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/sefi-image-2026",
+      "to": "repos/jmliu206/SeFi-Image",
+      "kind": "implements"
     },
     {
       "from": "papers/self-flow-2026",
@@ -2962,17 +3094,17 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/locate-anything-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3097,17 +3229,17 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
       "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
       "to": "papers/flow-opd-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -3317,12 +3449,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {

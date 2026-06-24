@@ -51,6 +51,39 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-24</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sefi-image-2026/index.html">SeFi-Image：用「语义先行」扩散把 T2I 基础模型的训练成本砍到 1/5（代码精读）</a></h3>
+  <p class="post-card__tldr">SeFi-Image 是一个文生图（T2I）基础模型族（1B / 2B / 5B），核心是 Semantic-First Diffusion（SFD，语义先行扩散）：把一张图拆成「语义 latent」（DINOv2 特征 → Semantic VAE 压缩）和「纹理 latent」（微调版 FLUX.2 VAE），给两路 latent 各自一个时间步，并强制语义时间步「领先」纹理一个固定偏移 Δt，让语义比纹理早一步去噪、从而给纹理生成提供更干净的结构条件。
+代价：5B 模型只用了 125K A800 GPU·时（约为 Z-Image 的 10–20%），却在 GenEval / LongTextBench / CVTG-2K / OneIG 等多个基准上追平甚至超过 Qwen-Image 和 Z-Image。论文 + 权重 + 推理代码全部开源。
+本文交叉精读：把 SFD 的 4 个核心公式逐一对到 `runner.py` / `flux2_sefi_transformer.py` 的具体实现，并指出一处「论文写二值 mask、代码用 sigma 钳位」的等价但更巧妙的工程实现。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/semantic-first-diffusion.html">semantic-first-diffusion</a>
+      <a class="tag-chip" href="concepts/latent-diffusion.html">latent-diffusion</a>
+      <span class="tag-chip tag-chip--more">+9 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-22</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/argus-2026/index.html">ARGUS：把「身份」从一张参考图变成扩散同步的动态记忆</a></h3>
+  <p class="post-card__tldr">主体保持的视频生成（让生成视频里的人「还是同一个人」）长期被「点参考」范式卡住——一张参考图把&quot;这个人是谁&quot;和&quot;他这一帧恰好长这样（姿态/配饰/光照/背景）&quot;纠缠在一起，模型要么照抄噪声细节、要么身份漂移。
+ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出多视角身份证据，拼成 3×3 马赛克，**和目标视频走同一条 Flow Matching 加噪路径**，再以&quot;负时间、只读记忆&quot;的方式注入 Wan 的原生 token 空间。配合无配对反事实训练 + TIA + ASLG，在 OpenS2V-Eval 拿到 64.38 总分、71.86 FaceSim 的 SOTA，大偏航/首帧遮挡鲁棒性分别再涨 12.6 / 15.1 分。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/subject-preserving-video.html">subject-preserving-video</a>
+      <a class="tag-chip" href="concepts/identity-preservation.html">identity-preservation</a>
+      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/osprey-2023/index.html">Osprey:把「掩码」喂进 MLLM 的像素级区域理解</a></h3>
@@ -156,38 +189,6 @@
       <a class="tag-chip" href="concepts/reasoning-segmentation.html">reasoning-segmentation</a>
       <a class="tag-chip" href="concepts/embedding-as-mask.html">embedding-as-mask</a>
       <a class="tag-chip" href="concepts/multimodal-llm.html">multimodal-llm</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-v2-2024/index.html">Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛</a></h3>
-  <p class="post-card__tldr">Ferret-v2 是 Ferret 的重大升级,三招破解&quot;固定低分辨率编码器看不清小物体&quot;:(1) any-resolution——把大图切成子块各自编码,保住 CLIP 预训练知识;(2) 多粒度双编码器——全局图用 CLIP 抓语义、局部块用 DINOv2 抓细节;(3) 三阶段训练,中间插一个&quot;高分辨率密集对齐&quot;阶段。
-它把 [[ferret-2023|Ferret]] 的输入侧 grounding 推到高分辨率密集感知,也是 Ferret-UI 屏幕理解的技术底座。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
-      <a class="tag-chip" href="concepts/any-resolution.html">any-resolution</a>
-      <a class="tag-chip" href="concepts/multi-granularity-encoding.html">multi-granularity-encoding</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-2023/index.html">Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型</a></h3>
-  <p class="post-card__tldr">Ferret 用「混合区域表示」（离散坐标 + 连续特征）把用户圈的任意形状区域（点/框/涂鸦/自由形状）编码进 LLM 输入，同时在输出端把名词后接坐标实现定位——一个模型统一了 referring（区域→语义）和 grounding（语义→区域）。
-它是 LISA「文本→掩码」的**输入侧对偶**：LISA 解决&quot;想哪打哪&quot;的输出，Ferret 解决&quot;圈哪问哪&quot;的输入。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
-      <a class="tag-chip" href="concepts/region-input.html">region-input</a>
-      <a class="tag-chip" href="concepts/hybrid-region-representation.html">hybrid-region-representation</a>
       <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>

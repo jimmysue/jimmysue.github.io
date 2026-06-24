@@ -53,6 +53,20 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/starchild-1-2026/index.html">Starchild-1: 把双向音视频扩散教成 24fps 流式世界模型</a></h3>
+  <p class="post-card__tldr">Team Odyssey 技术报告。把 Ovi (双向 50 步、离线、固定时长音视频扩散) 通过三阶段管线蒸馏成 24fps 因果流式世界模型: (1) DMD 少步双向蒸馏 + 拉高 audio/fake-critic 学习率,(2) 块因果 ODE 轨迹适配 (audio CFG=7、MSE+AdamW、关 weight decay),(3) KV-cache 自回滚 (Self-Forcing) + 非对称 sink token (video 有/audio 没有) + 跨模态 cache 不重置。外加一个 LLM-based campaign orchestrator 把用户输入转成 chunk-aligned action 序列。视觉感知指标小升,音频语义对齐 (CLAP/IB) 明显回退,同步指标基本不变。无 code、无 weights、全部交互能力只做 qualitative example。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sensenova-u1/index.html">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</a></h3>
   <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
   <div class="post-card__tags">
@@ -157,20 +171,6 @@
       <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
       <a class="tag-chip" href="concepts/rl.html">rl</a>
       <a class="tag-chip" href="concepts/alignment.html">alignment</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/latent-to-pixel-2026/index.html">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</a></h3>
-  <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
-      <a class="tag-chip" href="concepts/transfer-learning.html">transfer-learning</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
