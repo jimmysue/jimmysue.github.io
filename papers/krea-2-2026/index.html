@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Krea 2 技术报告精读：一个「为创意探索而生」的开源文生图基础模型，从数据、架构到万卡基建全栈拆解</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)：从 LLM 生态搬来的极简 DiT + 五阶段训练</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉：架构决策的四个评判维度</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo：一张消融表读懂最终架构</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化：rectified-flow 速度损失 + 几个关键改造</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 五阶段训练流水线</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 RL：多奖励 GRPO + 无 CFG + 把 prompt 选择当资源分配</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 时间步蒸馏：为什么选 TDM 而不是 DMD/DMD2</a></li>
+    <li class="h3"><a href="#sec-2-7">2.7 两套可控性系统</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 数据策展与 caption（不靠 IQA 分数过滤）</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 Midtraining 的实体覆盖：PageRank + Wikidata 兜底长尾</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 「krablet」数据仓库：把数据处理建模成 Postgres 队列</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 分布式训练栈</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 调度与外溢推理（Kubernetes）</a></li>
+    <li class="h3"><a href="#sec-4-6">4.6 可观测性：IB 指标最重要</a></li>
+    <li class="h3"><a href="#sec-4-7">4.7 与公开训练代码的关系（诚实标注）</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">优点 (Strengths)</a></li>
+    <li class="h3"><a href="#sec-5-2">局限 / 开放问题 (Limitations / open questions)</a></li>
+    <li class="h3"><a href="#sec-5-3">何时用 / 不用 (When to use / not use)</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Krea 2 Technical Report：一个为「创意探索」设计的开源文生图基础模型</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-25</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-25</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Sangwu Lee, Erwann Millon, Le Zhuo, Matthew Newton, Andrei Filatov, Naga Sai Abhinay Devarinti, Dazhi Zhong, Avram Djordjevic, Gabriel Menezes, Will Beddow, Titus Ebbecke, Mihai Petrescu, Owen Fahey, Gian Saß, Felix Gil, Victor Perez (Krea)</span> · <span class="post-meta__venue">Krea Technical Report (blog), 2026-06-23</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://www.krea.ai/blog/krea-2-technical-report">项目页</a> · <a class="post-meta__link" href="https://github.com/krea-ai">代码</a> · <a class="post-meta__link" href="https://github.com/pytorch/torchtitan">代码</a> · <a class="post-meta__link" href="https://huggingface.co/krea">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/mmdit.html">mmdit</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/rectified-flow.html">rectified-flow</a> <a class="concept-chip" href="../../concepts/grouped-query-attention.html">grouped-query-attention</a> <a class="concept-chip" href="../../concepts/gated-attention.html">gated-attention</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/rmsnorm.html">rmsnorm</a> <a class="concept-chip" href="../../concepts/repa.html">repa</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a> <a class="concept-chip" href="../../concepts/direct-preference-optimization.html">direct-preference-optimization</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/model-merging.html">model-merging</a> <a class="concept-chip" href="../../concepts/prompt-expansion.html">prompt-expansion</a> <a class="concept-chip" href="../../concepts/style-transfer.html">style-transfer</a> <a class="concept-chip" href="../../concepts/reward-hacking.html">reward-hacking</a> <a class="concept-chip" href="../../concepts/data-curation.html">data-curation</a> <a class="concept-chip" href="../../concepts/distributed-training.html">distributed-training</a> <a class="concept-chip" href="../../concepts/midtraining.html">midtraining</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-hero.jpg" alt="Krea 2 生成样例拼图">
+  <figcaption>
+    <strong>Fig. 1</strong> — Krea 2 报告首图（来自官方博客）。卖点是「宽美学覆盖 + 强可控性」，而非单一打磨过的默认风格。
+  </figcaption>
+</figure>
+<blockquote>
+<p>⚠️ <strong>这是一份技术报告（博客形式），不是带公开训练代码的方法论文。</strong> 它几乎不含新公式，重点是<strong>全栈工程决策与消融结论</strong>。本文遵循论文精读的 5 段骨架，但把「代码交叉引用」替换为<strong>报告自身给出的代码片段（SQL 任务队列、<code>pluck</code> map API）</strong>，并对报告用散文描述、背后是标准公式的方法补全数学形式（明确标注「这是标准形式，非 Krea 独创」）。Krea 2 已开源权重 + 推理代码（permissive license），但报告描述的训练配方/数据基建并不在推理代码里。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>过去几年文生图突飞猛进：扩散 / flow-matching 模型能出高分辨率、锐利的写实图，稳定的结构，密集文字，丰富世界知识，精确跟随 prompt。但报告点出一个副作用——<strong>整个领域为了「在这些能力上更可靠」，纷纷收敛到一小撮默认美学</strong>。作为生产工具这很有效，但作为<strong>创意探索引擎</strong>就差了：用户常常想在风格、情绪、构图、视觉方向之间<strong>搜索</strong>，而不是收到一张打磨过的默认答案[§Introduction]。</p>
+<p>Krea 2 的信念因此是：<strong>图像生成应该是一种探索性媒介</strong>——表达力要足够宽（覆盖多种美学），可控性要足够强（创作者能在其中导航）。为此它做了两件事：</p>
+<ol>
+<li><strong>把基础模型本身训得「分布更宽」</strong>：从数据策展到训练全程,刻意保留多样性、不过度向「高质量默认」收敛。</li>
+<li><strong>补两套可控性接口</strong>，弥合「模型学到的稠密 caption 条件空间」和「用户真实输入（短、模糊、各种习惯）」之间的鸿沟：一个 <strong>prompt 扩写器</strong>（把欠定的用户 prompt 映射成模型友好的稠密 caption，但不覆盖用户意图），一个<strong>风格参考系统</strong>（用一张/多张参考图注入风格，且内容泄漏最小、风格强度可调）。</li>
+</ol>
+<blockquote>
+<p>一句话动机：<strong>别人优化「单一稳态默认图」，Krea 2 优化「一个宽广可导航的视觉空间」</strong>，并把它开源出来当社区基线。代价是要在数据/训练里主动对抗「向易学的高分布收敛」的引力。</p>
+</blockquote>
+<h2 id="sec-2">2. 方法 (Method)：从 LLM 生态搬来的极简 DiT + 五阶段训练</h2>
+<h3 id="sec-2-1">2.1 直觉：架构决策的四个评判维度</h3>
+<p>Krea 2 做架构消融时，先把每个改动的目标归到四类之一[§Architecture]：<strong>稳定性</strong>（loss/梯度尖刺更少？）、<strong>性能</strong>（收敛更快？且在更长训练 + 更高分辨率下趋势保持？）、<strong>效率</strong>（参数/FLOPs/显存/通信更省而不掉质量？）、<strong>简洁性</strong>（能更简单而不伤其它三项？）。</p>
+<p>一条贯穿全文的方法论：<strong>优先采用 LLM 生态里已成熟的架构组件</strong>——这样能直接复用现成 kernel 和优化，即便是给扩散模型用。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-single-stream-mmdit.png" alt="Krea 2 单流 MMDiT 架构">
+  <figcaption>
+    <strong>Fig. 2</strong>（报告架构图）— 最终的单流 MMDiT。文本（VLM 编码）、图像（VAE latent）、时间（MLP）三路 token 拼成一条序列，过共享权重的 Single-Stream MMDiT，最后一层输出速度场 velocity field。
+  </figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 最小 demo：一张消融表读懂最终架构</h3>
+<p>报告给了一张「基线 → 消融候选 → 最终选择」的总表，浓缩了所有架构决策：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>基线</th>
+<th>消融候选</th>
+<th><strong>最终选择</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注意力</td>
+<td>多头注意力 MHA</td>
+<td>GQA / MLA / 门控 sigmoid</td>
+<td><strong>GQA + 门控 sigmoid 注意力</strong></td>
+</tr>
+<tr>
+<td>MLP</td>
+<td>GeLU MLP</td>
+<td>SwiGLU</td>
+<td><strong>SwiGLU</strong>（4× 扩张）</td>
+</tr>
+<tr>
+<td>残差</td>
+<td>标准残差</td>
+<td>Value residual / Laurel</td>
+<td><strong>标准残差</strong></td>
+</tr>
+<tr>
+<td>文本编码器</td>
+<td>T5-XXL</td>
+<td>T5Gemma / Qwen2.5-VL / Qwen3-VL / umT5</td>
+<td><strong>Qwen3-VL</strong></td>
+</tr>
+<tr>
+<td>时间步调制</td>
+<td>每块 MLP 调制</td>
+<td>轻量带 bias 调制</td>
+<td><strong>轻量 bias 调制</strong></td>
+</tr>
+<tr>
+<td>自编码器</td>
+<td>FLUX AE</td>
+<td>Qwen-Image VAE / DC-AE / FLUX2 AE / 内部 VAE</td>
+<td><strong>Qwen-Image VAE &amp; FLUX2 VAE</strong></td>
+</tr>
+<tr>
+<td>块设计</td>
+<td>单流块</td>
+<td>混合流 / 并行单流</td>
+<td><strong>单流块</strong></td>
+</tr>
+<tr>
+<td>归一化</td>
+<td>LayerNorm / QKNorm</td>
+<td>RMSNorm / 零中心 RMSNorm / Derf</td>
+<td><strong>零中心 RMSNorm + QKNorm</strong></td>
+</tr>
+<tr>
+<td>位置编码</td>
+<td>3D 轴向 RoPE</td>
+<td>Golden-Gate / MRoPE / 归一化 / 部分 RoPE</td>
+<td><strong>3D 轴向 RoPE</strong></td>
+</tr>
+</tbody>
+</table>
+<p>几个有意思的取舍（都对应「LLM 已验证」原则）：</p>
+<ul>
+<li><strong>GQA + 门控 sigmoid 注意力</strong>：GQA 几乎不掉质量却省算力；门控 sigmoid（来自《Gated Attention for LLMs》）几乎零开销，性能没大涨但<strong>训练动态更稳</strong>（loss / 梯度范数曲线更平）。</li>
+<li><strong>MLA 其实更好但没用</strong>：MLA 比 GQA 略强，但带来额外计算开销；注意扩散是纯 prefill、推理无 KV cache，所以 MLA 用了上下投影压缩 KV、且不用 decoupled RoPE。</li>
+<li><strong>单流块为了简洁</strong>：单流 / 双流 / 混合流性能差不多，混合流（前 1/3 双流 + 后 2/3 单流）略好，但最终为简洁选<strong>单流</strong>。</li>
+</ul>
+<h3 id="sec-2-3">2.3 正式化：rectified-flow 速度损失 + 几个关键改造</h3>
+<p>最终模型用标准 **rectified-flow（v 参数化）**损失训练。给干净 latent <span class="math inline">\(x_1\)</span>、噪声 <span class="math inline">\(x_0\sim\mathcal N(0,I)\)</span>，线性插值路径 <span class="math inline">\(x_t=(1-t)x_0+t x_1\)</span>，目标速度是 <span class="math inline">\(v=x_1-x_0\)</span>，网络 <span class="math inline">\(v_\theta\)</span> 学着预测它：</p>
+<div class="math block">
+\[\mathcal L_{\text{RF}} = \mathbb E_{t,\,x_0,\,x_1}\big\lVert v_\theta(x_t, t, c) - (x_1 - x_0)\big\rVert^2\]
+</div>
+<p class="math-translation">—— 翻译: 这是 flow-matching 的标准训练目标（非 Krea 独创）；网络在每个噪声水平 t 上预测「从噪声指向干净图的方向」。c 是文本条件。</p>
+<p>在此之上有三处加速/改造值得记：</p>
+<p><strong>(a) 轻量时间步调制（省 20–30% 参数）。</strong> 多数 MMDiT 用「每块一个 MLP」生成 AdaLN 的 scale/shift/gate——这些 MLP 能占总参数的 20–30%，Krea 认为「为了注入一个标量条件太奢侈」，于是<strong>把每块 MLP 换成每块一个可调 bias</strong>，省下的参数全给注意力和 MLP[§Timestep conditioning]。他们也试过「完全去掉时间步条件」和「in-context 时间步 token」，前者一直更差；后者在 256px 上 4–16 个时间步 token 就能替代 AdaLN，但到 512/1024px 就明显不行。</p>
+<p><strong>(b) iREPA 加速收敛（用一个 epoch 就撤）。</strong> 256px 阶段的<strong>第一个 epoch</strong>用 iREPA（表示对齐，REPA 家族）加速早期收敛，然后立刻移除——「让 MMDiT 学自己的表示，同时大幅加快初始收敛」[§Pretraining]。这与 <a class="wiki-link" data-slug="sefi-image-2026" href="../sefi-image-2026/index.html">sefi-image-2026</a> 全程依赖 REPA/语义引导的路线形成对照：Krea 把它当「点火助推」用完即弃。</p>
+<p><strong>(c) 多层特征聚合（MFA）的文本编码器。</strong> Qwen3-VL 是自回归 VLM，它的<strong>最后一层特征是为 next-token 预测优化的、并不适合图像生成</strong>。受 Unifusion 启发，Krea 不取最后一层，而是加一个浅层注意力<strong>跨层聚合</strong>隐藏特征，让模型动态选择「粗→细」的文本表示；再叠一层轻量双向 Transformer（沿 token 轴）来削弱自回归偏置。</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-mfa.png" alt="多层特征聚合 MFA">
+  <figcaption>
+    <strong>Fig. 3</strong>（报告架构图）— 多层特征聚合（MFA）。从 VLM 的 L2…L35 各层抽特征，过「层间注意力（Layerwise Attention）」，再 Projection、跨层求和成最终文本条件。核心思想：last-layer 特征对生成是次优的。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig4-transformer-block.png" alt="Krea 2 Transformer 块设计">
+  <figcaption>
+    <strong>Fig. 4</strong>（报告架构图）— 单个 Transformer 块的最终设计（GQA + 门控 sigmoid 注意力 + SwiGLU + 零中心 RMSNorm/QKNorm + 轻量 bias 调制）。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>VAE 选择的一处实证教训</strong>：DC-AE 提供高达 32× 空间压缩、对训练/推理效率诱人，但<strong>它的重建误差给扩散模型「解析精细细节的能力」设了硬上限</strong>；相比之下 Qwen-Image VAE 和 FLUX2 VAE 收敛快得多且重建质量好——所以早期用 Qwen-Image VAE、后来大模型转 FLUX2 VAE[§Autoencoder]。</p>
+</blockquote>
+<h3 id="sec-2-4">2.4 五阶段训练流水线</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-training-pipeline.png" alt="Krea 2 训练流水线总览">
+  <figcaption>
+    <strong>Fig. 5</strong>（报告流程图）— 整体训练流水线：256→512→1024px 课程式预训练 → midtraining（仅取策展源 + 数据均衡 + 语义去重）→ SFT（小而精的高美学域数据）→ 偏好优化（合成对粗调 + 人工对精调）→ RL（多奖励挤性能）→ prompt 扩写（SFT+RL 训练定制 LLM）。结构明显借鉴现代 LLM 训练。</figcaption>
+</figure>
+<ul>
+<li><strong>预训练</strong>：256→512→1024px 课程学习，把大头 FLOPs 花在低分辨率建核心能力。256/512px 用 <strong>8-bit 训练</strong>（256 张量级 scaling、512 行级 scaling），提速 15–20% 而几乎不掉点；1024px 起回 bf16。用<strong>随分辨率增大的 logit-normal timeshift</strong>（只 sweep 训练 timeshift，推理 timeshift 固定）。LR 用 warmup-stable-decay，用 <strong>PMA（预训练模型合并）替代 EMA</strong>——效果相当但省掉 EMA 的大显存开销。</li>
+<li><strong>Midtraining</strong>：从 LLM 借来的阶段，<strong>自上而下</strong>地先选好域和源（与预训练自下而上相反），平滑衔接「通用预训练分布」到「高质量 SFT 分布」。用 FAISS 层次 k-means + PageRank 实体覆盖（见 §4.2）。</li>
+<li><strong>SFT</strong>：小而精的高美学图集，把模型进一步<strong>偏置向理想美学方向</strong>，专治早期 checkpoint 的高饱和/纹理问题；多个域专用 SFT checkpoint 再<strong>模型合并</strong>成通才。</li>
+<li><strong>偏好优化（PO）</strong>：两阶段——先大规模合成偏好对（类 delta-learning，保证多数对里至少一个 on-policy 样本）粗调，再用<strong>纯人工标注</strong>校准（标注者是熟悉模型脾性的自己人）。</li>
+<li><strong>RL</strong>：见 §2.5。</li>
+<li><strong>时间步蒸馏（可选）</strong>：见 §2.6。</li>
+</ul>
+<h3 id="sec-2-5">2.5 RL：多奖励 GRPO + 无 CFG + 把 prompt 选择当资源分配</h3>
+<p>RL 是最后一阶段，用 <strong>多奖励 GRPO 风格</strong>方法，四个奖励模型：①通用美学（在 PO 阶段人工偏好数据上微调的开源 VLM）②prompt 跟随 ③文字渲染 ④伪影与结构。形式上 GRPO 对每个 prompt 采一组 <span class="math inline">\(G\)</span> 个样本、用组内归一化优势：</p>
+<div class="math block">
+\[A_i = \frac{r_i - \operatorname{mean}(r_{1..G})}{\operatorname{std}(r_{1..G})},\qquad r_i = \sum_k w_k\, R_k(\text{img}_i, c)\]
+</div>
+<p class="math-translation">—— 翻译: 同一 prompt 生成一组图，每张的总奖励是四个奖励模型的加权和；优势 = 该图奖励相对组内均值/方差的标准化。组内对比省掉了单独的 critic。（GRPO 是标准形式。）</p>
+<p>三个工程要点：</p>
+<ul>
+<li><strong>rubric 奖励抗主观性</strong>：prompt 跟随/文字渲染比「美学」更可验证。借鉴 LLM 的 rubric 评测，把每个 prompt <strong>拆成可核验的需求清单</strong>逐条打分，而不是让裁判模型给一个笼统分。</li>
+<li><strong>专门的伪影奖励抗 reward hacking</strong>：只优化美学+跟随会让模型生成「乍看合理但有多指/畸形肢体/扭曲文字」的图——这些人一眼能看出、通用 VLM 裁判常漏。于是单训一个<strong>伪影奖励模型</strong>专抓结构错误。</li>
+<li><strong>prompt 选择 = 资源分配</strong>：持续分析每组的奖励统计，<strong>太易/太难/组内方差太小的 prompt 信号少，降权或剔除</strong>，把算力花在「模型还能学」的样本上。</li>
+<li><strong>RL 全程不开 CFG</strong>：保持 rollout 与训练分布一致、省开销；这会快速把「无 CFG 的条件分布」拉近到「有引导的分布」。推理时 CFG 仍可作为额外控制旋钮。</li>
+</ul>
+<blockquote>
+<p>报告还提到 PO 阶段的一个坑——<strong>策略发散</strong>：DPO 想拉大「赢样本 vs 输样本」的 likelihood 间隔，但实践中模型常靠**同时降低两者的概率（只是降速不同）**来达成，从而漂离预训练分布、后期冒出高频伪影。Krea 设计了一个 DPO 变体 <strong>STPO</strong>（加辅助损失 + 改动原 DPO 形式）来抑制发散。其抑制的本质，是给 DPO 目标加约束、别让两个分支一起塌：</p>
+</blockquote>
+<div class="math block">
+\[\mathcal L_{\text{DPO}} = -\mathbb E\Big[\log \sigma\big(\beta(\Delta_\theta^{+} - \Delta_\theta^{-})\big)\Big],\quad \Delta_\theta^{\pm}=\log\tfrac{p_\theta(x^{\pm})}{p_{\text{ref}}(x^{\pm})}\]
+</div>
+<p class="math-translation">—— 翻译: 标准扩散 DPO：让「赢样本相对参考模型的对数似然比」高于「输样本」。STPO 在此基础上加项，阻止 p_θ(x⁺) 和 p_θ(x⁻) 一起被压低导致的分布漂移。（DPO 为标准形式，STPO 细节报告未公开。）</p>
+<h3 id="sec-2-6">2.6 时间步蒸馏：为什么选 TDM 而不是 DMD/DMD2</h3>
+<p>RL 后有个可选的「制导蒸馏 + 时间步蒸馏」阶段，把多步教师蒸成少步学生。候选有 DMD、DMD2、Decoupled DMD、piFlow、APT，最终选 <strong>TDM（Trajectory Distribution Matching）</strong>[§Timestep distillation]，理由是<strong>简单、少超参、data-free、且支持灵活多步</strong>（排除了 GAN 类方法和需要改成多时间步预测模型的 piFlow）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig6-tdm.png" alt="TDM 轨迹分布匹配示意">
+  <figcaption>
+    <strong>Fig. 6</strong>（报告示意）— TDM。标准 DMD 只在「干净图分布」上做分布匹配（少步学生预测干净图→重新加噪→训练学生）；TDM 把 DMD **沿时间步展开**，在**轨迹层面**而非单点做分布匹配，因此天然适配灵活的多步学生。
+  </figcaption>
+</figure>
+<h3 id="sec-2-7">2.7 两套可控性系统</h3>
+<ul>
+<li><strong>Prompt 扩写器</strong>：在开源 LLM 上做 SFT（用另一个 LLM 从长 caption 反向合成「欠定用户 prompt」造成对，并合成 thinking trace 保留推理）+ RL（GDPO 多奖励：图像级质量/偏好 + prompt 级可验证「是否忠于原意」 + 安全门控）。特别地，用 <strong>DINOv3 embedding 多样性分</strong>对抗「多样性坍缩」（扩写器容易学成单一安全的高奖励 house style）——且发现多样性奖励<strong>必须全程保持</strong>，一旦退火权重过小就迅速坍缩。</li>
+<li><strong>风格参考系统</strong>：在基模上构建，支持多风格语义混合、连续风格强度控制、复杂风格 SOTA 还原。难点是「风格 vs 内容」歧义导致的<strong>内容泄漏</strong>，且高保真风格迁移数据难大量获取。Krea 用一个<strong>自监督训练技巧</strong> + PO 对齐来解（具体方法报告未展开）。</li>
+</ul>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<ul>
+<li><strong>榜单定位</strong>：Krea 2 进入 Artificial Analysis 文生图榜<strong>前 10</strong>，在独立实验室（非大厂）模型中排<strong>第 2</strong>[§Introduction]。作为开源基线，它在保持竞争力的同时主打创意生成体验。</li>
+<li><strong>8-bit 训练实测有效</strong>：256/512px 阶段相对 bf16 提速 <strong>15–20%</strong>，训练 loss 和评测指标几乎不掉。</li>
+<li><strong>架构「做减法」可行</strong>：用 LLM 生态的成熟组件（GQA、SwiGLU、RMSNorm、轻量 bias 调制）能在不掉质量下显著省参数（仅时间步调制一项就省 20–30% 参数）并提升稳定性。</li>
+<li><strong>数据策展的反直觉结论</strong>：①<strong>不用 AI 生成图</strong>——哪怕一小撮也会因「合成图更易学」给模型质量设上限、引入偏置；②<strong>多样性 &gt; 纯高质量</strong>——只过滤「重复/VLM 反复抓不准/诱发偏置伪影/低分辨率下太复杂/AI 生成」这几类，其余即便「不理想」也保留（因为模型精确理解了不良行为，后续可用来反向 steer）。</li>
+<li><strong>基建结论</strong>：①<strong>InfiniBand 网络不稳是崩溃的头号原因</strong>（链路抖动、丢包、拥塞、符号错误）；②<strong>GPU 数翻倍带来的不稳定远超预期</strong>——&lt;128 GPU 的 run 能跑几天，但超大规模下「没有一个 run 能连跑 24h 不崩」，且很多崩溃无明显原因（静默 NCCL 超时而所有指标看着正常）；③换 Ceph→Weka 后文件系统故障骤降、30 秒完成一次 checkpoint。</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<blockquote>
+<p>这是这份报告<strong>信息密度最高</strong>的部分。下面把散落的工程细节按子系统归拢，并引用报告自身给出的代码。</p>
+</blockquote>
+<h3 id="sec-4-1">4.1 数据策展与 caption（不靠 IQA 分数过滤）</h3>
+<p>报告明确反对用美学分/IQA 模型做主过滤——「模糊」可能是故意的艺术选择，会引入隐性偏置[§Data Curation Principles]。低分辨率阶段（数十亿图）靠<strong>廉价 CPU 过滤</strong>（坏文件/分辨率/宽高比/Laplacian 去极端纹理噪声）；去重用 <strong>md5 + phash + colorhash 组合</strong>（发现默认 8×8 phash 不看颜色、误报高，改用 <strong>12×12 phash + colorhash</strong>）。任何需要 GPU 的低分辨率过滤模型都<strong>控制在 &lt;1B 参数</strong>。</p>
+<p>一个巧思：在 SigLIP-2 embedding 上训一个<strong>稀疏自编码器（SAE）</strong>，再用 VLM 给每个 SAE 特征按 top-k 激活样本打标签，形成<strong>无监督标签系统</strong>来过滤视觉伪影——无需为每种伪影单独训分类器。</p>
+<p>Caption 是多阶段的：OCR 抽可见文字 → VLM 结合 OCR + 元数据（相机参数、已知实体）产出富含世界知识的长 caption → 更便宜的 LLM <strong>改写成多种长度/格式</strong>。实证：<strong>长 prompt 提供稠密监督、收敛更快 loss 更低</strong>，但仍保证短/中 prompt 的曝光（下游很多场景需要）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig7-captioning.png" alt="Krea 2 captioning pipeline">
+  <figcaption>
+    <strong>Fig. 7</strong>（报告流程图）— 通用 captioning 管线：OCR + 元数据 → 富 caption → 多长度/格式改写。
+  </figcaption>
+</figure>
+<h3 id="sec-4-2">4.2 Midtraining 的实体覆盖：PageRank + Wikidata 兜底长尾</h3>
+<p>一个被严肃对待的问题：<strong>用户会直接点名某个实体</strong>（运动员、演员），但这类实体可能落在「拥挤的语义簇」里、被层次采样误删。Krea 的做法[§Midtraining Data]：用 <strong>Danker 对英文维基跑 PageRank</strong>、保留排名前 90% 文章 → 用 Wikidata 元数据滤掉「不可表征」的主题 → 对剩下 ~500 万概念在全量 caption 里<strong>全文检索评估覆盖度</strong> → 采样时<strong>优先包含 caption 引用了稀有概念的图</strong> → 最后复查确认没有概念被整段丢掉。聚类本身用 <strong>FAISS 层次 k-means</strong>（借鉴 DINOv2 的自动数据策展），对长尾簇欠采样保留、对头部簇不过采。</p>
+<h3 id="sec-4-3">4.3 「krablet」数据仓库：把数据处理建模成 Postgres 队列</h3>
+<p>最有特色的基建：不用 Ray/Spark/Daft，而是<strong>围绕一组分片 PostgreSQL 自建仓储 + 队列系统</strong>，每台叫一个 <em>krablet</em>（Krea tablet）。核心是用 <code>FOR UPDATE SKIP LOCKED</code> 把「一张表 + 若干处理列」变成可并发消费的任务队列。OCR worker 的认领查询长这样：</p>
+<p class="code-source">报告 §Data infrastructure — OCR worker 的认领 SQL（FOR UPDATE SKIP LOCKED 队列语义）</p>
+<pre><code class="language-sql">-- OCR worker：认领 8 行未处理样本，原子地打上 last_tried 时间戳
+WITH picked AS (
+    SELECT image_name FROM images
+    WHERE contains_text IS NULL
+    ORDER BY ocr_last_tried_at NULLS FIRST
+    LIMIT 8
+    FOR UPDATE SKIP LOCKED          -- 关键：跳过已被别的 worker 锁住的行，天然并发
+)
+UPDATE images i
+SET ocr_last_tried_at = NOW()
+FROM picked p
+WHERE i.id = p.id
+RETURNING i.*
+</code></pre>
+<p>这套「队列即数据层」带来一串好处：失败行自动排到队尾重试（<code>last_tried_at</code> 原子更新，避免队头阻塞、永不丢进 DLQ）；任意 worker 随时崩溃都不影响全局；worker 数可从 1 弹到 1000 无需 reshard（用 <code>COUNT(*)</code> 认领查询当 Prometheus 伸缩指标自动扩缩）；结果逐行即时持久化（可跑 spot/可中断优先级）。系统已扩到<strong>单 208 TB 元数据</strong>、每秒数万次有竞争的 UPSERT。</p>
+<p>报告还在其上封了个 notebook 友好的 <code>pluck</code> 全局 map API：</p>
+<p class="code-source">报告 §Data infrastructure — pluck：在表上做分布式 map（底层仍是 FOR UPDATE SKIP LOCKED）</p>
+<pre><code class="language-python">def embed_func(batch):   # 也可传有状态的 Actor 而非一次性函数
+    ...
+
+t = pluck.Table(
+    &quot;images&quot;,                                            # 表名
+    &quot;image_name&quot;,                                        # 主键 / 分片键
+    &quot;embedding_path IS NULL AND contains_text = FALSE&quot;,  # 认领条件
+)
+t.map(embed_func)   # 返回 handle，可附着查看实时进度
+</code></pre>
+<p>底层用 <code>TABLESAMPLE</code> + 统计估计把 keyspace 切成批队列，UDF 用 <code>cloudpickle</code> 序列化后在远端 worker 执行。下一代系统计划保留 krablet 和队列语义，但把数据存到对象存储上的 <strong>LSM 树</strong>。</p>
+<h3 id="sec-4-4">4.4 分布式训练栈</h3>
+<p>从零基于 PyTorch 自建[§Training infrastructure]：依赖 <strong>DTensor</strong> 抽象和 <strong>torchtitan</strong> 的 torch-native 特性；预训练/后训练多用 <strong>FSDP2 + Megatron 式张量并行</strong>，TP&gt;2 时用 <code>torch.compile</code> 开 <strong>async-TP</strong>。AE 参数显存开销小所以全设备复制，只对文本编码器和 MMDiT 主干分片。节点内 NVLinkSharp、节点间 InfiniBand。</p>
+<p>为效率刻意用<strong>更宽（更大 hidden、更少层）的模型</strong>：更大 hidden 提高单层计算强度、更易用 FSDP2 预取隐藏延迟；更少层减少 all-gather/reduce-scatter 次数（显著降低 NCCL 报错）；更大矩阵乘也摊薄 8-bit 量化/反量化开销。重度依赖 <code>torch.compile</code>，注意力默认最新 cuDNN kernel、按需 FlexAttention / FlashAttention-3。dataloading 用 Parquet，<strong>预先 shuffle + 按宽高比打包</strong>（同 batch 同宽高比 → 一次 AE pass 编码 latent；顺序磁盘扫描又能全局 shuffle；还能精确重放定位导致 loss 尖刺的样本）。</p>
+<p>容错哲学很务实：在他们规模下，与其上 torch-ft / DiLoCo，不如<strong>靠激进频繁 checkpoint + 快启动来优化 MTBF/MTTR</strong>。并强调<strong>跨设备 I/O/CPU/GPU 负载要均匀</strong>——预先把所有图裁剪/缩放到目标分辨率（避免「低分辨率阶段临时缩放高清图」造成的 CPU/I-O 不均），并 pad 到完全相同张量形状。</p>
+<h3 id="sec-4-5">4.5 调度与外溢推理（Kubernetes）</h3>
+<p>研究跑在<strong>与生产推理共享 GPU 的单个 Kubernetes 集群</strong>里[§Systems Infrastructure]：研究需要时可吃下整个 GPU 池，生产推理自动外溢到别处。用 <strong>Kueue</strong>（两级优先级 = Kueue Workload 优先级 + K8s Pod 优先级）做 gang-scheduling + borrowing/lending/reclamation；吐槽 Kueue 不支持按节点数动态推断每队 GPU 数，得手动改。外溢推理用 <strong>Virtual Kubelet</strong>（自建一层，而非 InterLink）把外部 GPU provider 伪装成 K8s 节点——好处是伸缩/容错语义<strong>直接继承自 K8s</strong>（HPA 检测到外部副本失败 → 标失败 → 让 HPA 重排，系统不自己修）。坏节点管理上线了个叫 <strong>Packerman</strong> 的 operator：把 dev 机等打包到坏节点上，让健康节点留给训练（dev 机容忍某张 GPU 高 5–10°C，训练不容忍）。</p>
+<h3 id="sec-4-6">4.6 可观测性：IB 指标最重要</h3>
+<p>报告列了一串最有用的 DCGM 指标及其异常含义[§Metrics]：<code>GPU_TEMP</code>（&gt;75–78°C 就开始 throttle 加剧不稳）、<code>PROF_PIPE_TENSOR_ACTIVE</code>（张量核利用率是「训练是否正常」的首选指标，过热节点反而异常偏高）、<code>FB_USED</code>（少数 GPU 卡在 ~5 GiB 说明分配失败、需重启该节点）、<code>PCIE_REPLAY_COUNTER</code>（单卡 replay 突刺常预示崩溃）等。<strong>InfiniBand 自定义指标被认为最重要</strong>（DCGM 默认不导出，自建 DaemonSet 收 CRC/replay/recovery 和 <code>port_rcv_errors</code> 等一长串），因为集群网络本身不稳，能据此定位「错误只集中在 mlx5_10/11」这类问题。</p>
+<h3 id="sec-4-7">4.7 与公开训练代码的关系（诚实标注）</h3>
+<p>报告头部声明 Krea 2 <strong>开源权重 + 推理代码（permissive license）</strong>，组织在 <a href="https://github.com/krea-ai">github.com/krea-ai</a>、权重在 <a href="https://huggingface.co/krea">huggingface.co/krea</a>。但：<strong>报告描述的训练配方、数据基建（krablet/pluck）、RL/PO/蒸馏管线并不在推理代码里</strong>——它们是内部系统。因此本文的「代码引用」用的是<strong>报告正文给出的 SQL/Python 片段</strong>（§4.3），而非可克隆仓库的 <code>file:Lnn</code>。这是本篇与标准「论文+repo 交叉精读」的最大差异，特此标注以免误导。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">优点 (Strengths)</h3>
+<ul>
+<li><strong>罕见地把「全栈」讲透</strong>：从数据策展原则、caption、架构消融、五阶段训练，到 K8s 调度、文件系统、自建数据库队列、观测指标——一份报告覆盖了一个图像基础模型团队的<strong>几乎全部工程面</strong>，对想自建训练栈的团队是极实用的「避坑地图」。</li>
+<li><strong>工程结论可迁移、有反直觉价值</strong>：「不用 AI 生成图」「多样性优先、别用 IQA 分数过主滤」「12×12 phash+colorhash」「轻量 bias 调制省 20–30% 参数」「IB 是崩溃头号原因」「GPU 翻倍不稳定性超线性」——这些都是带数字/带教训的硬结论，不是空话。</li>
+<li><strong>方法论自洽</strong>：「优先用 LLM 生态成熟组件以复用 kernel」这条主线把一堆架构选择串成了连贯逻辑，而非堆砌 trick。</li>
+<li><strong>定位清晰且诚实</strong>：明确自己是「为探索而生的开源基线」，承认在某些单点上不追大厂 SOTA，把可控性（prompt 扩写 + 风格参考）作为差异化卖点。</li>
+</ul>
+<h3 id="sec-5-2">局限 / 开放问题 (Limitations / open questions)</h3>
+<ul>
+<li><strong>不是可复现的方法论文</strong>：核心创新（STPO、风格参考的自监督技巧、内部 VAE、奖励模型）大多<strong>只给名字、不给公式/数据/超参</strong>；很多关键决策「因时间限制没采用」（Muon、内部 VAE、混合流块）。想复现训练基本不可能。</li>
+<li><strong>几乎没有量化对比/消融曲线</strong>：通篇是定性结论（「略好/更稳/明显更差」），报告正文几乎不放消融数字表和基准对比表（榜单名次也只给「前 10 / 第 2」的口径，无逐基准分数）。说服力依赖读者对团队的信任。</li>
+<li><strong>「创意探索 / 多样性」难以证伪</strong>：核心卖点（更宽的美学空间、抗多样性坍缩）缺乏可量化的多样性指标对比，容易流于叙事。</li>
+<li><strong>承认自己 undertrained</strong>：报告明说当前模型「训练不足、会受益于更长训练」，且架构/优化器为求稳走了保守选择（没上 MoE、没上 Muon、没上 2K/4K 原生）——意味着这一代更像「基线 + 路线图」而非性能巅峰。</li>
+<li><strong>可控性系统是黑箱</strong>：风格参考系统的「新颖自监督技巧」完全没展开，prompt 扩写虽细但同样无消融数字。</li>
+<li><strong>无图像编辑 / 高分辨率</strong>：明确把 editing、image reference、原生 2K/4K、非自然语言 prompt（JSON/bbox/Markdown）都列为「未来工作」——当前能力边界清楚但有限。</li>
+</ul>
+<h3 id="sec-5-3">何时用 / 不用 (When to use / not use)</h3>
+<ul>
+<li><strong>适合</strong>：想要一个<strong>开源、permissive、风格多样</strong>的 T2I 基线做二次开发/研究；想学<strong>如何从零搭一套图像基础模型训练基建</strong>（这份报告就是教科书级参考）；重视创意探索与风格可控性的产品。</li>
+<li><strong>暂不适合</strong>：需要<strong>严格可复现训练配方</strong>或<strong>逐基准 SOTA 数字</strong>来做学术对比（报告不提供）；当前就要<strong>图像编辑 / 原生 4K / 结构化 prompt</strong>（均为未来工作）。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<ul>
+<li>强对照：<a class="wiki-link" data-slug="sefi-image-2026" href="../sefi-image-2026/index.html">sefi-image-2026</a>（同样用 REPA/DINO/FLUX2-VAE 加速，但走「语义先行异步去噪」的显式机制，且给了完整公式+代码——与 Krea「iREPA 点火即弃 + 工程优先」恰成方法论两极）。</li>
+<li>同代开源 T2I：<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a>（Krea 直接用了 Qwen-Image VAE 和 Qwen3-VL 文本编码器）、<a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a>（同走 MLLM 文本条件 + DiT + DMD 蒸馏路线）。</li>
+<li>报告重度引用的外部方法：rectified flow / flow matching、REPA、GQA、Gated Attention for LLMs、Unifusion（多层特征聚合）、DPO/扩散 DPO、TDM（轨迹分布匹配）、Muon、torchtitan。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

@@ -56,6 +56,17 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/krea-2-2026/index.html">Krea 2 技术报告精读：一个「为创意探索而生」的开源文生图基础模型，从数据、架构到万卡基建全栈拆解</a></h3>
+  <p class="post-card__tldr">Krea 2 是 Krea 自研的开源文生图（T2I）基础模型族，定位不是「给你一张最稳的默认图」，而是「让你在广阔的美学空间里探索」——刻意保留风格多样性、并配套 prompt 扩写器 + 风格参考系统两套可控性工具。开源权重 + 推理代码，permissive license，号称登上 Artificial Analysis T2I 榜前 10、独立实验室中第 2。
+这是一份「工程配方 + 系统基建」型技术报告（58 分钟阅读），重点不在新公式，而在**全栈决策**：数据策展原则（多样性优先、零 AI 生成图）、从 LLM 生态搬过来的极简 DiT（GQA + 门控 sigmoid 注意力 + SwiGLU + Qwen3-VL + 轻量时间步调制 + 多层特征聚合）、五阶段训练流水线（预训练→midtraining→SFT→偏好优化→RL→时间步蒸馏），以及从零自建的 Kubernetes 训练基建（Kueue 调度、Virtual Kubelet 外溢推理、Weka 文件系统、PostgreSQL「krablet」数据仓库 + FOR UPDATE SKIP LOCKED 队列）。
+本文按精读骨架交叉拆解，并补全报告用散文描述、但背后是标准公式的几处方法（rectified-flow v 参数化、DPO/STPO、多奖励 GRPO、DMD→TDM）。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/boogu-image-2026/index.html">Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）</a></h3>

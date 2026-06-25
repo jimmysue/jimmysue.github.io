@@ -129,6 +129,15 @@
       "url": "papers/ideogram-4-2026/index.html"
     },
     {
+      "id": "papers/krea-2-2026",
+      "type": "paper",
+      "slug": "krea-2-2026",
+      "title": "Krea 2 技术报告精读：一个「为创意探索而生」的开源文生图基础模型，从数据、架构到万卡基建全栈拆解",
+      "date": "2026-06-25",
+      "tldr": "Krea 2 是 Krea 自研的开源文生图（T2I）基础模型族，定位不是「给你一张最稳的默认图」，而是「让你在广阔的美学空间里探索」——刻意保留风格多样性、并配套 prompt 扩写器 + 风格参考系统两套可控性工具。开源权重 + 推理代码，permissive license，号称登上 Artificial Analysis T2I 榜前 10、独立实验室中第 2。\n这是一份「工程配方 + 系统基建」型技术报告（58 分钟阅读），重点不在新公式，而在**全栈决策**：数据策展原则（多样性优先、零 AI 生成图）、从 LLM 生态搬过来的极简 DiT（GQA + 门控 sigmoid 注意力 + SwiGLU + Qwen3-VL + 轻量时间步调制 + 多层特征聚合）、五阶段训练流水线（预训练→midtraining→SFT→偏好优化→RL→时间步蒸馏），以及从零自建的 Kubernetes 训练基建（Kueue 调度、Virtual Kubelet 外溢推理、Weka 文件系统、PostgreSQL「krablet」数据仓库 + FOR UPDATE SKIP LOCKED 队列）。\n本文按精读骨架交叉拆解，并补全报告用散文描述、但背后是标准公式的几处方法（rectified-flow v 参数化、DPO/STPO、多奖励 GRPO、DMD→TDM）。\n",
+      "url": "papers/krea-2-2026/index.html"
+    },
+    {
       "id": "papers/l2p-2026",
       "type": "paper",
       "slug": "l2p-2026",
@@ -983,6 +992,134 @@
       "name": "ideogram4"
     },
     {
+      "id": "concepts/mmdit",
+      "type": "concept",
+      "slug": "mmdit",
+      "name": "mmdit",
+      "has_file": false,
+      "url": "concepts/mmdit.html"
+    },
+    {
+      "id": "concepts/rectified-flow",
+      "type": "concept",
+      "slug": "rectified-flow",
+      "name": "rectified-flow",
+      "has_file": false,
+      "url": "concepts/rectified-flow.html"
+    },
+    {
+      "id": "concepts/grouped-query-attention",
+      "type": "concept",
+      "slug": "grouped-query-attention",
+      "name": "grouped-query-attention",
+      "has_file": false,
+      "url": "concepts/grouped-query-attention.html"
+    },
+    {
+      "id": "concepts/gated-attention",
+      "type": "concept",
+      "slug": "gated-attention",
+      "name": "gated-attention",
+      "has_file": false,
+      "url": "concepts/gated-attention.html"
+    },
+    {
+      "id": "concepts/rmsnorm",
+      "type": "concept",
+      "slug": "rmsnorm",
+      "name": "rmsnorm",
+      "has_file": false,
+      "url": "concepts/rmsnorm.html"
+    },
+    {
+      "id": "concepts/repa",
+      "type": "concept",
+      "slug": "repa",
+      "name": "repa",
+      "has_file": false,
+      "url": "concepts/repa.html"
+    },
+    {
+      "id": "concepts/direct-preference-optimization",
+      "type": "concept",
+      "slug": "direct-preference-optimization",
+      "name": "direct-preference-optimization",
+      "has_file": false,
+      "url": "concepts/direct-preference-optimization.html"
+    },
+    {
+      "id": "concepts/model-merging",
+      "type": "concept",
+      "slug": "model-merging",
+      "name": "model-merging",
+      "has_file": false,
+      "url": "concepts/model-merging.html"
+    },
+    {
+      "id": "concepts/prompt-expansion",
+      "type": "concept",
+      "slug": "prompt-expansion",
+      "name": "prompt-expansion",
+      "has_file": false,
+      "url": "concepts/prompt-expansion.html"
+    },
+    {
+      "id": "concepts/style-transfer",
+      "type": "concept",
+      "slug": "style-transfer",
+      "name": "style-transfer",
+      "has_file": false,
+      "url": "concepts/style-transfer.html"
+    },
+    {
+      "id": "concepts/reward-hacking",
+      "type": "concept",
+      "slug": "reward-hacking",
+      "name": "reward-hacking",
+      "has_file": false,
+      "url": "concepts/reward-hacking.html"
+    },
+    {
+      "id": "concepts/data-curation",
+      "type": "concept",
+      "slug": "data-curation",
+      "name": "data-curation",
+      "has_file": false,
+      "url": "concepts/data-curation.html"
+    },
+    {
+      "id": "concepts/distributed-training",
+      "type": "concept",
+      "slug": "distributed-training",
+      "name": "distributed-training",
+      "has_file": false,
+      "url": "concepts/distributed-training.html"
+    },
+    {
+      "id": "concepts/midtraining",
+      "type": "concept",
+      "slug": "midtraining",
+      "name": "midtraining",
+      "has_file": false,
+      "url": "concepts/midtraining.html"
+    },
+    {
+      "id": "repos/github.com/4dff0e1d",
+      "type": "repo",
+      "url": "https://github.com/krea-ai",
+      "host": "github.com",
+      "owner": "",
+      "name": ""
+    },
+    {
+      "id": "repos/pytorch/torchtitan",
+      "type": "repo",
+      "url": "https://github.com/pytorch/torchtitan",
+      "host": "github.com",
+      "owner": "pytorch",
+      "name": "torchtitan"
+    },
+    {
       "id": "concepts/comparison",
       "type": "concept",
       "slug": "comparison",
@@ -1167,14 +1304,6 @@
       "url": "concepts/image-super-resolution.html"
     },
     {
-      "id": "concepts/rectified-flow",
-      "type": "concept",
-      "slug": "rectified-flow",
-      "name": "rectified-flow",
-      "has_file": false,
-      "url": "concepts/rectified-flow.html"
-    },
-    {
       "id": "concepts/diffusion-distillation",
       "type": "concept",
       "slug": "diffusion-distillation",
@@ -1341,14 +1470,6 @@
       "name": "latent-diffusion",
       "has_file": false,
       "url": "concepts/latent-diffusion.html"
-    },
-    {
-      "id": "concepts/repa",
-      "type": "concept",
-      "slug": "repa",
-      "name": "repa",
-      "has_file": false,
-      "url": "concepts/repa.html"
     },
     {
       "id": "concepts/asynchronous-denoising",
@@ -1879,12 +2000,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2049,12 +2170,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -2249,12 +2370,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2309,12 +2430,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -2324,17 +2440,152 @@
     },
     {
       "from": "papers/ideogram-4-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "repos/ideogram-oss/ideogram4",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/diffusion-transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/mmdit",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/rectified-flow",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/grouped-query-attention",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/gated-attention",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/rope",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/rmsnorm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/repa",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/classifier-free-guidance",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/direct-preference-optimization",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/grpo",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/distribution-matching-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/model-merging",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/prompt-expansion",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/style-transfer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/reward-hacking",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/data-curation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/distributed-training",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "concepts/midtraining",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "papers/sefi-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "repos/github.com/4dff0e1d",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "repos/pytorch/torchtitan",
       "kind": "implements"
     },
     {
@@ -2499,12 +2750,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -2549,12 +2800,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -2564,7 +2810,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2714,12 +2965,12 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/lisa-2023",
+      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -2769,12 +3020,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -2849,12 +3100,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -2939,12 +3190,12 @@
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -3094,7 +3345,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -3104,12 +3355,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3354,12 +3605,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -3519,12 +3770,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
