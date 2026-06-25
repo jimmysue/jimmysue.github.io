@@ -67,6 +67,17 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/i1-2026/index.html">i1 精读：一份「完全开源」的强文生图配方——用 300+ 控制实验把设计空间逐个钉死</a></h3>
+  <p class="post-card__tldr">i1 是普林斯顿 Zhuang Liu 组放出的 3B 文生图扩散模型，卖点不是新模块，而是**完全开源（权重 + 数据 + 代码 + 配方）** 且**用 300+ 个控制实验**（700K+ TPU v6e 小时）把「文/噪声条件、骨干结构、合成 caption、数据混合」这几个设计维度逐个单变量消融，给出 10 条可复用结论。
+最终配方极简：双流 MMDiT + 长跳连接（long skip）+ 砍掉 AdaLN（省 0.23B 参数）+ 单个强文本编码器（T5Gemma-2B）配一个**更大的 transformer adapter**（替代「多文本编码器」）+ 只用长合成 caption 训练、推理时用 LLM 把短 prompt 扩写对齐训练分布 + 各数据集**等权重**混合。
+在 GenEval/DPG/PRISM/CVTG-2K/LongText 五个 benchmark 上，i1（3B）平均超过此前最强「完全开源」模型 **29.5 个百分点**，并在多数指标上压过 12B FLUX.1 [Dev]、17B HiDream-I1。本文交叉阅读其 JAX 代码，把每条结论落到 `file:Lnn`。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-24</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/sefi-image-2026/index.html">SeFi-Image：用「语义先行」扩散把 T2I 基础模型的训练成本砍到 1/5（代码精读）</a></h3>

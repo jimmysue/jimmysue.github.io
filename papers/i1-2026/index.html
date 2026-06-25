@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>i1 精读：一份「完全开源」的强文生图配方——用 300+ 控制实验把设计空间逐个钉死</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 训练目标：rectified flow（velocity 预测）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 骨干：双流 MMDiT + 长跳连接（long skip）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 文本/噪声条件：单编码器 + 大 adapter，砍掉 AdaLN</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 数据：长 caption + 推理扩写、等权重混合</a></li>
+    <li class="h2"><a href="#sec-3">3. 实验结果 (Results)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 主结果：五个 benchmark 上压过更大的开源模型</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 受控实验里的 10 条 finding（论文真正的「结果」）</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 训练规模</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical Summary)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>i1：一份「完全开源」的强文生图配方</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-25</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-25</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Boya Zeng, Tianze Luo, Shu Pu, Jucheng Shen, Taiming Lu, Gabriel Sarch, Zhuang Liu (Princeton)</span> · <span class="post-meta__venue">arXiv:2606.11289, 2026-06-09</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.11289">arXiv:2606.11289</a> · <a class="post-meta__link" href="https://zlab-princeton.github.io/i1/">项目页</a> · <a class="post-meta__link" href="https://github.com/zlab-princeton/i1">代码</a> · <a class="post-meta__link" href="https://huggingface.co/zlab-princeton/i1-3B">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/mmdit.html">mmdit</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/rectified-flow.html">rectified-flow</a> <a class="concept-chip" href="../../concepts/long-skip-connection.html">long-skip-connection</a> <a class="concept-chip" href="../../concepts/adaln.html">adaln</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a> <a class="concept-chip" href="../../concepts/prompt-rewrite.html">prompt-rewrite</a> <a class="concept-chip" href="../../concepts/data-mixing.html">data-mixing</a> <a class="concept-chip" href="../../concepts/synthetic-captioning.html">synthetic-captioning</a> <a class="concept-chip" href="../../concepts/open-data.html">open-data</a> <a class="concept-chip" href="../../concepts/t5gemma.html">t5gemma</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig0-teaser.png" alt="i1 生成样例">
+  <figcaption>
+    <strong>Fig. 1</strong> — i1-3B 在 1024 分辨率下的生成样例（来自官方项目页）。i1 的主张是：强文生图能力**不需要**新架构、专有数据或重度工程，只要把现有设计空间**仔细探索一遍**即可。
+  </figcaption>
+</figure>
+<blockquote>
+<p>ℹ️ <strong>这是一篇「实证调查 + 配方」型论文，不是「新方法」论文。</strong> 它的贡献不在某个新公式，而在 <strong>300+ 个单变量控制实验</strong>把文生图扩散模型的设计选择逐个消融、给出 10 条 finding，并据此训出一个<strong>完全开源</strong>（weights + data + code + recipe）的 3B 模型 i1。本文按精读 5 段骨架展开，把每条结论尽量落到论文图表与仓库代码（JAX 实现）的具体行号上。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>过去几年，文生图（text-to-image, T2I）扩散模型一路狂飙，但<strong>很难把进步归因到具体的建模/数据选择上</strong>。论文开篇点出两个病根[§1]：</p>
+<ol>
+<li><strong>领先模型不公开训练数据与完整配方</strong>。即使放出权重（FLUX.1、HiDream、Qwen-Image…），训练数据来源、规模、混合比例几乎都是黑箱，导致无法做受控分析和可靠的后续工作。</li>
+<li><strong>领先模型很少给出彻底的消融</strong>。一个 recipe 往往把架构、训练、数据上几十个决策<strong>捆绑</strong>在一起发布，没法把某个提升归因到某个具体因子。结果是：到今天，连「用单个文本编码器还是多个文本编码器」这种基础问题，社区都没有共识。</li>
+</ol>
+<p>而<strong>完全开源</strong>（weights + data + code）的模型虽然存在（BLIP3o、PixNerd、DeCo…），却<strong>显著弱于</strong>领先模型——此前最强的完全开源模型在五个 benchmark 上比 i1 平均低 <strong>29.5 个百分点</strong>[§Abstract]。</p>
+<p>i1 的立场因此是：<strong>社区需要把强模型当成「可检视的科学对象」，而不是不透明的端点</strong>。做法是——</p>
+<ul>
+<li>从一个<strong>强 baseline</strong> 出发（基于 LightningDiT），<strong>每次只改一个设计选择</strong>（modifications are not accumulated across experiments），在 256 分辨率预训练阶段做受控实验；</li>
+<li>把所有「确实有用」的设计在最后<strong>组合</strong>成 i1；</li>
+<li>把模型、代码、数据配方、消融<strong>全部开源</strong>。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig1-i1-recipe.png" alt="i1 高层配方流程图">
+  <figcaption>
+    <strong>Fig. 2</strong>（论文 Fig. 4）— i1 最终配方的高层示意。训练侧：6 真实 + 3 合成 + 2 文字渲染数据集**等权重**混合 → FLUX.2 VAE 编码 → 用 Qwen3-VL-30B-A3B 生成**长合成 caption** → T5Gemma-2B 文本编码器 + **2 个 transformer block 的大 adapter** → 双流 LightningDiT 骨干（+dual-stream +long-skip +no-AdaLN +norm 设计）预测 velocity。采样侧：输入 prompt 先经 Qwen3-30B-A3B **扩写**再喂入。注意：i1 几乎不引入新模块，全是「选对 + 微调标准组件」。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>一句话动机</strong>：与其再发一个调好的黑箱，不如把设计空间一个个钉死，并把整套东西开源，让后续研究能站在一个<strong>可复现、可归因</strong>的强 baseline 上。</p>
+</blockquote>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>i1 的「方法」= 一个标准的 flow-matching 扩散 transformer + 一组被实验筛选出来的设计选择。下面按「训练目标 → 骨干 → 文本/噪声条件 → 数据」拆开，每块都给数学 + 代码。</p>
+<h3 id="sec-2-1">2.1 训练目标：rectified flow（velocity 预测）</h3>
+<p>i1 用 flow matching / rectified flow 训练。核心思想：在噪声 <span class="math inline">\(x_0\sim\mathcal N(0,I)\)</span> 和真实图（的 VAE latent）<span class="math inline">\(x_1\)</span> 之间走一条<strong>直线</strong>，让网络去预测这条直线的「速度」。</p>
+<p>定义时间 <span class="math inline">\(t\in[0,1]\)</span>，插值点与目标速度为：</p>
+<div class="math block">
+\[x_t = (1-t)\,x_0 + t\,x_1, \qquad u_t = x_1 - x_0\]
+</div>
+<p class="math-translation">—— 翻译：$x_t$ 是「噪声到真图」直线上的一个中间点（$t$ 越大越接近真图）；目标速度 $u_t$ 就是这条直线的方向（终点减起点），是个**常向量**，与 $t$ 无关。网络的任务就是：看到带噪的 $x_t$ 和时间 $t$，猜出这个 $u_t$。</p>
+<p>训练损失就是预测速度 <span class="math inline">\(v_\theta\)</span> 与目标速度的均方误差：</p>
+<div class="math block">
+\[\mathcal L = \mathbb E_{x_0,x_1,t}\big\| v_\theta(x_t, t, c) - u_t \big\|_2^2\]
+</div>
+<p class="math-translation">—— 翻译：$c$ 是文本条件。损失逼网络在每个噪声水平上都指对方向；采样时只要从纯噪声出发，沿网络给出的速度一步步积分（Euler）到 $t=1$，就得到一张图。</p>
+<p>时间 <span class="math inline">\(t\)</span> 不是均匀采样，而是 <strong>logit-normal</strong>（对 sigmoid 取正态），让训练更关注中间噪声水平。代码把上面三件事（采 <span class="math inline">\(t\)</span>、造 <span class="math inline">\(x_t\)</span>、算 <span class="math inline">\(u_t\)</span>）写得和公式一一对应：</p>
+<p class="code-source">repo/jax/diffusion/rectified_flow.py:L33-L70 — 采样 logit-normal 时间 + 构造 flow matching 训练输入</p>
+<pre><code class="language-python">def sample_times(rng, batch_size, cfg, dtype=jnp.float32):
+    if cfg.use_lognorm:
+        rng, normal_key = jax.random.split(rng)
+        normal_samples = cfg.lognorm_mu + cfg.lognorm_sigma * jax.random.normal(
+            normal_key, (batch_size,), dtype=dtype)
+        t = jax.nn.sigmoid(normal_samples)          # logit-normal: sigmoid(N(mu,sigma))
+    else:
+        t = jax.random.uniform(uniform_key, (batch_size,), dtype=dtype)
+    ...
+    return t
+
+def prepare_rectified_flow_inputs(latents, noise_key, time_key, cfg):
+    x1 = latents
+    x0 = jax.random.normal(noise_key, latents.shape, dtype=latents.dtype)   # 噪声
+    t  = sample_times(time_key, latents.shape[0], cfg, dtype=latents.dtype)
+    t_expanded = _broadcast_t(t, latents.shape)
+    xt = (1.0 - t_expanded) * x0 + t_expanded * x1   # x_t = (1-t)x0 + t x1
+    ut = x1 - x0                                       # u_t = x1 - x0
+    return xt, ut, t.astype(latents.dtype)
+</code></pre>
+<p>训练循环里就是一行 velocity-MSE：</p>
+<p class="code-source">repo/jax/training/main.py:L567-L638 — 调用上面构造输入、前向、算 velocity MSE 损失</p>
+<pre><code class="language-python">xt, ut, t = rectified_flow.prepare_rectified_flow_inputs(
+    latents, rng_noise_local, rng_timestep_local, rectified_flow_cfg)
+model_latents, timesteps, target = xt, t, ut
+...
+model_output = _dit_forward(params, model_latents_mp, timesteps_mp,
+                            encoder_hidden_states_mp, mask_mp, rng_dp, rng_dt)
+...
+velocity_pred   = _to_velocity(model_output_f32, model_latents_f32, timesteps_f32)
+loss_mse = jnp.mean((velocity_pred - velocity_target) ** 2)   # 就是 ||v - u||^2
+</code></pre>
+<blockquote>
+<p>直觉版：把「去噪」想成在一团雾（噪声）和一张清晰照片之间拉一条直线。网络站在直线上某点，被要求指出「往清晰那头走的方向」。训练就是反复纠正它指的方向；生图就是从雾出发顺着它指的方向走到底。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 骨干：双流 MMDiT + 长跳连接（long skip）</h3>
+<p><strong>双流（dual-stream）MMDiT</strong> 指：图像 token 和文本 token 拼成一个长序列做<strong>联合注意力</strong>，但两条「流」用<strong>各自独立</strong>的 QKV/输出投影和 MLP 权重（图像一套、文本一套）。这与单流（共享权重）、cross-attention（文本只通过 cross-attn 注入）相对。论文实验（Fig. 12）显示<strong>双流在「性能/参数」权衡上最好</strong>（Finding 5）。</p>
+<p>代码里这点非常直白——注意力模块为两条流各开一套 <code>qkv</code>/<code>proj</code>：</p>
+<p class="code-source">repo/jax/models/dual_stream_backbone.py:L105-L118 — 双流：图像/文本各一套 QKV 与输出投影</p>
+<pre><code class="language-python">self.qkv_image = nn.Dense(3 * self.hidden_size, use_bias=True, name=&quot;qkv_image&quot;)
+self.qkv_text  = nn.Dense(3 * self.hidden_size, use_bias=True, name=&quot;qkv_text&quot;)
+...
+self.out_image = nn.Dense(self.hidden_size, use_bias=True, name=&quot;proj_image&quot;)
+self.out_text  = nn.Dense(self.hidden_size, use_bias=True, name=&quot;proj_text&quot;)
+</code></pre>
+<p>注意力本身仍是<strong>全序列联合</strong>：把图像/文本的 Q、K、V 沿序列维拼起来一起算 softmax，让图文充分交互：</p>
+<p class="code-source">repo/jax/models/dual_stream_backbone.py:L161-L176 — 拼接图文 QKV 做联合注意力</p>
+<pre><code class="language-python">q = jnp.concatenate([q_image, q_text], axis=2)
+k = jnp.concatenate([k_image, k_text], axis=2)
+v = jnp.concatenate([v_image, v_text], axis=2)
+attn_logits = jnp.einsum(&quot;bhqd,bhkd-&gt;bhqk&quot;, q * self.scale, k).astype(jnp.float32)
+...
+attn = nn.softmax(attn_logits, axis=-1).astype(q.dtype)
+out  = jnp.einsum(&quot;bhqk,bhkd-&gt;bhqd&quot;, attn, v)
+</code></pre>
+<p><strong>长跳连接（long skip）</strong> 来自 U-ViT：把<strong>前半段</strong> block 的输出缓存起来，<strong>后半段</strong>对称地把它们拼回来（concat 后过一个线性层降维）。这是个老设计，但现代 T2I 很少用；论文 Fig. 11 显示它能稳定改善「性能/参数」权衡（Finding 4）。实现是 U 形的 in/mid/out 三段：</p>
+<p class="code-source">repo/jax/models/dual_stream_backbone.py:L604-L640 — long skip 的 U 形执行：in_blocks 压栈、out_blocks 出栈</p>
+<pre><code class="language-python">if cfg.use_long_skip:
+    skips = []
+    for block in self.in_blocks:                 # 前半段：每层输出压栈
+        image_tokens, text_tokens = block(image_tokens, text_tokens, cond, ...)
+        skips.append((image_tokens, text_tokens))
+    image_tokens, text_tokens = self.mid_block(image_tokens, text_tokens, cond, ...)
+    for block in self.out_blocks:                # 后半段：弹栈，作为 skip 拼回
+        image_tokens, text_tokens = block(image_tokens, text_tokens, cond, ...,
+                                          skips.pop())
+</code></pre>
+<p>而 out_blocks 里的拼接 + 降维（<code>skip_linear</code> 把 <code>concat([x, skip])</code> 投回 <code>hidden_size</code>）：</p>
+<p class="code-source">repo/jax/models/dual_stream_backbone.py:L227-L243 — skip 拼接后用线性层降回原维度</p>
+<pre><code class="language-python">skip_image, skip_text = skip
+skip_linear_image = nn.Dense(self.hidden_size, ...)   # concat -&gt; hidden_size
+skip_linear_text  = nn.Dense(self.hidden_size, ...)
+image_tokens = skip_linear_image(jnp.concatenate([image_tokens, skip_image], axis=-1))
+text_tokens  = skip_linear_text(jnp.concatenate([text_tokens,  skip_text],  axis=-1))
+</code></pre>
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture-overall.png" alt="i1 整体架构" style="max-height:560px">
+  <figcaption>
+    <strong>Fig. 3</strong>（论文 Fig. 21a）— i1 整体架构。caption 经 T5Gemma-2B + **2 个 transformer block 的大 adapter**；图像 latent 经 patch embed + **sinusoidal 位置编码**（同时还用 RoPE）；中间是 N 组 **不带 AdaLN** 的 MMDiT attention/FFN block，外面套一圈**长跳连接**；最后 RMS norm + linear 输出 velocity。
+  </figcaption>
+</figure>
+<h3 id="sec-2-3">2.3 文本/噪声条件：单编码器 + 大 adapter，砍掉 AdaLN</h3>
+<p>这是 i1 最有意思的两条发现。</p>
+<p><strong>(a) 用「单个强编码器 + 更大 adapter」替代「多文本编码器」（Finding 2）。</strong> 很多模型（SD3、HiDream）拼接多个文本编码器（CLIP+T5+LLM）的特征。i1 做了一个关键消融（Table 3）：把 <strong>同一个</strong> T5Gemma-2B 的特征<strong>复制两份</strong>——用<strong>两个独立 adapter</strong> 时 LongText 0.211→0.309 明显涨，用<strong>共享 adapter</strong> 时几乎不动。这说明「多编码器」的增益<strong>主要来自多出来的 adapter 参数</strong>，而非不同编码器的多样特征。于是 i1 干脆用单编码器配一个更大的 <strong>transformer adapter</strong>（从 2.6M 参数的 MLP 换成 17.2M 参数/block 的 transformer），用极小的参数代价、且<strong>不增加文本序列长度</strong>（省显存/算力）就拿到同等增益。</p>
+<p>adapter 是个标准的小 transformer（attention + MLP + 残差），还顺手做了<strong>整条 caption 级别的 dropout</strong> 给 CFG 用：</p>
+<p class="code-source">repo/jax/models/components.py:L188-L211 — 大 transformer adapter 的一个 block（投影→若干层 attn+MLP 残差）</p>
+<pre><code class="language-python">def _apply_connector(x, suffix):
+    x = nn.Dense(self.hidden_size, **inits, name=f&quot;connector_in{suffix}&quot;)(x)  # 投到骨干维度
+    for block_idx in range(self.num_blocks):                                  # i1 用 2 个 block
+        norm1 = norm_cls(self.hidden_size, ...); norm2 = norm_cls(self.hidden_size, ...)
+        attn  = base.Attention(self.hidden_size, self.num_heads, ...)
+        mlp   = base.SwiGLUFFN(self.hidden_size, int(2/3*mlp_hidden), ...)
+        attn_out = attn(norm1(x), None, not train)
+        x = x + attn_out                 # 残差
+        x = x + mlp(norm2(x))            # 残差
+    return x
+</code></pre>
+<p><strong>(b) 砍掉 AdaLN（Finding 3）。</strong> AdaLN（Adaptive LayerNorm）是 DiT 的标配：从「时间步嵌入 + pooled 文本嵌入」线性投影出每层的 scale/shift/gate。它参数巨大（在 cross-attn baseline 上占 0.89B→0.66B 中的 <strong>0.23B</strong>）。论文发现：在用了大 adapter 后，<strong>完全去掉 AdaLN 几乎不掉点</strong>（Table 4），于是 i1 直接不用 AdaLN——更省参数。代码里这是一个 <code>use_adaln=False</code> 的分支，block 退化成纯 pre-norm transformer（norm→attn→残差→norm→MLP→残差），不再有 timestep/pooled-text 调制：</p>
+<p class="code-source">repo/jax/models/dual_stream_backbone.py:L272-L289 — use_adaln=False 时 block 退化为标准残差，无任何 timestep 调制</p>
+<pre><code class="language-python">if not self.use_adaln:
+    image_attn, text_attn = attn(norm1_image(image_tokens), norm1_text(text_tokens), ...)
+    image_tokens = image_tokens + (norm3(image_attn) if norm3 is not None else image_attn)
+    text_tokens  = text_tokens  + (norm3(text_attn)  if norm3 is not None else text_attn)
+    image_mlp_out = mlp_image(norm2_image(image_tokens))
+    text_mlp_out  = mlp_text(norm2_text(text_tokens))
+    image_tokens = image_tokens + (norm4(image_mlp_out) if norm4 is not None else image_mlp_out)
+    text_tokens  = text_tokens  + (norm4(text_mlp_out)  if norm4 is not None else text_mlp_out)
+    return image_tokens, text_tokens
+</code></pre>
+<blockquote>
+<p>⚠️ <strong>代码 vs 论文的一个细节</strong>：虽然 AdaLN 被砍，timestep 信息<strong>并没有完全消失</strong>——<code>_dit_forward</code> 里仍把 <code>t_embedder(t)</code> 加到 pooled 文本嵌入上得到 <code>cond</code>（<code>cond = t_emb + pooled</code>，见 <code>dual_stream_backbone.py:L588</code>）。只是当 <code>use_adaln=False</code> 时，这个 <code>cond</code> 在 block 内部<strong>不被使用</strong>（上面分支根本没引用 <code>cond</code>）。也就是说 i1 是真正的 <strong>noise-unconditional</strong> block——与论文「removing noise conditioning only minimally affects performance for flow matching」的引用（Sun et al. 2025）一致。</p>
+</blockquote>
+<figure>
+  <img class="zoomable" src="figures/fig4-text-encoder.png" alt="文本编码器对比">
+  <figcaption>
+    <strong>Fig. 4</strong>（论文 Fig. 8）— 不同文本编码器的下游 T2I 表现。编码器-解码器型的 **T5Gemma 系**整体最强，超过解码器型 LLM（Qwen3）、VLM（Qwen3-VL）和 CLIP 型（FG-CLIP 2）。还发现：指令微调影响很小、更大的编码器不一定更好（T5Gemma-2B ≳ T5Gemma-9B）。i1 据此选 T5Gemma-2B（Finding 1）。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig5-larger-adapter.png" alt="更大 adapter 的增益">
+  <figcaption>
+    <strong>Fig. 5</strong>（论文 Fig. 10）— 把 adapter 从 MLP 换成 1/2/3 个 transformer block，在 cross-attn/单流/双流三种骨干上**一致提升**；超过 2 个 block 后收益变得边际。i1 取 2 个 block（Finding 2）。
+  </figcaption>
+</figure>
+<h3 id="sec-2-4">2.4 数据：长 caption + 推理扩写、等权重混合</h3>
+<p><strong>(a) 训长 caption、推理扩写短 prompt（Finding 7）。</strong> 只用长合成 caption 训练 → 在长 prompt（DPG/LongText）上强，但在<strong>短 prompt</strong>（GenEval）上崩（GenEval 0.17）。原因是训练/推理的 prompt 长度分布不匹配。解法不是去训短 caption，而是<strong>推理时用 LLM（Qwen3-4B）把短 prompt 扩写成长段落</strong>，对齐训练分布——GenEval 直接回到 0.73（Table 5）。扩写用的 meta-prompt 很朴素：</p>
+<blockquote>
+<p>&quot;I have a short text-to-image prompt {prompt}. Please expand it into a descriptive paragraph, while making sure the generated image still clearly includes all the items mentioned in the original prompt. ...&quot;</p>
+</blockquote>
+<p>训练 caption 则统一用 Qwen3-VL-30B-A3B 生成，prompt 就是「Describe the image in detail using one paragraph.」：</p>
+<p class="code-source">repo/jax/data_processing/synthetic_captioning/caption.py:L141 — 长合成 caption 的生成 prompt</p>
+<pre><code class="language-python">return img, stem, &quot;Describe the image in detail using one paragraph.&quot;
+</code></pre>
+<blockquote>
+<p>这条 finding 反直觉但很实用：<strong>训练分布 &gt; 迎合测试分布</strong>。与其为短 prompt 训一个弱模型，不如训一个强的长 prompt 模型，再在推理侧把短 prompt「拉长」去够它。</p>
+</blockquote>
+<p><strong>(b) 各数据集等权重（Finding 8）。</strong> 原始语料严重不均衡（YFCC 占 168M 里的 98M），naive 混合等于给少数大数据集巨大权重。i1 借鉴 VLM 训练里「给每个来源的数据量设上限」的做法，对每个数据集的采样权重设阈值；实验（Fig. 9 / threshold 图）发现阈值取到让所有数据集<strong>等权重</strong>（counting repetitions，即按「采样次数」而非「唯一图像数」算）时整体最好。配置里就是所有数据集权重都填 <code>1</code>：</p>
+<p class="code-source">repo/jax/configs/i1_training/256_resolution.py:L58-L73 — 11 个数据集权重全部为 1（等权重）</p>
+<pre><code class="language-python">path_and_count = [
+    ('gs://path/to/yfcc/tfrecord', 1),
+    ('gs://path/to/imagenet22k/tfrecord', 1),
+    ('gs://path/to/rendered_text/tfrecord', 1),
+    ('gs://path/to/fluxreason/tfrecord', 1),
+    ('gs://path/to/textatlas/tfrecord', 1),
+    ('gs://path/to/pexels/tfrecord', 1),
+    ... # 共 11 个，全 1
+]
+sum_count = sum([item[1] for item in path_and_count])
+path_and_count = [(item[0], float(item[1])/float(sum_count)) for item in path_and_count]
+</code></pre>
+<p>整份 i1 配方在 256 配置的 <code>model_kwargs</code> 里一目了然——长跳、transformer adapter（2 block）、不要 AdaLN、sinusoidal+RoPE、sandwich norm：</p>
+<p class="code-source">repo/jax/configs/i1_training/256_resolution.py:L22-L37 — i1 最终建模配方（每个 flag 对应一条 finding）</p>
+<pre><code class="language-python">config.model_kwargs = mlc.ConfigDict(dict(
+    use_long_skip=True,                       # Finding 4
+    text_encoder_adapter_type=&quot;transformer&quot;,  # Finding 2
+    text_encoder_adapter_num_blocks=2,         # Finding 2（2 个 block 即可）
+    use_adaln=False,                           # Finding 3（砍掉 AdaLN）
+    position_embedding=&quot;sinusoidal_and_rope&quot;,  # 附录 C.1 消融
+    use_sandwich_norm=True,
+    repeat_text_emb=False,
+))
+config.backbone = &quot;dual_stream&quot;               # Finding 5
+config.text_encoder_type = &quot;T5Gemma&quot;          # Finding 1
+</code></pre>
+<h2 id="sec-3">3. 实验结果 (Results)</h2>
+<h3 id="sec-3-1">3.1 主结果：五个 benchmark 上压过更大的开源模型</h3>
+<p>最终 i1-3B 在 1024 分辨率评测（Table 8），与领先系统对比的硬数字：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数</th>
+<th>GenEval</th>
+<th>DPG</th>
+<th>PRISM</th>
+<th>CVTG-2K</th>
+<th>LongText</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>i1（ours）</strong></td>
+<td><strong>3B</strong></td>
+<td>0.84</td>
+<td><strong>86.73</strong></td>
+<td><strong>70.1</strong></td>
+<td><strong>0.8531</strong></td>
+<td><strong>0.922</strong></td>
+</tr>
+<tr>
+<td>FLUX.1 [Dev]（仅权重）</td>
+<td>12B</td>
+<td>0.66</td>
+<td>83.84</td>
+<td>65.1</td>
+<td>0.4965</td>
+<td>0.607</td>
+</tr>
+<tr>
+<td>HiDream-I1-Full（仅权重）</td>
+<td>17B</td>
+<td>0.83</td>
+<td>85.89</td>
+<td>66.1</td>
+<td>0.7738</td>
+<td>0.543</td>
+</tr>
+<tr>
+<td>Lumina-Image 2.0（仅权重）</td>
+<td>3B</td>
+<td>0.73</td>
+<td>87.20</td>
+<td>63.5</td>
+<td>0.1577</td>
+<td>0.088</td>
+</tr>
+<tr>
+<td>BLIP3o-N-G-T（<strong>完全开源</strong>，此前最强）</td>
+<td>3B</td>
+<td>0.86</td>
+<td>79.77</td>
+<td>56.8</td>
+<td>0.3330</td>
+<td>0.153</td>
+</tr>
+<tr>
+<td>Qwen-Image（仅权重，参照天花板）</td>
+<td>20B</td>
+<td>0.87</td>
+<td>88.32</td>
+<td>73.9</td>
+<td>0.8288</td>
+<td>0.943</td>
+</tr>
+</tbody>
+</table>
+<p>要点：</p>
+<ul>
+<li><strong>vs 完全开源同类</strong>：i1 在 DPG/PRISM/CVTG-2K/LongText 上全面碾压 BLIP3o 系，平均 <strong>+29.5 个百分点</strong>[§Abstract]。文字渲染类指标差距尤其夸张（LongText 0.922 vs 0.153；CVTG-2K 0.853 vs 0.333）。</li>
+<li><strong>vs 更大的「仅权重」模型</strong>：3B 的 i1 在多数指标上压过 12B FLUX.1 [Dev]、17B HiDream-I1、3B Lumina-Image 2.0。</li>
+<li><strong>逼近天花板</strong>：在 CVTG-2K/LongText 上甚至和 20B Qwen-Image 同档。</li>
+<li><strong>GenEval 例外</strong>：i1 = 0.84，作者明确说 GenEval 可能与人类判断不一致，且社区常用 BLIP3o-60K 微调来「刷」GenEval，因此只报告它「图个完整」，不作为能力的可靠信号[§6.3]。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig9-headline.png" alt="头条结果柱状图">
+  <figcaption>
+    <strong>Fig. 6</strong>（论文 Fig. 1 同源）— 各模型在五 benchmark 上的平均得分。i1（3B，红）在「完全开源」阵营里断层第一，并越过多个体量大数倍的「仅权重」模型。
+  </figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 受控实验里的 10 条 finding（论文真正的「结果」）</h3>
+<p>论文的核心产出是 10 条可复用结论：</p>
+<ol>
+<li>编码器-解码器（T5Gemma）和解码器型 LLM/VLM <strong>都能</strong>当好文本编码器；i1 选 T5Gemma-2B。</li>
+<li>「多文本编码器」的增益可由「单编码器 + 更大 adapter」<strong>等价获得</strong>，且更省显存/算力。</li>
+<li>AdaLN（对 pooled 文本/timestep 的调制）<strong>收益边际</strong>，可整块砍掉。</li>
+<li>长跳连接改善「性能/参数」权衡。</li>
+<li>双流骨干在三类骨干里「性能/参数」最优。</li>
+<li>合成 captioner 的选择对下游影响<strong>很大</strong>。</li>
+<li>训长 caption &gt; 训短 caption；短 prompt 的劣势靠<strong>推理扩写</strong>补回。</li>
+<li><strong>等权重</strong>混合数据集是简单又强的默认。</li>
+<li>数据多样时，<strong>重复训练数据</strong>只带来边际下降（4.4M 唯一图像 ≈ 88.1M，见 Table 7）——少图多 epoch 也行。</li>
+<li>强高清生成<strong>不需要</strong>高清数据覆盖到低清预训练的全部广度（只用 real 或只用 synthetic 在 512 训练，LongText 增益与全量相当）。</li>
+</ol>
+<figure>
+  <img class="zoomable" src="figures/fig6-long-skip.png" alt="长跳连接 scaling">
+  <figcaption>
+    <strong>Fig. 7</strong>（论文 Fig. 11）— 在多个模型宽度下，**带长跳**（蓝）一致优于**不带长跳**（橙），DPG/PRISM/LongText 三指标皆然 → Finding 4。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig7-backbone-family.png" alt="骨干家族对比">
+  <figcaption>
+    <strong>Fig. 8</strong>（论文 Fig. 12）— cross-attn / 单流 / 双流三类骨干随参数量的表现。双流（绿）在性能/参数权衡上最优 → Finding 5。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig8-equal-weighting.png" alt="等权重阈值">
+  <figcaption>
+    <strong>Fig. 9</strong>（论文 Fig. 18）— 给每个数据集的采样权重设上限阈值。阈值降到 1.2M（≈ 所有数据集等权重）时整体最好 → Finding 8。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig10-captioner.png" alt="合成 captioner 对比">
+  <figcaption>
+    <strong>Fig. 10</strong>（论文 Fig. 13）— 用 5 种不同 VLM 生成训练 caption（仅在 ImageNet-22K 上），下游 T2I 表现差异显著 → Finding 6。i1 用 Qwen3-VL-30B-A3B。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 训练规模</h3>
+<ul>
+<li><strong>算力</strong>：300+ 控制实验，合计 <strong>700K+ TPU v6e 小时</strong>[§Abstract]。</li>
+<li><strong>三阶段渐进式分辨率</strong>：256（2M 步）→ 512（0.5M 步）→ 1024（0.3M 步）；batch 512，lr 1e-4，AdamW(b1=0.9,b2=0.95)，EMA 0.9999。</li>
+<li>512 分辨率训练把 LongText 从 0.75 拉到 0.92[§6.2]。</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation)</h2>
+<p>交叉阅读 JAX 仓库后值得记下的实现细节（均带行号）：</p>
+<ol>
+<li><strong>velocity MSE 在 float32 里算</strong>以稳数值，即使前向用 bf16：<code>model_output_f32 = model_output.astype(jnp.float32)</code> 后再算 loss（<code>repo/jax/training/main.py:L627-L637</code>）。</li>
+<li><strong>i1-3B 的实际尺寸是 <code>DiT-XL_2016</code></strong>：hidden=2016、depth=29、heads=28、patch=2（<code>repo/jax/models/dual_stream_backbone.py:L687</code> + <code>configs/i1_training/256_resolution.py:L18-L21</code>）。注意命名仍叫 &quot;XL&quot; 但宽度被加到 2016 才凑到 3B。</li>
+<li><strong>long skip 的 U 形是按 depth 对半切</strong>：<code>num_in_blocks = depth // 2</code>，in/mid/out 三段；out_block 用 <code>use_skip=True</code> 触发 <code>skip_linear</code>（<code>dual_stream_backbone.py:L453-L505</code>）。depth=29 是奇数，正好 14 in + 1 mid + 14 out。</li>
+<li><strong>位置编码是「双保险」</strong>：同时用可学习的 sinusoidal <code>pos_embed</code>（加到 patch token 上）<strong>和</strong> Multimodal-RoPE（作用在 Q/K 上）。<code>position_embedding=&quot;sinusoidal_and_rope&quot;</code> 两者都建（<code>dual_stream_backbone.py:L419-L448, L536-L546</code>）。</li>
+<li><strong>高清微调靠 RoPE 索引插值 + sinusoidal 插值</strong>，而非重训：<code>image_resolution != 256</code> 时走 <code>_get_interpolated_pos_embed</code>，且 RoPE 的 <code>image_scale = 256.0 / cfg.image_resolution</code> 缩放空间轴（<code>dual_stream_backbone.py:L371-L382, L441-L442</code>）。</li>
+<li><strong>pooled 文本嵌入是 mask 加权平均</strong>（不是简单 mean），再与 timestep 嵌入相加成 <code>cond</code>：<code>pooled = einsum(&quot;bth,bt-&gt;bh&quot;, caption_emb, weights)/denom; cond = t_emb + pooled</code>（<code>dual_stream_backbone.py:L581-L588</code>）。在 <code>use_adaln=False</code> 时这个 <code>cond</code> 不参与 block 计算（见 §2.3 的代码-论文差异）。</li>
+<li><strong>CFG 用「区间 CFG + Rescale CFG」组合</strong>：先按 <code>cfg_interval_start</code> 决定哪些 <span class="math inline">\(t\)</span> 施加 guidance，再做 Lin et al. 2024 的方差 rescale（<code>guided = cond + mask*(scale-1)*(cond-uncond)</code>，随后按 <code>std_c/std_g</code> 重缩放），推理 CFG scale=12、rescale 强度=1（<code>repo/jax/diffusion/inference_pipeline.py:L290-L308</code>）。</li>
+<li><strong>采样器是 Euler + 常步长</strong>，时间网格按 <code>inference_timestep_shift</code> 做 shift（把更多步花在高噪声段），对应 diffrax 的 <code>dfx.Euler()</code>（<code>inference_pipeline.py:L245-L259</code>）。</li>
+<li><strong>CFG dropout 在 adapter 里做</strong>：训练时按 <code>drop_text_prob</code> 把整条 caption 换成可学习的 <code>learnable_null_caption</code>（<code>components.py:L253-L267</code>）——空条件不是全 0，而是学出来的。</li>
+<li>**多文本编码器是「序列维拼接 + 各自 adapter」**而非 embedding 维拼接，避免 pad 到统一长度（<code>components.py:L213-L251</code>，i1 最终未用多编码器，但代码保留）。</li>
+</ol>
+<p><strong>论文 vs 代码：未发现实质性矛盾。</strong> 仓库的 <code>256_resolution.py</code> 配方与论文 §6/Fig. 21 的描述逐项一致（双流、long skip、no-AdaLN、transformer adapter×2、T5Gemma-2B、等权重）。唯一需要澄清的是 §2.3 提到的 <code>cond</code>：代码无条件构造它，但在 i1 的 <code>use_adaln=False</code> 路径下不消费——属于「为支持消融而保留的死代码路径」，不影响结论。另外配置里的数据路径是占位 <code>gs://path/to/...</code>（需自填），数据本身在 HuggingFace 开源。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical Summary)</h2>
+<p><strong>真正的贡献</strong>：i1 不是「又一个更强的模型」，而是<strong>一份带 700K TPU 小时背书的、可复现的设计空间地图</strong>。它把社区里若干含糊的「常识」做了硬消融并钉死了答案（多编码器其实是 adapter 在起作用、AdaLN 可砍、长跳值得用、等权重是强默认、训长 caption + 推理扩写）。对开源社区，这比一个黑箱 SOTA 更有长期价值——它把「完全开源」阵营的天花板一次性抬高了 ~30 个点。</p>
+<p><strong>值得警惕的弱点（部分作者自己承认）</strong>：</p>
+<ol>
+<li><strong>评测几乎全是自动 benchmark，缺人类偏好</strong>。作者坦言 i1 在<strong>整体视觉质量</strong>上仍明显逊于 Qwen-Image 这类领先模型（附录有 failure case）。而它领先最多的恰恰是 CVTG-2K/LongText 这类<strong>文字渲染</strong>指标——这类指标对「训练数据里塞了多少文字渲染图」高度敏感，部分领先可能是数据配比红利，而非建模优越性。换句话说，「平均 +29.5 点」里文字渲染贡献了很大一块，看 DPG（通用跟随）差距其实没那么悬殊。</li>
+<li><strong>所有结论都在 ≤3B 规模上得出</strong>。作者明确说不知道这些 finding 在更大规模是否成立。尤其「AdaLN 可砍」「等权重最好」「重复数据没事」这几条，很可能是<strong>容量/数据规模受限</strong>下的现象，scale 上去后未必继续成立。</li>
+<li><strong>GenEval 被边缘化处理得略方便</strong>。i1 的 GenEval（0.84）并不比对手突出，论文用「GenEval 不可靠 + 别人靠 BLIP3o-60K 刷分」来淡化它。这个论证本身有道理，但也恰好回避了 i1 在这个老牌组合性 benchmark 上不占优的事实。</li>
+<li><strong>设计空间只扫了一个子集</strong>。multi-aspect-ratio 训练、数据过滤、LLM 与 DiT 的深度融合（text encoding）、RL 对齐（DPO/GRPO 这类，参见 <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">krea-2-2026</a>、<a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a>）都被显式留作 future work。所以 i1 是「在一条固定主干上的局部最优探索」，不是全局配方。</li>
+<li><strong>「单变量、不累积」的实验范式有盲点</strong>。每次只改一个设计、在固定 baseline 上比较，干净但忽略了<strong>设计之间的交互</strong>——论文自己其实已经撞见一例：AdaLN 该不该砍，<strong>取决于</strong> adapter 大小（小 MLP 时砍 AdaLN 涨点多，大 adapter 时几乎不动）。这说明这些 finding 之间并非正交，最终组合是否真的最优，单变量实验并不能保证。</li>
+</ol>
+<p><strong>一句话评价</strong>：把它当「文生图设计选择的实证手册 + 一个诚实的强开源 baseline」来用，价值很高；但别把那 10 条 finding 当成跨规模、跨主干都成立的物理定律——它们是「在 3B、在这条 LightningDiT 主干上、用这套数据」的局部真理。</p>
+<blockquote>
+<p>📌 延伸阅读：同为「全栈开源/工程配方」型的 T2I 报告可对照 <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">krea-2-2026</a>（更偏基建与对齐流水线）、<a class="wiki-link" data-slug="sefi-image-2026" href="../sefi-image-2026/index.html">sefi-image-2026</a>、<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a>；on-policy 蒸馏方向见 <a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a>。
+</content>
+</invoke></p>
+</blockquote>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

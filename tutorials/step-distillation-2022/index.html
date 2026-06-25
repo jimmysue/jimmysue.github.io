@@ -822,6 +822,12 @@ for it in range(201):
 <p class="math-translation">—— 翻译:对每个加噪后的 student 样本 $x_t$,用"fake 评分员的 score 减 real 评分员的 score"作为该样本处的梯度方向,乘上生成器的雅可比反传回参数 $\theta$;$w_t$ 是逐噪声水平的权重(DMD 用样本级归一化实现,见 6.4)。</p>
 <p>其中 <span class="math inline">\(s_{\mathrm{real}}(x_t,t)=\nabla_{x_t}\log p^{\mathrm{real}}_t(x_t)\)</span> 直接由<strong>冻结的 teacher</strong> 给出(diffusion 模型本来就是 score 的估计器);<span class="math inline">\(s_{\mathrm{fake}}\)</span> 则由<strong>第二个在线训练的 diffusion</strong> 提供——它在 student 的最新样本上做标准 denoising loss,别无其他。整个框架只比&quot;再训一个扩散模型&quot;多了一行 score 相减。</p>
 <p>剩下的是工程演化。<strong>DMD1</strong> 担心纯分布梯度不稳,额外加了回归正则:预先用 teacher 全步采样收集 <span class="math inline">\((z, x)\)</span> 配对,对 student 输出做 LPIPS 回归——这把 §2 的轨迹蒸馏又请了回来,数据制备成本高,且上限被 teacher 锁死。<strong>DMD2</strong> 把它砍掉,代价是必须正面解决两个问题:其一,没了回归锚,<span class="math inline">\(s_{\mathrm{fake}}\)</span> 跟不上快速变化的 student 分布时梯度即偏——解法是 <strong>two-time-scale</strong>(双时间尺度更新,TTUR:让&quot;对手&quot;比生成器更新得更勤以保持其估计始终新鲜):critic(fake score 网)每步更新,生成器每 <code>dfake_gen_update_ratio</code> 步才更新一次(官方配置中为 5 或 10);其二,去掉回归后再无超越 teacher 的信息来源——解法是加一个 <strong>GAN 项</strong>,判别头直接建在 fake score 网的中间特征上,用<strong>真实数据</strong>训练。真图携带 teacher 没学好的信息,这正是 DMD2 在 ImageNet 上 FID 反超 teacher 的来源。同期的 SiD 则用 score identity 把同一个&quot;score 差&quot;思想改写成解析形式,更稳且 data-free,可与 DMD 互为印证。</p>
+<p><strong>2025 的再进化:TDM 把&quot;匹配干净图&quot;抬升为&quot;匹配整条轨迹&quot;。</strong> DMD/DMD2 的分布匹配只盯一个分布——student 的<strong>干净输出</strong> <span class="math inline">\(p^G\)</span>(加噪到各 <span class="math inline">\(t\)</span> 后)去对齐 teacher 的 <span class="math inline">\(p^{\mathrm{real}}\)</span>。<strong>TDM</strong>(Trajectory Distribution Matching)的观察是:少步 student 其实是沿一条 <span class="math inline">\(K\)</span> 步轨迹 <span class="math inline">\(x_{\tau_K}\to\cdots\to x_{\tau_0}\)</span> 走过来的;与其只在终点(干净图)比一次分布,不如<strong>在轨迹的每一段各比一次</strong>。记 teacher 从同一起点演化到时刻 <span class="math inline">\(\tau_k\)</span> 的分布为 <span class="math inline">\(p^{\mathrm{tea}}_{\tau_k}\)</span>、student 在该步的局部分布为 <span class="math inline">\(p^{G}_{\tau_k}\)</span>,目标(示意形式,沿用 DMD 的逐 <span class="math inline">\(t\)</span> KL 写法)为:</p>
+<div class="math block">
+\[\mathcal L_{\mathrm{TDM}}(\theta)=\sum_{k}\mathbb E\Big[\mathrm{KL}\big(p^{G}_{\tau_k}\,\big\|\,p^{\mathrm{tea}}_{\tau_k}\big)\Big]\]
+</div>
+<p class="math-translation">—— 翻译:不再只对齐"最终干净图"那一个分布,而是把少步采样轨迹切成若干段,每段都让 student 的局部样本分布去匹配 teacher 在同一段到达的分布,再对所有段求和。即"把 DMD 沿时间步展开,做轨迹级而非样本级的分布匹配"。</p>
+<p>每段的梯度仍是 6.3 那条 score 差 <span class="math inline">\(s_{\mathrm{fake}}-s_{\mathrm{real}}\)</span>,区别只在于 real/fake 两个评分员现在被查询在<strong>轨迹的中间点</strong>而非只在干净图上。这带来三个性质:<strong>完全 data-free</strong>(既不需要 DMD1 的配对数据,也不需要 DMD2 的真图 GAN)、<strong>天然支持灵活多步</strong>(student 取 1/2/4 步就是轨迹切几段)、<strong>超参少</strong>。这三点正是下游基础模型偏爱它的原因(见 6.5 的选型样本)。</p>
 <h3 id="sec-6-4">6.4 代码引用</h3>
 <p>DMD2 官方实现里,上面那条梯度公式浓缩成不到十行:</p>
 <p class="code-source">sources/repos/tianweiy-DMD2/main/sd_guidance.py:L224-L245 — DMD 核心:real/fake score 差构成 reverse-KL 梯度</p>
@@ -881,10 +887,109 @@ for it in range(201):
 <p><strong>披露:</strong> ADD(SDXL-Turbo)与 LADD(SD3-Turbo)的官方训练代码至今未公开——它们用 DINOv2 特征上的判别器做纯对抗训练、辅以蒸馏正则,思想与 DMD2 的 GAN 分支同源。因此,如果你想实践&quot;对抗蒸馏&quot;这条路线,当前唯一开源、可复现且达到 SOTA 的入口就是 DMD2(含 LoRA 训练配置)。</p>
 <h3 id="sec-6-5">6.5 洞察</h3>
 <ul>
-<li><strong>分布匹配天生适合 1 步</strong>:没有轨迹要走,自然没有轨迹可错——§2–§5 的离散化误差、误差累积问题在这里整族消失,也不需要 §5 那样把 CFG 尺度蒸进模型的额外机关(real score 查询时直接带 guidance 即可)。代价是训练侧显存翻倍:三个 UNet 同时在卡上(生成器、冻结 real、在线 fake),加上 GAN 项后还要调对抗超参——GAN 的玄学又请回来一半。</li>
-<li><strong>mode coverage 是软肋</strong>:reverse-KL 是 mode-seeking 的——student 宁可放弃 teacher 的部分模式也要把已占的模式做精,表现为多样性下降。DMD2 的 GAN 项(真实数据信号)部分缓解,但评估时务必盯 recall / 多样性指标而非只看 FID(§8 展开)。</li>
-<li><strong>与 OPD 的统一视角</strong>:本站 <a href="../opd-diffusion-2026/index.html">教程:OPD 在 Diffusion 上的应用</a> §6 从在线偏好蒸馏角度推过同一条 score-差梯度——数学同源,目的相反:OPD 用它把 student 分布对齐到偏好信号,DMD 用它把千步 teacher 压成 1 步。同一个梯度场,装在不同的训练循环里就是不同的方法。</li>
-<li><strong>视频是它的下一站</strong>:CausVid、Self-Forcing 都把 DMD 当核心引擎,治自回归视频生成的 exposure bias 与步数问题——详见 §7。</li>
+<li>
+<p><strong>分布匹配天生适合 1 步</strong>:没有轨迹要走,自然没有轨迹可错——§2–§5 的离散化误差、误差累积问题在这里整族消失,也不需要 §5 那样把 CFG 尺度蒸进模型的额外机关(real score 查询时直接带 guidance 即可)。代价是训练侧显存翻倍:三个 UNet 同时在卡上(生成器、冻结 real、在线 fake),加上 GAN 项后还要调对抗超参——GAN 的玄学又请回来一半。</p>
+</li>
+<li>
+<p><strong>mode coverage 是软肋</strong>:reverse-KL 是 mode-seeking 的——student 宁可放弃 teacher 的部分模式也要把已占的模式做精,表现为多样性下降。DMD2 的 GAN 项(真实数据信号)部分缓解,但评估时务必盯 recall / 多样性指标而非只看 FID(§8 展开)。</p>
+</li>
+<li>
+<p><strong>与 OPD 的统一视角</strong>:本站 <a href="../opd-diffusion-2026/index.html">教程:OPD 在 Diffusion 上的应用</a> §6 从在线偏好蒸馏角度推过同一条 score-差梯度——数学同源,目的相反:OPD 用它把 student 分布对齐到偏好信号,DMD 用它把千步 teacher 压成 1 步。同一个梯度场,装在不同的训练循环里就是不同的方法。</p>
+</li>
+<li>
+<p><strong>视频是它的下一站</strong>:CausVid、Self-Forcing 都把 DMD 当核心引擎,治自回归视频生成的 exposure bias 与步数问题——详见 §7。</p>
+</li>
+<li>
+<p><strong>2025 谱系与选型:DMD 之后的四条岔路。</strong> DMD2 之后,&quot;分布匹配 / 少步蒸馏&quot;迅速分化出一批变体。下表把 <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">Krea 2 技术报告</a> 在做时间步蒸馏选型时<strong>点名比较过</strong>的几个并排放在一起:</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>年份</th>
+<th>核心一句话</th>
+<th style="text-align:center">data-free</th>
+<th style="text-align:center">用 GAN</th>
+<th style="text-align:center">多步灵活</th>
+<th style="text-align:center">改主模型结构</th>
+<th style="text-align:center">超参负担</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DMD</strong></td>
+<td>2024</td>
+<td>score 差 + teacher 配对回归正则</td>
+<td style="text-align:center">✗ 需配对</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">偏 1 步</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td><strong>DMD2</strong></td>
+<td>2024</td>
+<td>去回归 + 真图 GAN + 双时间尺度</td>
+<td style="text-align:center">△ 用真图</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">高</td>
+</tr>
+<tr>
+<td><strong>Decoupled DMD</strong></td>
+<td>2025</td>
+<td>CFG 增强当&quot;矛&quot;、分布匹配当&quot;盾&quot;,解耦二者</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td><strong>π-Flow</strong></td>
+<td>2025</td>
+<td>把少步生成重述成&quot;策略&quot;,模仿蒸馏对齐整条轨迹</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center"><strong>✓ 改成多步策略预测</strong></td>
+<td style="text-align:center">中</td>
+</tr>
+<tr>
+<td><strong>APT</strong></td>
+<td>2025</td>
+<td>确定性蒸馏初始化后,纯对抗后训练(主打视频/一步)</td>
+<td style="text-align:center">✗ 需真数据</td>
+<td style="text-align:center"><strong>✓ 纯 GAN</strong></td>
+<td style="text-align:center">偏 1 步</td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center">高</td>
+</tr>
+<tr>
+<td><strong>TDM</strong></td>
+<td>2025</td>
+<td>把 DMD 从&quot;匹配干净图&quot;升级为&quot;匹配整条轨迹分布&quot;(见 6.3)</td>
+<td style="text-align:center"><strong>✓</strong></td>
+<td style="text-align:center"><strong>✗</strong></td>
+<td style="text-align:center"><strong>✓</strong></td>
+<td style="text-align:center">✗</td>
+<td style="text-align:center"><strong>低</strong></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Decoupled DMD</strong>(<em>CFG Augmentation as the Spear, Distribution Matching as the Shield</em>):观察到 DMD 蒸馏里 CFG 既是提质来源、又是伪影 / 过饱和来源,于是把两个角色<strong>解耦</strong>——用激进的 CFG 增强当&quot;矛&quot;去顶质量上限,用分布匹配当&quot;盾&quot;压住 CFG 带来的崩坏。骨子里仍是 DMD 家族,但把 guidance 的处理单拎出来调。</li>
+<li><strong>π-Flow</strong>:换一套语言——把少步生成看成 RL 里的<strong>策略</strong>,student 在少数锚点时刻输出一个可积分的&quot;策略&quot;(速度 / ODE 场参数),再用<strong>模仿蒸馏</strong>让 student 诱导出的轨迹去贴 teacher 的轨迹。代价是要把模型<strong>改造成多时刻预测的策略网络</strong>(主干结构改动),这正是它被一些基础模型团队排除的原因。</li>
+<li><strong>APT</strong>(<em>Adversarial Post-Training</em>):纯对抗路线——先用确定性蒸馏给个初始化,再直接对真实数据(主打视频)做<strong>一步生成的对抗后训练</strong>。质量天花板高,但继承了 GAN 的全部调参痛苦。</li>
+<li><strong>TDM</strong>(见 6.3):data-free + 灵活多步 + 超参少,三者兼得,是这一批里&quot;工程性价比&quot;最高的。</li>
+</ul>
+</li>
+<li>
+<p><strong>一个真实选型样本(Krea 2)。</strong> <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">Krea 2</a> 在 DMD / DMD2 / Decoupled DMD / π-Flow / APT / TDM 里<strong>最终选了 TDM</strong>,理由很能代表工业落地的口味(报告原话转述):要&quot;简单可调、超参少&quot;——这一刀直接排除了 GAN 类(APT,以及 DMD2 的 GAN 分支)和 π-Flow(它要把模型改成多步预测、结构改动大);剩下能同时满足 <strong>data-free + 灵活多步 + 低超参</strong> 的就是 TDM。换句话说,前沿团队选蒸馏方法时,&quot;少踩坑、好调、不动主模型结构&quot;的权重,往往高于&quot;论文里 FID 低 0.x&quot;。</p>
+<blockquote>
+<p>⚠️ <strong>披露</strong>:本块对 Decoupled DMD / π-Flow / APT 的一句话概括来自其<strong>标题 / 摘要 + Krea 2 报告的转述</strong>,非逐篇精读;DMD / DMD2 / TDM 的机制则与 6.3 一致、可追溯到公式。若要把其中某个做成像本节 DMD2 一样<strong>经 diff 逐行验证的可复跑章节</strong>,需联网克隆其官方仓库(当前网络不通,暂未做)。</p>
+</blockquote>
+</li>
 </ul>
 <h2 id="sec-7">7. 2025–2026 前沿:sCM/TrigFlow、MeanFlow、rCM —— 连续时间统一与视频战场</h2>
 <h3 id="sec-7-1">7.1 直觉</h3>
