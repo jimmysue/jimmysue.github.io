@@ -52,7 +52,7 @@
   <div class="site-nav__links">
     <a class="site-nav__link active" href="../../papers.html">论文</a>
     <a class="site-nav__link" href="../../tutorials.html">教程</a>
-    <a class="site-nav__link" href="../../concepts.html">概念</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
     <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
@@ -376,10 +376,55 @@ t.map(embed_func)   # 返回 handle，可附着查看实时进度
 <li><strong>暂不适合</strong>：需要<strong>严格可复现训练配方</strong>或<strong>逐基准 SOTA 数字</strong>来做学术对比（报告不提供）；当前就要<strong>图像编辑 / 原生 4K / 结构化 prompt</strong>（均为未来工作）。</li>
 </ul>
 <h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较 (Cross-validation against similar work)</strong> —— 把 Krea 2 放进 2026 同代开源 / 准开源 T2I 里横向对照：它们解决的是同一个问题（MLLM 条件 + DiT + 少步蒸馏的文生图基础模型），但在几处关键决策上给出了<strong>不同甚至相反的结论</strong>。下表只取「双方都表态」的轴对照结论与观察：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论 / 定位</th>
+<th>在共同轴上的关键观察</th>
+<th>与本文 (Krea 2) 的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本文 Krea 2</strong></td>
+<td>「为探索而生」的开源宽美学基线，工程配方 + 系统基建优先</td>
+<td>iREPA 只用 1 epoch 点火即弃；<strong>零 AI 生成图</strong>、多样性 &gt; 质量、反对 IQA 主滤；文本特征做 <strong>MFA 多层聚合</strong>；蒸馏选 <strong>TDM</strong>；DC-AE 32× 压缩被弃（给细节设上限）</td>
+<td>—（基准）</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="sefi-image-2026" href="../sefi-image-2026/index.html">sefi-image-2026</a></td>
+<td>把「ImageNet 学术 trick」做成工业 T2I，训练成本 ~1/5，<strong>全开源公式+代码</strong></td>
+<td>REPA <strong>全程</strong>作正则 + 语义 VAE 当<strong>核心机制</strong>；FLUX.2 VAE 近无损；DMD2→4 步</td>
+<td><strong>同</strong>：都用 Qwen3-VL 编码、都属 REPA 家族、都偏 FLUX2 系 VAE、都观察到「高压缩 VAE 损重建」。<strong>异</strong>：REPA 对 Krea 是「点火即弃的加速器」、对 SeFi 是「贯穿全程的语义主干」；蒸馏 TDM vs DMD2；可复现性 SeFi 全开源 vs Krea 报告黑箱</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a></td>
+<td>生产实用优先（超长中文渲染 / 2K / 统一编辑），自研 f16c64 VAE，<strong>闭源</strong></td>
+<td>VA-VAE 语义对齐「<strong>早强后弱</strong>」；DMD→4 步；<strong>明确纳入合成数据 + IQA 过滤</strong></td>
+<td><strong>同</strong>：Qwen3-VL 冻结 MLLM 编码器、DMD 系蒸馏、「语义对齐早期强后期松」与 Krea「iREPA 早期助推即弃」动机相通、奖励多维动态加权防过拟。<strong>异（正面冲突）</strong>：<strong>数据立场相反</strong> —— Qwen 用合成数据 + IQA 过滤，Krea 禁 AI 生成图 + 反对 IQA 主滤；定位 生产 vs 探索（Krea 还直接复用了 Qwen-Image VAE 与 Qwen3-VL）</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a></td>
+<td>用 ~1/10 数据逼近闭源水平，权重开放但<strong>训练黑箱</strong></td>
+<td>Qwen3-VL <strong>取最后一层</strong>（单层对齐，<code>num_instruction_feat_layers=1</code>）；Decoupled DMD→4 步；Turbo 变体 <strong>CFG=0</strong></td>
+<td><strong>同</strong>：Qwen3-VL 当编码器并复用为改写器（与 Krea prompt 扩写器同思路）、DMD 系少步、<strong>少步变体 CFG=0 与 Krea「RL 全程不开 CFG」一致</strong>。<strong>异</strong>：文本特征 Boogu 坚持 last-layer 单层 vs Krea 专门做 MFA 多层聚合；蒸馏 Decoupled DMD vs TDM</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong> —— 三处最尖锐的不一致，根因不在「谁对谁错」，而在判断/定位差异：</p>
+<ol>
+<li><strong>同一个 REPA，四种用法</strong>（Krea 点火即弃 / SeFi 全程核心 / Qwen 早强后弱 / Boogu 干脆不用）：根因是各家对「语义对齐到底是<strong>核心创新</strong>还是<strong>纯收敛加速器</strong>」的定位不同——把它当主干就全程保留，当助推就用完即弃。</li>
+<li><strong>合成数据用不用</strong>（Krea 禁 vs Qwen 用）：根因是对「合成图更易学 → 给质量设上限、引入偏置」这一风险的<strong>容忍度</strong>不同，也与定位绑定——探索型基线怕被偏置污染分布，生产型模型则把合成数据当结构化 caption 的监督补充。</li>
+<li><strong>文本特征取哪一层</strong>（Krea MFA 多层聚合 vs Boogu last-layer 单层）：根因是是否把「VLM 最后一层为 next-token 优化、对生成次优」当成一个<strong>必须专门解决</strong>的问题——认了就加跨层聚合，不认就图简单单层对齐。</li>
+</ol>
+<blockquote>
+<p>一个反向的<strong>强共识</strong>也值得记：四家全部用 <strong>Qwen3-VL（MLLM）做文本条件</strong>、全部蒸馏到 <strong>~4 步（DMD/TDM 系）</strong>、且都观察到<strong>高压缩 VAE 损害重建</strong>而偏向低压缩——这几点已是 2026 开源 T2I 的收敛默认，分歧只发生在其上的「风格 / 数据 / 复现」取舍层。</p>
+</blockquote>
+<p><strong>相关工作 (Related work)</strong></p>
 <ul>
-<li>强对照：<a class="wiki-link" data-slug="sefi-image-2026" href="../sefi-image-2026/index.html">sefi-image-2026</a>（同样用 REPA/DINO/FLUX2-VAE 加速，但走「语义先行异步去噪」的显式机制，且给了完整公式+代码——与 Krea「iREPA 点火即弃 + 工程优先」恰成方法论两极）。</li>
-<li>同代开源 T2I：<a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a>（Krea 直接用了 Qwen-Image VAE 和 Qwen3-VL 文本编码器）、<a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a>（同走 MLLM 文本条件 + DiT + DMD 蒸馏路线）。</li>
-<li>报告重度引用的外部方法：rectified flow / flow matching、REPA、GQA、Gated Attention for LLMs、Unifusion（多层特征聚合）、DPO/扩散 DPO、TDM（轨迹分布匹配）、Muon、torchtitan。</li>
+<li>报告重度引用的外部方法：rectified flow / flow matching、REPA、GQA、Gated Attention for LLMs、Unifusion（多层特征聚合）、DPO / 扩散 DPO、TDM（轨迹分布匹配）、Muon、torchtitan。</li>
 </ul>
 <section class="comments" data-pagefind-ignore>
   <h2>讨论 / Comments</h2>
