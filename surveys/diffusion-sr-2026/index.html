@@ -120,6 +120,7 @@
 <li>关键结果：单步推理质量与多步方法相当，比 SeeSR 快 10×+，可训参数最少。</li>
 <li>代码：<a href="https://github.com/cswry/OSEDiff">cswry/OSEDiff</a> · <code>osediff.py:distribution_matching_loss</code>。</li>
 </ul>
+<p>怎么做的：LQ 图经 VAE 编码成 latent，直接作为 UNet 在<strong>一个固定时间步</strong>的输入，一次前向 + 一步 scheduler 出 latent，再解码——全程无迭代、无随机噪声起点。训练时这个一步学生（UNet+VAE 挂 LoRA）由重建损失（L2+LPIPS）兜底、再加 VSD 正则：在学生输出的加噪 latent 上，取一个<strong>冻结预训练 UNet</strong>（real score，带 CFG 放大）与一个<strong>在线 LoRA UNet</strong>（fake score，实时拟合学生当前分布）的预测之差当梯度，把学生分布推向预训练真实分布。三个设计决定值得注意：(1) 用 LQ 当起点而非纯噪声，消去采样随机性、利于保真；(2) VSD 只作正则项（<code>lambda_vsd</code> 压住），让重建主导，避免一步学生跑飞；(3) fake-score 必须用在线 LoRA，否则跟不上每步都在变的学生分布。代价是质量被 teacher（SD 先验）的天花板锁死。</p>
 <p><strong>OMGSR (2025, arxiv:2508.08227)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a></p>
 <ul>
 <li>核心贡献：指出一步化的关键不是蒸馏，而是把 LQ 注入到 SNR 算出的「中间时刻 t*」。</li>
@@ -127,6 +128,7 @@
 <li>关键结果：SD2.1 上 t*≈273；一步 GAN 微调质量对标多步，路线与蒸馏正交。</li>
 <li>代码：<a href="https://github.com/wuer5/OMGSR">wuer5/OMGSR</a> · <code>mid_timestep/mid_timestep_sd.py</code>。</li>
 </ul>
+<p>怎么做的：把一步化的问题重述为「LQ 该注入到扩散调度的哪一帧」。OMGSR 先<strong>离线</strong>在整个训练集上扫所有时刻，用信噪比匹配——令调度的理论 SNR(t)=ᾱ_t/(1-ᾱ_t)·E[x²] 与 LQ 实测 SNR=E[x²]/E[(LQ−HQ)²] 的差最小——取 argmin 得到一个全局固定的 t*（SD2.1 上 ≈273）。推理时把 LQ latent 当作 t* 处的带噪 latent，做<strong>一步</strong>去噪。训练是 GAN：生成器就是扩散 UNet（LoRA 微调），判别器是 DINOv3-ConvNeXt 多级头，监督来自 GT + 判别器，<strong>没有 teacher</strong>；另有 LRR 损失（LoRA 微调 VAE 编码器）把 LQ latent 进一步拉向 t* 的带噪 HQ latent。设计取舍：注入到 t*（而非 t=999 纯噪声或 t=0 干净图）让一步要补的距离最短；GAN（无 teacher）把质量上限从「贴近 SD」解放出来，代价是 GAN 训练更难稳，故堆了 GT+判别器+LRR 多项联合。</p>
 <p><strong>OP4KSR (2026, arxiv:2605.13457)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></p>
 <ul>
 <li>核心贡献：第一个「一步 + 无分块」真实世界 4K 超分，并根治一步全图前向诱发的周期格子伪影。</li>
@@ -134,6 +136,7 @@
 <li>关键结果：5.75s 出一张 4K，较一步 OMGSR 约 16×、较多步 SUPIR 约 280×。</li>
 <li>代码：官方未放出（机制据论文）。</li>
 </ul>
+<p>怎么做的：把 OMGSR 的「中间时刻一步 GAN」推到全分辨率 4K 且不分块。三步：(1) 用 UltraFlux 的 F16 极压缩 VAE 把 4096×4096 的显存压到单卡可跑；(2) 借中间时刻对齐把 Flux 微调成一步前向（GAN 式，非师生蒸馏）；(3) 治理一步全图前向诱发的周期 32 像素格子伪影——作者把病因拆成两层：RoPE 相位坍缩（θ=10000 太大，相邻 token 不可分）与 2×2 打包后 unpack 把通道当空间，对症下两味药：RoPE 基频 10000→100（RFR）+ 基于自相关的周期性损失（L_AP）。设计取舍：无分块避免了拼缝，但把位置编码在超大尺寸上的混叠暴露出来——省下的分块步骤以新伪影的形式还回来，必须专门治理。</p>
 <p><strong>OFTSR (2024, arxiv:2412.09465)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></p>
 <ul>
 <li>核心贡献：一步 flow 超分，且保真-逼真可调。</li>
@@ -141,6 +144,7 @@
 <li>关键结果：单步生成，trade-off 曲线可控。</li>
 <li>代码：见论文。</li>
 </ul>
+<p>怎么做的：把超分建成一步 flow（rectified-flow 式从 LQ 到 HQ 的直线轨迹），一次前向出结果。关键设计是在一步模型上留一个<strong>保真-逼真可调旋钮</strong>：同一模型不重训即可在「忠于原图」与「锐利但更敢生成」之间滑动。它早于 OMGSR/OP4KSR，是本站收录的一步图像超分早期样本，确立了「一步 + trade-off 可控」这一对后续工作的诉求。</p>
 <p><strong>ODTSR (CVPR 2026, arxiv:2511.17138)</strong> — ✅</p>
 <ul>
 <li>核心贡献：把「一步 + 可控保真」搬上 DiT 底座（Qwen-Image）。</li>
@@ -148,6 +152,7 @@
 <li>关键结果：一步推理同时拿到保真与可控性（多步法靠随机性牺牲保真、一步法靠微调牺牲可控）。</li>
 <li>代码：<a href="https://github.com/MediaX-SJTU/ODTSR">MediaX-SJTU/ODTSR</a>。</li>
 </ul>
+<p>怎么做的：以 Qwen-Image 这个 DiT 为底座做一步 Real-ISR，针对「多步法靠随机性出细节→保真低、一步法靠 fidelity-specific 微调→失去控制灵活性」这对矛盾。方法上设两条视觉流：一条 Control-Noise 流接收带<strong>可调噪声</strong>的 LQ，一条原始 Prior-Noise 流接收带<strong>一致噪声</strong>的 LQ；再用 Fidelity-aware Adversarial Training（FAA）在保住可控性的同时实现一步推理。设计取舍：双流让「控制强度」成为推理期可调量而非训练期写死，这是它相对 OSEDiff 这类一步法在「一步」之外多拿到的「可控」——也是目前图像侧少见的「一步 × 可控」样本（视频侧仍空白，见 §6）。</p>
 <p><strong>TEASR (2026, arxiv:2606.16188)</strong> — ✅</p>
 <ul>
 <li>核心贡献：训练高效的「任意步」DiT，一步与多步统一在同一模型。</li>
@@ -155,6 +160,7 @@
 <li>关键结果：任意步采样，跨多数据集超 SOTA（作者报告）。</li>
 <li>代码：本次未见官方仓库。</li>
 </ul>
+<p>怎么做的：把「一步」与「多步」统一在同一个模型里——支持任意步采样。两个关键设计：(1) <strong>自对抗蒸馏</strong>，让模型自己当自己的老师与判别器，省掉外部 teacher 和独立判别器，这是它「训练高效」的来源（单卡即可蒸 20B 扩散模型）；(2) <strong>时间步感知修正</strong> + 解耦时间步条件的双分支 DiT，把「当前噪声状态」与「去噪目标」分离，稳住一步生成在不同噪声水平上的质量。设计取舍：放弃外部 teacher/判别器换来训练成本骤降，但需要自对抗与时间步修正来补回稳定性——与 OSEDiff（有 teacher）、OMGSR（有判别器）形成「监督越省、越依赖结构性技巧稳住」的对照。</p>
 <h3 id="sec-2-2">2.2 视频一步化（SeedVR 之后）</h3>
 <p><strong>SeedVR (CVPR 2025 Highlight)</strong> — ✅(venue/repo) · arxiv 本次未核实</p>
 <ul>
@@ -163,6 +169,7 @@
 <li>关键结果：通用视频修复，是 DUO-VSR/FlashVSR 等的对标基线。</li>
 <li>代码：<a href="https://github.com/ByteDance-Seed/SeedVR">ByteDance-Seed/SeedVR</a> · <code>models/dit/window.py</code>。</li>
 </ul>
+<p>怎么做的：视频 → latent → 一个 DiT（非 UNet），核心是 shifted-window 的<strong>时空注意力</strong>：把视频 token 按 (t,h,w) 切成 3D 窗口、窗内做注意力，相邻层交替使用常规/位移窗口让感受野逐层扩散到全局。关键设计是<strong>自适应窗口</strong>——窗口尺寸按 720p 等效面积归一（缩放因子 s=√(45×80/(H·W))）折算，使任意分辨率下「每个窗口覆盖的画面比例」大致恒定（代码 <code>make_shifted_720Pwindows_bysize</code> 已核）。设计取舍：DiT 的注意力天然适配任意分辨率/长度 + 长程时序，胜过 UNet 的卷积归纳偏置；自适应窗口解决固定窗口在高分辨率下「覆盖比例失衡、语义范围漂移」的问题——但它仍是<strong>多步</strong>扩散，单条视频要跑几十步，慢，这把速度问题留给了 SeedVR2 及后续一步化。</p>
 <p><strong>SeedVR2 (ICLR 2026, arxiv:2506.05301)</strong> — ✅</p>
 <ul>
 <li>核心贡献：SeedVR 自家一步化（同源），把通用视频修复压到单步。</li>
@@ -170,6 +177,7 @@
 <li>关键结果：单步即达到或超过多步视频修复；放出 3B/7B 权重（Apache-2.0）。</li>
 <li>代码：同 SeedVR 仓库。</li>
 </ul>
+<p>怎么做的：在 SeedVR 的 DiT 上做**扩散对抗后训练（adversarial post-training）**把多步压成单步：以预训练 SeedVR 为起点，用对抗目标 + 特征匹配损失（feature-matching）让一步学生的输出分布贴近真实分布。同时改进窗口注意力——窗口尺寸随输出分辨率动态调整，避免高分辨率下用预设窗口产生的窗口不一致（这正是 SeedVR 留下的痛点）。设计取舍：同源团队选择对抗后训练而非从零蒸馏，复用已训好的 SeedVR 能力、只补「一步」这一步；特征匹配损失稳住对抗训练。它是后续各家一步视频法（DUO-VSR 等）的对标基线（「比 SeedVR-7B 快 N×」）。</p>
 <p><strong>DOVE (NeurIPS 2025, arxiv:2505.16239)</strong> — ✅</p>
 <ul>
 <li>核心贡献：把视频扩散基座 CogVideoX 微调成一步真实世界 VSR。</li>
@@ -177,6 +185,7 @@
 <li>关键结果：比 MGLD-VSR 快约 28×，质量对标多步。</li>
 <li>代码：<a href="https://github.com/zhengchen1999/DOVE">zhengchen1999/DOVE</a>。</li>
 </ul>
+<p>怎么做的：不挂 LoRA，而是直接微调视频扩散基座 CogVideoX 成一步 VSR，关键是 <strong>latent-pixel 两阶段</strong>训练：第一阶段在 latent 空间让模型学会「从 LQ 视频 latent 一步还原」，第二阶段在 pixel 空间精修解码后的细节与色彩；配套构造 HQ-VSR 高质量数据管线。设计取舍：选 CogVideoX 这种视频基座是为了直接继承其自带的时序建模能力，省掉显式光流约束；两阶段是因为纯 latent 训练后解码会残留像素级伪影，需 pixel 阶段补。代价是微调整个视频基座比挂 LoRA 重。</p>
 <p><strong>DLoRAL (NeurIPS 2025, arxiv:2506.15591)</strong> — ✅</p>
 <ul>
 <li>核心贡献：把「时序一致」与「空间细节」解耦成两组可分别训练、推理合并的 LoRA。</li>
@@ -184,6 +193,7 @@
 <li>关键结果：比 Upscale-A-Video/MGLD 快约 10×、比 STAR 快约 8×，参数最少。</li>
 <li>代码：<a href="https://github.com/yjsunnn/DLoRAL">yjsunnn/DLoRAL</a> · <code>src/DLoRAL_model.py</code>。</li>
 </ul>
+<p>怎么做的：给 SD 同一套基权重挂两组 LoRA——C-LoRA 专管帧间一致（训练时用光流一致性损失：让预测帧对的运动场对齐真值帧对的运动场），D-LoRA 专管空间细节。两组<strong>分阶段交替</strong>训练：训一致性时冻细节、训细节时冻一致性（代码 <code>set_train_quality/set_train_consistency</code> 按参数名前缀开关梯度，已核），再配跨帧检索 CFR 聚合邻帧信息喂给一致性。推理时两组增量直接合并进基权重，一步出图、零额外开销。设计取舍：让单组权重同时管「锐」和「稳」会顾此失彼——细节损失不断往高频塞内容，而高频正是帧间最易抖的部分；拆成两组、先稳后锐，把闪烁源提前压住。合并即免费（线性可加）是它相对蒸馏路线的工程优势。</p>
 <p><strong>DUO-VSR (CVPR 2026, arxiv:2603.22271)</strong> — ✅</p>
 <ul>
 <li>核心贡献：双流蒸馏把多步视频教师稳定地压成一步。</li>
@@ -191,6 +201,7 @@
 <li>关键结果：一步推理比多步 <strong>SeedVR-7B 快约 50×</strong>，质量更优。</li>
 <li>代码：<a href="https://github.com/cszy98/DUO-VSR">cszy98/DUO-VSR</a>。</li>
 </ul>
+<p>怎么做的：三阶段把多步视频教师压成一步学生：(1) 渐进引导蒸馏初始化（trajectory-preserving）先稳住后续训练；(2) <strong>双流蒸馏</strong>并行——DMD（分布匹配蒸馏，类似 §3 的 VSD 用分数差把学生分布推向教师）+ RFS-GAN（Real-Fake Score Feature GAN，用真/假分数模型的判别特征提供互补对抗监督）；(3) 偏好引导精修对齐感知质量。设计取舍：直接把 DMD 套到 VSR 会训练不稳、监督不足，故加 RFS-GAN 这条对抗流补高频与稳定性，再用初始化阶段防早期崩塌——这是「纯蒸馏不够、需对抗补位」的典型。一步推理使其比多步 SeedVR-7B 快约 50×。</p>
 <p><strong>STCDiT (2025, arxiv:2511.18786)</strong> — ✅</p>
 <ul>
 <li>核心贡献：抗复杂相机运动的高质量视频超分。</li>
@@ -198,6 +209,7 @@
 <li>关键结果：结构保真与时序一致性超 SOTA（作者报告）。</li>
 <li>代码：本次未见放出。</li>
 </ul>
+<p>怎么做的：基于 Wan2.1 的多步视频超分，专攻复杂相机运动下的结构与时序稳定。两个设计：(1) <strong>运动感知 VAE 分段重建</strong>——把视频按运动特性切成「段内运动一致」的 clip 分别重建，避免单一 VAE 在剧烈/变速运动上糊掉；(2) <strong>anchor-frame 引导</strong>——用每个 clip 第一帧 latent 的结构信息约束生成，提升结构保真。设计取舍：它没有走一步化，而是用多步换质量，针对的是「相机大幅运动」这个一步法和逐帧法都容易崩的场景——是本批工作里少数明确「不一步、保质量」的反例。</p>
 <h3 id="sec-2-3">2.3 视频流式 / 长视频 / 实时</h3>
 <p><strong>FlashVSR (CVPR 2026, arxiv:2510.12747)</strong> — ✅</p>
 <ul>
@@ -206,6 +218,7 @@
 <li>关键结果：A100 上 768×1408 约 17 FPS，较前一步法约 12×。</li>
 <li>代码：<a href="https://github.com/OpenImagingLab/FlashVSR">OpenImagingLab/FlashVSR</a> · <code>diffsynth/models/wan_video_dit.py</code>。</li>
 </ul>
+<p>怎么做的：三件套支撑实时流式。(1) 三阶段蒸馏把采样压到一步；(2) <strong>局部约束稀疏注意力</strong>——新帧的窗口化 K/V 先与上一步缓存 <code>pre_cache_k/v</code> 拼接（rolling KV-cache），在拼接序列上做「局部块掩码 + draft TopK 稀疏掩码」注意力，再按窗宽 <code>kv_len</code> 滚动淘汰最老的块（代码 <code>wan_video_dit.py</code> 已核）；(3) 微型条件解码器替掉笨重 VAE 解码。设计取舍：双向注意力要看未来帧、且 O(T²)，根本没法流式；改成因果 + KV-cache 把复杂度降到 O(T·w) 且可边来边超；稀疏注意力只盯局部，顺带因「对绝对分辨率不敏感」弥合了训练（低分辨率短片）与测试（高分辨率长片）的尺度 gap。A100 上 768×1408 约 17 FPS。</p>
 <p><strong>InfVSR (2025, arxiv:2510.00948)</strong> — ✅</p>
 <ul>
 <li>核心贡献：把 VSR 重写成自回归一步扩散，破除长度上限。</li>
@@ -213,6 +226,7 @@
 <li>关键结果：比 MGLD-VSR 快约 58×，任意长度稳定。</li>
 <li>代码：<a href="https://github.com/Kai-Liu001/InfVSR">Kai-Liu001/InfVSR</a>（当前仅项目页/图，未放出代码）。</li>
 </ul>
+<p>怎么做的：把 VSR 重写成<strong>自回归一步扩散</strong>。将预训练 DiT 适配成因果结构，用 rolling KV-cache 做流式推理，并以联合视觉引导维持局部与全局一致性；整模型在短视频上训练，测试时泛化到任意长度。设计取舍：现有生成式 VSR 处理长序列有两个老问题——多步去噪全长序列太贵、按时间分块又产生接缝/不连续；InfVSR 用「因果一步 + KV-cache」同时绕开两者。训短测长能成立，靠的是因果+局部使模型学到的是「与绝对序列长度无关」的局部修复规律。比 MGLD-VSR 快约 58×。</p>
 <p><strong>Stream-DiffVSR (2025, arxiv:2512.23709)</strong> — ✅</p>
 <ul>
 <li>核心贡献：把扩散 VSR 的首帧延迟压到亚秒，首个适合低延迟在线部署的扩散 VSR。</li>
