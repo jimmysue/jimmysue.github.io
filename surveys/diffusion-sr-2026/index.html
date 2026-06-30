@@ -234,6 +234,7 @@
 <li>关键结果：720p 单帧 0.328s（RTX4090），较在线 SOTA TMP 延迟降 &gt;130×、LPIPS +0.095。</li>
 <li>代码：<a href="https://github.com/jamichss/Stream-DiffVSR">jamichss/Stream-DiffVSR</a>。</li>
 </ul>
+<p>怎么做的：三个组件压低延迟。(1) <strong>4 步蒸馏</strong>的去噪器（不追求一步，留 4 步换质量稳定）；(2) <strong>自回归时序引导 ARTG</strong>——在 latent 去噪过程中注入运动对齐的时序线索，维持帧间连贯；(3) <strong>时序感知微型解码器 TPM</strong>——轻量解码同时增强细节与时序一致。设计取舍：它优化的是<strong>首帧延迟</strong>（720p 0.328s on RTX4090，较在线 SOTA TMP 降 &gt;130×）而非吞吐——这与 FlashVSR 优化 FPS 是不同目标，二者宣称的「实时」不是同一指标（见 §4）。4 步而非 1 步是延迟与质量的折中。</p>
 <h2 id="sec-3">3. 平行对比</h2>
 <table>
 <thead>
