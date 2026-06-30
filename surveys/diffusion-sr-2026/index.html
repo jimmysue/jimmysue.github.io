@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>扩散超分调研：一步化浪潮与 SeedVR 之后的视频超分（2024→2026）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 图像一步化（Real-ISR）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 视频一步化（SeedVR 之后）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 视频流式 / 长视频 / 实时</a></li>
+    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
+    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>扩散超分调研：一步化浪潮与 SeedVR 之后的视频超分（2024→2026）</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-30</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-06-30</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/cswry/OSEDiff">代码</a> · <a class="post-meta__link" href="https://github.com/wuer5/OMGSR">代码</a> · <a class="post-meta__link" href="https://github.com/yjsunnn/DLoRAL">代码</a> · <a class="post-meta__link" href="https://github.com/ByteDance-Seed/SeedVR">代码</a> · <a class="post-meta__link" href="https://github.com/OpenImagingLab/FlashVSR">代码</a> · <a class="post-meta__link" href="https://github.com/IceClear/StableSR">代码</a> · <a class="post-meta__link" href="https://github.com/zhengchen1999/DOVE">代码</a> · <a class="post-meta__link" href="https://github.com/cszy98/DUO-VSR">代码</a> · <a class="post-meta__link" href="https://github.com/Kai-Liu001/InfVSR">代码</a> · <a class="post-meta__link" href="https://github.com/jamichss/Stream-DiffVSR">代码</a> · <a class="post-meta__link" href="https://github.com/MediaX-SJTU/ODTSR">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/image-super-resolution.html">image-super-resolution</a> <a class="concept-chip" href="../../concepts/video-super-resolution.html">video-super-resolution</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/score-distillation.html">score-distillation</a> <a class="concept-chip" href="../../concepts/gan.html">gan</a> <a class="concept-chip" href="../../concepts/mid-timestep-injection.html">mid-timestep-injection</a> <a class="concept-chip" href="../../concepts/real-isr.html">real-isr</a> <a class="concept-chip" href="../../concepts/dit.html">dit</a> <a class="concept-chip" href="../../concepts/streaming.html">streaming</a></div>
+</aside>
+
+<h2 id="sec-1">1. 概述与范围</h2>
+<p>本调研覆盖 2024–2026 年扩散超分（diffusion super-resolution）的图像与视频两条线，主线只有一条：<strong>把扩散先验从「多步随机采样」压缩成「一步确定性前向」</strong>，并将其从图像迁移到视频的时序与流式场景。读者默认为 CV/ML 从业者，下文不解释什么是扩散、超分、注意力。</p>
+<ul>
+<li><strong>时间窗</strong>：以一步图像超分的元年（OSEDiff/SinSR，2024）为起点，到 2026 上半年的视频一步化与流式工作。</li>
+<li><strong>取舍</strong>：聚焦「一步化机制」这条可比较的主轴；多步先验范式（SR3/StableSR）仅作为对照基线。配套的原理精讲见本站教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../diffusion-sr-2021/index.html">diffusion-sr-2021</a>，本页只做调研对比、不做推导。</li>
+<li><strong>证据强度</strong>：所有 arxiv 号、年份、venue 均<strong>本次联网核实</strong>；标 ✅。SeedVR 原作仅给 venue + 仓库（arxiv 号本次未核实，不臆造）。代码交叉验证（§5）只列<strong>本次实际打开并比对过的函数</strong>。</li>
+</ul>
+<blockquote>
+<p>验证原则：引用经核实而非回忆；代码主张经打开函数比对而非据摘要推断。</p>
+</blockquote>
+<h2 id="sec-2">2. 逐篇精要</h2>
+<p>每个工作四行：核心贡献（最具区分度的一点）/ 方法（承重机制一句话）/ 关键结果（带指标与基线）/ 代码。</p>
+<h3 id="sec-2-1">2.1 图像一步化（Real-ISR）</h3>
+<p><strong>OSEDiff (NeurIPS 2024, arxiv:2406.08177)</strong> — ✅</p>
+<ul>
+<li>核心贡献：一步分数蒸馏 Real-ISR 的范式确立者。</li>
+<li>方法：LQ latent 直接当扩散输入（去掉随机噪声起点）+ 变分分数蒸馏（VSD）做 KL 正则。</li>
+<li>关键结果：单步推理质量与多步方法相当，比 SeeSR 快 10×+，可训参数最少。</li>
+<li>代码：<a href="https://github.com/cswry/OSEDiff">cswry/OSEDiff</a> · <code>osediff.py:distribution_matching_loss</code>。</li>
+</ul>
+<p><strong>OMGSR (2025, arxiv:2508.08227)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a></p>
+<ul>
+<li>核心贡献：指出一步化的关键不是蒸馏，而是把 LQ 注入到 SNR 算出的「中间时刻 t*」。</li>
+<li>方法：用信噪比匹配离线求全局 t*，在 t* 处一步去噪，整套 GAN 训练（判别器=DINOv3-ConvNeXt），无 teacher。</li>
+<li>关键结果：SD2.1 上 t*≈273；一步 GAN 微调质量对标多步，路线与蒸馏正交。</li>
+<li>代码：<a href="https://github.com/wuer5/OMGSR">wuer5/OMGSR</a> · <code>mid_timestep/mid_timestep_sd.py</code>。</li>
+</ul>
+<p><strong>OP4KSR (2026, arxiv:2605.13457)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></p>
+<ul>
+<li>核心贡献：第一个「一步 + 无分块」真实世界 4K 超分，并根治一步全图前向诱发的周期格子伪影。</li>
+<li>方法：F16 压缩 VAE 让 4K 单卡可跑 + 中间时刻一步微调（继承 OMGSR）+ RoPE 基频 10000→100（RFR）+ 自相关周期损失。</li>
+<li>关键结果：5.75s 出一张 4K，较一步 OMGSR 约 16×、较多步 SUPIR 约 280×。</li>
+<li>代码：官方未放出（机制据论文）。</li>
+</ul>
+<p><strong>OFTSR (2024, arxiv:2412.09465)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></p>
+<ul>
+<li>核心贡献：一步 flow 超分，且保真-逼真可调。</li>
+<li>方法：在一步 flow 模型上做可调的 fidelity-realism trade-off。</li>
+<li>关键结果：单步生成，trade-off 曲线可控。</li>
+<li>代码：见论文。</li>
+</ul>
+<p><strong>ODTSR (CVPR 2026, arxiv:2511.17138)</strong> — ✅</p>
+<ul>
+<li>核心贡献：把「一步 + 可控保真」搬上 DiT 底座（Qwen-Image）。</li>
+<li>方法：双视觉流（Control Noise + Prior Noise）+ Fidelity-aware 对抗训练（FAA），一步可控 Real-ISR。</li>
+<li>关键结果：一步推理同时拿到保真与可控性（多步法靠随机性牺牲保真、一步法靠微调牺牲可控）。</li>
+<li>代码：<a href="https://github.com/MediaX-SJTU/ODTSR">MediaX-SJTU/ODTSR</a>。</li>
+</ul>
+<p><strong>TEASR (2026, arxiv:2606.16188)</strong> — ✅</p>
+<ul>
+<li>核心贡献：训练高效的「任意步」DiT，一步与多步统一在同一模型。</li>
+<li>方法：自对抗蒸馏（无需 teacher/判别器）+ 时间步感知修正；单卡可蒸 20B 扩散模型。</li>
+<li>关键结果：任意步采样，跨多数据集超 SOTA（作者报告）。</li>
+<li>代码：本次未见官方仓库。</li>
+</ul>
+<h3 id="sec-2-2">2.2 视频一步化（SeedVR 之后）</h3>
+<p><strong>SeedVR (CVPR 2025 Highlight)</strong> — ✅(venue/repo) · arxiv 本次未核实</p>
+<ul>
+<li>核心贡献：把 shifted-window 时空注意力 DiT 用于任意分辨率/长度的通用视频修复，成为后续视频线共同底座。</li>
+<li>方法：自适应窗口的时空注意力 DiT（多步扩散）。</li>
+<li>关键结果：通用视频修复，是 DUO-VSR/FlashVSR 等的对标基线。</li>
+<li>代码：<a href="https://github.com/ByteDance-Seed/SeedVR">ByteDance-Seed/SeedVR</a> · <code>models/dit/window.py</code>。</li>
+</ul>
+<p><strong>SeedVR2 (ICLR 2026, arxiv:2506.05301)</strong> — ✅</p>
+<ul>
+<li>核心贡献：SeedVR 自家一步化（同源），把通用视频修复压到单步。</li>
+<li>方法：扩散对抗后训练（adversarial post-training）+ 自适应窗口注意力 + 特征匹配损失。</li>
+<li>关键结果：单步即达到或超过多步视频修复；放出 3B/7B 权重（Apache-2.0）。</li>
+<li>代码：同 SeedVR 仓库。</li>
+</ul>
+<p><strong>DOVE (NeurIPS 2025, arxiv:2505.16239)</strong> — ✅</p>
+<ul>
+<li>核心贡献：把视频扩散基座 CogVideoX 微调成一步真实世界 VSR。</li>
+<li>方法：latent→pixel 两阶段训练策略 + HQ-VSR 数据管线。</li>
+<li>关键结果：比 MGLD-VSR 快约 28×，质量对标多步。</li>
+<li>代码：<a href="https://github.com/zhengchen1999/DOVE">zhengchen1999/DOVE</a>。</li>
+</ul>
+<p><strong>DLoRAL (NeurIPS 2025, arxiv:2506.15591)</strong> — ✅</p>
+<ul>
+<li>核心贡献：把「时序一致」与「空间细节」解耦成两组可分别训练、推理合并的 LoRA。</li>
+<li>方法：C-LoRA（一致性，光流损失）+ D-LoRA（细节）分阶段训练，跨帧检索 CFR 聚合邻帧；推理合并进 SD 一步。</li>
+<li>关键结果：比 Upscale-A-Video/MGLD 快约 10×、比 STAR 快约 8×，参数最少。</li>
+<li>代码：<a href="https://github.com/yjsunnn/DLoRAL">yjsunnn/DLoRAL</a> · <code>src/DLoRAL_model.py</code>。</li>
+</ul>
+<p><strong>DUO-VSR (CVPR 2026, arxiv:2603.22271)</strong> — ✅</p>
+<ul>
+<li>核心贡献：双流蒸馏把多步视频教师稳定地压成一步。</li>
+<li>方法：DMD 分布匹配 + RFS-GAN 对抗双流 + 渐进引导初始化 + 偏好精修。</li>
+<li>关键结果：一步推理比多步 <strong>SeedVR-7B 快约 50×</strong>，质量更优。</li>
+<li>代码：<a href="https://github.com/cszy98/DUO-VSR">cszy98/DUO-VSR</a>。</li>
+</ul>
+<p><strong>STCDiT (2025, arxiv:2511.18786)</strong> — ✅</p>
+<ul>
+<li>核心贡献：抗复杂相机运动的高质量视频超分。</li>
+<li>方法：基于 Wan2.1；运动感知 VAE 分段重建 + anchor-frame 引导约束结构。</li>
+<li>关键结果：结构保真与时序一致性超 SOTA（作者报告）。</li>
+<li>代码：本次未见放出。</li>
+</ul>
+<h3 id="sec-2-3">2.3 视频流式 / 长视频 / 实时</h3>
+<p><strong>FlashVSR (CVPR 2026, arxiv:2510.12747)</strong> — ✅</p>
+<ul>
+<li>核心贡献：首个面向实时的一步流式扩散 VSR。</li>
+<li>方法：三阶段蒸馏 + 局部约束稀疏注意力 + 微型条件解码器；放出 VSR-120K。</li>
+<li>关键结果：A100 上 768×1408 约 17 FPS，较前一步法约 12×。</li>
+<li>代码：<a href="https://github.com/OpenImagingLab/FlashVSR">OpenImagingLab/FlashVSR</a> · <code>diffsynth/models/wan_video_dit.py</code>。</li>
+</ul>
+<p><strong>InfVSR (2025, arxiv:2510.00948)</strong> — ✅</p>
+<ul>
+<li>核心贡献：把 VSR 重写成自回归一步扩散，破除长度上限。</li>
+<li>方法：预训练 DiT 改因果结构 + rolling KV-cache + 联合视觉引导；训短测长。</li>
+<li>关键结果：比 MGLD-VSR 快约 58×，任意长度稳定。</li>
+<li>代码：<a href="https://github.com/Kai-Liu001/InfVSR">Kai-Liu001/InfVSR</a>（当前仅项目页/图，未放出代码）。</li>
+</ul>
+<p><strong>Stream-DiffVSR (2025, arxiv:2512.23709)</strong> — ✅</p>
+<ul>
+<li>核心贡献：把扩散 VSR 的首帧延迟压到亚秒，首个适合低延迟在线部署的扩散 VSR。</li>
+<li>方法：4 步蒸馏去噪 + 自回归时序引导（ARTG）+ 时序感知微型解码器（TPM）。</li>
+<li>关键结果：720p 单帧 0.328s（RTX4090），较在线 SOTA TMP 延迟降 &gt;130×、LPIPS +0.095。</li>
+<li>代码：<a href="https://github.com/jamichss/Stream-DiffVSR">jamichss/Stream-DiffVSR</a>。</li>
+</ul>
+<h2 id="sec-3">3. 平行对比</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>图/视频</th>
+<th>底座</th>
+<th>一步化机制</th>
+<th>步数</th>
+<th>监督</th>
+<th>头条结果</th>
+<th>代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OSEDiff</td>
+<td>图</td>
+<td>SD</td>
+<td>分数蒸馏(VSD)</td>
+<td>1</td>
+<td>teacher 分数差</td>
+<td>&gt;10× vs SeeSR</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>OMGSR</td>
+<td>图</td>
+<td>SD/Flux</td>
+<td>中间时刻注入 + GAN</td>
+<td>1</td>
+<td>判别器(无teacher)</td>
+<td>t*≈273, 一步</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>OP4KSR</td>
+<td>图(4K)</td>
+<td>Flux+F16VAE</td>
+<td>中间时刻 + 周期治理</td>
+<td>1</td>
+<td>GAN</td>
+<td>4K 5.75s, 16× vs OMGSR</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>ODTSR</td>
+<td>图</td>
+<td>Qwen-Image(DiT)</td>
+<td>双流 + FAA 对抗</td>
+<td>1</td>
+<td>对抗</td>
+<td>一步+可控</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>TEASR</td>
+<td>图</td>
+<td>DiT(≤20B)</td>
+<td>自对抗蒸馏</td>
+<td>任意</td>
+<td>自对抗(无teacher/D)</td>
+<td>单卡蒸 20B</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>SeedVR2</td>
+<td>视频</td>
+<td>SeedVR DiT</td>
+<td>对抗后训练</td>
+<td>1</td>
+<td>对抗+特征匹配</td>
+<td>单步通用修复</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>DOVE</td>
+<td>视频</td>
+<td>CogVideoX</td>
+<td>微调+latent/pixel两阶段</td>
+<td>1</td>
+<td>重建</td>
+<td>28× vs MGLD-VSR</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>DLoRAL</td>
+<td>视频</td>
+<td>SD</td>
+<td>双 LoRA 解耦</td>
+<td>1</td>
+<td>重建+光流一致性</td>
+<td>8–10× vs STAR/MGLD</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>DUO-VSR</td>
+<td>视频</td>
+<td>—</td>
+<td>双流蒸馏(DMD+RFS-GAN)</td>
+<td>1</td>
+<td>蒸馏+对抗</td>
+<td>50× vs SeedVR-7B</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>STCDiT</td>
+<td>视频</td>
+<td>Wan2.1</td>
+<td>多步(运动感知VAE)</td>
+<td>多步</td>
+<td>重建</td>
+<td>抗相机运动 SOTA</td>
+<td>✗</td>
+</tr>
+<tr>
+<td>FlashVSR</td>
+<td>视频(流式)</td>
+<td>Wan DiT</td>
+<td>蒸馏+稀疏注意力+微解码器</td>
+<td>1</td>
+<td>蒸馏</td>
+<td>17 FPS, 12×</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>InfVSR</td>
+<td>视频(长)</td>
+<td>DiT(因果)</td>
+<td>自回归一步+KV-cache</td>
+<td>1</td>
+<td>蒸馏</td>
+<td>58× vs MGLD-VSR</td>
+<td>(项目页)</td>
+</tr>
+<tr>
+<td>Stream-DiffVSR</td>
+<td>视频(在线)</td>
+<td>—</td>
+<td>4步蒸馏+ARTG</td>
+<td>4</td>
+<td>蒸馏</td>
+<td>720p 0.328s</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<p>—— 区分性轴：<strong>一步化机制</strong>（蒸馏 / GAN-中间时刻 / 解耦 LoRA / 自回归流式）与<strong>监督来源</strong>（teacher 分数 vs 判别器 vs 重建+一致性）是真正把这批工作分开的两列；「步数」几乎全压到 1，已不再是区分点。</p>
+<h2 id="sec-4">4. 一致与矛盾</h2>
+<p><strong>一致（多份独立工作收敛）：</strong></p>
+<ul>
+<li><strong>一步化已是默认。</strong> 除 STCDiT（明确走多步换质量）外，2025–2026 的图像与视频工作几乎全部把步数压到 1（Stream-DiffVSR 4 步是流式折中）。这是跨十余篇独立工作的强收敛信号。</li>
+<li><strong>「冻结/复用预训练先验，只学如何一步」是公认地基。</strong> OSEDiff/DLoRAL/DOVE/SeedVR2 都不重训生成能力，只改造采样或挂适配器——继承自 StableSR 的「diffusion prior」范式。</li>
+<li><strong>加速度量级一致可信。</strong> 「比多步基线快 ~10–50×」在 DOVE(28×)/DLoRAL(8–10×)/DUO-VSR(50×)/InfVSR(58×) 反复出现，方向一致。</li>
+</ul>
+<p><strong>矛盾 / 不可直接比较（点名具体冲突）：</strong></p>
+<ul>
+<li><strong>「一步靠不靠 teacher」存在路线之争。</strong> OSEDiff/DUO-VSR 主张分数/分布蒸馏（有 teacher，稳但受 teacher 天花板）；OMGSR/OP4KSR 明确主张<strong>不要 teacher</strong>、用 GAN + 中间时刻注入（上限更高但更难训）；TEASR 又主张<strong>自对抗蒸馏</strong>、连判别器都不要。三者对「一步的正确监督是什么」给出互斥答案。</li>
+<li><strong>加速倍数的基线不统一，横向不可比。</strong> DOVE「28× vs MGLD-VSR」、DUO-VSR「50× vs SeedVR-7B」、InfVSR「58× vs MGLD-VSR」、Stream-DiffVSR「&gt;130× vs TMP」——基线模型、分辨率、硬件各异（A100 vs RTX4090），这些倍数<strong>不能直接排序</strong>。读者须回到「同基线同硬件」才能比较。</li>
+<li><strong>「实时」定义不一致。</strong> FlashVSR 报吞吐（17 FPS），Stream-DiffVSR 报首帧延迟（0.328s）——一个优化 throughput、一个优化 latency，宣称的「实时」不是同一指标。</li>
+<li><strong>评测集分散。</strong> 图像侧多用 RealSR/DRealSR/合成退化，视频侧用各自构造的数据（HQ-VSR、VSR-120K），缺少统一公开 benchmark，绝对分数跨论文不可比。</li>
+</ul>
+<h2 id="sec-5">5. 代码交叉验证</h2>
+<p>对每个<strong>本地有仓库</strong>的承重主张，打开实现函数确认与论文一致（本次实际比对，非据摘要）：</p>
+<ul>
+<li>✅ <strong>OSEDiff 的 VSD</strong>：<code>osediff.py:distribution_matching_loss</code>(L206–243) 计算 <code>grad = (x0_pred_update - x0_pred_fix)/weighting_factor</code> 再 <code>F.mse_loss(latents,(latents-grad).detach())</code>——正是论文的 real/fake 分数差梯度，<code>unet_fix</code> 带 <code>cfg_vsd</code> 即 CFG。与「VSD KL 正则」主张一致。</li>
+<li>✅ <strong>OMGSR 的中间时刻</strong>：<code>mid_timestep/mid_timestep_sd.py</code>(L59–80) 扫全时刻算 <code>SNR1=ᾱ_t·E[x²]/(1-ᾱ_t)</code> 与 <code>SNR2=E[x²]/E[(LQ-HQ)²]</code>，<code>loss=|SNR1-SNR2|</code> 累加后取 argmin 得 t*。与「用 SNR 匹配求注入时刻」主张一致。</li>
+<li>✅ <strong>DLoRAL 的双 LoRA 解耦</strong>：<code>src/DLoRAL_model.py:set_train_quality/set_train_consistency</code>(L327–349) 按参数名前缀 <code>&quot;quality&quot;/&quot;consistency&quot;</code> 分别开关 <code>requires_grad</code>，且一致性阶段连 <code>cfr_main_net</code> 一并解冻。与「C/D-LoRA 分阶段训练 + CFR」主张一致。</li>
+<li>✅ <strong>SeedVR 的自适应窗口</strong>：<code>models/dit/window.py:make_shifted_720Pwindows_bysize</code>(L51–70) 用 <code>scale=sqrt((45*80)/(h*w))</code> 按 720p 面积折算窗口尺寸、按 <code>wt&lt;t</code> 决定半窗位移。与「窗口随分辨率自适应」主张一致。</li>
+<li>✅ <strong>FlashVSR 的流式注意力</strong>：<code>diffsynth/models/wan_video_dit.py</code>(L344–382) <code>torch.cat([pre_cache_k,k_w])</code> 拼缓存、<code>generate_draft_block_mask(...,topk,local_attn_mask)</code> 同时施加局部 + TopK 稀疏掩码、<code>if cache_num&gt;kv_len: cache_k=k_w[one_len:]</code> 滚动淘汰、<code>return ...,cache_k,cache_v</code>。与「KV-cache + 局部约束稀疏注意力」主张一致。</li>
+<li>✅ <strong>StableSR 的 CFW</strong>（对照基线）：<code>ldm/modules/diffusionmodules/model.py:Fuse_sft_block_RRDB</code>(L822–835) <code>out=dec_feat + w*RRDB(cat(enc,dec))</code>——保真旋钮 w 的实现，与「controllable feature wrapping」一致。</li>
+</ul>
+<p>⚠️ <strong>未逐行核</strong>：DOVE 的 latent/pixel 两阶段（仓库 <code>finetune/</code> 存在，未逐行比对）；DUO-VSR/Stream-DiffVSR 仓库存在但本次未打开核函数；OP4KSR/TEASR/STCDiT 无官方代码——以上加速/机制主张以论文与项目页为准，未做代码级确认。</p>
+<h2 id="sec-6">6. 启发与白地</h2>
+<ul>
+<li><strong>一步化的代价会以别的形式还回来。</strong> 省下的采样步数转成新问题：OP4KSR 的 4K 周期伪影、分数蒸馏的训练失稳、流式法的远距离一致性减弱。一步不是免费午餐，是把「推理迭代的算力」换成「训练技巧 + 可控的质量让步」。</li>
+<li><strong>视频侧的 all-in-one 缺位。</strong> 图像侧 2026 已大量「一个模型修所有退化」（ClusIR/TPGDiff 等），视频修复仍按退化类型分散，没有统一框架——明显白地。</li>
+<li><strong>可控 × 一步，在视频几乎空白。</strong> 图像侧 ODTSR 已做到一步 + 保真旋钮（继承 StableSR CFW），视频侧一步法（DLoRAL/DUO-VSR）尚无等价的连续可控接口。</li>
+<li><strong>评测亟需统一。</strong> 加速倍数基线不一、硬件不一、数据集私有，导致跨论文不可比——一个固定基线 + 固定硬件 + 公开数据的 VSR 排行榜，是当前最有价值的基础设施空缺。</li>
+<li><strong>监督路线尚未收敛。</strong> 蒸馏（有 teacher）vs GAN-中间时刻（无 teacher）vs 自对抗（无 teacher 无 D）三条路并存且各有 SOTA 宣称，谁在什么条件下更优，仍是开放问题。</li>
+</ul>
+<h2 id="sec-7">7. 参考文献</h2>
+<p>均经联网核实（arxiv 可点开）。</p>
+<p><strong>图像</strong></p>
+<ul>
+<li>SR3 — <em>Image Super-Resolution via Iterative Refinement</em> (2021). <a href="https://arxiv.org/abs/2104.07636">arxiv:2104.07636</a> ·【seminal】</li>
+<li>StableSR — <em>Exploiting Diffusion Prior for Real-World ISR</em> (IJCV 2024). <a href="https://arxiv.org/abs/2305.07015">arxiv:2305.07015</a></li>
+<li>OSEDiff — <em>One-Step Effective Diffusion Network for Real-World ISR</em> (NeurIPS 2024). <a href="https://arxiv.org/abs/2406.08177">arxiv:2406.08177</a></li>
+<li>OFTSR — <em>One-Step Flow for ISR with Tunable Fidelity-Realism Trade-offs</em> (2024). <a href="https://arxiv.org/abs/2412.09465">arxiv:2412.09465</a></li>
+<li>OMGSR — <em>You Only Need One Mid-timestep Guidance for Real-World ISR</em> (2025). <a href="https://arxiv.org/abs/2508.08227">arxiv:2508.08227</a></li>
+<li>OP4KSR — <em>One-Step Patch-Free 4K SR with Periodic Artifact Suppression</em> (2026). <a href="https://arxiv.org/abs/2605.13457">arxiv:2605.13457</a></li>
+<li>ODTSR — <em>One-Step Diffusion Transformer for Controllable Real-World ISR</em> (CVPR 2026). <a href="https://arxiv.org/abs/2511.17138">arxiv:2511.17138</a></li>
+<li>TEASR — <em>Training-Efficient Any-Step Diffusion Transformer for Real-World ISR</em> (2026). <a href="https://arxiv.org/abs/2606.16188">arxiv:2606.16188</a></li>
+</ul>
+<p><strong>视频</strong></p>
+<ul>
+<li>SeedVR — <em>Seeding Infinity in Diffusion Transformer Towards Generic Video Restoration</em> (CVPR 2025 Highlight).</li>
+<li>SeedVR2 — <em>One-Step Video Restoration via Diffusion Adversarial Post-Training</em> (ICLR 2026). <a href="https://arxiv.org/abs/2506.05301">arxiv:2506.05301</a></li>
+<li>DOVE — <em>Efficient One-Step Diffusion Model for Real-World VSR</em> (NeurIPS 2025). <a href="https://arxiv.org/abs/2505.16239">arxiv:2505.16239</a></li>
+<li>DLoRAL — <em>One-Step Diffusion for Detail-Rich and Temporally Consistent VSR</em> (NeurIPS 2025). <a href="https://arxiv.org/abs/2506.15591">arxiv:2506.15591</a></li>
+<li>DUO-VSR — <em>Dual-Stream Distillation for One-Step VSR</em> (CVPR 2026). <a href="https://arxiv.org/abs/2603.22271">arxiv:2603.22271</a></li>
+<li>STCDiT — <em>Spatio-Temporally Consistent Diffusion Transformer for VSR</em> (2025). <a href="https://arxiv.org/abs/2511.18786">arxiv:2511.18786</a></li>
+<li>FlashVSR — <em>Towards Real-Time Diffusion-Based Streaming VSR</em> (CVPR 2026). <a href="https://arxiv.org/abs/2510.12747">arxiv:2510.12747</a></li>
+<li>InfVSR — <em>Breaking Length Limits of Generic VSR</em> (2025). <a href="https://arxiv.org/abs/2510.00948">arxiv:2510.00948</a></li>
+<li>Stream-DiffVSR — <em>Low-Latency Streamable VSR via Auto-Regressive Diffusion</em> (2025). <a href="https://arxiv.org/abs/2512.23709">arxiv:2512.23709</a></li>
+</ul>
+<p><strong>本站相关</strong>：教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../diffusion-sr-2021/index.html">diffusion-sr-2021</a>（原理精讲）；精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a>、<a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>、<a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a>。</p>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

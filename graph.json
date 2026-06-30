@@ -444,6 +444,15 @@
       "url": "tutorials/vlm-industrial-2024/index.html"
     },
     {
+      "id": "surveys/diffusion-sr-2026",
+      "type": "survey",
+      "slug": "diffusion-sr-2026",
+      "title": "扩散超分调研：一步化浪潮与 SeedVR 之后的视频超分（2024→2026）",
+      "date": "2026-06-30",
+      "tldr": "对 2024–2026 扩散超分（图像 + 视频）的研究调研，主线是「把多步随机采样压成一步确定性前向」。逐篇厘清每个工作的核心贡献 / 方法 / 关键结果 / 代码位置，再平行对比、找出一致与矛盾、并把每个有仓库的方法的核心主张与其代码逐一交叉验证。覆盖图像一步化（OSEDiff/OMGSR/OP4KSR/OFTSR/ODTSR/TEASR）与 SeedVR 之后的视频超分（SeedVR2/DOVE/DLoRAL/DUO-VSR/FlashVSR/InfVSR/Stream-DiffVSR/STCDiT）。所有 arxiv 号均联网核实；代码主张对照 OSEDiff/OMGSR/DLoRAL/SeedVR/FlashVSR/StableSR 真实函数验证。\n",
+      "url": "surveys/diffusion-sr-2026/index.html"
+    },
+    {
       "id": "concepts/subject-preserving-video",
       "type": "concept",
       "slug": "subject-preserving-video",
@@ -2148,12 +2157,12 @@
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -2263,17 +2272,17 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/boogu-image-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
       "to": "papers/ggt-100k-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -2433,6 +2442,11 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
@@ -2444,11 +2458,6 @@
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2493,17 +2502,17 @@
     },
     {
       "from": "papers/ferret-2023",
-      "to": "papers/q-ground-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-2023",
       "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
       "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -2638,12 +2647,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -2723,12 +2732,7 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/boogu-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -2738,12 +2742,17 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/sefi-image-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
       "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
@@ -2798,7 +2807,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -2818,7 +2827,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -2933,17 +2942,17 @@
     },
     {
       "from": "papers/krea-2-2026",
+      "to": "papers/sefi-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/krea-2-2026",
       "to": "papers/boogu-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/krea-2-2026",
-      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -3068,17 +3077,17 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/q-ground-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/lisa-2023",
       "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
       "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -3118,12 +3127,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3168,12 +3177,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3183,7 +3192,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3238,12 +3247,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -3343,12 +3352,12 @@
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3458,12 +3467,12 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/lisa-2023",
+      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -3593,12 +3602,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -3838,7 +3847,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3853,7 +3862,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3998,17 +4007,17 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
+      "to": "papers/op4ksr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/diffusion-sr-2021",
       "to": "papers/oftsr-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/diffusion-sr-2021",
       "to": "papers/omgsr-2025",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -4108,12 +4117,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
@@ -4228,7 +4237,7 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
@@ -4238,7 +4247,7 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/krea-2-2026",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -4328,12 +4337,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
@@ -4450,6 +4459,131 @@
       "from": "tutorials/vlm-industrial-2024",
       "to": "concepts/lvlm",
       "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/image-super-resolution",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/video-super-resolution",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/one-step-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/score-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/gan",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/mid-timestep-injection",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/real-isr",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/dit",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "concepts/streaming",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "papers/op4ksr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "tutorials/diffusion-sr-2021",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "papers/oftsr-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "papers/omgsr-2025",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/cswry/OSEDiff",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/wuer5/OMGSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/yjsunnn/DLoRAL",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/ByteDance-Seed/SeedVR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/OpenImagingLab/FlashVSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/IceClear/StableSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/zhengchen1999/DOVE",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/cszy98/DUO-VSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/Kai-Liu001/InfVSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/jamichss/Stream-DiffVSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "repos/MediaX-SJTU/ODTSR",
+      "kind": "implements"
     }
   ]
 }

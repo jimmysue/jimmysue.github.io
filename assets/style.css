@@ -424,11 +424,18 @@ footer {
   color: var(--info);
   border-color: var(--info-border);
 }
+.post-card__badge--survey {
+  background: var(--success-soft, rgba(82, 196, 26, 0.12));
+  color: var(--success, #389e0d);
+  border-color: var(--success-border, rgba(82, 196, 26, 0.3));
+}
 /* badge text needs AA on its soft bg in light mode; dark tokens already pass */
 :root[data-theme="light"] .post-card__badge--paper,
 :root:not([data-theme]) .post-card__badge--paper { color: #ad2102; }   /* volcano-8 */
 :root[data-theme="light"] .post-card__badge--tutorial,
 :root:not([data-theme]) .post-card__badge--tutorial { color: #0958d9; } /* blue-7 */
+:root[data-theme="light"] .post-card__badge--survey,
+:root:not([data-theme]) .post-card__badge--survey { color: #237804; }   /* green-8 */
 
 .post-card__date {
   font-family: var(--mono);

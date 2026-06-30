@@ -20,6 +20,7 @@
   <div class="site-nav__links">
     <a class="site-nav__link active" href="papers.html">论文</a>
     <a class="site-nav__link" href="tutorials.html">教程</a>
+    <a class="site-nav__link" href="surveys.html">调研</a>
     <a class="site-nav__link" href="graph.html">图谱</a>
     <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -48,6 +49,38 @@
 <h1>论文</h1>
 <p class="page__intro">共 41 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/boogu-image-2026/index.html">Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）</a></h3>
+  <p class="post-card__tldr">Boogu-Image-0.1 是一个 Apache-2.0 开源的「统一文生图 + 图像编辑」模型族（Base / Edit / Turbo，均 10B），主打照片级真实感和中英双语文字渲染，号称用比同类开源模型少约一个数量级的训练数据做到接近闭源（GPT-Image-2 / Nano-Banana-Pro）的水平。
+架构是 Lumina-Image-2 谱系的 DiT（noise/context/ref 三套 refiner + 双流/单流 MMDiT 块），文本条件来自一个 Qwen3-VL 多模态大模型（既当指令编码器、又当 prompt 改写/推理器）；Turbo 变体用 Decoupled DMD 蒸馏到 4 步、无 CFG。
+⚠️ 正式技术报告尚未发布（仓库标注 &quot;Coming Soon&quot;），本文是基于 README + 推理代码的交叉精读，非官方报告解读。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/molmo-2024/index.html">Molmo &amp; PixMo: 把「指」做成一等公民——2.3M 人工 pointing 数据如何点燃开源 VLM 的 grounding 能力</a></h3>
+  <p class="post-card__tldr">AllenAI + UW (arXiv 2409.17146, 2024/09)。当时最强开源 VLM 几乎都靠蒸馏 GPT-4V 合成数据,等于把闭源模型「偷」进开源。Molmo 反其道:**全程不用任何 VLM 生成训练数据**,核心是一套叫 PixMo 的自采数据集。最大创新是 **PixMo-Points**——让未受训标注员「点」图中物体 (语音描述 + 逐实例点击),收了 **2.3M question-point 对 / 223k 图**。Pointing 在 Molmo 里有三个用途:(1) 按文字指代去**点**物体;(2) **数数靠点**——把点序列当成一条 chain-of-thought,逐个点完再求和,counting 直接屠榜;(3) 把点当**视觉解释**塞进回答。模型把点输出成归一化到 0–100 的纯文本坐标 `&lt;point x=&quot;63.5&quot; y=&quot;44.5&quot; alt=&quot;Mt. Rainier&quot;&gt;Mt. Rainier&lt;/point&gt;`。架构是标准 ViT + connector + LLM,但有两个干净的工程点:**overlapping multi-crop** 解决裁剪边界丢上下文,**2×2 mean-query attention pooling** 压视觉 token。72B 版本学术 benchmark 第一、人评仅次于 GPT-4o,counting 任务全场最强。本质上,Molmo 是后来 [[locate-anything-2026]] (bbox 作 first-class **输出**) 和 [[thinking-visual-primitives-2026]] (primitives 作 first-class **思维**) 的共同祖先——这两篇 2026 的工作都直接拿 PixMo/Molmo 当 grounding 数据来源。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
+      <a class="tag-chip" href="concepts/pointing.html">pointing</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -154,36 +187,6 @@
       <a class="tag-chip" href="concepts/grounding.html">grounding</a>
       <a class="tag-chip" href="concepts/vlm.html">vlm</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ideogram-4-2026/index.html">Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间</a></h3>
-  <p class="post-card__tldr">Ideogram 首个开源权重 (2026-06-03 同日 release 代码 + weights, **9.3B 参数, 非任何已有模型微调**)。技术报告无 arxiv,只有 blog (ideogram.ai/blog/ideogram-4.0) + GitHub repo (ideogram-oss/ideogram4) 里的 docs。架构亮点:**单流 DiT** (跟 SD3/FLUX 的 MMDiT 双流相反),34 层 transformer 把&quot;text token + image latent token&quot;拼成一根 sequence,共享 self-attention; text encoder 用 **frozen Qwen3-VL-8B-Instruct**,从第 0/3/6/9/12/15/18/21/24/27/30/33/35 层共 13 层 hidden state **沿 feature 维拼接** (得到 4096×13 = 53248 维 text feature);**MRoPE 3D 位置编码** (section 24/20/20: 时间/高/宽,text token 用 1D position 广播到 3 轴) 让两类 token 处于统一空间,无需 cross-attention; flow matching + Euler sampler + logit-normal noise schedule (按分辨率自适应 mu = mu_base + 0.5·log(N_pixels / 512²));**asymmetric CFG** (unconditional pass 只走 image token, 省计算)。训练数据完全是**结构化 JSON caption** (high_level / style / compositional_deconstruction with bbox)。基准: Design Arena open-weight 第一,ContraLabs 排版 47.9% 一胜率超过 Nano Banana 2 / FLUX.2 [max] / Grok Imagine 1.0,7Bench layout / X-Omni OCR 上是 9.3B 级最强。**License**: Ideogram 4 Non-Commercial (不能商用)。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-03</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rep-forcing-2026/index.html">Representation Forcing: 让 UMM 自己长出 VAE 替代品——把 understanding encoder 的特征蒸成离散 token, 当作 pixel diffusion 的 in-context structural scaffold</a></h3>
-  <p class="post-card__tldr">HKU + ByteDance Seed + CUHK + 南大 + 清华 (arXiv 2026/05/29)。Unified Multimodal Model (UMM) 的&quot;用 frozen VAE 当 latent 空间&quot;是 bottleneck —— VAE 是为 reconstruction 训的, 不是为 UMM 的 understanding+generation 联合目标训的;但如果直接拿掉 VAE 在 pixel 空间生成, 又会缺&quot;高层结构指引&quot;,GenEval 从 0.52 直接掉到 0.25。Representation Forcing (RF) 的解法:让 decoder **先 autoregressive 地生成一串 &quot;representation tokens&quot;**(来自模型自己的 understanding encoder DINOv3 的特征, 经在线 vector quantization 量化), 这些 rep tokens 留在 context 里, **pixel patches 通过共享 self-attention 看到它们做 diffusion**——同一个 backbone 内完成&quot;先决定语义结构、再渲染像素&quot;。架构基于 BAGEL 的 MoT (三组 expert: understanding / rep / pixel),从 Qwen3-A3B (3B activate) 初始化。结果:RF-Pixel GenEval 0.84 / DPG 84.15,匹配 VAE-based BAGEL (0.82 / 85.07);理解任务上 Pixel+RF 比 VAE+RF 在 6/8 benchmark 上更好。最有意思的消融是 §4.4 的 RF vs REPA:同样用 DINOv3 当 rep 源,REPA 的 auxiliary alignment 只到 0.43, RF 的&quot;放到 sequence 里做 in-context conditioning&quot;到 0.76——**direct in-context &gt; implicit feature alignment**。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="concepts/unified-model.html">unified-model</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>
 </div>

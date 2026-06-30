@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
-  <title>paper-reading — 论文 &amp; 教程 — 第 3 页</title>
+  <title>paper-reading — 论文 · 教程 · 调研 — 第 3 页</title>
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
@@ -20,6 +20,7 @@
   <div class="site-nav__links">
     <a class="site-nav__link" href="papers.html">论文</a>
     <a class="site-nav__link" href="tutorials.html">教程</a>
+    <a class="site-nav__link" href="surveys.html">调研</a>
     <a class="site-nav__link" href="graph.html">图谱</a>
     <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -46,8 +47,53 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>paper-reading</h1>
-<p class="page__intro">论文精读与系统化教程。</p>
+<p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-09</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/q-ground-2024/index.html">Q-Ground: Image Quality Grounding with Large Multi-modality Models</a></h3>
+  <p class="post-card__tldr">ACM MM 2024 Oral(南洋理工 + 商汤)。第一个做&quot;细粒度画质 grounding&quot;的工作:不再只给一张图打一个总分/一段评语,而是把**画质缺陷的具体位置**分割出来。核心贡献是 **QGround-100K 数据集** —— 10 万条 (图像, 画质描述文本, 失真分割掩码) 三元组,建在 Q-Instruct/Q-Pathway 之上,锁定 5 种失真(模糊/过曝/噪声/抖动/低光),掩码用固定颜色编码。制作走**双轨标注**:① 15 名人工标注员(SAM 预分割 + 参考画质文本手调边界);② GPT4V 自动标注(Set-of-Mark:SAM 分割 + 编号 → GPT4V 给每个区域判失真类型)。人工 17,963 图 / 52,924 标注 + GPT4V 50,599 图。配套 Q-Ground 模型(PixelLM 式 [SEG] token + 多尺度投影 MSFA)。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/iqa.html">iqa</a>
+      <a class="tag-chip" href="concepts/image-quality.html">image-quality</a>
+      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-09</span> · <span class="post-card__extra">15k 字</span> · <span class="post-card__extra">100–130 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/opd-diffusion-2026/index.html">OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角</a></h3>
+  <p class="post-card__tldr">7 节螺旋系统讲透 On-Policy Distillation(OPD)如何从 LLM 的 GKD 搬到扩散/flow matching。地基是一个折叠:SDE 同协方差让 reverse-KL 解析坍缩成速度场 L2(ODE 极限退化成纯 L2)。在此之上讲&quot;三兄弟&quot;:Flow-OPD(留住 RL:PPO+task reward+MAR,能反超 teacher)、DiffusionOPD(砍掉 RL:closed-form 直接 loss,§3.3 论证 PPO 是纯方差)、D-OPSD(teacher=EMA 自己,reward-free 自蒸馏,少步模型边用边学);再讲近亲 DMD/SiD 分布匹配蒸馏(为提速),最后收敛到一个统一模板&quot;在 student 自采轨迹上匹配 teacher 的 per-state 目标&quot;+ 四个选择轴。代码 verbatim 引自 CostaliyA/Flow-OPD、DiffusionOPD、vvvvvjdy/D-OPSD、tianweiy/DMD2 真实训练脚本(均经 diff 验证)。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/on-policy-distillation.html">on-policy-distillation</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span> · <span class="post-card__extra">18k 字</span> · <span class="post-card__extra">110–140 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-grounding-2025/index.html">VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</a></h3>
+  <p class="post-card__tldr">9 节螺旋结构系统综述 2025–2026 视觉语言模型(VLM)的 grounding(视觉定位)浪潮:从「坐标如何变成 token」(三大编码流派)到「框作为输出」(检测/referring/Pointing/GUI/并行框解码)再到「框作为思维」(grounded reasoning)。覆盖 Kosmos-2/Shikra/Ferret/Grounding-DINO/Florence-2/PaliGemma/Qwen2.5-VL/Molmo/Rex-Omni/LocateAnything/Thinking-with-Visual-Primitives 等模型与技术报告,以及 RefCOCO/LVIS/ScreenSpot-Pro/PixMo-Points 等 18+ benchmark 的大盘点。代码 verbatim 引自 IDEA-Research/Rex-Omni 与 QwenLM/Qwen2.5-VL。两篇 anchor:Thinking with Visual Primitives 与 LocateAnything。文末附分类参考文献与技术报告全集。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
+      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="concepts/detection.html">detection</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -136,49 +182,6 @@
       <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
       <a class="tag-chip" href="concepts/layered-image.html">layered-image</a>
       <span class="tag-chip tag-chip--more">+5 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-02</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/diffusion-opd-2026/index.html">DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</a></h3>
-  <p class="post-card__tldr">Fudan + 阿里 Wan Team (arXiv 2026/05/14)。多任务 diffusion RL 现有两条路都不好走: joint 多目标互相打架 + 难任务被压制, cascade 多阶段繁琐 + 灾难遗忘。DiffusionOPD 抄 LLM 的 On-Policy Distillation (OPD) 思路, 把它从 token 序列搬到 Euler-Maruyama 离散化的反向 SDE: 学生和老师在同一个噪声 schedule 上有同协方差的 one-step Gaussian transition, 反向 KL 解析地坍缩成 $\|\mu^S - \mu^T\|^2 / (2\bar\sigma^2)$, 在 ODE 极限 (a→0) 进一步退化成纯 L2 transition matching (Eq. 12)。配 round-robin 多 teacher (per-task LoRA adapter), 一个 backward 一个 round。SD3.5-M 上 GenEval 0.96 + OCR 0.94 + Aes 6.15, average 0.929 反超 cascade NFT 0.851 / multi-task NFT 0.715, 总 wall-clock 比 cascade 少 ~50 GPU h。论文最有教育意义的是 §3.3: PPO-style 跟 closed-form KL 期望梯度相同, 但 PPO 多一个 $\epsilon_j / \bar\sigma_j$ 的 score-function 项, 是纯方差; 而 closed-form 通过 pathwise gradient 完全消掉这一项。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/worldforge-2026/index.html">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</a></h3>
-  <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video.html">video</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10k+ 字</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-industrial-2024/index.html">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</a></h3>
-  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/anomaly-detection.html">anomaly-detection</a>
-      <a class="tag-chip" href="concepts/industrial.html">industrial</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </div>
 </div>
