@@ -288,6 +288,17 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-02-08</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/mambo-g-2025/index.html">MAMBO-G:用幅度比 r_t 自适应阻尼 CFG——一个免训练、即插即用的扩散/视频采样加速器</a></h3>
+  <p class="post-card__tldr">CFG 在采样初期(t→1)对&quot;通用方向&quot;施加了过大的更新,在高维大模型里尤其会 overshoot 出过饱和与结构崩坏。
+MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 高就指数级压低 guidance scale,r_t 低才放开。
+免训练、几乎零开销,已并入 Diffusers。SD3.5 提速 3×、Lumina 4×、14B 视频模型 Wan2.1 提速 2×。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/omgsr-2025/index.html">OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</a></h3>
