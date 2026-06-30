@@ -255,6 +255,15 @@
       "url": "papers/osprey-2023/index.html"
     },
     {
+      "id": "papers/physeditworld-2026",
+      "type": "paper",
+      "slug": "physeditworld-2026",
+      "title": "PhysEditWorld：把「重力」从隐式相关性拽成可编辑的设计变量",
+      "date": "2026-06-30",
+      "tldr": "清华深圳 + 北航 + 港科大等。一个数据集论文：现有 game world model 把物理当成数据分布里的隐式规律学，能模仿「世界通常怎么演化」，但答不出游戏作者真正关心的问题——「同一个场景，如果改一条物理规则，应该怎么演化？」。PhysEditWorld 用 UE5 的 replay-and-rendering 管线，固定场景 / 初始态 / 动作序列 / 角色控制器 / 相机策略，只改重力配置重放同一段交互，得到 matched counterfactual replay group：12 个电影级 UE5 场景、100+ 小时交互、60M+ 渲染帧、8 路同步相机、RGB/深度/法线/音频/动作/相机/引擎态/重力标签。配套验证：在 Wan2.2-5B / LingBot-World 上 LoRA 微调后重力对齐从 33% → 100%、$R^2$ 0.066 → 0.570；Qwen3-VL 重力分类 24.7% → 95.3%。代码（UE5 插件）尚未释出，仓库目前只有数据契约 + 配置 + CLI 文档。\n",
+      "url": "papers/physeditworld-2026/index.html"
+    },
+    {
       "id": "papers/q-ground-2024",
       "type": "paper",
       "slug": "q-ground-2024",
@@ -1606,6 +1615,62 @@
       "name": "Osprey"
     },
     {
+      "id": "concepts/world-model",
+      "type": "concept",
+      "slug": "world-model",
+      "name": "world-model",
+      "has_file": false,
+      "url": "concepts/world-model.html"
+    },
+    {
+      "id": "concepts/video-generation",
+      "type": "concept",
+      "slug": "video-generation",
+      "name": "video-generation",
+      "has_file": false,
+      "url": "concepts/video-generation.html"
+    },
+    {
+      "id": "concepts/physics-editing",
+      "type": "concept",
+      "slug": "physics-editing",
+      "name": "physics-editing",
+      "has_file": false,
+      "url": "concepts/physics-editing.html"
+    },
+    {
+      "id": "concepts/gravity",
+      "type": "concept",
+      "slug": "gravity",
+      "name": "gravity",
+      "has_file": false,
+      "url": "concepts/gravity.html"
+    },
+    {
+      "id": "concepts/synthetic-dataset",
+      "type": "concept",
+      "slug": "synthetic-dataset",
+      "name": "synthetic-dataset",
+      "has_file": false,
+      "url": "concepts/synthetic-dataset.html"
+    },
+    {
+      "id": "concepts/unreal-engine",
+      "type": "concept",
+      "slug": "unreal-engine",
+      "name": "unreal-engine",
+      "has_file": false,
+      "url": "concepts/unreal-engine.html"
+    },
+    {
+      "id": "repos/yizhiqianbi/physeditworld",
+      "type": "repo",
+      "url": "https://github.com/yizhiqianbi/physeditworld",
+      "host": "github.com",
+      "owner": "yizhiqianbi",
+      "name": "physeditworld"
+    },
+    {
       "id": "concepts/iqa",
       "type": "concept",
       "slug": "iqa",
@@ -1732,14 +1797,6 @@
       "name": "autoregressive",
       "has_file": false,
       "url": "concepts/autoregressive.html"
-    },
-    {
-      "id": "concepts/world-model",
-      "type": "concept",
-      "slug": "world-model",
-      "name": "world-model",
-      "has_file": false,
-      "url": "concepts/world-model.html"
     },
     {
       "id": "concepts/moe",
@@ -2313,12 +2370,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/ggt-100k-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -2493,12 +2550,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2543,12 +2600,12 @@
     },
     {
       "from": "papers/ferret-2023",
-      "to": "papers/q-ground-2024",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
-      "to": "papers/lisa-2023",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -2773,17 +2830,17 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/sefi-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
       "to": "papers/krea-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -2793,7 +2850,7 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2848,22 +2905,22 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3258,17 +3315,17 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
       "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
       "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3323,17 +3380,17 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3433,12 +3490,12 @@
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3498,12 +3555,12 @@
     },
     {
       "from": "papers/op4ksr-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/omgsr-2025",
       "kind": "cites"
     },
     {
       "from": "papers/op4ksr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3543,11 +3600,6 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
       "to": "papers/lisa-2023",
       "kind": "cites"
     },
@@ -3558,7 +3610,67 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/ferret-v2-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "repos/CircleRadon/Osprey",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/world-model",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/video-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/physics-editing",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/gravity",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/synthetic-dataset",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/unreal-engine",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/lora",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "concepts/vlm",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "papers/self-forcing-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "papers/starchild-1-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/physeditworld-2026",
+      "to": "repos/yizhiqianbi/physeditworld",
       "kind": "implements"
     },
     {
@@ -3603,12 +3715,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3928,7 +4040,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3938,7 +4050,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -4088,12 +4200,12 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -4193,17 +4305,17 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
       "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
       "to": "papers/flow-opd-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -4318,17 +4430,17 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/step-distillation-2022",
       "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
       "to": "papers/krea-2-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
@@ -4488,12 +4600,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
@@ -4593,17 +4705,17 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/op4ksr-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/diffusion-sr-2026",
       "to": "tutorials/diffusion-sr-2021",
       "kind": "covers"
     },
     {
       "from": "surveys/diffusion-sr-2026",
       "to": "papers/oftsr-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
