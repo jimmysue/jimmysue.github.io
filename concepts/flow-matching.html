@@ -70,6 +70,15 @@
   </div>
   <h2>提到此概念的论文 / 教程</h2>
   <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../tutorials/diffusion-sr-2021/index.html">扩散超分全景：从多步先验到一步前向，再到视频流式</a></h3>
+  <p class="post-card__tldr">8 节螺旋系统讲透扩散超分（Diffusion Super-Resolution）的演化主线：把&quot;多步随机采样的强生成先验&quot;逐步压成&quot;一步确定性前向&quot;，再从图像扩展到视频的时序一致性与流式实时。地基是 SR3/StableSR 的&quot;冻结 SD 当先验、只学条件&quot;（§1–§2）；其上是三条一步化路线——分数蒸馏（OSEDiff/VSD，§3）、中间时刻注入+GAN 一步（OMGSR/OP4KSR，§4）；再转入视频：SeedVR 的 shifted-window 时空 DiT（§5）、视频一步化与时序一致（DLoRAL 双 LoRA / DOVE / DUO-VSR，§6）、流式/长视频/实时（FlashVSR 稀疏注意力 / InfVSR 因果 KV-cache / Stream-DiffVSR，§7），最后收敛到统一视角与选型白地（§8）。代码均 verbatim 引自 StableSR、OSEDiff、OMGSR、SeedVR、DLoRAL、FlashVSR 真实仓库（行号经 sed 核对）。
+</p>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -236,6 +245,16 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-05-13</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/op4ksr-2026/index.html">OP4KSR：一步、无分块的 4K 超分，外加把 Flux「周期格子伪影」连根拔起</a></h3>
+  <p class="post-card__tldr">OP4KSR 是第一个「一步 + 无分块」的真实世界 4K 超分框架：靠 UltraFlux 的 F16 极压缩 VAE 把 4096×4096 的显存压到单卡可跑，再借 [[omgsr-2025]] 的中间时刻对齐把 Flux 微调成一步前向（注意：是 GAN 式一步微调，**不是师生蒸馏**），5.75 秒出一张 4K 图。
+但一步化会触发周期 32 像素的格子伪影。作者把病因拆成两层——RoPE 相位坍缩让相邻 token 不可分（θ=10000 太大）、以及 2×2 打包后 unpack 把通道当空间用——并对症下两味药：RoPE 基频从 10000 降到 100（RFR）+ 一个基于自相关的周期性损失（L_AP）。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/leap-align-2026/index.html">LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories</a></h3>
@@ -264,6 +283,16 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/sensenova-u1/index.html">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</a></h3>
   <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2025-11-24</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/omgsr-2025/index.html">OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</a></h3>
+  <p class="post-card__tldr">OMGSR 把一步真实世界超分（Real-ISR）的成败归结为一个「潜空间鸿沟」：以往方法把低清图 latent 注入到扩散调度器的 t=999（纯噪声）或 t=1（干净图），但低清图 latent 既不是噪声也不是干净图——它最接近预训练扩散在某个**中间时刻 t\*** 的带噪 latent。
+作者用信噪比 (SNR) 把这个「最佳中间时刻」**算出来**（SD2.1-base 上 t\*=273），再用 LRR 损失（LoRA 微调 VAE 编码器）把低清 latent 进一步拉向 t\* 的带噪 latent，然后在 t\* 处做一步去噪。整套是 **GAN 训练**（生成器=扩散模型本身，判别器=DINOv3-ConvNeXt + 多级头），不是师生蒸馏。这就是 [[op4ksr-2026]] 4K 超分的直接前身。
+</p>
 </div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">

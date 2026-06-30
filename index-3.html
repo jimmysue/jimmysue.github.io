@@ -51,6 +51,21 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/d4rt-2025/index.html">Efficiently Reconstructing Dynamic Scenes One D4RT at a Time</a></h3>
+  <p class="post-card__tldr">CVPR 2026 最佳论文 (Google DeepMind)。把&quot;重建动态 4D 场景&quot;这件事从&quot;逐帧稠密解码&quot;改成&quot;按需点查询&quot;:一个 encoder 把视频压成固定的 Global Scene Representation,一个轻量 cross-attention decoder 接收查询 q=(u,v,t_src,t_tgt,t_cam) 独立吐出该点的 3D 坐标。改一改查询就能统一拿到深度、点云、点轨迹、相机内外参 —— 速度比 VGGT 快 9×、比 MegaSaM 快 100×,且是唯一能稠密重建动态像素的方法。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/3d-reconstruction.html">3d-reconstruction</a>
+      <a class="tag-chip" href="concepts/4d-reconstruction.html">4d-reconstruction</a>
+      <a class="tag-chip" href="concepts/point-tracking.html">point-tracking</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/thinking-visual-primitives-2026/index.html">Thinking with Visual Primitives: 让 MLLM 在思考时 &quot;用手指点&quot;——points/bboxes 作为最小思维单元穿插进 CoT 推理链</a></h3>
@@ -164,19 +179,6 @@
       <a class="tag-chip" href="concepts/anomaly-detection.html">anomaly-detection</a>
       <a class="tag-chip" href="concepts/industrial.html">industrial</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/tuna-2/index.html">Tuna-2: Pixel Embeddings Beat Vision Encoders for Multimodal Understanding and Generation</a></h3>
-  <p class="post-card__tldr">Meta / HKU / Waterloo 的受控对比: Tuna → Tuna-R → Tuna-2 三阶段简化，砍掉 VAE 和 SigLIP 后理解反而更强，关键 trick 是 75% masking 当 regularizer。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
   </div>
 </div>
 </div>

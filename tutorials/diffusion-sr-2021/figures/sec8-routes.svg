@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <style>
+    .title{font-size:20px;font-weight:700;fill:#d4380d}
+    .col{font-size:15px;font-weight:700}
+    .k{font-size:12.5px;fill:#555}
+    .v{font-size:12.5px;fill:#222}
+    .box{fill:none;stroke-width:2;rx:10}
+    .a{stroke:#d4380d}.b{stroke:#1677ff}.c{stroke:#52c41a}
+    .ah{fill:#d4380d}.bh{fill:#1677ff}.ch{fill:#52c41a}
+    .lq{fill:#888}.hq{fill:#d4380d}
+  </style>
+  <text x="40" y="34" class="title">一步化超分的三条路线 + 一个共同终点</text>
+
+  <!-- LQ -->
+  <rect x="40" y="70" width="90" height="40" rx="8" fill="#f0f0f0" stroke="#bbb"/>
+  <text x="85" y="95" text-anchor="middle" class="v" font-weight="700">LQ y</text>
+
+  <!-- arrows fan out -->
+  <path d="M130 90 L200 150" stroke="#d4380d" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <path d="M130 90 L200 250" stroke="#1677ff" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <path d="M130 90 L200 350" stroke="#52c41a" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="#666"/></marker></defs>
+
+  <!-- Route A: distillation -->
+  <rect x="205" y="122" width="300" height="68" class="box a" rx="10"/>
+  <text x="220" y="146" class="col ah">A · 分数蒸馏（OSEDiff / DUO-VSR）</text>
+  <text x="220" y="166" class="k">监督：<tspan class="v">多步老师的分数差 (VSD/DMD)</tspan></text>
+  <text x="220" y="183" class="k">特点：<tspan class="v">稳，但上限被老师天花板锁死</tspan></text>
+
+  <!-- Route B: GAN one-step + mid-timestep -->
+  <rect x="205" y="222" width="300" height="68" class="box b" rx="10"/>
+  <text x="220" y="246" class="col bh">B · 中间时刻注入 + GAN 一步（OMGSR）</text>
+  <text x="220" y="266" class="k">监督：<tspan class="v">判别器（无老师）</tspan></text>
+  <text x="220" y="283" class="k">特点：<tspan class="v">上限高、更锐，但难训</tspan></text>
+
+  <!-- Route C: temporal decouple / streaming -->
+  <rect x="205" y="322" width="300" height="68" class="box c" rx="10"/>
+  <text x="220" y="346" class="col ch">C · 视频专属（DLoRAL / FlashVSR）</text>
+  <text x="220" y="366" class="k">机制：<tspan class="v">双 LoRA 解耦 · 因果 KV-cache</tspan></text>
+  <text x="220" y="383" class="k">特点：<tspan class="v">解一致性 / 长视频 / 流式</tspan></text>
+
+  <!-- converge -->
+  <path d="M505 156 L600 230" stroke="#d4380d" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <path d="M505 256 L600 240" stroke="#1677ff" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <path d="M505 356 L600 250" stroke="#52c41a" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+
+  <rect x="605" y="200" width="240" height="86" rx="12" fill="#fff7e6" stroke="#d4380d" stroke-width="2"/>
+  <text x="725" y="228" text-anchor="middle" class="col hq">共同终点</text>
+  <text x="725" y="250" text-anchor="middle" class="v">一步把 LQ 映到</text>
+  <text x="725" y="270" text-anchor="middle" class="v">HQ 自然图像流形</text>
+</svg>

@@ -223,6 +223,44 @@ mjx-container[display="true"] { margin: 1.2rem 0 !important; }
   font-style: italic;
 }
 
+/* ===== §1 In-article card grids (术语速查 / 全局路线图 / 研究启发) ===== */
+/* Reusable blocks borrowed from the Krea-2 report layout. Used in paper/tutorial
+   index.md as raw <div class="summary-grid|term-grid"> with .card children.
+   Theme-aware via CSS variables. */
+.summary-grid,
+.term-grid {
+  display: grid;
+  gap: 0.9rem;
+  margin: 1.5rem 0;
+}
+.summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.term-grid    { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.summary-grid .card,
+.term-grid .card {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+}
+.summary-grid .card > :first-child,
+.term-grid .card > :first-child { margin-top: 0; }
+.summary-grid .card > :last-child,
+.term-grid .card > :last-child { margin-bottom: 0; }
+.summary-grid .card h3,
+.term-grid .card h4 { font-size: 1rem; }
+.summary-grid .card p,
+.term-grid .card p { font-size: 0.9rem; color: var(--text-secondary); }
+
+/* Callout box — for a core definition / positioning statement */
+.callout {
+  margin: 1.5rem 0;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--accent-border);
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
 /* ===== §1 Footer ===== */
 footer {
   margin-top: 4rem;

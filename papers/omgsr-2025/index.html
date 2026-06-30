@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 用 SNR 算出最佳中间时刻 t*（核心一）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 LRR 损失：把 z_L 进一步训得更贴 t*（核心二）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 一步去噪（在 t* 处）</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 GAN 架构与 Dv3CD 损失</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">1. 用物理量把超参从"经验"升级成"算出来"</a></li>
+    <li class="h3"><a href="#sec-6-2">2. 对齐"模型见过的分布"，而非"看起来对的目标"</a></li>
+    <li class="h3"><a href="#sec-6-3">3. 判别器/感知损失也要"带先验 + 配分辨率"</a></li>
+    <li class="h3"><a href="#sec-6-4">4. 反直觉点：一步 SR 不一定要蒸馏</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>OMGSR: You Only Need One Mid-timestep Guidance for Real-World Image Super-Resolution</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2025-11-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2025-11-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Zhiqiang Wu, Zhaomang Sun, Tong Zhou, Bingtao Fu, Ji Cong, Yitong Dong, Huaqi Zhang, Xuan Tang, Mingsong Chen, Xian Wei</span> · <span class="post-meta__venue">arXiv 2025 (cs.CV) — ECNU &amp; vivo</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2508.08227">arXiv:2508.08227</a> · <a class="post-meta__link" href="https://github.com/wuer5/OMGSR">项目页</a> · <a class="post-meta__link" href="https://github.com/wuer5/OMGSR">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/image-super-resolution.html">image-super-resolution</a> <a class="concept-chip" href="../../concepts/real-isr.html">real-isr</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/gan.html">gan</a> <a class="concept-chip" href="../../concepts/mid-timestep-injection.html">mid-timestep-injection</a> <a class="concept-chip" href="../../concepts/snr.html">snr</a> <a class="concept-chip" href="../../concepts/lora.html">lora</a> <a class="concept-chip" href="../../concepts/dists.html">dists</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-midtimestep-motivation.png" alt="SD2.1 20 步推理过程中各时刻解码出的图，低清图与中间时刻最接近">
+  <figcaption>
+    <strong>Fig. 1（论文 Fig. 1）</strong> — 在 SD2.1-base 上跑 20 步推理，把每一步的 latent 解码成图。可以看到：低清图（右下 LQ Image）和 <strong>t=999（纯噪声）对不上</strong>、和 <strong>t=1（干净图）也对不上</strong>，反而和 <strong>t≈401~201 的中间带噪图最接近</strong>。这就是全文的出发点——低清图 latent 该注入到中间时刻，而不是两端。
+  </figcaption>
+</figure>
+<blockquote>
+<p>📌 <strong>先回答一个常见误解</strong>：OMGSR（以及建立在它之上的 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>）<strong>不是师生蒸馏</strong>。它没有 teacher、没有 score distillation、没有轨迹一致性。它是一套 <strong>GAN</strong>：生成器就是扩散模型本身（LoRA 微调），判别器是 DINOv3-ConvNeXt + 多级头，监督来自<strong>真值高清图 + 判别器</strong>。和 SinSR（一致性蒸馏）、OSEDiff（VSD 分数蒸馏）是两条不同的路。本文末尾 §5 有交叉对比。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>多步扩散超分质量好但慢（N 步约等于 N 倍耗时）。一步方法快，但要解决一个问题：<strong>低清图 latent 该从扩散流的哪个时刻注入？</strong></p>
+<p>以往一步方法（OSEDiff 注入 t=999，PiSA-SR 注入 t=1）默认 <span class="math inline">\(z_{999}=z_L\)</span> 或 <span class="math inline">\(z_1=z_L\)</span>。但按扩散的加噪公式 <span class="math inline">\(z_t=\sqrt{\bar\alpha_t}\,z_H+\sqrt{1-\bar\alpha_t}\,\epsilon\)</span>，<span class="math inline">\(z_{999}\approx\epsilon\)</span>（纯噪声）、<span class="math inline">\(z_1\approx z_H\)</span>（干净图）。而真实世界的低清图 <span class="math inline">\(z_L\)</span> <strong>既不是纯噪声、也不是干净图</strong>——硬塞到两端就制造了一个「潜空间表征鸿沟」(latent representation gap)，预训练的生成先验被打乱。</p>
+<p>Fig. 1 用肉眼证明了这点。最近的 InvSR 也注意到了，但它<strong>凭经验</strong>手选一串中间时刻（250/200/150/100/50），既没量化、也没从训练角度进一步缩小鸿沟。OMGSR 的两个贡献正是补这两个洞：</p>
+<ol>
+<li><strong>用 SNR 把最佳中间时刻 <span class="math inline">\(t^*\)</span> 算出来</strong>（不再拍脑袋）。</li>
+<li><strong>用 LRR 损失把 <span class="math inline">\(z_L\)</span> 进一步训练得更贴近 <span class="math inline">\(t^*\)</span> 的带噪 latent</strong>（从参数层面缩小鸿沟）。</li>
+</ol>
+<div class="term-grid">
+  <div class="card"><h4>Real-ISR</h4><p>真实世界图像超分：输入退化未知（非简单 bicubic），用 Real-ESRGAN 合成 LQ-HQ 训练对。</p></div>
+  <div class="card"><h4>潜空间鸿沟</h4><p>低清图 latent z_L 与「预训练扩散在某时刻该有的带噪 latent z_t」之间的距离。注入点选错 → 鸿沟大 → 先验失效。</p></div>
+  <div class="card"><h4>中间时刻 t*</h4><p>让 z_L 与 z_t 的信噪比最接近的那个扩散时刻。SD2.1-base 上算出来是 273。</p></div>
+  <div class="card"><h4>SNR（信噪比）</h4><p>latent 里「信号能量 / 噪声能量」。把 z_t 和 z_L 都分解成信号+噪声，比 SNR 就能定位 t*。</p></div>
+  <div class="card"><h4>LRR 损失</h4><p>Latent Representation Refinement：LoRA 微调 VAE 编码器，把 z_L 进一步拉向 z_t* 的带噪 latent。</p></div>
+  <div class="card"><h4>Dv3CD 损失</h4><p>把 DISTS 结构感知损失架在 DINOv3-ConvNeXt 上（替代 LPIPS），原生支持 512/1K/4K 高分辨率。</p></div>
+  <div class="card"><h4>生成器 = 扩散模型</h4><p>OMGSR 是 GAN：把 LoRA 微调后的 SD 当生成器，而非从噪声生成。LQ→HQ 的映射比 Noise→HQ 好学、训练更稳。</p></div>
+  <div class="card"><h4>多级判别器</h4><p>从 DINOv3-ConvNeXt 抽 3 个层级特征，各接一个判别头出 logits，兼顾细节与结构。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig2-pipeline.png" alt="OMGSR 训练与推理流程：生成器(VAE编码+UNet+VAE解码) + 判别器(DINOv3-ConvNeXt多级头)">
+  <figcaption>
+    <strong>Fig. 2（论文 Fig. 2）</strong> — <strong>(a) 训练</strong>：低清图 x_L 经（LoRA）VAE 编码器得 z_L → UNet 在 t* 处一步去噪得 z_P → VAE 解码得 x_P。三路监督：L_LRR（把 z_L 拉向下方 DDPM 加噪得到的 z_t*）、L_Dv3CD + L1（x_P 对 x_H）、以及判别器给的 GAN 损失 L_g/L_fake/L_real。火苗=LoRA 可训，雪花=冻结。<strong>(b) 推理</strong>：x_L → VAE 编码 → UNet 一步（t*）→ VAE 解码 → x_H，整条只过一次。
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 用 SNR 算出最佳中间时刻 t*（核心一）</h3>
+<p>把预训练带噪 latent <span class="math inline">\(z_t\)</span>（由干净 latent <span class="math inline">\(z_H\)</span> 和噪声 <span class="math inline">\(\epsilon\)</span> 线性组合）和低清 latent <span class="math inline">\(z_L\)</span>（看成 <span class="math inline">\(z_H\)</span> 与退化噪声 <span class="math inline">\(z_L-z_H\)</span> 的组合）都算信噪比：</p>
+<div class="math block">
+\[\mathrm{SNR}(z_t) = \frac{\bar\alpha_t \cdot \mathbb{E}[z_H^2]}{(1-\bar\alpha_t)\cdot \mathbb{E}[\epsilon^2]} = \frac{\bar\alpha_t \cdot \mathbb{E}[z_H^2]}{1-\bar\alpha_t}, \qquad \mathrm{SNR}(z_L) = \frac{\mathbb{E}[z_H^2]}{\mathbb{E}[(z_L-z_H)^2]}\]
+</div>
+<p class="math-translation">—— 翻译: 左边是扩散在时刻 t 的「信号/噪声」比（t 越大噪声越多、SNR 越小）；右边是低清图相对干净图的「信号/退化」比。两者相等的那个 t，就是 z_L 在扩散流上「物理位置」最匹配的时刻。</p>
+<p>然后遍历所有 <span class="math inline">\(t\)</span>，取让两者 SNR 差最小的平均最优 <span class="math inline">\(t^*\)</span>：</p>
+<div class="math block">
+\[t^* = \arg\min_t \frac{1}{N}\sum_{i=1}^{N}\left| \mathrm{SNR}(z_t^{(i)}) - \mathrm{SNR}(z_L^{(i)}) \right|\]
+</div>
+<p class="math-translation">—— 翻译: 在整个数据集上，挑那个让「扩散时刻 t 的信噪比」与「低清图信噪比」平均最接近的 t，作为统一的注入时刻。SD2.1-base 上算出来是 273。</p>
+<p>代码里就是逐 <span class="math inline">\(t\)</span> 算两个 SNR、取绝对差、在数据集上累加求最小：</p>
+<p class="code-source">repo/mid_timestep/mid_timestep_sd.py:L59-L75 — 逐时刻算 SNR1(z_t) 与 SNR2(z_L) 的绝对差，对应 Eq.3–5</p>
+<pre><code class="language-python">for t in select_timestep:
+    sqrt_alphas_cumprod_t = math.sqrt(noise_scheduler.alphas_cumprod[t])
+    sqrt_one_minus_alphas_cumprod_t = math.sqrt(1 - noise_scheduler.alphas_cumprod[t])
+
+    signal_power = torch.mean((hq_latent) ** 2) * (sqrt_alphas_cumprod_t**2)
+    noise_power  = sqrt_one_minus_alphas_cumprod_t ** 2
+    SNR1 = signal_power / noise_power               # SNR(z_t)
+
+    signal_power2 = torch.mean(hq_latent ** 2)
+    noise_power2 = torch.mean((lq_latent - hq_latent) ** 2)
+    SNR2 = signal_power2 / noise_power2             # SNR(z_L)
+
+    loss = torch.abs(SNR1 - SNR2)                   # |SNR(z_t) - SNR(z_L)|
+    loss_accumulators[t] += loss.item() * batch_size
+</code></pre>
+<blockquote>
+<p>高中生版直觉：你有一张糊掉的照片，想把它放回&quot;扩散电影&quot;的某一帧。扩散电影从清晰（t=1）一路加噪到雪花屏（t=999）。这张糊照片的&quot;糊&quot;程度对应电影里的某一帧——SNR 就是用来量&quot;糊到什么程度&quot;的尺子，量完直接对号入座。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 LRR 损失：把 z_L 进一步训得更贴 t*（核心二）</h3>
+<p>算出 <span class="math inline">\(t^*\)</span> 只是「平均」最优。OMGSR 还想做样本级的细化：用 LoRA 微调 VAE 编码器 <span class="math inline">\(E_\varpi\)</span>，让它编出来的 <span class="math inline">\(z_L\)</span> 主动逼近 <span class="math inline">\(t^*\)</span> 处的带噪 latent <span class="math inline">\(z_{t^*}\)</span>：</p>
+<div class="math block">
+\[\mathcal{L}_{\text{LRR}}(x_L, x_H, t^*) = \mathbb{E}\left[\lVert z_L - z_{t^*}\rVert_2^2\right],\quad z_L=E_\varpi(x_L),\ z_{t^*}=\sqrt{\bar\alpha_{t^*}}E(x_H)+\sqrt{1-\bar\alpha_{t^*}}\epsilon\]
+</div>
+<p class="math-translation">—— 翻译: 让"可训练编码器编出的低清 latent"和"由高清图在 t* 处加噪得到的带噪 latent"尽量相等。用 L2 是因为它和 DDPM 预训练目标一致（KL 在 DDPM 里等价于 L2），梯度更稳。</p>
+<p>注意一个对照实验设计：作者还试过把 <span class="math inline">\(z_L\)</span> 拉向干净的 <span class="math inline">\(z_H\)</span>（记 <span class="math inline">\(\mathcal{L}_{\text{TOHQ}}\)</span>），结果 <strong>LRR（拉向带噪 <span class="math inline">\(z_{t^*}\)</span>）更好</strong>——因为贴合&quot;模型预训练时见过的带噪分布&quot;才能真正激活生成先验。</p>
+<p class="code-source">repo/train/train_omgsr_s.py:L446-L453 — 由 HQ 加噪造 z_t*，再与可训练编码器的 z_L 算 MSE，对应 Eq.6</p>
+<pre><code class="language-python">hq_latent = encode_images(hq_img, fixed_vae)
+noise = torch.randn_like(hq_latent)
+pretrained_noisy_latent = sqrt_alphas_cumprod_t * hq_latent + sqrt_one_minus_alphas_cumprod_t * noise
+
+lq_latent = encode_images(lq_img, unwrap_model(lora_vae))   # 可训练 LoRA 编码器
+
+# LRR Loss: Latent Representation Refinement Loss
+loss_LRR = F.mse_loss(pretrained_noisy_latent, lq_latent, reduction=&quot;mean&quot;) * args.lambda_LRR
+</code></pre>
+<h3 id="sec-2-3">2.3 一步去噪（在 t* 处）</h3>
+<p>UNet 也用 LoRA 微调。把 <span class="math inline">\(z_L\)</span> 当作 <span class="math inline">\(t^*\)</span> 处的带噪 latent，预测噪声 <span class="math inline">\(\epsilon_\theta\)</span>，一步反解出干净 latent <span class="math inline">\(z_P\)</span>，再 VAE 解码出图：</p>
+<div class="math block">
+\[z_P = \frac{z_L - \sqrt{1-\bar\alpha_{t^*}}\cdot \epsilon_\theta(z_L, t^*, c)}{\sqrt{\bar\alpha_{t^*}}},\qquad x_P = D(z_P)\]
+</div>
+<p class="math-translation">—— 翻译: 这就是把加噪公式 z_t=√ᾱ·z_H+√(1-ᾱ)·ε 反过来解 z_H——只不过 t 固定在 t*、只算一次，所以叫"一步"。</p>
+<p class="code-source">repo/train/train_omgsr_s.py:L432-L436 — 一步预测：UNet 出噪声 → 反解 latent → VAE 解码，对应 Eq.7</p>
+<pre><code class="language-python">def one_mid_timestep_pred(lq_latent):
+    model_pred = unet(lq_latent, mid_timestep, encoder_hidden_states=prompt_embeds).sample
+    denoised_latent = (lq_latent - sqrt_one_minus_alphas_cumprod_t * model_pred) / sqrt_alphas_cumprod_t
+    pred_img = (fixed_vae.decode(denoised_latent / fixed_vae.config.scaling_factor).sample).clamp(-1, 1)
+    return pred_img
+</code></pre>
+<h3 id="sec-2-4">2.4 GAN 架构与 Dv3CD 损失</h3>
+<p><strong>为什么是 GAN 而不是从头训判别器？</strong> 生成器（扩散模型）自带强先验、太能打；判别器从零学会被瞬间碾压。所以判别器也建在带先验的 <strong>DINOv3-ConvNeXt</strong>（冻结）上抽多级特征，只训判别头（Fig. 3）。选 DINOv3 是看中它靠 RoPE 的<strong>外推能力</strong>，能原生适配 512/1K/4K 等不同分辨率。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-discriminator.png" alt="DINOv3-ConvNeXt 抽 3 级特征送入多级判别头">
+  <figcaption>
+    <strong>Fig. 3（论文 Fig. 3）</strong> — (a) 冻结的 DINOv3-ConvNeXt 抽 3 个层级特征 F¹/F²/F³（前三级偏细节，末级偏全局语义；因为 z_P 已含全局语义、缺细节，所以只取前三级）。(b) 每级接一个可训判别头出 logits。BlurPool 是抗锯齿低通滤波，防伪影。
+  </figcaption>
+</figure>
+<p>结构感知损失不用 LPIPS（VGG 只在 224×224 上训，高分辨率会出伪影），改用 <strong>Dv3CD</strong>：在 DINOv3-ConvNeXt 的多级 L2-pooling 特征上算 DISTS（结构+纹理相似度）。</p>
+<p class="code-source">repo/dinov3_gan/dinov3_convnext_dists.py:L86-L108 — Dv3CD：逐层算均值相似度 S1 + 协方差相似度 S2，对应 Eq.11</p>
+<pre><code class="language-python">def forward(self, x, y):
+    feats0 = self.l2pooled_dinov3_convnext(x)
+    feats1 = self.l2pooled_dinov3_convnext(y)
+    dist1 = dist2 = 0
+    c1 = c2 = 1e-6
+    for k in range(len(self.channels)):
+        x_mean = feats0[k].mean([2, 3], keepdim=True); y_mean = feats1[k].mean([2, 3], keepdim=True)
+        S1 = (2 * x_mean * y_mean + c1) / (x_mean**2 + y_mean**2 + c1)          # 纹理(均值)相似
+        dist1 = dist1 + (self.init_value * S1).sum(1, keepdim=True)
+        x_var = ((feats0[k]-x_mean)**2).mean([2,3],keepdim=True); y_var = ((feats1[k]-y_mean)**2).mean([2,3],keepdim=True)
+        xy_cov = (feats0[k]*feats1[k]).mean([2,3],keepdim=True) - x_mean*y_mean
+        S2 = (2 * xy_cov + c2) / (x_var + y_var + c2)                           # 结构(协方差)相似
+        dist2 = dist2 + (self.init_value * S2).sum(1, keepdim=True)
+    return (1 - (dist1 + dist2)).mean()
+</code></pre>
+<p><strong>完整损失</strong>。生成器 <span class="math inline">\(\mathcal{L}_G=\lambda_1\mathcal{L}_{\text{LRR}}+\lambda_2\mathcal{L}_g+\lambda_3\mathcal{L}_{\text{Dv3CD}}+\lambda_4\mathcal{L}_1\)</span>；判别器 <span class="math inline">\(\mathcal{L}_D=\lambda_2(\mathcal{L}_{\text{fake}}+\mathcal{L}_{\text{real}})\)</span>（标准 GAN，BCE，real 软标签 0.8、fake 0）。训练循环里 G 和 D 交替更新：</p>
+<p class="code-source">repo/train/train_omgsr_s.py:L464-L483 — 生成器 4 项损失合并更新；判别器对 fake(detach)/real 分别更新</p>
+<pre><code class="language-python">loss_G = net_disc(pred_img, for_G=True) * args.lambda_GAN
+total_G_loss = loss_LRR + loss_Dv3D + loss_L1 + loss_G       # 生成器：LRR + Dv3CD + L1 + GAN
+accelerator.backward(total_G_loss); optimizer_sr.step()
+
+fake_img = pred_img.detach()
+loss_D_fake = net_disc(fake_img, for_real=False) * args.lambda_GAN   # 判别器：假图 → 0
+loss_D_real = net_disc(hq_img,   for_real=True)  * args.lambda_GAN   # 判别器：真图 → 1
+total_D_loss = loss_D_real + loss_D_fake
+accelerator.backward(total_D_loss); optimizer_disc.step()
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p>数字（论文 Tab. 1–4）：</p>
+<ul>
+<li><strong>SNR 算出的 t*=273 就是经验最优点（Tab. 1 / Fig. 4）</strong>。在 t∈{873…1} 上扫，早期注入（999–673）性能崩，中后期（573–173）高且稳，<strong>峰值恰在 273</strong>，与 Eq.5 理论值吻合。把 OSEDiff 的注入点从 999 改成 273，全数据集全指标都涨——证明这是个通用结论，不只对 OMGSR 成立。</li>
+<li><strong>LRR &gt; LTOHQ &gt; baseline（Tab. 2）</strong>。把 <span class="math inline">\(z_L\)</span> 往带噪 <span class="math inline">\(z_{t^*}\)</span> 拉（LRR）比往干净 <span class="math inline">\(z_H\)</span> 拉（LTOHQ）几乎全指标更好——贴合模型训练时见过的分布更能激活先验。</li>
+<li><strong>Dv3CD &gt; LPIPS（Tab. 4）</strong>：28 个指标里赢 23 个，且 Fig. 5 显示 LPIPS 在高分辨率下出明显伪影、Dv3CD 干净。</li>
+<li><strong>整体 SOTA（Tab. 3）</strong>。OMGSR-S（SD2.1-base，一步）在 RealSR/DrealSR/RealLQ250/RealLR200 四个真实集上多数无参考指标（CLIPIQA+/LIQE/MANIQA/NIQE 等）排第一或第二，作为一步方法对得起多步方法。代价同样是偏感知：因为用 Dv3CD 而非 LPIPS，LPIPS 这个指标本身会偏高。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig4-timestep-ablation.png" alt="不同注入时刻的归一化综合得分曲线，峰值在 273">
+  <figcaption>
+    <strong>Fig. 4（论文 Fig. 4）</strong> — 注入时刻消融（用不含 LRR 的 OMGSR-S，避免 LRR 干扰 latent）。横轴时刻 999→1，纵轴四数据集 9 指标归一化综合分。早期（999–673）注入分数极低，中后段平稳走高，**Best Point 落在 t=273**，与 SNR 理论推导一致。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ol>
+<li><strong>生成器 = 扩散模型本身，无 teacher</strong>（<code>train_omgsr_s.py:L432-L467</code>）。监督来自 GT 高清图（L1 + Dv3CD）+ 判别器（GAN），不是某个老师模型的输出。这是它和 SinSR/OSEDiff 蒸馏路线的根本区别。</li>
+<li><strong>LoRA 秩</strong>：VAE 编码器 rank=16，UNet rank=32（<code>train_omgsr_s.py:L224</code> 及配置）。VAE 解码器<strong>冻结</strong>，只动编码器 + UNet（<code>one_mid_timestep_pred</code> 里用的是 <code>fixed_vae.decode</code>）。</li>
+<li><strong>训练规模很小</strong>：SD2.1-base，AdamW，lr=5e-5，batch=1 + 4 步梯度累积，<strong>4×RTX 4090、5100 steps</strong>（§4.1.1）。损失权重 λ1=5 (LRR)、λ2=0.5 (GAN)、λ3=5 (Dv3CD)、λ4=0.5 (L1)。</li>
+<li><strong>判别器细节</strong>：DINOv3-ConvNeXt 取前 3 级特征（末级偏全局语义、舍去），每级 L2-pooling 用 <strong>Hanning 窗</strong>做低通（<code>dinov3_convnext_dists.py:L7-L29</code>）；判别头里 <strong>BlurPool 抗锯齿</strong>防伪影（Fig. 3 + §3.6）。real 用软标签 0.8、fake 用 0（§3.7.2 / §3.8.1）。</li>
+<li><strong>t* 是数据集统计量、预计算一次</strong>（<code>mid_timestep_sd.py</code>）。注入时刻不是逐样本变化，而是全数据集平均的单个 t*=273，推理时固定。</li>
+<li><strong>测试大图要 tiled diffusion</strong>（§4.1.2）：RealLQ250 / RealLR200 这类大/变尺寸图测试时仍需分块——⚠️ 这正是 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a> 要干掉的&quot;分块原罪&quot;，OMGSR 在 4K 上仍未解决（OP4KSR 用 F16 VAE 全图一步替代）。</li>
+</ol>
+<p><strong>paper↔code 一致性</strong>：核验过 SNR（Eq.3–5）、LRR（Eq.6）、一步预测（Eq.7）、Dv3CD（Eq.11）、GAN 损失（Eq.12–15）五处，代码与公式<strong>完全对齐</strong>，无明显出入。</p>
+<p><strong>OMGSR-F（Flux 版）</strong>：结论里提到 OMGSR 框架也兼容 flow matching，作者在补充材料给了基于 FLUX.1-dev 的 OMGSR-F（仓库里有 <code>mid_timestep_flux.py</code> / <code>train_omgsr_f.py</code>）。<strong>这就是 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a> 的真正起点</strong>——OP4KSR = OMGSR-F + F16 极压缩 VAE（上 4K）+ RFR/L_AP（治周期伪影）。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>把&quot;拍脑袋&quot;变成&quot;算出来&quot;</strong>。InvSR 凭经验选中间时刻，OMGSR 用 SNR 给出可复现的闭式判据，并用 OSEDiff 跨模型验证（273 对 OSEDiff 也成立）——这是最扎实的贡献。</li>
+<li><strong>诊断—公式—代码三者闭环</strong>。每个主张都能落到一行代码，本文交叉核验过五处全部对齐，可信度高。</li>
+<li><strong>Dv3CD 解决了高分辨率 GAN 的真实痛点</strong>：LPIPS@224 在 512/1K 上出伪影，换 DINOv3-ConvNeXt 原生支持高分辨率，Fig. 5 有直观证据。</li>
+<li><strong>工程友好</strong>：纯 LoRA、单卡级显存、5100 步、开源完整。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>t* 是全数据集单值</strong>，对退化分布差异大的样本未必最优；样本级只能靠 LRR 软性补偿，没有逐样本选 t。</li>
+<li><strong>大图仍依赖 tiled diffusion</strong>（§4.1.2），4K 场景下分块的语义/拼缝问题没解决——这正是后续 OP4KSR 的切入点。</li>
+<li><strong>偏感知、LPIPS/PSNR 不占优</strong>，保真优先场景慎用（与所有一步 GAN 超分同病）。</li>
+<li><strong>SNR 推导假设 latent 可干净地分解成&quot;信号+独立噪声&quot;</strong>，且 <span class="math inline">\(\mathbb{E}[\epsilon^2]=1\)</span>；真实退化噪声与高清信号未必独立，这个近似有多准没有定量误差分析。</li>
+<li><strong>判别器依赖 DINOv3-ConvNeXt 大模型</strong>，训练显存/速度成本比纯 LPIPS 高（虽冻结）。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>该用</strong>：要一步、真实世界、感知质量优先的 SR；想要一个可复现、可改 backbone（SD/Flux）的 GAN 超分框架。</li>
+<li><strong>别用</strong>：保真度（PSNR/SSIM）是验收硬指标；或目标是 4K 全图无分块（去看 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>）。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较 (Cross-validation against similar work)</strong> — 三条&quot;一步扩散超分&quot;路线，看它们对<strong>同一问题</strong>（怎么把多步压成一步、低清图怎么注入）给出的结论：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本文 OMGSR</td>
+<td>一步 SR 的关键是把 z_L 注入到 SNR 匹配的中间时刻 t*，再 GAN 微调</td>
+<td>z_L 既非噪声也非干净图，硬塞两端 → 潜空间鸿沟；t*=273</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></td>
+<td>把 OMGSR-F 抬到 4K + 无分块，但一步化触发 32px 周期伪影需 RFR/L_AP</td>
+<td>极压缩 + 一步 + RoPE 相位坍缩 = 周期格子</td>
+<td>同: 都用中间时刻对齐 + GAN/Flux; 异: OP4KSR 解决的是 OMGSR 没碰的&quot;4K 显存 + 分块 + 周期伪影&quot;</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></td>
+<td>一步流超分可调&quot;保真↔真实感&quot;整条曲线（调 t 滑动）</td>
+<td>噪声增广 + PF-ODE 轨迹约束解锁整条权衡曲线</td>
+<td>异: OFTSR 是<strong>两阶段蒸馏</strong>（先训 teacher rectified flow 再蒸 student），OMGSR 是<strong>单阶段 GAN 无 teacher</strong>——同问题、完全不同刀法</td>
+</tr>
+<tr>
+<td>OSEDiff（基线，无独立页）</td>
+<td>一步 SR 用 VSD 分数蒸馏做 KL 正则</td>
+<td>注入 t=999、靠冻结 SD 当 score teacher</td>
+<td>异: OSEDiff <strong>有 teacher</strong>（VSD）、注入点拍在 999；OMGSR 无 teacher、注入点算出来的 273——Tab.1 显示把 OSEDiff 改到 273 也能涨</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>：OMGSR vs OSEDiff/OFTSR 的最大分野在于**「靠什么把一步训出来」<strong>——OSEDiff/SinSR/OFTSR 用</strong>蒸馏**（teacher 提供 score/轨迹/一致性目标），OMGSR 用 <strong>GAN + 中间时刻对齐</strong>（判别器 + GT 直接监督）。前者把&quot;多步知识&quot;压进学生，后者干脆绕开多步、直接在最优注入点上一步回归 + 对抗。两条路都能到 SOTA，说明&quot;一步&quot;本身不挑实现范式，挑的是<strong>注入点选得准不准</strong>——这正是 OMGSR 的核心论点。</p>
+<p><strong>相关工作 (Related work)</strong></p>
+<ul>
+<li><a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a> — OMGSR-F 的 4K 无分块续作（直接建立在本文之上）</li>
+<li><a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a> — 一步流超分 + 可调保真/真实感权衡（蒸馏路线对照）</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">1. 用物理量把超参从"经验"升级成"算出来"</h3><p>InvSR 拍脑袋选中间时刻，OMGSR 用 SNR 给闭式判据。当你在为某个超参做网格搜索时，先问：有没有一个能直接算出它的物理量？把搜索变成测量，结论才可迁移、可复现。</p></div>
+  <div class="card"><h3 id="sec-6-2">2. 对齐"模型见过的分布"，而非"看起来对的目标"</h3><p>LRR 把 z_L 拉向带噪 z_t* 比拉向干净 z_H 更好——因为前者贴合预训练分布、能激活先验。微调预训练模型时，监督目标要落在它训练时的数据流形上。</p></div>
+  <div class="card"><h3 id="sec-6-3">3. 判别器/感知损失也要"带先验 + 配分辨率"</h3><p>从零训判别器会被强生成器碾压 → 架在 DINOv3 上；LPIPS@224 在高分辨率出伪影 → 换原生支持高分辨率的骨干。辅助网络的预训练域必须匹配任务的数据尺度。</p></div>
+  <div class="card"><h3 id="sec-6-4">4. 反直觉点：一步 SR 不一定要蒸馏</h3><p>主流一步方案（VSD/一致性/ADD）都绕不开 teacher。OMGSR 证明：只要把低清图注入到正确的中间时刻，一步回归 + GAN 就够了，省掉整个 teacher 流程。"加速=蒸馏"是个该被质疑的默认。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

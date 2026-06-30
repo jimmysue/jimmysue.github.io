@@ -48,6 +48,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读与系统化教程。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/diffusion-sr-2021/index.html">扩散超分全景：从多步先验到一步前向，再到视频流式</a></h3>
+  <p class="post-card__tldr">8 节螺旋系统讲透扩散超分（Diffusion Super-Resolution）的演化主线：把&quot;多步随机采样的强生成先验&quot;逐步压成&quot;一步确定性前向&quot;，再从图像扩展到视频的时序一致性与流式实时。地基是 SR3/StableSR 的&quot;冻结 SD 当先验、只学条件&quot;（§1–§2）；其上是三条一步化路线——分数蒸馏（OSEDiff/VSD，§3）、中间时刻注入+GAN 一步（OMGSR/OP4KSR，§4）；再转入视频：SeedVR 的 shifted-window 时空 DiT（§5）、视频一步化与时序一致（DLoRAL 双 LoRA / DOVE / DUO-VSR，§6）、流式/长视频/实时（FlashVSR 稀疏注意力 / InfVSR 因果 KV-cache / Stream-DiffVSR，§7），最后收敛到统一视角与选型白地（§8）。代码均 verbatim 引自 StableSR、OSEDiff、OMGSR、SeedVR、DLoRAL、FlashVSR 真实仓库（行号经 sed 核对）。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
+      <a class="tag-chip" href="concepts/video-super-resolution.html">video-super-resolution</a>
+      <span class="tag-chip tag-chip--more">+9 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -177,21 +192,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
       <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
       <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span> · <span class="post-card__extra">19k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-benchmarks-2024/index.html">VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</a></h3>
-  <p class="post-card__tldr">业界常见 VLM(视觉语言模型)评测 benchmark 的速查目录,按三层组织:通用能力(MMMU/MMBench/MME/SEED-Bench)、会读图会算(DocVQA/ChartQA/TextVQA/AI2D/MathVista)、幻觉与诚实(POPE/HallusionBench/MMStar)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。每个 benchmark 做成卡片:测什么能力、测试方法、一个样题(题型示意)、模型如何被喂入+生成+提取+打分、用什么指标。§1 先讲清「任何 VLM 被测试的通用流水线」;§8 补一节 2025 发布会评分卡(推理 / agentic / 新多模态:GPQA·HMMT·MMMLU·IFBench·BFCL·BrowseComp·SWE-bench·Terminal-Bench·MMMU-Pro·ERQA·OmniDocBench·Video-MME),并对照「判分从对答案到跑环境」的代际差异。真实评分代码 verbatim 引自 open-compass/VLMEvalKit、openvinotoolkit/anomalib 与 princeton-nlp/SWE-bench。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/evaluation.html">evaluation</a>
       <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
