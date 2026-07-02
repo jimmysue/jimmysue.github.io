@@ -39,6 +39,15 @@
       "url": "papers/boogu-image-2026/index.html"
     },
     {
+      "id": "papers/colt-2026",
+      "type": "paper",
+      "slug": "colt-2026",
+      "title": "CoLT: 把隐式推理做成「参数化工具调用」——主模型全程在文本空间, 小解码器负责解压",
+      "date": "2026-07-01",
+      "tldr": "隐式 CoT (Coconut/CODI/COLAR) 让模型在黑箱 latent 空间里推理, 提速但改结构、难训、丢可解释性。CoLT 换个思路:主模型只吐几个「种子 token」(<BDY>...<TRG>) 把一步推理压进 hidden states, 再触发一个层数远小于主模型的可微解码器把它解压回文本, 拼回上下文继续推。主模型全程停在文本 token 空间 (保能力 + 保可读), 整条链端到端可微、天然兼容 GRPO。Llama-3.2-1B 上 2 个 epoch、无课程学习就超过一众 latent 基线, 平均 #L 从 12.7 砍到 7.7。\n",
+      "url": "papers/colt-2026/index.html"
+    },
+    {
       "id": "papers/d-opsd-2026",
       "type": "paper",
       "slug": "d-opsd-2026",
@@ -480,6 +489,15 @@
       "url": "surveys/diffusion-sr-2026/index.html"
     },
     {
+      "id": "surveys/native-8k-t2i-2026",
+      "type": "survey",
+      "slug": "native-8k-t2i-2026",
+      "title": "业界有没有原生 8K 的文生图？—— 2026 超高分辨率 T2I 方案调研",
+      "date": "2026-07-01",
+      "tldr": "一句话结论：截至 2026-07，业界没有任何一个「原生 8K」（训练分布 = 7680×4320 / 8192²）的文生图模型。\n原生训练的天花板停在 4K（4096²）：商用侧 Seedream 4.0 原生到 4K，学术侧 Sana / Diffusion-4K / L2P /\nAsymFlow 原生 4K，UltraPixel 靠级联做到 6K。真正的 8K 输出全部来自「免训练超分 / 外推」管线——\nHiWave（8192² 免训练）、PixelRush（单卡 8K < 100s）、Scale-DiT（8K < 2min）、L2P 的 8K zero-shot 外推——\n它们都建立在 ≤4K（甚至 1K 的 SDXL）底座之上，用分块反演 + 小波细节 / 窗口注意力把分辨率「拉」上去。\n本文把两条路线（原生训练 vs 免训练外推）并排，给出为什么 8K 原生至今是空白的三个硬约束，并对 Diffusion-4K\n的小波损失、Sana 的 f32 DC-AE 做了代码交叉验证。\n",
+      "url": "surveys/native-8k-t2i-2026/index.html"
+    },
+    {
       "id": "concepts/subject-preserving-video",
       "type": "concept",
       "slug": "subject-preserving-video",
@@ -670,6 +688,78 @@
       "host": "github.com",
       "owner": "boogu-project",
       "name": "Boogu-Image"
+    },
+    {
+      "id": "concepts/latent-reasoning",
+      "type": "concept",
+      "slug": "latent-reasoning",
+      "name": "latent-reasoning",
+      "has_file": false,
+      "url": "concepts/latent-reasoning.html"
+    },
+    {
+      "id": "concepts/chain-of-thought",
+      "type": "concept",
+      "slug": "chain-of-thought",
+      "name": "chain-of-thought",
+      "has_file": false,
+      "url": "concepts/chain-of-thought.html"
+    },
+    {
+      "id": "concepts/reasoning-efficiency",
+      "type": "concept",
+      "slug": "reasoning-efficiency",
+      "name": "reasoning-efficiency",
+      "has_file": false,
+      "url": "concepts/reasoning-efficiency.html"
+    },
+    {
+      "id": "concepts/tool-calling",
+      "type": "concept",
+      "slug": "tool-calling",
+      "name": "tool-calling",
+      "has_file": false,
+      "url": "concepts/tool-calling.html"
+    },
+    {
+      "id": "concepts/reinforcement-learning",
+      "type": "concept",
+      "slug": "reinforcement-learning",
+      "name": "reinforcement-learning",
+      "has_file": false,
+      "url": "concepts/reinforcement-learning.html"
+    },
+    {
+      "id": "concepts/speculative-decoding",
+      "type": "concept",
+      "slug": "speculative-decoding",
+      "name": "speculative-decoding",
+      "has_file": false,
+      "url": "concepts/speculative-decoding.html"
+    },
+    {
+      "id": "concepts/knowledge-distillation",
+      "type": "concept",
+      "slug": "knowledge-distillation",
+      "name": "knowledge-distillation",
+      "has_file": false,
+      "url": "concepts/knowledge-distillation.html"
+    },
+    {
+      "id": "concepts/differentiable-decoder",
+      "type": "concept",
+      "slug": "differentiable-decoder",
+      "name": "differentiable-decoder",
+      "has_file": false,
+      "url": "concepts/differentiable-decoder.html"
+    },
+    {
+      "id": "concepts/cot-compression",
+      "type": "concept",
+      "slug": "cot-compression",
+      "name": "cot-compression",
+      "has_file": false,
+      "url": "concepts/cot-compression.html"
     },
     {
       "id": "concepts/distillation",
@@ -1360,14 +1450,6 @@
       "url": "concepts/parallel-decoding.html"
     },
     {
-      "id": "concepts/speculative-decoding",
-      "type": "concept",
-      "slug": "speculative-decoding",
-      "name": "speculative-decoding",
-      "has_file": false,
-      "url": "concepts/speculative-decoding.html"
-    },
-    {
       "id": "concepts/diffusion-sampling",
       "type": "concept",
       "slug": "diffusion-sampling",
@@ -1422,14 +1504,6 @@
       "name": "multimodal",
       "has_file": false,
       "url": "concepts/multimodal.html"
-    },
-    {
-      "id": "concepts/chain-of-thought",
-      "type": "concept",
-      "slug": "chain-of-thought",
-      "name": "chain-of-thought",
-      "has_file": false,
-      "url": "concepts/chain-of-thought.html"
     },
     {
       "id": "concepts/vision-encoder",
@@ -2238,6 +2312,78 @@
       "name": "lvlm",
       "has_file": false,
       "url": "concepts/lvlm.html"
+    },
+    {
+      "id": "concepts/ultra-high-resolution",
+      "type": "concept",
+      "slug": "ultra-high-resolution",
+      "name": "ultra-high-resolution",
+      "has_file": false,
+      "url": "concepts/ultra-high-resolution.html"
+    },
+    {
+      "id": "concepts/training-free-upsampling",
+      "type": "concept",
+      "slug": "training-free-upsampling",
+      "name": "training-free-upsampling",
+      "has_file": false,
+      "url": "concepts/training-free-upsampling.html"
+    },
+    {
+      "id": "concepts/wavelet-diffusion",
+      "type": "concept",
+      "slug": "wavelet-diffusion",
+      "name": "wavelet-diffusion",
+      "has_file": false,
+      "url": "concepts/wavelet-diffusion.html"
+    },
+    {
+      "id": "concepts/cascade-diffusion",
+      "type": "concept",
+      "slug": "cascade-diffusion",
+      "name": "cascade-diffusion",
+      "has_file": false,
+      "url": "concepts/cascade-diffusion.html"
+    },
+    {
+      "id": "concepts/deep-compression-vae",
+      "type": "concept",
+      "slug": "deep-compression-vae",
+      "name": "deep-compression-vae",
+      "has_file": false,
+      "url": "concepts/deep-compression-vae.html"
+    },
+    {
+      "id": "concepts/window-attention",
+      "type": "concept",
+      "slug": "window-attention",
+      "name": "window-attention",
+      "has_file": false,
+      "url": "concepts/window-attention.html"
+    },
+    {
+      "id": "concepts/ddim-inversion",
+      "type": "concept",
+      "slug": "ddim-inversion",
+      "name": "ddim-inversion",
+      "has_file": false,
+      "url": "concepts/ddim-inversion.html"
+    },
+    {
+      "id": "repos/NVlabs/Sana",
+      "type": "repo",
+      "url": "https://github.com/NVlabs/Sana",
+      "host": "github.com",
+      "owner": "NVlabs",
+      "name": "Sana"
+    },
+    {
+      "id": "repos/zhang0jhon/diffusion-4k",
+      "type": "repo",
+      "url": "https://github.com/zhang0jhon/diffusion-4k",
+      "host": "github.com",
+      "owner": "zhang0jhon",
+      "name": "diffusion-4k"
     }
   ],
   "edges": [
@@ -2288,12 +2434,12 @@
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
@@ -2403,11 +2549,6 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/boogu-image-2026",
       "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
@@ -2418,8 +2559,78 @@
     },
     {
       "from": "papers/boogu-image-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
       "to": "repos/boogu-project/Boogu-Image",
       "kind": "implements"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/latent-reasoning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/chain-of-thought",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/reasoning-efficiency",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/tool-calling",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/grpo",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/reinforcement-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/speculative-decoding",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/knowledge-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/differentiable-decoder",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "concepts/cot-compression",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "papers/rls-razor-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "papers/dapo-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
     },
     {
       "from": "papers/d-opsd-2026",
@@ -2573,7 +2784,7 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -2583,12 +2794,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2633,12 +2844,12 @@
     },
     {
       "from": "papers/ferret-2023",
-      "to": "papers/q-ground-2024",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -2688,12 +2899,12 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/ferret-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -2778,12 +2989,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -2863,17 +3074,12 @@
     },
     {
       "from": "papers/i1-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
       "to": "papers/sefi-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/boogu-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/krea-2-2026",
       "kind": "cites"
     },
     {
@@ -2883,7 +3089,12 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/krea-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
@@ -2938,7 +3149,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -2953,7 +3164,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3208,7 +3419,7 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/q-ground-2024",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -3218,7 +3429,7 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -3348,7 +3559,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -3358,12 +3569,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -3413,17 +3624,17 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -3633,12 +3844,12 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-2023",
+      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -3748,12 +3959,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -3828,22 +4039,12 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/self-flow-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/qwen-image-flash-2026",
       "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -3858,7 +4059,17 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/self-forcing-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
@@ -3988,12 +4199,12 @@
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4143,6 +4354,11 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
@@ -4154,11 +4370,6 @@
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -4533,12 +4744,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/krea-2-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
@@ -4633,12 +4844,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
@@ -4703,12 +4914,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
@@ -4879,6 +5090,81 @@
     {
       "from": "surveys/diffusion-sr-2026",
       "to": "repos/MediaX-SJTU/ODTSR",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/ultra-high-resolution",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/training-free-upsampling",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/wavelet-diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/cascade-diffusion",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/pixel-space",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/deep-compression-vae",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/window-attention",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "concepts/ddim-inversion",
+      "kind": "mentions"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/op4ksr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/asymflow-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/latent-to-pixel-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/l2p-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "repos/NVlabs/Sana",
+      "kind": "implements"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "repos/zhang0jhon/diffusion-4k",
       "kind": "implements"
     }
   ]

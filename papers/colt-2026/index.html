@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>CoLT: 把隐式推理做成「参数化工具调用」——主模型全程在文本空间, 小解码器负责解压</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 起工具调用 (Raising)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 处理工具调用 (Processing)</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 监督训练目标 (Supervised objectives)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 用强化学习探索更多路径 (RL)</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">1. 「工具调用」当抽象容器</a></li>
+    <li class="h3"><a href="#sec-6-2">2. 硬约束 > 软约束换可解释性</a></li>
+    <li class="h3"><a href="#sec-6-3">3. 反直觉点:解码器复杂度 ≠ 压缩量</a></li>
+    <li class="h3"><a href="#sec-6-4">4. 反直觉点:格式奖励是遗忘的软着陆</a></li>
+    <li class="h3"><a href="#sec-6-5">5. 用现成特殊 token 省词表改动</a></li>
+    <li class="h3"><a href="#sec-6-6">6. 采样能力是 RL 的免费入场券</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>CoLT: Reasoning with Chain of Latent Tool Calls</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-01</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Fangwei Zhu, Zhifang Sui</span> · <span class="post-meta__venue">arXiv preprint (Work done during internship at Bytedance BandAI)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2602.04246">arXiv:2602.04246</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/latent-reasoning.html">latent-reasoning</a> <a class="concept-chip" href="../../concepts/chain-of-thought.html">chain-of-thought</a> <a class="concept-chip" href="../../concepts/reasoning-efficiency.html">reasoning-efficiency</a> <a class="concept-chip" href="../../concepts/tool-calling.html">tool-calling</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/reinforcement-learning.html">reinforcement-learning</a> <a class="concept-chip" href="../../concepts/speculative-decoding.html">speculative-decoding</a> <a class="concept-chip" href="../../concepts/knowledge-distillation.html">knowledge-distillation</a> <a class="concept-chip" href="../../concepts/differentiable-decoder.html">differentiable-decoder</a> <a class="concept-chip" href="../../concepts/cot-compression.html">cot-compression</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-framework.png" alt="CoLT framework: main LLM raises latent tool calls with BDY/TRG tokens, a differentiable decoder unpacks the hidden states back to text">
+  <figcaption>
+    <strong>Fig. 1</strong> — CoLT 全貌。<strong>Part 1</strong>:主模型正常自回归, 若要压缩一步推理就吐出 <code>&lt;BDY&gt;…&lt;TRG&gt;</code> 种子序列 (body token 载 latent, trigger token 选解码器);<strong>Part 2</strong>:取种子 token 的<strong>末层 hidden states H</strong>, 送进一个层数 $N_d \ll N_m$ 的可微解码器 (默认 Transformer, 也可 RNN / multi-hot), 解压回文本;<strong>Part 3</strong>:解出的 <code>&lt;&lt;75+5=80&gt;&gt;</code> 拼回上下文进入下一轮, 主损失 (CE over 种子 token) + latent 损失 (解码器 CE) 联合回传。关键:主模型的<strong>输入永远是纯文本</strong>, 只有「压缩→解压」这一跳走 latent。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>Chain-of-Thought 有效, 但代价是<strong>逐 token 生成整条推理链</strong>, 长链推理时算力吃紧。一条主流的提速路线是<strong>隐式 / latent CoT</strong>:干脆离开 token 空间, 在连续向量里推理。代表作 Coconut 把一步推理换成若干 latent token, 上一步的输出 hidden state 直接当下一步的输入 embedding;CODI 在末 token 上做 hidden-state 自蒸馏保持一致性;COLAR、SIM-CoT 再往上叠 trajectory 对齐、token-chunk 分布、step-level 监督等信号。</p>
+<p>这条路的通病, 作者点得很直接: <strong>(1) 要动模型结构、(2) 要密集训练 (常配课程学习跑很多 epoch)、(3) 丢可解释性</strong>——因为推理发生在人读不懂的 dense 向量里。三条合起来限制了它们「换个任务就能用」的实用性。</p>
+<p>CoLT 的破题灵感来自两个近期观察:</p>
+<ul>
+<li><strong>Zhu et al. (2025)</strong> 提出 CoT token 本质是在<strong>存中间结果</strong>, 只要关键结果被保住, CoT 可以用不同形式表示 (作者自己组的前作, 见 <a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> 那类「CoT 里塞非文本单元」的思路);</li>
+<li><strong>DeepSeek-OCR</strong> 证明<strong>单个视觉 token 就能装下可解压成多 token 的信息</strong>。</li>
+</ul>
+<p>于是作者反问:既然一个视觉 token 能「打包」一段文本, 那 LLM 自己是不是也能生成小「包裹」, 之后再解压回原文? 把这个「解压」动作<strong>做成一次工具调用</strong>——但工具不是黑箱 API, 而是一个<strong>可微的神经网络解码器</strong>, 梯度能一路回传到主模型。这就是 CoLT (Chain-of-<strong>L</strong>atent-<strong>T</strong>ools) 的全部立意:</p>
+<blockquote>
+<p><strong>让主模型永远停在文本 token 空间做推理 (保能力、保可读), 把「压缩一步 → 解压成文本」这件苦活外包给一个层数很小的可微解码器。</strong></p>
+</blockquote>
+<div class="term-grid">
+  <div class="card"><h4>种子 token (seed token)</h4><p>主模型吐出的特殊 token, 其 hidden state 里压缩了一步推理的信息。分两种:body 与 trigger。</p></div>
+  <div class="card"><h4>&lt;BDY&gt; body token</h4><p>latent 信息的「载体」, 数量 $n\ge 0$ 可调 (超参), 决定压缩率。</p></div>
+  <div class="card"><h4>&lt;TRG&gt; trigger token</h4><p>每次工具调用结尾唯一的触发 token, 额外承担「选哪个解码器」的路由职责。</p></div>
+  <div class="card"><h4>可微解码器 (differentiable decoder)</h4><p>吃种子 token 的末层 hidden states, 自回归解压回文本。层数 $N_d \ll N_m$, 用主模型前 $N_d$ 层初始化。</p></div>
+  <div class="card"><h4>latent tool call</h4><p>一次「吐种子 → 触发解码器 → 拿回文本 → 拼回上下文」的循环, 类比一次工具调用, 但整条可微。</p></div>
+  <div class="card"><h4>#L (latent length)</h4><p>推理链长度指标 = 每步计为 $L_s+1$ ($L_s$ 个种子 token + 1 次额外前向), 越短越高效。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>整个框架就两个模块:主模型 <span class="math inline">\(M\)</span> (Llama-3.2-1B, <span class="math inline">\(N_m\)</span> 层) 和一组解码器 <span class="math inline">\(\mathcal{D}=\{D_1,\dots,D_n\}\)</span>。给定问题 <span class="math inline">\(Q\)</span>, 主模型走一条多步链 <span class="math inline">\(R\)</span> 到答案 <span class="math inline">\(A\)</span>, 途中反复「起工具调用 → 解码器处理」直到不再需要。</p>
+<h3 id="sec-2-1">2.1 起工具调用 (Raising)</h3>
+<p>一步会起工具调用的推理长这样:</p>
+<div class="math block">
+\[[Q]\ [PR]\ \langle\text{BDY}\rangle\ \dots\ \langle\text{TRG}\rangle\ \langle\text{eos}\rangle\]
+</div>
+<p class="math-translation">—— 翻译: [Q] 是问题, [PR] 是之前<strong>已经解码成文本</strong>的推理步。主模型在正常自回归时, 决定压缩这一步, 就连吐 n 个 body token 当「空白载体」、1 个 trigger token 收尾。body token 数量是超参 (控制压缩强度), 但 trigger 必须且只有 1 个。</p>
+<p>作者用一个 token→解码器映射 <span class="math inline">\(f\)</span> 初始化 CoLT:当一次调用以某个 trigger token 结尾, 就查 <span class="math inline">\(f\)</span> 选出对应解码器。种子序列 <span class="math inline">\(S=(s_1,\dots,s_{L_s})\)</span> 被视作这次调用的「体」, 主模型跑完后, 取这些种子 token 的<strong>末层 hidden states</strong> <span class="math inline">\(H=(h_1,\dots,h_{L_s})\in\mathbb{R}^d\)</span> 作为「种子 embedding」, 交给解码器 <span class="math inline">\(D=f(s_{L_s})\)</span> 处理。</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据 §3.1 + Fig. 1 重构):推理主循环</p>
+<pre><code class="language-python">def colt_generate(M, decoders, token2decoder, question):
+    context = tokenize(question)          # [Q]
+    while True:
+        # 主模型自回归, 直到吐出 &lt;eos&gt; 结束这一步
+        step_tokens, hidden = M.generate(context, return_hidden=True)
+        if not raised_tool_call(step_tokens):        # 没有 &lt;TRG&gt; → 普通文本步 / 终答
+            context += step_tokens
+            if is_final_answer(step_tokens):
+                return decode_text(context)
+            continue
+        # 起了工具调用:取种子 token 的末层 hidden states
+        seed_pos = positions_of(step_tokens, kind=&quot;BDY_or_TRG&quot;)
+        H = hidden[-1][seed_pos]                      # (L_s, d)  ← 末层
+        D = decoders[token2decoder[step_tokens[-1]]]  # trigger 选解码器
+        R = D.unpack(H)                               # 解压回文本 token(见 2.2)
+        context += R                                  # [PR] + [R] 作新上下文
+</code></pre>
+<p>关键设计:主模型「看到的输入」永远是解压后的文本 (<code>context += R</code>), 只有 hidden state 这一跳短暂离开文本空间。这就是它宣称「保住预训练文本推理能力」的机制根源。</p>
+<h3 id="sec-2-2">2.2 处理工具调用 (Processing)</h3>
+<p>解码器把种子 embedding <span class="math inline">\(H\)</span> 解压回文本 <span class="math inline">\(R=(r_1,\dots,r_{L_r})\)</span>。因为解码器是可微神经模块, 梯度能回传到主模型, 实现<strong>主模型 + 解码器联合优化</strong>。主实验用的是 <strong>Transformer 解码器</strong>:与主模型同构, 但层数 <span class="math inline">\(N_d \ll N_m\)</span>;并用主模型<strong>前 <span class="math inline">\(N_d\)</span> 层的参数初始化</strong>它 (复用低层特征)。</p>
+<p>先把 <span class="math inline">\(H\)</span> 投影到解码器输入空间, 再自回归解码:</p>
+<div class="math block">
+\[Z = P_D(H) \qquad p_\phi(R\mid Z)=\prod_{k=1}^{L_r} p_\phi(r_k\mid Z, r_{\lt k})\]
+</div>
+<p class="math-translation">—— 翻译: $P_D$ 是个线性投影层, 把主模型的 hidden state $H$ 映到解码器能吃的 embedding $Z$;然后解码器就把 $Z$ 当「前缀」, 像普通语言模型一样一个字一个字地把这一步推理 (比如 <code>&lt;&lt;4*20=80&gt;&gt;</code>) 生成出来。$\phi$ 是解码器参数。</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据式 1–2 + §3.2 + 附录 B.1 重构):Transformer 解码器</p>
+<pre><code class="language-python">class TransformerDecoder(nn.Module):
+    def __init__(self, main_model, N_d):
+        # 与主模型同构但只有 N_d 层, 且用主模型前 N_d 层初始化
+        self.layers = deepcopy(main_model.layers[:N_d])
+        self.proj   = nn.Linear(d_main, d_dec)     # P_D:线性投影
+        self.lm_head = main_model.lm_head
+
+    def unpack(self, H):                            # H: (L_s, d_main)
+        Z = self.proj(H)                           # 式(1): Z = P_D(H)
+        out = []
+        prefix = Z                                 # 种子 embedding 当前缀
+        while not eos(out):                        # 式(2): 自回归
+            h = self.layers(prefix)
+            r = sample(self.lm_head(h[-1]))
+            out.append(r)
+            prefix = cat(prefix, embed(r))
+        return out
+</code></pre>
+<h3 id="sec-2-3">2.3 监督训练目标 (Supervised objectives)</h3>
+<p>两块损失。第一块保证主模型<strong>会正确地起工具调用</strong> (吐对种子 token):</p>
+<div class="math block">
+\[\mathcal{L}_{\text{main}} = -\frac{1}{L_s}\sum_{k=1}^{L_s}\log p_\theta(s_k\mid Q, R, s_{\lt k})\]
+</div>
+<p class="math-translation">—— 翻译: 对主模型吐的每个种子 token $s_k$ 算标准交叉熵。$\theta$ 是主模型参数。直白说:教主模型「在该压缩的地方, 老老实实吐出 &lt;BDY&gt;…&lt;TRG&gt;」。</p>
+<p>第二块保证<strong>解码器能把种子解压对</strong>, 对解出的文本 token 算 CE:</p>
+<div class="math block">
+\[\mathcal{L}_{\text{lat}} = -\frac{1}{L_r}\sum_{k=1}^{L_r}\log p_\phi(r_k\mid Z, r_{\lt k})\]
+</div>
+<p class="math-translation">—— 翻译: 对解码器解出的每个文本 token $r_k$ 算交叉熵——让它学会把压缩的 hidden state 还原成正确的等式。注意原文式(4) 印成了 $p_\phi(s_k\mid\dots)$, 结合上下文应为解出的文本 token $r_k$、求和上界 $L_r$(见 §4 讨论)。</p>
+<p>最终监督损失就是两者相加, 因为整条链可微, 一次反传同时更新 <span class="math inline">\(\theta\)</span> 和 <span class="math inline">\(\phi\)</span>:</p>
+<div class="math block">
+\[\mathcal{L}_{\text{sup}} = \mathcal{L}_{\text{main}} + \mathcal{L}_{\text{lat}}\]
+</div>
+<p class="math-translation">—— 翻译: 训练数据怎么造? GSM8k-Aug 把推理写成一串等式 (如 «25/5=5»), 作者<strong>把每个等式当成一次独立的 latent tool call</strong>, 每次调用是一条训练样本——这是能「2 epoch 就收敛」的关键工程简化。</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据式 3–5 重构):监督训练一步</p>
+<pre><code class="language-python">def sup_loss(M, D, batch):
+    # batch: 一个等式步, 目标文本 R = &quot;&lt;&lt;25/5=5&gt;&gt;&quot;
+    ctx, seed_targets, text_targets = batch    # [Q]+[PR], 种子 token 目标, 文本目标
+    seed_logits, hidden = M(ctx)               # 主模型前向
+    L_main = cross_entropy(seed_logits, seed_targets)      # 式(3)
+
+    H = hidden[-1][seed_positions(ctx)]        # 末层种子 hidden states
+    Z = D.proj(H)
+    text_logits = D.teacher_forcing(Z, text_targets)
+    L_lat = cross_entropy(text_logits, text_targets)      # 式(4)
+    return L_main + L_lat                       # 式(5), 一次反传更新 θ 与 φ
+</code></pre>
+<h3 id="sec-2-4">2.4 用强化学习探索更多路径 (RL)</h3>
+<p>监督训练只学会了「复述黄金 CoT」。要挖掘黄金链之外的正确路径, 作者上 RL。<strong>只要选的解码器支持采样</strong>, 整条推理就能看成一次<strong>多轮对话</strong>:每轮 = (prompt <span class="math inline">\(P\)</span>, 主模型输出 <span class="math inline">\(C\)</span>, 解码器输出 <span class="math inline">\(R\)</span>)。从主模型和解码器<strong>都采样</strong>, 就能为同一问题 <span class="math inline">\(Q\)</span> 收集多条轨迹, 套 <strong>GRPO</strong>:</p>
+<div class="math block">
+\[\mathcal{L}_{\text{GRPO}} = -\frac{1}{G}\sum_{i=1}^{G}\sum_{j=1}^{N}\Big(\min\big(\tfrac{\pi_\theta(C_{ij},R_{ij}\mid P_{ij})}{\pi_{\theta_{\text{old}}}(C_{ij},R_{ij}\mid P_{ij})}A_i,\ \text{clip}(\cdot,1-\epsilon,1+\epsilon)A_i\big)\Big) + \beta\,\mathbb{D}_{\text{KL}}(\pi_\theta\|\pi_{\text{ref}})\]
+</div>
+<p class="math-translation">—— 翻译: 标准 GRPO。对同一题采 G 条轨迹, 每条含 N 轮工具调用, 用「组内标准化的奖励」当优势 $A_i$ 去加权 PPO-clip 比值。$\epsilon=0.1$、KL 罚 $\beta=0.05$ 稳训。</p>
+<div class="math block">
+\[A_i = \frac{r_i - \text{mean}(r_1,\dots,r_G)}{\text{std}(r_1,\dots,r_G)}\]
+</div>
+<p class="math-translation">—— 翻译: 奖励在组内做 z-score 标准化 (GRPO 免 critic 的招牌)。奖励 $r_i$:答对=1, 答错但格式对=0.1, 否则=0。「格式对给 0.1」是防灾难性遗忘的软着陆——给模型一个在跑偏时回到正确答案格式的机会。这套和 <a class="wiki-link" data-slug="dapo-2025" href="../dapo-2025/index.html">dapo-2025</a> 的 GRPO 工程一脉相承。</p>
+<p>一个漂亮的副产品:因为解码器<strong>天生支持采样</strong>, CoLT 做 RL 时<strong>不需要像连续 latent 方法那样人工往向量里注噪</strong>——采样这条探索路径是免费送的。</p>
+<!-- 消融决策表 -->
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点</th>
+<th>消融方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>解码器结构</td>
+<td>—</td>
+<td>Transformer / RNN / multi-hot</td>
+<td><strong>1 层 Transformer</strong></td>
+<td>Transformer 最优;RNN 与 Coconut 相当;multi-hot 仅解数字, 是概念验证 (Table 2)</td>
+</tr>
+<tr>
+<td>解码器层数 <span class="math inline">\(N_d\)</span></td>
+<td>1 层</td>
+<td>1→6 层</td>
+<td><strong>1 层</strong></td>
+<td>6 层比 1 层 acc 高 ~2%, 但算力涨得多, 收益不划算 (Fig. 2)</td>
+</tr>
+<tr>
+<td>种子长度 <span class="math inline">\(L_s\)</span></td>
+<td>1</td>
+<td>1 / 2 / 3</td>
+<td><strong>1 (主) / 2 (更准)</strong></td>
+<td>长度↑ acc 略↑但 #L↑;1seed 效率最好, 2seed 平均分最高 (Table 1)</td>
+</tr>
+<tr>
+<td>训练 epoch</td>
+<td>—</td>
+<td>2→10</td>
+<td><strong>2</strong></td>
+<td>acc 4 epoch 后就饱和, 2 epoch 防过拟合 (Fig. 4)</td>
+</tr>
+<tr>
+<td>参数初始化</td>
+<td>随机</td>
+<td>主模型前 <span class="math inline">\(N_d\)</span> 层</td>
+<td><strong>主模型前 <span class="math inline">\(N_d\)</span> 层</strong></td>
+<td>复用低层特征, 解压更快更稳 (§3.2)</td>
+</tr>
+<tr>
+<td>主模型起点</td>
+<td>SFT checkpoint</td>
+<td>原始 backbone</td>
+<td><strong>原始 backbone</strong></td>
+<td>直接从 Llama-3.2-1B-Instruct 训, 无需先 SFT (基线却是从 SFT 权重初始化)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<figure>
+  <img class="zoomable" src="figures/tab1-main-results.png" alt="Table 1: CoLT vs baselines on four math datasets, accuracy and reasoning length">
+  <figcaption>
+    <strong>Table 1</strong> — 四个小学数学基准的主结果 (Llama-3.2-1B-Instruct)。加粗=该列最优。
+  </figcaption>
+</figure>
+<p><strong>打赢一众 latent 基线, 且更短。</strong> 在 in-domain 的 GSM8k-Aug 上, CoLT (1seed) 拿 <strong>45.3</strong> acc / <strong>7.73</strong> #L, 相比 COLAR(2x) 的 40.1 / 12.7:<strong>准 5 个点、链短近 40%</strong>。平均分上 CoLT(2seed) <strong>49.6</strong> 领跑所有 latent 方法 (COLAR-2x 48.8, SIM-CoT 47.0, Coconut 27.6, CODI 14.3), 且只训了 <strong>2 个 epoch、无课程学习</strong>——对比 Coconut/CODI 那种密集课程训练, 训练成本大幅下降。</p>
+<p><strong>out-of-domain 泛化不错。</strong> MultiArith 上 CoLT(2seed) 拿 <strong>93.9</strong>, 甚至<strong>反超监督 CoT 基线的 93.2</strong>。SVAMP 上略逊 COLAR(2x)(48.3 vs 54.9), 但整体平均分仍最高。</p>
+<p><strong>但和显式 CoT 仍有差距。</strong> 别被 latent 内战的胜利骗了:CoT 上限 (平均 53.6) 仍明显高于所有 latent 方法。这是<strong>用精度换效率</strong>的取舍, 不是免费午餐——尤其在难数据集上 (见 §5)。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-layer-seed.png" alt="Figure 2: accuracy and latent length vs decoder layers for seed lengths 1,2,3">
+  <figcaption>
+    <strong>Fig. 2</strong> — 层数 (横轴) × 种子长度 (三条线) 对 acc (左) 和 #L (右) 的影响。左图:层数↑、种子↑都小幅提 acc, 但 1-layer/1-seed 到 6-layer/3-seed 也就 ~2% 的差。右图关键洞察:<strong>#L 几乎不随层数变</strong>——说明「一次工具调用能压多少信息」由种子长度决定, 跟解码器复杂度基本无关。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/tab2-decoder-ablation.png" alt="Table 2: decoder structure ablation, Transformer vs RNN vs multi-hot">
+  <figcaption>
+    <strong>Table 2</strong> — 解码器结构消融。Transformer (49.3) ≫ RNN (30.9) ≫ multi-hot (28.2)。multi-hot 只解数字、其余文本原样透传, 所以 #L 爆炸 (39.6)。RNN 能到 Coconut 量级, 说明「循环结构解 LLM 打包的种子」这条路可行, 只是没 Transformer 好。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/tab3-rl-results.png" alt="Table 3: reinforcement learning results on MATH and GSM8k-Aug">
+  <figcaption>
+    <strong>Table 3</strong> — RL 结果。GSM8k-Aug (Llama) 上 acc 45.3→48.9 (逼近 CoT 的 49.4), #L 不变;MATH (DeepSeek-R1-Distill-Qwen-1.5B) 上 acc 6.52→7.96、#L 133→94.6。RL 在两种 backbone、两个数据集上都涨, 证明 CoLT <strong>兼容 GRPO 且能从探索中获益</strong>。
+  </figcaption>
+</figure>
+<p><strong>RL 能进一步逼近 CoT, 且压链。</strong> GSM8k-Aug 上 RL 把 acc 从 45.3 抬到 48.9 (CoT 是 49.4), 差距几乎抹平;MATH 上则明显缩短推理链 (133→94.6)。但作者诚实地指出:RL 的效果<strong>强依赖 backbone 家族和数据集</strong> (见 §4)。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<blockquote>
+<p>⚠️ <strong>本文未开源代码</strong>。我们穷尽了 arxiv abstract / Papers with Code / 正文 grep / GitHub 搜索 / 作者主页 5 条路径, 均未找到官方 repo (仅在 Awesome-Latent-CoT 列表里被收录)。故本页所有代码块均为<strong>据论文公式与附录重构的等价伪代码</strong>, 已逐块标注「非原文逐字」, 绝不冒充引用。以下细节全部有据可查:</p>
+</blockquote>
+<ol>
+<li>
+<p><strong>种子 token 复用现有特殊 token, 不新增词表</strong> (附录 A):Llama 用 <code>&lt;|reserved_special_token_0|&gt;</code> 当 <code>&lt;BDY&gt;</code>、<code>&lt;|reserved_special_token_1|&gt;</code> 当 <code>&lt;TRG&gt;</code>;Qwen 用 <code>&lt;|fim_prefix|&gt;</code> / <code>&lt;|fim_middle|&gt;</code>。这是「少改结构」宣称的具体落地——<strong>连新 token 都不加</strong>。</p>
+</li>
+<li>
+<p><strong>解码器用主模型前 <span class="math inline">\(N_d\)</span> 层初始化</strong> (附录 B.1), 投影 <span class="math inline">\(P_D\)</span> 是单个线性层。主实验 <span class="math inline">\(N_d=1\)</span> (1 层 Transformer)、<span class="math inline">\(L_s=1\)</span>。</p>
+</li>
+<li>
+<p><strong>从原始 backbone 直接训, 不先 SFT</strong> (§4.1 + 附录 B.1):这是与基线的<strong>不对等比较点</strong>——基线报告的是从 SFT-tuned 权重初始化的结果, 作者承认这一点并称是「为公平比较取基线原文数字」。读者需自行判断这对谁更有利。</p>
+</li>
+<li>
+<p><strong>#L 的算法暗含额外前向</strong> (§4.1):每个 latent step 记为 <span class="math inline">\(L_s+1\)</span>——那个「+1」是解码器解压后, 主模型要对新 token <strong>再跑一次前向</strong>的成本。作者主动把这笔账算进公平比较, 值得肯定 (很多 latent 方法会藏这笔账)。</p>
+</li>
+<li>
+<p><strong>训练配置</strong> (附录 B.1/B.3):AdamW, weight decay 0, SFT lr 1e-5、RL lr 1e-6, global batch 16, greedy 推理 (温度 0), 4×80GB GPU, HF transformers + accelerate。RL 阶段 G=8 rollouts、温度 1、top-p 0.9, 用 <strong>LoRA</strong> (r=64, α=128, dropout=0.05) 调主模型、解码器全参微调。</p>
+</li>
+<li>
+<p><strong>MATH 无天然步边界, 靠「每 k=4 token 一步」硬切</strong> (附录 B.2):GSM8k-Aug 有清晰的等式步, 而 MATH 相邻 token 未必强相关——作者把这点明确列为 CoLT 在难数据集上表现差的<strong>根因假设</strong>, 而非甩锅。</p>
+</li>
+</ol>
+<p><strong>公式排印瑕疵 (paper-vs-notation gap):</strong> 式(4) <span class="math inline">\(\mathcal{L}_{\text{lat}}\)</span> 写作 <span class="math inline">\(-\frac{1}{L_r}\sum_{k=1}^{L_r}\log p_\phi(s_k\mid Z, r_{\lt k})\)</span>, 但求和变量应是<strong>解码器解出的文本 token <span class="math inline">\(r_k\)</span></strong>, 印成了 <span class="math inline">\(s_k\)</span> (种子 token)。结合式(2) 与 §3.2 的文字描述可确认这是笔误, 不影响方法正确性——但对照代码复现时要留意。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-case-study.png" alt="Case study: each latent tool call is unpacked into a readable equation, final reasoning chain is fully textual">
+  <figcaption>
+    <strong>Fig. 3</strong> — GSM8k-Aug 上 CoLT (1seed) 的 case study。每步用 <code>&lt;TRG&gt;</code> 起工具调用, 解码器把种子 hidden states 解压成等式 (<code>&lt;&lt;4*20=80&gt;&gt;</code>…) 拼回上下文。<strong>主模型每步的输入都是纯文本, 最终推理链也完全可读</strong>——这是 latent 推理家族里罕见的可解释性。
+  </figcaption>
+</figure>
+<ul>
+<li><strong>立意干净, 少改结构。</strong> 不加新 token、不改主干、解码器用现成层初始化——「换任务就能用」的门槛确实比 Coconut/CODI 低。这是本文最实的卖点。</li>
+<li><strong>保住可解释性。</strong> Fig. 3 的 case study 显示:每步 latent tool call 都被解压成人类可读的等式, <strong>最终推理链完全是文本</strong>。这是隐式推理家族里少见的——大多数 latent 方法的中间态是读不懂的向量。</li>
+<li><strong>RL 兼容是设计出来的, 不是硬凑的。</strong> 「解码器支持采样 → 免注噪探索」这个论证链条自洽, Table 3 两 backbone 两数据集都涨。</li>
+<li><strong>诚实。</strong> 主动把「+1 前向」算进 #L、主动承认基线是从 SFT 初始化、主动指出 MATH 切分是硬伤——这种自我披露在追 SOTA 的论文里难得。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>和显式 CoT 的精度差没抹平, 难数据集尤甚。</strong> MATH 上 CoLT 6.52 (RL 后 7.96) vs CoT 23.5——<strong>差 3 倍还多</strong>, RL 也救不回来。latent 内战赢了, 但离「无损提速」还很远。</li>
+<li><strong>只在 ≤1.5B 小模型上验证。</strong> 作者自己在 Limitations 里承认, scale 到大模型「可能有额外技术挑战」。1 层解码器压 7B/70B 模型一步推理够不够, 是空的。</li>
+<li><strong>步边界靠人工定义。</strong> GSM8k-Aug 的成功高度依赖「等式=一步」这个天然切分。一旦步骤更长、更模糊 (MATH/ 开放推理), 「一次工具调用装不下一步」就露馅——<strong>latent tool call 的粒度</strong>是没解决的核心问题。</li>
+<li><strong>1 层解码器对扰动敏感。</strong> 附录 C 自己观察到:同样 RL, Llama 和 DeepSeek 上效果不一致, 作者假设是「1 层解码器高度敏感」。这暗示主实验为效率选的极简解码器, 稳健性存疑。</li>
+<li><strong>压缩率其实不高。</strong> 主实验 <span class="math inline">\(L_s=1\)</span>、每步计 2 (含 +1 前向), 对比 COLAR(5x) 名义 5× 压缩——CoLT 的「短」更多来自「每个等式压成 1 步」的数据构造, 而非解码器的极限压缩能力。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合:</strong> 已有清晰步骤分割的结构化推理 (数学等式、代码、可枚举实体检索);想要<strong>提速但保留可读推理链</strong>;想在小模型上低成本试水 latent 推理;需要 RL 微调 latent 推理器。</li>
+<li><strong>不适合:</strong> 追求逼近显式 CoT 精度上限的高难推理;步骤边界模糊的开放式长推理;直接指望 scale 到大模型 (未验证);对压缩率有硬指标 (CoLT 的强项是效率-可读性平衡, 不是极限压缩)。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较 (Cross-validation against similar work)</strong> — CoLT 属于「latent CoT 提速」这条线, 直接对手是 Coconut / CODI / COLAR。它们对**同一个问题「推理该在哪、监督信号从哪来」**给出了不同答案:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本文 CoLT</strong></td>
+<td>推理留在文本空间, 只把「压缩→解压」外包给可微解码器</td>
+<td>主模型输入永远是文本 → 保能力 + 保可读; #L 与解码器复杂度几乎无关</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Coconut</strong> (Hao 2024)</td>
+<td>直接在连续 latent 空间推理, 上步 hidden state 当下步输入</td>
+<td>逐步替换成 latent token, 需课程学习; 中间态不可读</td>
+<td>同:都信「多 token 可压成单 latent」;异:Coconut <strong>全程在 latent</strong>, CoLT <strong>每步解压回文本</strong>——可读性与训练成本因此分道</td>
+</tr>
+<tr>
+<td><strong>CODI</strong> (Shen 2025)</td>
+<td>靠末 token 的 hidden-state <strong>自蒸馏</strong>保持 latent 与显式一致</td>
+<td>跨层蒸馏缓解灾难性遗忘</td>
+<td>同:都想保住原能力;异:CODI 用蒸馏约束 latent, CoLT 用「强制解回文本」这一更硬的约束;结果 CODI 主结果 (14.3) 远逊 CoLT (49.3)</td>
+</tr>
+<tr>
+<td><strong>COLAR</strong> (Tan 2025)</td>
+<td>把连续 token 压成<strong>向量分布</strong>, 从而支持采样 + RL</td>
+<td>分布化是为了能采样做 RL</td>
+<td>同:都做到 RL 兼容;异:COLAR 靠「latent 分布采样」, CoLT 靠「解码器采样」免注噪; CoLT 更短 (7.7 vs 12.7) 但 COLAR 某些 OOD (SVAMP) 更准</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因:</strong> 这些方法在<strong>同一批 GSM8k 系数据、同量级模型</strong>上比, 差异主要来自**「latent 信息以什么形式被约束」**——Coconut 不约束 (纯 latent, 最难训最不可读)、CODI 用蒸馏软约束、COLAR 用分布约束、CoLT 用「必须能解回文本」的硬约束。约束越硬, 越贴近预训练文本空间, 训练越省、越可读, 但压缩上限也越受限——这解释了为什么 CoLT 训得快、读得懂, 却也没能在压缩率上碾压 COLAR。评测口径也有微妙差异 (CoLT 从原始 backbone 训 vs 基线从 SFT 初始化), 读数字时需打折。</p>
+<p><strong>相关工作 (Related work)</strong></p>
+<ul>
+<li><a class="wiki-link" data-slug="dapo-2025" href="../dapo-2025/index.html">dapo-2025</a> — CoLT 的 RL 用的就是 GRPO, DAPO 是同门 (字节) 对 GRPO 的大规模工程强化, 想深挖 §2.4 的 RL 细节可参照。</li>
+<li><a class="wiki-link" data-slug="thinking-visual-primitives-2026" href="../thinking-visual-primitives-2026/index.html">thinking-visual-primitives-2026</a> — 同样是「往 CoT 里塞非纯文本单元」的思路 (那里是 points/bboxes, 这里是 latent tool call), 作者组前作脉络相承。</li>
+<li><a class="wiki-link" data-slug="rls-razor-2025" href="../rls-razor-2025/index.html">rls-razor-2025</a> — 解释「为何 on-policy RL 少遗忘」;CoLT 用「格式对给 0.1 奖励」防遗忘的做法, 可与其 KL-min 视角对照。</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">1. 「工具调用」当抽象容器</h3><p>把任何「压缩→解压」「编码→解码」的子过程包装成一次可微工具调用, 主模型只管「何时调、调哪个」。这个抽象能迁移到检索 (解码成实体)、多模态 (解码成图像, 作者已点名 BLIP3o 路线) 等场景——解码器可换, 主循环不变。</p></div>
+  <div class="card"><h3 id="sec-6-2">2. 硬约束 > 软约束换可解释性</h3><p>「强制 latent 必须能解回文本」是比蒸馏 / 分布对齐更硬的约束, 代价是压缩上限受限, 回报是训练更省、中间态可读。当你的系统需要可审计的中间态, 优先考虑「强制落回可读空间」而非「事后对齐黑箱表征」。</p></div>
+  <div class="card"><h3 id="sec-6-3">3. 反直觉点:解码器复杂度 ≠ 压缩量</h3><p>Fig. 2 显示 #L 几乎不随解码器层数变——「一次能压多少」由<strong>种子长度</strong>(信息瓶颈) 决定, 而非解码器算力。想提压缩率, 加宽瓶颈 (种子数) 比堆解码器层数有效。</p></div>
+  <div class="card"><h3 id="sec-6-4">4. 反直觉点:格式奖励是遗忘的软着陆</h3><p>RL 里「答错但格式对给 0.1」不是凑数——它给模型一个在跑偏时回到正确输出格式的梯度, 实测能防灾难性遗忘。小信号、大作用, 可复用到任何有明确输出格式的 RL 任务。</p></div>
+  <div class="card"><h3 id="sec-6-5">5. 用现成特殊 token 省词表改动</h3><p>复用 <code>reserved_special_token</code> / <code>fim</code> 这类预留 token 当功能位, 避免动词表和 embedding 层——一个让「新机制零结构改动接入」的实用工程技巧。</p></div>
+  <div class="card"><h3 id="sec-6-6">6. 采样能力是 RL 的免费入场券</h3><p>只要子模块 (这里是解码器) 原生支持采样, 就能把整个流程建模成多轮对话直接套 GRPO, 省掉「往连续表征注噪」的人工探索。设计可微模块时保留采样接口, 等于预留了 RL 兼容性。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

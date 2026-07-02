@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>业界有没有原生 8K 的文生图？—— 2026 超高分辨率 T2I 方案调研</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 A 组：原生高分辨率训练（分辨率天花板 = 4K，级联到 6K）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 B 组：免训练 8K 外推（目前唯一能出 8K 的路线）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 C 组：商用与像素原生底座（业界产品到哪了）</a></li>
+    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
+    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>业界有没有原生 8K 的文生图？</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-01</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-07-01</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/NVlabs/Sana">代码</a> · <a class="post-meta__link" href="https://github.com/zhang0jhon/diffusion-4k">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/ultra-high-resolution.html">ultra-high-resolution</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/training-free-upsampling.html">training-free-upsampling</a> <a class="concept-chip" href="../../concepts/wavelet-diffusion.html">wavelet-diffusion</a> <a class="concept-chip" href="../../concepts/cascade-diffusion.html">cascade-diffusion</a> <a class="concept-chip" href="../../concepts/pixel-space.html">pixel-space</a> <a class="concept-chip" href="../../concepts/deep-compression-vae.html">deep-compression-vae</a> <a class="concept-chip" href="../../concepts/window-attention.html">window-attention</a> <a class="concept-chip" href="../../concepts/ddim-inversion.html">ddim-inversion</a></div>
+</aside>
+
+<h2 id="sec-1">1. 概述与范围</h2>
+<p><strong>问题</strong>：业界（商用 + 学术）有没有「原生 8K」的 text-to-image 方案？如果有，怎么做的？</p>
+<p><strong>先把「原生」定死，否则问题无意义。</strong> 本文把分辨率方案分成两类：</p>
+<ul>
+<li><strong>原生（native）</strong>：模型的<strong>训练分布</strong>就包含目标分辨率，且在<strong>单条生成流程</strong>里一次性吐出该分辨率——不靠事后把小图切块超分。判据是「训练时见过 8K 图 / 8K 潜变量」。级联（cascade）是灰色地带：UltraPixel 的高分辨率阶段是在低分辨率语义引导下训练出来的，姑且算「半原生」。</li>
+<li><strong>免训练外推（training-free / tuning-free）</strong>：底座只训练到 ≤4K（甚至 1K），推理时用分块反演、窗口注意力、频域引导等技巧把分辨率「拉」到 8K。模型<strong>从没在 8K 上训练过</strong>。</li>
+</ul>
+<p><strong>结论先行</strong>：<strong>截至 2026-07，没有任何一个原生 8K 的 T2I 模型公开发布。</strong> 原生训练的分辨率天花板是 <strong>4K（4096²）</strong>；8K 只存在于免训练管线里。下面是分辨率-路线的全景（✅ 表示 arxiv ID 已本会话联网核验）：</p>
+<table>
+<thead>
+<tr>
+<th>分辨率档</th>
+<th>原生训练（trained in-distribution）</th>
+<th>免训练外推（extrapolated at inference）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1K (1024²)</td>
+<td>SDXL、绝大多数开源底座</td>
+<td>—</td>
+</tr>
+<tr>
+<td>2K (2048²)</td>
+<td>HunyuanImage 2.1、Qwen-Image、HiDream-O1-Dev、Seedream 4.0 的 2K 档</td>
+<td>—</td>
+</tr>
+<tr>
+<td>4K (4096²)</td>
+<td><strong>Sana</strong>、<strong>Diffusion-4K</strong>、<strong>Seedream 4.0</strong>、<strong>L2P</strong>、<strong>AsymFlow</strong>、Scale-DiT(无需 HR 数据)</td>
+<td>Sana/SDXL + DemoFusion/HiFlow 等</td>
+</tr>
+<tr>
+<td>6K (6144²)</td>
+<td><strong>UltraPixel</strong>（级联，半原生）</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>8K (7680×4320 / 8192²)</strong></td>
+<td><strong>无（空白）</strong></td>
+<td><strong>HiWave</strong>、<strong>PixelRush</strong>、<strong>Scale-DiT</strong>、<strong>L2P 8K zero-shot</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>验证说明</strong>：本调研的每个 arxiv ID、年份、分辨率数字都在本会话内 <code>WebSearch</code>/<code>WebFetch</code> 核验过；Diffusion-4K 的小波损失、Sana 的 DC-AE 压缩比进一步做了源码交叉验证（见 §5）。商用模型（Seedream / Midjourney / Recraft / Firefly / Nano Banana）没有 8K 原生的公开技术证据——它们的「高清」大多是 4K 原生 + 平台侧放大。</p>
+<p><strong>时间窗</strong>：核心工作集中在 2024-07（UltraPixel）到 2026-02（PixelRush），本仓库已精读的 L2P / AsymFlow / OP4KSR（2026-05）提供了「原生 4K 像素空间」的第一手拆解。</p>
+<hr />
+<h2 id="sec-2">2. 逐篇精要</h2>
+<p>分三组：<strong>A 组 = 原生训练（≤6K）</strong>，代表「把分辨率训进模型」的正统路线；<strong>B 组 = 免训练 8K 外推</strong>，是目前唯一能出 8K 的路线；<strong>C 组 = 商用与像素原生底座</strong>，回答「业界产品到哪」。</p>
+<h3 id="sec-2-1">2.1 A 组：原生高分辨率训练（分辨率天花板 = 4K，级联到 6K）</h3>
+<p><strong>Sana (ICLR 2025 oral, arxiv:2410.10629)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：把原生 4K 生成的算力门槛砍到笔记本 GPU——靠一个 <strong>32× 深压缩自编码器（DC-AE，f32）</strong> 把 token 数直接减 16 倍。</li>
+<li>方法：DC-AE（32× 空间压缩 vs 传统 8×）+ 线性注意力 DiT + decoder-only LLM 文本编码器 + Flow-DPM-Solver。</li>
+<li>关键结果：4096×4096 单图 &lt; 20s（1.6B 模型、8-bit 量化下 8GB 显存可跑）；比 Flux-12B 小 20×、快 100×。</li>
+<li>代码：<code>NVlabs/Sana</code>，DC-AE 与线性注意力见 §5。</li>
+</ul>
+<p>怎么做的：8K/4K 原生训练的第一性障碍是<strong>注意力对 token 数的 O(N²)</strong>。一张 4096² 图在传统 8× VAE 下是 512×512=262k 个 latent token，注意力矩阵直接爆炸。Sana 的解法是两把刀叠加：(1) <strong>DC-AE 把压缩比从 8× 拉到 32×</strong>，同一张 4K 图的 latent 边长从 512 降到 128，token 数从 262k 降到 16k——这是让 4K 变得「可训」的前提；(2) 即便如此 16k token 的全注意力仍贵，于是<strong>把 DiT 里所有 vanilla attention 换成线性注意力</strong>（O(N) 而非 O(N²)），高分辨率下才不至于二次爆炸。代价 / 权衡：32× 压缩把重建难度推给 VAE，细节保真依赖 DC-AE 的解码器质量；线性注意力牺牲了一点全局建模能力，Sana 用 Mix-FFN 补结构信息。<strong>Sana 是「原生 4K 能进消费级显卡」的分水岭，但它明确止步 4K——没有 8K 训练配置。</strong></p>
+<p><strong>Diffusion-4K (CVPR 2025, arxiv:2503.18352)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：不改底座架构，只靠<strong>小波域微调（WLF）+ 尺度一致 VAE（SC-VAE）</strong>，把 Flux / SD3 直接微调成原生 4K，并配套首个公开 4K 基准 Aesthetic-4K。</li>
+<li>方法：SC-VAE 保证不同尺度潜变量一致；WLF 在 flow-matching 损失里加入对预测/目标的<strong>离散小波分解</strong>，让高频细节进入监督。</li>
+<li>关键结果：在 Aesthetic-4K 上原生合成 4096²；提出 GLCM Score / Compression Ratio 两个细节度量补充 FID/CLIP。</li>
+<li>代码：<code>zhang0jhon/diffusion-4k</code>，小波损失见 §5（含一个与宣传不完全一致的发现）。</li>
+</ul>
+<p>怎么做的：直接在 4K 上训 flow-matching，模型倾向学到低频结构、丢高频纹理（因为 MSE 对高频不敏感）。WLF 的设计决策是<strong>把监督搬到小波域</strong>：对模型预测和目标各做一次 Haar DWT，拆成 LL/LH/HL/HH 四个子带，让损失显式覆盖高频子带（LH/HL/HH），从而逼模型把纹理学出来。为什么用小波而不是傅里叶？小波是<strong>空间局部</strong>的，UHR 图的细节是局部纹理（毛发、砖缝），小波子带能定位到具体区域，傅里叶全局频谱做不到。SC-VAE 则解决「4K 图过 VAE 后不同分辨率潜变量不自洽」的问题。<strong>这条路线证明了原生 4K 不需要重训底座，微调即可——但同样没往 8K 走</strong>（4K 已是 Aesthetic-4K 数据集的上限）。另有 Latent Wavelet Diffusion（arxiv:2506.00433）用类似小波能量正则「免费」拿到 4K，思路同源。</p>
+<p><strong>UltraPixel (NeurIPS 2024, arxiv:2407.02158)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>单个级联模型覆盖 1K–6K</strong>，是目前公开工作里原生分辨率最高的（6144²，半原生）。</li>
+<li>方法：级联扩散 + 低分辨率语义在后段去噪引导高分辨率生成 + 隐式神经表示（INR）连续上采样 + 尺度感知归一化；高分辨率仅新增 &lt; 3% 参数。</li>
+<li>关键结果：1K–6K 单模型，高分辨率分支参数量 &lt; 3%，算力集中在最紧凑空间。</li>
+<li>代码：Stable Cascade 底座（论文未在摘要点名，但基于其高压缩 latent）。</li>
+</ul>
+<p>怎么做的：UltraPixel 押注<strong>级联 + 语义引导</strong>。关键设计是<strong>用低分辨率图的富语义表征在去噪后段引导整张高分辨率图</strong>——直觉是「高分辨率图的全局布局早就由低分辨率决定了，高分辨率阶段只需补细节」，于是高分辨率分支可以极轻（&lt;3% 参数）。INR 提供<strong>连续</strong>上采样，让同一模型吐 1K/2K/4K/6K 而不需要为每档单独训。权衡：级联天然引入「低分辨率决定的布局无法在高分辨率修正」的锁定效应，且 6K 已是它公开的上限——<strong>再往 8K 级联，误差累积和显存都会失控</strong>。UltraPixel 是「半原生」的代表：高分辨率阶段确实训练过，但强依赖低分辨率引导，不是纯粹的 8K 端到端。</p>
+<p><strong>L2P / AsymFlow（arxiv:2605.12013 / 2605.12964，本仓库已精读）</strong> — ✅ verified（见 <a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a>、<a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a>、对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a>）</p>
+<ul>
+<li>核心贡献：把预训练 LDM 的知识<strong>迁移到像素空间</strong>，8 卡训出<strong>原生 4K 单步扩散</strong>，并解锁 <strong>8K zero-shot 外推</strong>。</li>
+<li>方法：L2P 拆掉 VAE、用 16×16 大 patch 打 token，冻结 LDM 中间层 + Detailer Head，训练数据是源 LDM 自生成的 20k 合成图；AsymFlow 不动架构、重设 velocity 参数化把 latent flow 数学 lift 成像素 flow。</li>
+<li>关键结果：L2P 在 DPG-Bench 86.00 &gt; 源 LDM 84.86，取消 VAE 瓶颈后原生 4K 单步显存降 38.81%、时间降 97.67%；<strong>原生 4K + 8K zero-shot</strong>。</li>
+<li>代码：见本仓库精读页。</li>
+</ul>
+<p>怎么做的：L2P 的关键洞察是「从零训像素扩散是灾难性 cold start，但可以<strong>从已经平滑的 LDM 流形上做轻量迁移</strong>」。它把 VAE 换成大 patch（16×16）直接打像素成 token——这样内存瓶颈从 VAE 解码转到 patch 化，反而更省。原生分辨率仍是 4K，但因为<strong>像素空间没有 VAE 的固定下采样率约束</strong>，它能在推理时把 patch 网格外推到 8K 而不崩（zero-shot 8K）。这是「原生 4K + 免训练 8K」的混合体：8K 那一档<strong>没有训练过</strong>，属于外推，所以本文归它为「4K 原生、8K 外推」。<strong>这恰恰印证了本文主论点——即使是最新的像素空间工作，8K 也只能靠外推拿到，没人在 8K 上真训。</strong></p>
+<p><strong>OP4KSR（arxiv:2605.13457，本仓库已精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：一步、无分块的真实世界 <strong>4K 超分</strong>（不是 T2I 生成，但常和 T2I 拼成「先生成后放大」管线）。</li>
+<li>方法：UltraFlux 的 F16 极压缩 VAE 把 4096² 显存压到单卡 + 中间时刻对齐把 Flux 微调成一步前向。</li>
+<li>关键结果：5.75s 出一张 4K；诊断并修复了一步化触发的周期 32 像素格子伪影（RoPE 基频 10000→100 + 自相关周期损失）。</li>
+<li>代码：见精读页。</li>
+</ul>
+<p>怎么做的（简）：OP4KSR 是<strong>超分</strong>而非生成，但它是「4K 原生生成够不着、就靠 SR 补」这一现实的注脚——业界大量「4K/8K」实际是 1K–2K 生成 + SR。它的价值在于把「一步 + 无分块」的 4K SR 做通，并揭示一步化在 Flux 上的 RoPE 相位坍缩病理。放到本调研里，它代表<strong>8K 的另一条务实路线：生成 2K，SR 到 4K/8K</strong>。</p>
+<h3 id="sec-2-2">2.2 B 组：免训练 8K 外推（目前唯一能出 8K 的路线）</h3>
+<p><strong>HiWave (arxiv:2506.20452, 2025-06)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>免训练</strong>让预训练 SDXL 生成 <strong>8192×8192</strong> 无伪影图，不改架构、不加训练。</li>
+<li>方法：<strong>分块 DDIM 反演</strong>求初始噪声 + <strong>小波域细节增强器</strong>（保低频、选择性引导高频）。</li>
+<li>关键结果：8192² zero-shot，评测基于 SDXL；主打「beyond native resolution 且无重复伪影」。</li>
+<li>代码：作者开源（未在本会话交叉验证函数）。</li>
+</ul>
+<p>怎么做的：免训练超高分辨率的两大顽疾是<strong>物体重复</strong>（模型在超出训练分辨率时把同一物体平铺）和<strong>高频丢失</strong>。HiWave 的设计决策是<strong>两阶段解耦</strong>：先生成一张 native 图，上采样后<strong>分块做 DDIM 反演</strong>拿到与该图一致的初始噪声（保证全局结构不重复，因为噪声来自真实低分辨率图的反演而非随机采样）；再在<strong>小波域</strong>做细节增强——显式保住 LL 低频（维持全局一致），只对高频子带做引导（补纹理）。为什么分块反演能压住重复？因为重复源于随机噪声在大画布上的平移不变性，而反演噪声携带了低分辨率图的全局布局约束。<strong>这是 8K 落地的代表方案，但本质是「SDXL(1K) + 免训练放大」，模型从没见过 8K。</strong></p>
+<p><strong>PixelRush (arxiv:2602.12769, 2026-02)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>免训练 + 一步细化</strong>，号称首个<strong>单卡 A100-40GB &lt; 100s 出 8K</strong>。</li>
+<li>方法：级联上采样（SDXL-Turbo 底座）+ <strong>部分反演</strong>（截断噪声扰动而非全高斯）+ 一步细化 + 高斯滤波混合 + 噪声注入防过平滑。</li>
+<li>关键结果：8K &lt; 100s、4K ≈ 20s；比 SOTA 快 10×–35×。</li>
+<li>代码：作者开源（未在本会话交叉验证函数）。</li>
+</ul>
+<p>怎么做的：PixelRush 把 HiWave 那套「反演 + 细化」提速到一步。关键设计是<strong>部分反演</strong>：不做完整的从数据到纯噪声的反演，而是只截断一小段噪声扰动，因为放大任务里低分辨率图已经给了绝大部分信息，只需局部细化，反演到纯噪声是浪费。细化阶段用 <strong>SDXL-Turbo 的一步生成</strong>，配高斯滤波混合把分块边界抹平、噪声注入防止一步化过平滑。权衡：一步 + 部分反演换来 10–35× 加速，但细化能力受限于 Turbo 的一步质量，极端纹理会弱于多步。<strong>它把 8K 的时间成本压到 &lt;100s，是「8K 免训练」目前最快的，但仍是外推，不是原生。</strong></p>
+<p><strong>Scale-DiT (arxiv:2510.16325, 2025-10)</strong> — ✅ verified（注意：搜索页有时误标为「UltraGen」，正式题名是 Scale-DiT: Ultra-High-Resolution Image Generation with Hierarchical Local Attention；同期另有一篇 2510.18775 是同名的<strong>视频</strong>工作，勿混）</p>
+<ul>
+<li>核心贡献：<strong>层级局部注意力</strong>让 DiT <strong>无需任何高分辨率训练数据</strong>就稳定放大到 4K×4K，并延伸到 8K。</li>
+<li>方法：把高分辨率 latent 切成<strong>固定大小局部窗口</strong>做窗口注意力，同时用<strong>低分辨率全局引导 + 缩放位置锚点</strong>维持全局一致。</li>
+<li>关键结果：4K 生成 &lt; 30s、8K &lt; 2min；比 dense attention 快 2×+、显存更低；4K×4K <strong>不需额外高分辨率训练数据</strong>。</li>
+<li>代码：作者开源（未在本会话交叉验证函数）。</li>
+</ul>
+<p>怎么做的：Scale-DiT 攻的是 §2.1 反复出现的 O(N²) 墙。设计决策是<strong>窗口注意力 + 低分辨率全局锚点</strong>的双分支：8K latent 的全注意力不可行，于是把它切成固定大小窗口做<strong>局部</strong>注意力（O(N·w)），全局一致性则靠一路<strong>低分辨率 latent 的全局注意力 + 缩放后的位置编码锚点</strong>注入。为什么要位置锚点？因为窗口化会丢失跨窗口的绝对位置信息，缩放位置锚点让每个窗口知道自己在大画布的哪里，避免「每个窗口各画各的」。它的特殊之处是<strong>4K 那档几乎不需要高分辨率训练数据</strong>（介于原生和免训练之间），8K 则是明确的外推。<strong>Scale-DiT 是从「注意力效率」而非「反演/频域」角度攻 8K 的代表。</strong></p>
+<h3 id="sec-2-3">2.3 C 组：商用与像素原生底座（业界产品到哪了）</h3>
+<p><strong>Seedream 4.0 (ByteDance, arxiv:2509.20427, 2025-09)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：商用一体化多模态生成/编辑，<strong>原生 1K–4K</strong>（up to 4096px，无放大伪影）。</li>
+<li>方法：高效训练 + 原生高分辨率快速生成；2K 图推理 ≈ 1.4s。</li>
+<li>关键结果：原生 4K；商用摄影/产品/广告级素材。<strong>无 8K 原生证据。</strong></li>
+</ul>
+<p>怎么做的（简）：Seedream 4.0 代表<strong>商用侧的原生分辨率上限就是 4K</strong>。它的卖点是 2K 只要 1.4s、4K 原生无放大伪影——注意「无放大伪影」正说明 4K 是真训练出来的、不是放大的。往上到 8K，Seedream 也走平台侧放大，没有原生 8K 档。同期 HunyuanImage 2.1（原生 2K）、Qwen-Image（up to 2K）、HiDream-O1-Image-Dev（像素原生 8B，原生 2K，arxiv:2605.11061）、Z-Image（单流 DiT，arxiv:2511.22699）都停在 2K 原生。<strong>换言之，商用产品的原生天花板（2K–4K）比学术前沿（4K–6K）还低。</strong></p>
+<p><strong>UltraHR-100K (arxiv:2510.20661, 2025-10)</strong> — ✅ verified（数据集，非模型）</p>
+<ul>
+<li>核心贡献：面向 UHR 合成的大规模高质量数据集，直指「高分辨率训练数据稀缺」这一根因。</li>
+<li>意义：8K 原生做不出来的<strong>第一性原因就是没有 8K 训练数据</strong>；UltraHR-100K 是往这个方向补的早期努力，但其规模/分辨率中心仍未到「8K-centric」。</li>
+</ul>
+<hr />
+<h2 id="sec-3">3. 平行对比</h2>
+<p>把所有工作放到判别性轴上（分辨率 / 是否原生 / 机制 / 底座 / 步数 / 速度 / 训练成本 / 8K 能力）：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>最高分辨率</th>
+<th>原生?</th>
+<th>核心机制</th>
+<th>底座</th>
+<th>步数</th>
+<th>速度</th>
+<th>训练/数据</th>
+<th>出 8K?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sana</strong></td>
+<td>4096²</td>
+<td>✅ 原生</td>
+<td>32× DC-AE + 线性注意力</td>
+<td>自训 1.6B</td>
+<td>多步(Flow-DPM)</td>
+<td>4K&lt;20s</td>
+<td>原生 4K 训练</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>Diffusion-4K</strong></td>
+<td>4096²</td>
+<td>✅ 原生</td>
+<td>SC-VAE + 小波微调(WLF)</td>
+<td>Flux/SD3 微调</td>
+<td>多步</td>
+<td>—</td>
+<td>Aesthetic-4K 微调</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>UltraPixel</strong></td>
+<td>6144²</td>
+<td>半原生(级联)</td>
+<td>级联+语义引导+INR</td>
+<td>Stable Cascade</td>
+<td>多步</td>
+<td>—</td>
+<td>高分辨率分支+&lt;3%参数</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>L2P</strong></td>
+<td>4K原生/8K外推</td>
+<td>4K✅ / 8K❌</td>
+<td>拆VAE+大patch迁移</td>
+<td>Z-Image-Turbo</td>
+<td>单步</td>
+<td>4K时间-97.67%</td>
+<td>8卡+20k合成图</td>
+<td>⚠️ 外推</td>
+</tr>
+<tr>
+<td><strong>AsymFlow</strong></td>
+<td>4096²</td>
+<td>✅ 原生</td>
+<td>velocity重参数化 lift</td>
+<td>FLUX.2 9B</td>
+<td>多步</td>
+<td>—</td>
+<td>改loss不改架构</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>HiWave</strong></td>
+<td>8192²</td>
+<td>❌ 免训练</td>
+<td>分块DDIM反演+小波增强</td>
+<td>SDXL(1K)</td>
+<td>多步</td>
+<td>—</td>
+<td>零训练</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>PixelRush</strong></td>
+<td>8K+</td>
+<td>❌ 免训练</td>
+<td>部分反演+一步细化+级联</td>
+<td>SDXL-Turbo</td>
+<td>一步细化</td>
+<td>8K&lt;100s</td>
+<td>零训练</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Scale-DiT</strong></td>
+<td>4K原生ish/8K</td>
+<td>❌ 免训练</td>
+<td>窗口注意力+低分辨率锚点</td>
+<td>DiT</td>
+<td>多步</td>
+<td>4K&lt;30s/8K&lt;2min</td>
+<td>4K免高分辨率数据</td>
+<td>✅</td>
+</tr>
+<tr>
+<td><strong>Seedream 4.0</strong></td>
+<td>4096²</td>
+<td>✅ 原生</td>
+<td>商用一体化</td>
+<td>自研</td>
+<td>少步</td>
+<td>2K≈1.4s</td>
+<td>商用大规模</td>
+<td>❌</td>
+</tr>
+<tr>
+<td><strong>OP4KSR</strong></td>
+<td>4096²(SR)</td>
+<td>超分</td>
+<td>F16 VAE+一步SR</td>
+<td>Flux</td>
+<td>一步</td>
+<td>4K 5.75s</td>
+<td>GAN式一步微调</td>
+<td>❌(SR)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一眼看穿的分层</strong>：原生列里最高只有 UltraPixel 的 6K（还是级联半原生）；<strong>8K 列里全是「❌ 免训练」或「⚠️ 外推」——没有一个是「✅ 原生」。</strong> 这就是本调研的核心事实。</p>
+<hr />
+<h2 id="sec-4">4. 一致与矛盾</h2>
+<p><strong>一致（多篇独立工作收敛的信号）：</strong></p>
+<ol>
+<li><strong>原生分辨率天花板一致停在 4K。</strong> Sana、Diffusion-4K、Seedream 4.0、L2P、AsymFlow 五个互相独立的团队（NVIDIA/MIT、学术、ByteDance、南大+腾讯、Stanford），路线各异（自研底座 / 微调 / 商用 / 像素迁移 / 重参数化），但<strong>原生上限惊人一致地都是 4096²</strong>。这种跨独立工作的收敛是强信号：4K 是当前数据 + 算力 + VAE 三者约束下的自然平衡点。</li>
+<li><strong>8K 一致靠「反演 / 频域 / 窗口」三类免训练技巧。</strong> HiWave（分块反演+小波）、PixelRush（部分反演+一步）、Scale-DiT（窗口注意力）、L2P（patch 外推）没有一个在 8K 上训练，全部是推理期外推。<strong>「8K = 免训练外推」是当前的行业共识，不是巧合。</strong></li>
+<li><strong>「压缩比」是所有原生高分辨率工作的胜负手。</strong> Sana 的 32× DC-AE、L2P 拆 VAE 换大 patch、OP4KSR 的 F16 VAE——都在攻同一个瓶颈：<strong>token 数 / 显存</strong>。降 token 数是原生高分辨率的必要条件。</li>
+</ol>
+<p><strong>矛盾 / 需要小心的地方：</strong></p>
+<ol>
+<li><strong>速度数字不可直接比。</strong> PixelRush「8K &lt; 100s」用 SDXL-Turbo 一步细化，Scale-DiT「8K &lt; 2min」用多步 DiT，HiWave 没给统一 8K 计时——三者硬件、步数、底座都不同，<strong>不能拉成同一张 8K 速度榜</strong>。任何把它们并列成「谁最快」的结论都是误导。</li>
+<li><strong>「native resolution」被商用宣传稀释。</strong> 多个商用平台宣称「8K 输出」，但技术证据只到 4K 原生（Seedream 4.0）——<strong>「输出 8K」≠「原生 8K」，中间隔着一层平台放大</strong>。学术界严格区分二者，商用宣传常混用，这是最容易被带偏的点。</li>
+<li><strong>Diffusion-4K 的小波损失与「主打高频」的叙事有出入</strong>（§5 代码发现）：宣传是「引导高频细节」，但代码里 LL/LH/HL/HH 四个子带<strong>等权</strong>进 MSE，并没有对高频子带单独加权。效果或许来自小波域的表征变化而非显式高频偏置——这是叙事和实现的一处细微不一致。</li>
+</ol>
+<p><strong>启发（这组工作合起来告诉研究者什么）：</strong></p>
+<ul>
+<li><strong>8K 原生是一片真空白地</strong>，不是因为没人想做，而是三个硬约束还没被同时攻破（见 §6）。</li>
+<li>谁先把 UltraHR-100K 这类数据推到 8K-centric 规模 + 把 DC-AE 压缩比再上一个台阶（如 64×）+ 把窗口注意力做成可训练而非仅推理，谁就可能第一个做出原生 8K。</li>
+</ul>
+<hr />
+<h2 id="sec-5">5. 代码交叉验证</h2>
+<p><strong>Sana — DC-AE 32× 压缩 + 线性注意力</strong>：✅ 与论文一致。<code>NVlabs/Sana</code> 官方说明确认「DC-AE: 32× image compression (vs. traditional 8×) to reduce latent tokens」与「Linear Attention: Replace vanilla attention in DiT with linear attention」；4K 模型（1.6B）在 8-bit 量化 + model offload 下 8GB 显存可跑 4096²、&lt;20s。压缩比与线性注意力这两个「让 4K 可训」的核心主张，代码/配置层面属实。</p>
+<p><strong>Diffusion-4K — 小波微调（WLF）</strong>：✅ 机制属实，⚠️ 一处叙事-实现不一致。<code>zhang0jhon/diffusion-4k</code> 的 <code>train_flux_4k_wavelet.py</code>：</p>
+<ul>
+<li>L1047-1049：<code>from pytorch_wavelets import DWTForward, DWTInverse; dwt = DWTForward(J=1, mode='zero', wave='haar')</code> —— 确认用 <strong>单层 Haar DWT</strong>。</li>
+<li>L1073-1080：对 <code>model_input</code>（目标）和 <code>model_pred</code>（预测）各做一次 DWT，解出 <code>xll, xlh, xhl, xhh</code> 四个子带。</li>
+<li>L1082-1087：四个子带<strong>沿通道拼接后统一进 MSE</strong>，损失式子 <code>weighting * (model_pred - target)²</code> 与标准 flow-matching <strong>形式不变</strong>。</li>
+</ul>
+<p>—— 即：WLF 确实把监督搬到了小波域（LL/LH/HL/HH 全覆盖），<strong>但四子带等权，没有对高频子带（LH/HL/HH）单独加权</strong>。论文「引导高频细节」的效果更可能来自「在小波域算损失」这一表征变化本身，而非显式高频偏置。这是一个<strong>高价值的实现细节</strong>：想复现 4K 细节增益的人，照搬「等权小波 MSE」即可，不必自己发明高频加权。</p>
+<p><strong>未交叉验证（诚实标注）</strong>：HiWave、PixelRush、Scale-DiT 的核心函数本会话未打开源码，其「8192²」「8K&lt;100s」「8K&lt;2min」数字来自 arxiv 摘要/正文核验，<strong>未做函数级验证</strong>——引用时按「作者自报」对待。UltraPixel 的 Stable Cascade 底座为摘要推断，未见配置文件确认。</p>
+<hr />
+<h2 id="sec-6">6. 启发与白地</h2>
+<p><strong>为什么 8K 原生至今是空白？三个硬约束（缺一不可）：</strong></p>
+<ol>
+<li><strong>数据</strong>：8K（7680×4320 ≈ 33M 像素）的高质量图-文对在互联网上极稀，且清洗/打标成本陡增。SDXL 训到 1K、Aesthetic-4K 到 4K、UltraHR-100K 才刚往 UHR 补——<strong>没有 8K-centric 数据集，原生 8K 无从谈起</strong>。这是第一性障碍。</li>
+<li><strong>注意力 O(N²)</strong>：8K 图即使在 32× DC-AE 下也有 256×256=65k latent token，全注意力矩阵 65k²≈4.3B——训练时反传显存直接失控。Sana 的线性注意力、Scale-DiT 的窗口注意力都在攻这里，但<strong>可训练的高分辨率高效注意力</strong>还没成熟到能撑起 8K 端到端训练。</li>
+<li><strong>VAE 重建</strong>：要压 8K 就得更高压缩比（64× 甚至更高），但压缩比越高，解码器越难无损重建 8K 细节——OP4KSR 的 F16 VAE、Sana 的 DC-AE 已在极限附近。<strong>压缩比与重建保真的矛盾</strong>是第三道墙。</li>
+</ol>
+<p><strong>白地 / 下一步（给研究者的可执行方向）：</strong></p>
+<ul>
+<li><strong>数据侧</strong>：把 UltraHR-100K 思路推到 8K-centric，或用 4K 原生模型 + 可信 SR 自举生成 8K 训练对（类似 L2P 用源 LDM 自生成数据的思路，但目标是 8K）。</li>
+<li><strong>架构侧</strong>：把 Scale-DiT 的窗口注意力从「仅推理」升级为「可训练」，配合缩放位置锚点，做<strong>原生 8K 窗口化训练</strong>——这可能是最快落地的一条。</li>
+<li><strong>压缩侧</strong>：DC-AE 往 64×+ 推，或用 L2P 式「拆 VAE、大 patch」绕开固定下采样率约束，把 8K token 数压到可训。</li>
+<li><strong>务实路线</strong>：短期内业界会继续用「2K–4K 原生生成 + 免训练/SR 放大到 8K」（PixelRush / HiWave / OP4KSR 组合）——这是 §2 全部证据指向的现实答案。</li>
+</ul>
+<p><strong>一句话回答用户</strong>：<strong>没有原生 8K 的文生图方案。</strong> 想要 8K，今天只能选「4K 原生底座（Sana / Diffusion-4K / Seedream 4.0）+ 免训练 8K 外推（HiWave / PixelRush / Scale-DiT）或 SR（OP4KSR）」的组合管线；纯粹在 8K 上训练出来的模型，业界和学术界都还没有。</p>
+<hr />
+<h2 id="sec-7">7. 参考文献</h2>
+<p>全部 arxiv ID 本会话联网核验。</p>
+<ul>
+<li><strong>Sana</strong>: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformers — arxiv:2410.10629 (ICLR 2025 oral) · <a href="https://arxiv.org/abs/2410.10629">https://arxiv.org/abs/2410.10629</a> · code: <a href="https://github.com/NVlabs/Sana">https://github.com/NVlabs/Sana</a></li>
+<li><strong>Diffusion-4K</strong>: Ultra-High-Resolution Image Synthesis with Latent Diffusion Models — arxiv:2503.18352 (CVPR 2025) · <a href="https://arxiv.org/abs/2503.18352">https://arxiv.org/abs/2503.18352</a> · code: <a href="https://github.com/zhang0jhon/diffusion-4k">https://github.com/zhang0jhon/diffusion-4k</a></li>
+<li><strong>Latent Wavelet Diffusion</strong>: Enabling 4K Image Synthesis for Free — arxiv:2506.00433 · <a href="https://arxiv.org/abs/2506.00433">https://arxiv.org/abs/2506.00433</a></li>
+<li><strong>UltraPixel</strong>: Advancing Ultra-High-Resolution Image Synthesis to New Peaks — arxiv:2407.02158 (NeurIPS 2024) · <a href="https://arxiv.org/abs/2407.02158">https://arxiv.org/abs/2407.02158</a></li>
+<li><strong>HiWave</strong>: Training-Free High-Resolution Image Generation via Wavelet-Based Diffusion Sampling — arxiv:2506.20452 · <a href="https://arxiv.org/abs/2506.20452">https://arxiv.org/abs/2506.20452</a></li>
+<li><strong>PixelRush</strong>: Ultra-Fast, Training-Free High-Resolution Image Generation via One-step Diffusion — arxiv:2602.12769 · <a href="https://arxiv.org/abs/2602.12769">https://arxiv.org/abs/2602.12769</a></li>
+<li><strong>Scale-DiT</strong>: Ultra-High-Resolution Image Generation with Hierarchical Local Attention — arxiv:2510.16325 · <a href="https://arxiv.org/abs/2510.16325">https://arxiv.org/abs/2510.16325</a></li>
+<li><strong>L2P</strong>: 把 LDM 潜在知识搬到像素空间，8 卡原生 4K — arxiv:2605.12013 · 本仓库精读 <a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a></li>
+<li><strong>AsymFlow</strong> (Latent→Pixel 迁移) — arxiv:2605.12964 · 本仓库精读 <a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a> / 对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></li>
+<li><strong>OP4KSR</strong>: 一步、无分块的 4K 超分 — arxiv:2605.13457 · 本仓库精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></li>
+<li><strong>HiDream-O1-Image</strong>: Natively Unified Image Generative Foundation Model (pixel-native, 2K) — arxiv:2605.11061 · <a href="https://arxiv.org/abs/2605.11061">https://arxiv.org/abs/2605.11061</a></li>
+<li><strong>Seedream 4.0</strong>: Toward Next-generation Multimodal Image Generation (原生 4K) — arxiv:2509.20427 · <a href="https://arxiv.org/abs/2509.20427">https://arxiv.org/abs/2509.20427</a></li>
+<li><strong>HunyuanImage 3.0</strong> Technical Report — arxiv:2509.23951 · <a href="https://arxiv.org/abs/2509.23951">https://arxiv.org/abs/2509.23951</a></li>
+<li><strong>Z-Image</strong>: Efficient Image Generation Foundation Model with Single-Stream DiT — arxiv:2511.22699 · <a href="https://arxiv.org/abs/2511.22699">https://arxiv.org/abs/2511.22699</a></li>
+<li><strong>UltraHR-100K</strong>: Enhancing UHR Image Synthesis with A Large-Scale High-Quality Dataset — arxiv:2510.20661 · <a href="https://arxiv.org/abs/2510.20661">https://arxiv.org/abs/2510.20661</a></li>
+<li>Qwen-Image（原生 2K，商用数据点，arxiv 未在本会话核验，按 name-only 标注）</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

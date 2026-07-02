@@ -57,6 +57,15 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/colt-2026/index.html">CoLT: 把隐式推理做成「参数化工具调用」——主模型全程在文本空间, 小解码器负责解压</a></h3>
+  <p class="post-card__tldr">隐式 CoT (Coconut/CODI/COLAR) 让模型在黑箱 latent 空间里推理, 提速但改结构、难训、丢可解释性。CoLT 换个思路:主模型只吐几个「种子 token」(&lt;BDY&gt;...&lt;TRG&gt;) 把一步推理压进 hidden states, 再触发一个层数远小于主模型的可微解码器把它解压回文本, 拼回上下文继续推。主模型全程停在文本 token 空间 (保能力 + 保可读), 整条链端到端可微、天然兼容 GRPO。Llama-3.2-1B 上 2 个 epoch、无课程学习就超过一众 latent 基线, 平均 #L 从 12.7 砍到 7.7。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/thinking-visual-primitives-2026/index.html">Thinking with Visual Primitives: 让 MLLM 在思考时 &quot;用手指点&quot;——points/bboxes 作为最小思维单元穿插进 CoT 推理链</a></h3>

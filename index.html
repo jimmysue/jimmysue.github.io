@@ -64,6 +64,42 @@
       <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/native-8k-t2i-2026/index.html">业界有没有原生 8K 的文生图？—— 2026 超高分辨率 T2I 方案调研</a></h3>
+  <p class="post-card__tldr">一句话结论：截至 2026-07，业界没有任何一个「原生 8K」（训练分布 = 7680×4320 / 8192²）的文生图模型。
+原生训练的天花板停在 4K（4096²）：商用侧 Seedream 4.0 原生到 4K，学术侧 Sana / Diffusion-4K / L2P /
+AsymFlow 原生 4K，UltraPixel 靠级联做到 6K。真正的 8K 输出全部来自「免训练超分 / 外推」管线——
+HiWave（8192² 免训练）、PixelRush（单卡 8K &lt; 100s）、Scale-DiT（8K &lt; 2min）、L2P 的 8K zero-shot 外推——
+它们都建立在 ≤4K（甚至 1K 的 SDXL）底座之上，用分块反演 + 小波细节 / 窗口注意力把分辨率「拉」上去。
+本文把两条路线（原生训练 vs 免训练外推）并排，给出为什么 8K 原生至今是空白的三个硬约束，并对 Diffusion-4K
+的小波损失、Sana 的 f32 DC-AE 做了代码交叉验证。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/ultra-high-resolution.html">ultra-high-resolution</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/training-free-upsampling.html">training-free-upsampling</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/colt-2026/index.html">CoLT: 把隐式推理做成「参数化工具调用」——主模型全程在文本空间, 小解码器负责解压</a></h3>
+  <p class="post-card__tldr">隐式 CoT (Coconut/CODI/COLAR) 让模型在黑箱 latent 空间里推理, 提速但改结构、难训、丢可解释性。CoLT 换个思路:主模型只吐几个「种子 token」(&lt;BDY&gt;...&lt;TRG&gt;) 把一步推理压进 hidden states, 再触发一个层数远小于主模型的可微解码器把它解压回文本, 拼回上下文继续推。主模型全程停在文本 token 空间 (保能力 + 保可读), 整条链端到端可微、天然兼容 GRPO。Llama-3.2-1B 上 2 个 epoch、无课程学习就超过一众 latent 基线, 平均 #L 从 12.7 砍到 7.7。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/latent-reasoning.html">latent-reasoning</a>
+      <a class="tag-chip" href="concepts/chain-of-thought.html">chain-of-thought</a>
+      <a class="tag-chip" href="concepts/reasoning-efficiency.html">reasoning-efficiency</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -158,40 +194,6 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
       <span class="tag-chip tag-chip--more">+9 more</span>
   </div>
 </div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/krea-2-2026/index.html">Krea 2 技术报告精读：一个「为创意探索而生」的开源文生图基础模型，从数据、架构到万卡基建全栈拆解</a></h3>
-  <p class="post-card__tldr">Krea 2 是 Krea 自研的开源文生图（T2I）基础模型族，定位不是「给你一张最稳的默认图」，而是「让你在广阔的美学空间里探索」——刻意保留风格多样性、并配套 prompt 扩写器 + 风格参考系统两套可控性工具。开源权重 + 推理代码，permissive license，号称登上 Artificial Analysis T2I 榜前 10、独立实验室中第 2。
-这是一份「工程配方 + 系统基建」型技术报告（58 分钟阅读），重点不在新公式，而在**全栈决策**：数据策展原则（多样性优先、零 AI 生成图）、从 LLM 生态搬过来的极简 DiT（GQA + 门控 sigmoid 注意力 + SwiGLU + Qwen3-VL + 轻量时间步调制 + 多层特征聚合）、五阶段训练流水线（预训练→midtraining→SFT→偏好优化→RL→时间步蒸馏），以及从零自建的 Kubernetes 训练基建（Kueue 调度、Virtual Kubelet 外溢推理、Weka 文件系统、PostgreSQL「krablet」数据仓库 + FOR UPDATE SKIP LOCKED 队列）。
-本文按精读骨架交叉拆解，并补全报告用散文描述、但背后是标准公式的几处方法（rectified-flow v 参数化、DPO/STPO、多奖励 GRPO、DMD→TDM）。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
-      <a class="tag-chip" href="concepts/mmdit.html">mmdit</a>
-      <span class="tag-chip tag-chip--more">+18 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/i1-2026/index.html">i1 精读：一份「完全开源」的强文生图配方——用 300+ 控制实验把设计空间逐个钉死</a></h3>
-  <p class="post-card__tldr">i1 是普林斯顿 Zhuang Liu 组放出的 3B 文生图扩散模型，卖点不是新模块，而是**完全开源（权重 + 数据 + 代码 + 配方）** 且**用 300+ 个控制实验**（700K+ TPU v6e 小时）把「文/噪声条件、骨干结构、合成 caption、数据混合」这几个设计维度逐个单变量消融，给出 10 条可复用结论。
-最终配方极简：双流 MMDiT + 长跳连接（long skip）+ 砍掉 AdaLN（省 0.23B 参数）+ 单个强文本编码器（T5Gemma-2B）配一个**更大的 transformer adapter**（替代「多文本编码器」）+ 只用长合成 caption 训练、推理时用 LLM 把短 prompt 扩写对齐训练分布 + 各数据集**等权重**混合。
-在 GenEval/DPG/PRISM/CVTG-2K/LongText 五个 benchmark 上，i1（3B）平均超过此前最强「完全开源」模型 **29.5 个百分点**，并在多数指标上压过 12B FLUX.1 [Dev]、17B HiDream-I1。本文交叉阅读其 JAX 代码，把每条结论落到 `file:Lnn`。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
-      <a class="tag-chip" href="concepts/mmdit.html">mmdit</a>
-      <span class="tag-chip tag-chip--more">+11 more</span>
-  </div>
-</div>
 </div>
 <nav class="pager" aria-label="分页">
   <span class="pager__nav pager__item--disabled" aria-disabled="true">上一页</span>
@@ -201,6 +203,7 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
   <a class="pager__item" href="index-4.html">4</a>
   <a class="pager__item" href="index-5.html">5</a>
   <a class="pager__item" href="index-6.html">6</a>
+  <a class="pager__item" href="index-7.html">7</a>
   <a class="pager__nav" href="index-2.html">下一页</a>
 </nav>
 </main>
