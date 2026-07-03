@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>RDM: 把「一步生成」拆成两根设计轴——十年前被判死刑的 MMD, 估计对了就是 SOTA</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 轴一之核:MMD 与它的估计器 (eq. 2–3)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 轴一之续:大批 + 联合律 (eq. 4)</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 轴二:一个编码器永远不够</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 抗刷分的评测:SW_r14 (eq. 5)</a></li>
+    <li class="h2"><a href="#sec-3">3. 实验结果 (Results)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 ImageNet-256 一步生成:SW_r14 1.30 SOTA</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 文生图:一步 FLUX.2 反超四步教师, 90 GPU-hours</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 三个把设计选择钉死的消融</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸 (Critique &amp; Extensions)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 具体不足</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 交叉验证:同一范式的三个实例, 谁对谁错</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 研究启发 (可迁移的套路)</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 延伸阅读</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Representation Distribution Matching for One-Step Visual Generation</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-01</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-01</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Lan Feng, Wuyang Li, Éloi Zablocki, Matthieu Cord, Alexandre Alahi (EPFL, Valeo.ai, Sorbonne Université)</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://alan-lanfeng.github.io/rdm/">项目页</a> · <a class="post-meta__link" href="https://github.com/vita-epfl/RDM">代码</a> · <a class="post-meta__link" href="https://huggingface.co/epfl-vita/flux2-klein-1step-rdm">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/distribution-matching.html">distribution-matching</a> <a class="concept-chip" href="../../concepts/mmd.html">mmd</a> <a class="concept-chip" href="../../concepts/nystrom-approximation.html">nystrom-approximation</a> <a class="concept-chip" href="../../concepts/sliced-wasserstein.html">sliced-wasserstein</a> <a class="concept-chip" href="../../concepts/representation-learning.html">representation-learning</a> <a class="concept-chip" href="../../concepts/frozen-encoder.html">frozen-encoder</a> <a class="concept-chip" href="../../concepts/constrained-optimization.html">constrained-optimization</a> <a class="concept-chip" href="../../concepts/lagrangian.html">lagrangian</a> <a class="concept-chip" href="../../concepts/gradient-caching.html">gradient-caching</a> <a class="concept-chip" href="../../concepts/diffusion-distillation.html">diffusion-distillation</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/flux.html">flux</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.jpg" alt="iRDM 把四步 FLUX.2 [klein] 后训练成一步生成器: 左为四步基线, 中为一步 iRDM, 右为 GenEval / PickScore 随后训练算力上升越过四步教师">
+  <figcaption>
+    <strong>Fig. 1</strong> — iRDM 把<strong>四步</strong> FLUX.2 [klein] 后训练成<strong>一步</strong>生成器, 画质不掉。(a) 四步 FLUX.2。(b) 一步 iRDM (联合图文目标后训练)。(c) GenEval 与 PickScore 随后训练算力的曲线:约 <strong>90 H200 GPU-hours</strong> 后, 一步模型在两个指标上都越过四步版 (灰虚线)。一次网络前向, 无迭代采样。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>一句话</h3><p>生成 = 分布匹配。把「无教师一步生成」这条线抽象成 RDM 范式, 拆成两根轴, 逐轴做受控实验, 定位每个方法的天花板到某个具体设计选择。</p></div>
+  <div class="card"><h3>轴一 · 怎么比</h3><p>用平方 MMD:批内<strong>精确排斥</strong> + 对全量数据的 <strong>Nyström 冻结吸引</strong> (eq.3), 大而新鲜的生成批 (梯度缓存吃下显存), 条件任务上匹配<strong>图文联合律</strong>。</p></div>
+  <div class="card"><h3>轴二 · 在哪比</h3><p>单个编码器必被刷穿。对一整排 (10 训 + 4 留出) 冻结编码器匹配, 用<strong>比例 Lagrangian 控制器</strong>把最难满足的编码器加权最重, 满足了就退出。</p></div>
+  <div class="card"><h3>指标</h3><p>SW_r14:14 个编码器上的 Sliced-Wasserstein 比值, 真实数据按定义 =1, 与训练损失<strong>不共享任何机理</strong>, 抗刷分。iRDM 1.30 一步 SOTA。</p></div>
+</div>
+<div class="term-grid">
+  <div class="card"><h4>RDM</h4><p>Representation Distribution Matching。在冻结预训练编码器的特征空间里, 直接把生成分布对齐真实分布——不用在线教师、不用对抗、不用模拟轨迹。</p></div>
+  <div class="card"><h4>MMD</h4><p>Maximum Mean Discrepancy, 最大平均差异。用一个正定核度量两个分布的距离, 对特征核 (如高斯) 当且仅当两分布相等时为 0。</p></div>
+  <div class="card"><h4>Nyström</h4><p>用少量「地标点」(landmarks) 低秩近似核矩阵的经典手法。这里用 4096 个地标把 128 万张图的吸引项压成一个冻结、零方差的参考。</p></div>
+  <div class="card"><h4>pushforward ϕ∗</h4><p>推前测度:把图像上的分布 p 通过编码器 ϕ 映到特征空间得到的分布 ϕ∗p。RDM 比的就是 ϕ∗pθ 和 ϕ∗p_data。</p></div>
+  <div class="card"><h4>median heuristic</h4><p>定高斯核带宽 σ 的常用启发式:取特征两两距离的中位数。每个编码器一个 σ, 固定不调。</p></div>
+  <div class="card"><h4>Sliced-Wasserstein</h4><p>把高维最优传输距离沿大量随机一维投影求平均的可算版本。比 Fréchet / MMD 更难被刷, 用作评测而非训练。</p></div>
+  <div class="card"><h4>PID-Lagrangian</h4><p>把「每个编码器都要达到真实地板」写成约束优化, 用比例 (P) 控制动态调 Lagrange 乘子 (=编码器权重) 的方案。</p></div>
+  <div class="card"><h4>gradient caching</h4><p>批内损失不可拆成逐样本项时, 分两趟前向、把中间梯度缓存下来, 用一个 micro-batch 的显存算出整批的精确梯度。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p><strong>生成建模本质就是分布匹配。</strong> 我们想要一个生成器, 它的输出分布匹配数据分布——而且我们评判「匹配得好不好」用的本来就是两者<strong>表征分布之间的距离</strong> (FID 就是这么定义的)。扩散和流模型只是<strong>隐式</strong>地追这个目标:学着反转一个加噪过程, 推理时模拟很多步去噪, 把噪声搬到数据上。每一步去噪都是一次网络前向, 所以贵。</p>
+<p>有一条<strong>显式</strong>的新路线:直接在一个冻结预训练编码器的特征空间里, 把生成分布和真实分布对上, 一次网络前向出图——没有在线教师, 没有对抗, 没有要模拟的轨迹。作者把这条路线命名为 <strong>RDM (Representation Distribution Matching)</strong>。</p>
+<p>作者的核心洞察是:<strong>近期几个一步生成器 (drifting field, Fréchet-distance loss, Sinkhorn flow) 其实是同一个范式的不同实例, 只差两根轴。</strong></p>
+<ul>
+<li><strong>轴一 · comparison (怎么比)</strong>:用哪个差异度量 D 给两边特征律打分, 怎么从有限样本估计它, 每一边拿什么当参考。
+<ul>
+<li>drifting field (Deng et al., 2026) 在每个批内算两两核力, 参考也从<strong>同一个批</strong>里读;</li>
+<li>Fréchet-distance loss (Yang et al., 2026) 只留前两阶矩, 在全量数据上预先算好。</li>
+</ul>
+</li>
+<li><strong>轴二 · representation (在哪比)</strong>:用哪些冻结编码器定义特征空间, 多个怎么加权。这里所有方法都收敛到同一个默认:少数几个编码器、固定权重。</li>
+</ul>
+<p>问题在于:<strong>现有方法把这些选择捆在一起定死, 于是分不清到底是哪个选择带来了质量。</strong> 作者的做法是<strong>一次只变一根轴</strong>, 受控实验推翻了当前实践里几条隐含假设:</p>
+<ol>
+<li><strong>经典 MMD 从来不弱, 只是估计得烂。</strong> 十年前 MMD 被判定「训不出有竞争力的生成器」。但好的估计需要一个结构化的特征空间 + 每边足够多的样本, 而且<strong>两边要区别对待</strong>。参考是提前定死、永不移动的, 所以用<strong>全部</strong>——把整个 128 万张训练集压成一个冻结的 Nyström 参考。</li>
+<li><strong>生成批是真正的操作变量, 最优点远超常规。</strong> 生成侧每步都在动, 必须<strong>每步重新采样</strong>;批越大估计越准但更新次数越少, 最优点在 <strong>2048 以上</strong>, 比常规大一个数量级, 靠梯度缓存吃下显存。</li>
+<li><strong>任何单个编码器都能被刷穿。</strong> 生成器会对它训练所针对的那个编码器过拟合——在那个编码器自己的分数上<strong>打赢真实数据</strong>, 图却肉眼可见地假。解法不是找个更好的编码器, 而是<strong>谁都别单靠</strong>:对一整排编码器匹配, 且用约束优化保持它们平衡。</li>
+</ol>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>一个一步生成器 <span class="math inline">\(g_\theta\)</span> 把先验 <span class="math inline">\(z \sim p_z\)</span> 一次前向映成图像, 输出律 <span class="math inline">\(p_\theta\)</span>。给定冻结编码器 <span class="math inline">\(\phi\)</span> 把图像送成特征 <span class="math inline">\(\phi(x)\in\mathbb{R}^D\)</span>, RDM 对齐生成与真实的特征律:</p>
+<div class="math block">
+\[\mathcal{L}(\theta) = D\big(\phi_* p_\theta,\ \phi_* p_{\text{data}}\big)\]
+</div>
+<p class="math-translation">—— 翻译: 别在图像像素上比, 在编码器特征空间里比两个<strong>分布</strong>的距离。约束<strong>输出分布</strong>而非逐样本的去噪轨迹, 使得生成器「一次前向」是天生的, 不是硬凑出来的;同一目标也能把一个少步采样器 (把它最终输出当作 $g_\theta$) 后训练成一步。</p>
+<p>每个 eq.(1) 的实例由两根轴定死。下面逐个拆。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-pipeline.png" alt="iRDM 训练流程: 生成器产出新鲜大批 N=5120, 与一次冻结的全量真实参考一起, 在一排编码器特征空间里做 Nyström 吸引 + 批内排斥, 编码器权重由约束优化平衡">
+  <figcaption>
+    <strong>Fig. 2</strong> — iRDM 只靠表征分布匹配训练一步生成器:无在线教师、无对抗、无轨迹。每步抽一批新鲜的 $N$ 个样本并编码, 连同一次算好并冻结的参考, 送进一排预训练编码器。<strong>轴一 (comparison)</strong>:在每个特征空间里, 生成样本被 Nyström <em>吸引</em>拉向参考流形、被批内精确<em>排斥</em>推开 (eq.3)。<strong>轴二 (representation)</strong>:一排编码器 (DINOv3 / CLIP / …) 由约束优化保持平衡。
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 轴一之核:MMD 与它的估计器 (eq. 2–3)</h3>
+<p>正定核 <span class="math inline">\(k\)</span> 在特征空间上定义平方 MMD:</p>
+<div class="math block">
+\[\text{MMD}^2(P,Q) = \mathbb{E}_{x,x'\sim P}\,k(x,x') - 2\,\mathbb{E}_{x\sim P,y\sim Q}\,k(x,y) + \mathbb{E}_{y,y'\sim Q}\,k(y,y')\]
+</div>
+<p class="math-translation">—— 翻译: 三项分别是「P 内部有多聚」「P 与 Q 有多像」「Q 内部有多聚」。对高斯这类<strong>特征核 (characteristic kernel)</strong>, 当且仅当 P=Q 时这个量为 0——所以最小化它就是逼两分布相等。作者用高斯核 $k(x,y)=\exp(-\|x-y\|_2^2/2\sigma_\phi^2)$ 直接作用在<strong>原始</strong>编码器嵌入上, 带宽 $\sigma_\phi$ 每编码器用中位数启发式定死。</p>
+<p>关键在于:<strong>生成器优化的是有限样本估计, 而估计器决定了它的开销、方差、以及可被利用的盲点。</strong> 写 <span class="math inline">\(g_i=\phi(g_\theta(z_i))\)</span> 为一批大小 <span class="math inline">\(B\)</span> 的生成特征。eq.(2) 三项里:数据项对 <span class="math inline">\(\theta\)</span> 是常数, 丢掉;交叉项把生成特征<strong>吸</strong>向数据;生成项把它们相互<strong>排斥</strong>——这是唯一阻止「塌缩到最密模态」的力。两个诉求相反, 所以<strong>两项分开估计</strong>:</p>
+<div class="math block">
+\[\widehat{\mathcal{L}}_\phi = \underbrace{\frac{1}{B^2}\sum_{i,j} k(g_i,g_j)}_{\text{排斥, 精确}} - \underbrace{\frac{2}{B}\sum_i \psi(g_i)^\top \bar\mu_\phi}_{\text{吸引, Nyström}}\]
+</div>
+<p class="math-translation">—— 翻译: <strong>排斥项</strong>只在批内跑, $B\times B$ 核和很便宜, 所以留<strong>精确</strong>, 一个编码器一个矩阵。<strong>吸引项</strong>要跟全训练集比, 若每步重采样 (标准两样本估计的做法) 会注入参考噪声, 带宽越小噪声越大——所以<strong>算一次就冻死</strong>:用 Nyström 核均值嵌入, $m{=}4096$ 个由 k-means 放的地标 $\ell_j$, $\psi(x)=K_{mm}^{-1/2}(k(x,\ell_1),\dots,k(x,\ell_m))^\top$, 参考均值 $\bar\mu_\phi=\frac1n\sum_t\psi(r_t)$ 在全部 $n{=}128$ 万张图上预先算好并冻结。每步以 $O(Bm)$ 把批拉向这个<strong>零方差</strong>的摘要, 相比编码器前向可忽略。</p>
+<p>这段公式几乎逐字落到代码里。iRDM 训练损失就是「精确排斥 − 2×Nyström 吸引 + 常数」:</p>
+<p class="code-source">repo/rdm/compare/mmd_nystrom.py:29-42 — iRDM 的操作性目标 (eq.3)</p>
+<pre><code class="language-python">def mmd_nystrom_loss(feat_g, Z, Z2, alpha, sigma, k_rr_const=0.0, gen_chunk=8192):
+    &quot;&quot;&quot;Biased MMD^2 = exact within-batch repulsion - 2 * Nystrom attraction + const k_rr.&quot;&quot;&quot;
+    g = feat_g.float()
+    gamma = gamma_from_sigma(sigma)                 # gamma = 1/(2 sigma^2)
+    k_gg = self_kernel_mean(g, gamma, gen_chunk)    # 排斥: (1/N^2) Σ_{i,j} k(g_i,g_j)
+    k_gr = nystrom_attraction(g, Z, Z2, alpha, gamma)  # 吸引: mean_i k(g_i,Z)·alpha
+    return k_gg - 2.0 * k_gr + k_rr_const           # k_rr 只定损失值, 无梯度
+</code></pre>
+<p><strong>排斥项</strong>是<strong>有偏</strong>估计:对角 <span class="math inline">\(i{=}j\)</span> 保留, 除以 <span class="math inline">\(B^2\)</span>。它无参考、恒精确, 且可分块以配合梯度缓存:</p>
+<p class="code-source">repo/rdm/compare/kernels.py:40-59 — 批内精确排斥 (唯一防塌缩的力)</p>
+<pre><code class="language-python">def self_kernel_mean(g, gamma, chunk=8192):
+    &quot;&quot;&quot;BIASED within-batch self-kernel mean (1/N^2) Σ_{i,i'} k(g_i, g_i').&quot;&quot;&quot;
+    n = g.shape[0]
+    def block(gg, lo, hi):
+        return gaussian_gram(gg[lo:hi], gg, gamma).sum()
+    acc = g.new_zeros(())
+    for lo in range(0, n, chunk):                   # 分块 + 逐块 checkpoint,
+        hi = min(lo + chunk, n)                      # 峰值中间矩阵仅 O(chunk*N)
+        acc = acc + checkpoint.checkpoint(block, g, lo, hi, use_reentrant=False)
+    return acc / (n * n)
+</code></pre>
+<p><strong>吸引项</strong>在生产训练里用的是预算好的系数向量 <span class="math inline">\(\alpha = K_{ZZ}^{-1}\bar\mu\)</span>——这样只要一次 <span class="math inline">\(B\times m\)</span> 的核乘法, 零方差、无需每步重建参考:</p>
+<p class="code-source">repo/rdm/compare/nystrom.py:29-40 — Nyström 吸引 (对冻结全量参考)</p>
+<pre><code class="language-python">def nystrom_attraction(g, Z, Z2, alpha, gamma):
+    &quot;&quot;&quot;Nystrom attraction (cross-kernel mean) k_gr = mean_i k(g_i, Z) · alpha.&quot;&quot;&quot;
+    d2 = (g.pow(2).sum(1)[:, None] + Z2[None, :] - 2.0 * (g @ Z.T)).clamp_min(0)
+    return (torch.exp(-gamma * d2) @ alpha).mean()
+</code></pre>
+<p><strong>为什么是 MMD + Nyström, 而不是别的?</strong> 作者用一个「螺旋线诊断」给出直观证据 (Fig. 3):把一条两圈螺旋线用固定正交映射埋进 <span class="math inline">\(\mathbb{R}^{64}\)</span> (模拟真实编码器把数据放在高维里的一条薄流形上), 同一个 MLP 生成器在各目标下等预算训练, 扫批大小 <span class="math inline">\(B\in\{8,32,128\}\)</span>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-spiral.png" alt="螺旋线诊断: 6 种距离 × 3 种批大小的生成结果散点, Nyström-MMD 在每一行都最贴合螺旋">
+  <figcaption>
+    <strong>Fig. 3</strong> — 螺旋线诊断 ($D{=}64$)。行扫批大小 $B$, 列是不同方法。角标为 anchor recall / medDist (到曲线的中位距离, 真实数据地板 0.033)。<strong>Fréchet</strong> 对批大小不敏感、永远画不出螺旋 (两阶矩编码不了流形);<strong>其他距离靠采样, 各有失效区</strong>:sliced-Wasserstein 在小批塌, drifting 在大批塌, 随机特征 (RFF) 随维度散。<strong>只有 Nyström-MMD 在每一行都最锐、无处失效</strong>——因为它每个批大小都拉向<em>同一个冻结参考</em>, 而 MMD-exact 在小批时其「每批参考」变稀。
+  </figcaption>
+</figure>
+<p>每个替代距离都放弃了上面某个优势:Fréchet 把每边压成两阶矩, 会「匹配饱和了但图仍瑕疵」;sliced-Wasserstein 靠投影内排序, 只能拿批比批 (而非比全量真实分布);drifting field 是同一 MMD 梯度的逐粒子归一化形式, 小批更稳但批一大就退化回普通 MMD, 其重采样的每批参考把它锁死在小批。至于吸引项, <strong>Nyström 地标胜过随机 Fourier 特征 (RFF)</strong>:地标基是数据相关的、正好铺在真实点上、在「生成实际发生的地方」精确;而全局余弦把容量花在流形几乎不占的环境空间上, 留下的未解析方向会被优化压力下的生成器钻空子。</p>
+<h3 id="sec-2-2">2.2 轴一之续:大批 + 联合律 (eq. 4)</h3>
+<p><strong>生成侧要大而新鲜。</strong> 数据侧一次冻死后, 生成分布是唯一还在动的量, 且每步都动, 所以必须<strong>每步重采样</strong>——用 EMA 队列这种陈旧缓冲 (如 Yang et al. 2026) 会把梯度带偏成 off-policy。一批新鲜样本让它的大小 <span class="math inline">\(N\)</span> 成为操作变量:<span class="math inline">\(N\)</span> 越大方差越低, 但定算力预算下更新次数越少。大批本来被显存卡死, <strong>梯度缓存 (Gao et al. 2021)</strong> 分块累积精确的全批梯度、只花一块的显存, 把这道墙拆了。在等 wall-clock 预算下扫 <span class="math inline">\(N\)</span> (学习率按 <span class="math inline">\(\sqrt N\)</span> 缩放), 质量随 <span class="math inline">\(N\)</span> 爬升到一个宽的最优区:ImageNet 取 <span class="math inline">\(N{=}5120\)</span>, FLUX 后训练取更大的 <span class="math inline">\(N{=}10240\)</span>。</p>
+<p><strong>条件任务要匹配联合律, 不是边缘律。</strong> 一个带提示词的生成器可以满足图像边缘分布、却漂离提示词 (用对齐换来的真实感)。作者改为匹配<strong>联合</strong>律:配一个冻结文本编码器 <span class="math inline">\(\tau\)</span>, 耦合特征 <span class="math inline">\(\Phi(x,c)=\phi(x)\oplus\tau(c)\)</span>,</p>
+<div class="math block">
+\[\mathcal{L}_{\text{joint}}(\theta) = D\big(\Phi_* p_\theta,\ \Phi_* p_{\text{data}}\big)\]
+</div>
+<p class="math-translation">—— 翻译: 参考对把每张图和它的<strong>caption</strong>耦在一起, 生成对把每个输出和<strong>产生它的提示词</strong>耦在一起;估计器不变, 地标现在指向图文对。在核下, 一张生成图被拉向那些<strong>caption 与其提示词相近的参考图</strong>——于是「提示词保真」被塞进了匹配目标里。</p>
+<p>代码里, 联合耦合只是把图像特征和 (冻结的、缩放过的) 文本特征拼接。核对拼接会分解成图核×文核, 所以文本权重由缩放系数 <span class="math inline">\(\beta\)</span> 决定, 且梯度只流过图像分支:</p>
+<p class="code-source">repo/rdm/representation/joint_feature.py:41-51 — 图文联合耦合 (eq.4)</p>
+<pre><code class="language-python">def couple(phi, tau_rows, beta):
+    &quot;&quot;&quot;Build Phi = [phi | beta * tau] for a batch (the joint coupling).
+    phi: (B, d_img) 图像特征 (带梯度); tau_rows: (B, d_txt) 冻结文本特征 (无梯度)。&quot;&quot;&quot;
+    return torch.cat([phi, beta * tau_rows], dim=1)
+</code></pre>
+<h3 id="sec-2-3">2.3 轴二:一个编码器永远不够</h3>
+<p>特征距离也是<strong>真实感怎么被打分</strong>的方式:FID 及其后裔把真实感约化成「单个编码器下的分布差」, 当作人类判断的代理。<strong>这个代理很脆。</strong> 作者做了最狠的反例:拿语义结构远强于 Inception/ConvNeXt 的 <strong>DINOv2</strong> 单独匹配, 起点 <span class="math inline">\(\text{SW}_{\text{dino}}{=}1.81\)</span> (离真实很远), 训 1000 步后压到 <strong>1.01</strong>——几乎等于真实验证集的地板 1.00。<strong>按 DINOv2 的账本, 生成器已经跟真实一样近了。</strong> 但图说了不算数:</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-dino-overfit.png" alt="只匹配 DINOv2: 蜥蜴变得跟真实照片难分, 但打字机保留了不可能的按键排布, 而两者 DINOv2 分数都到了真实地板">
+  <figcaption>
+    <strong>Fig. 5</strong> — 只匹配 DINOv2 把它的距离压到真实地板 $\text{SW}_{\text{dino}}{=}1.01$, 质量却提升不均:蜥蜴 (左) 变得与真实难分, 打字机 (右) 却在<em>同样的地板分数</em>下保留了明显的按键排布错误。<strong>一个饱和的单编码器距离并不蕴含真实。</strong> 病根是「单编码器匹配」这件事本身, 不是编码器选得不好。
+  </figcaption>
+</figure>
+<p><strong>受约束优化对付一整排编码器。</strong> 单个编码器只给伪度量, 但一排多样编码器的组合核是特征核, 只在真实分布处消失。作者对 14 个面板编码器中的 <strong>10 个</strong>训练 (选那些「以不同方式失败」的冻结骨干), 另 4 个留出。<strong>权重决定这份多样性能否存活</strong>:固定权重下, 优化器会挑最容易的编码器把总和压下去。作者把加权写成<strong>约束优化</strong>——每个编码器都被要求达到它的真实验证地板 <span class="math inline">\(b_\phi\)</span>, 权重就是 Lagrange 乘子, 由<strong>比例控制</strong>在一个满足门下设定 (Stooke et al. 2020 的 PID-Lagrangian 的 P 项):</p>
+<div class="math block">
+\[\lambda_\phi \propto \exp\!\big(e_\phi / (\tau\bar e)\big),\quad e_\phi = s_\phi - b_\phi\]
+</div>
+<p class="math-translation">—— 翻译: 编码器的「超额」$e_\phi$ = 当前分 − 地板。<strong>达标或低于地板的直接退出</strong> (权重归 0, 天然防过拟合), 违反者通过 softmax 分享一个固定预算 $\Sigma{=}10$——<strong>离真实最远的加权最重</strong>。全部满足时权重全消, 是个自然的终止态。这就是「短板法则」:一只桶只装到最短那块板的高度, 看图的人也只盯最扎眼的那处瑕疵。</p>
+<p>代码里, <code>step()</code> 拿每编码器的实时分数, 违反者做 softmax 分配固定预算, 达标者清零:</p>
+<p class="code-source">repo/rdm/train/pid_lagrangian.py:71-83 — 门控 softmax 权重分配 (违反者分预算, 达标者归零)</p>
+<pre><code class="language-python">if self.softmax_mode:
+    active = [n for n in z if z[n] &gt; 0.0]            # 只留违反者
+    for n in z:
+        self.lambdas[n] = 0.0                        # 满足 -&gt; 0 (防过拟合)
+    if active:
+        zs = [z[n] for n in active]
+        t_eff = max(self.temperature * (sum(zs) / len(zs)), 1e-12)  # 自适应温度
+        z_max = max(zs)
+        exp_z = [math.exp((v - z_max) / t_eff) for v in zs]
+        denom = sum(exp_z)
+        for n, e in zip(active, exp_z):
+            self.lambdas[n] = float(self.total_lambda * e / denom)  # 分享预算 Σ
+</code></pre>
+<h3 id="sec-2-4">2.4 抗刷分的评测:SW_r14 (eq. 5)</h3>
+<p>评测也需要同样的保护, 且<strong>绝不能塌回训练损失</strong>。作者沿用「每编码器比值取面板均值」的构造, 但把 Fréchet 换成 <strong>Sliced-Wasserstein</strong> (一个正经的最优传输距离, 与训练用的 MMD 不共享估计器):</p>
+<div class="math block">
+\[\text{SW}_{r_k} = \frac1k\sum_{e=1}^k r_e,\quad r_e = \frac{\text{SW}\big(\phi_{e*}p_\theta,\ \phi_{e*}p_{\text{train}}\big)}{\text{SW}\big(\phi_{e*}p_{\text{val}},\ \phi_{e*}p_{\text{train}}\big)}\]
+</div>
+<p class="math-translation">—— 翻译: 分子是「生成 vs 训练」的 SW 距离, 分母是「验证 vs 训练」的 SW 地板 (两次独立真实抽样之间不可约的距离)。所以 $r_e{=}1$ 意味着生成跟一次新鲜真实抽样一样近, 越低越接近真实。$k{=}14$ 时真实验证数据按构造得 1, 其中 4 个编码器留出作泛化检查。因为<strong>从不针对它训练</strong>, 涨分就排除了刷分。</p>
+<p class="code-source">repo/rdm/eval/sw_r14.py:22-33 — 每编码器 SW 比值 (eq.5), 与训练损失不共享机理</p>
+<pre><code class="language-python">def sw_ratio_per_encoder(gen_feats, train_feats, val_feats, n_proj=1024, p=2, seed=0):
+    &quot;&quot;&quot;Per-encoder SW ratio SW(gen,train) / SW(val,train) for each shared encoder.&quot;&quot;&quot;
+    ratios = {}
+    for name in gen_feats:
+        n = min(gen_feats[name].shape[0], train_feats[name].shape[0], val_feats[name].shape[0])
+        g, tr, v = gen_feats[name][:n], train_feats[name][:n], val_feats[name][:n]
+        floor = sliced_wasserstein(v, tr, n_proj, p, seed=seed)   # 真实-真实地板
+        sw = sliced_wasserstein(g, tr, n_proj, p, seed=seed)      # 生成-真实
+        ratios[name] = float(sw / floor) if floor &gt; 0 else float(&quot;nan&quot;)
+    return ratios
+</code></pre>
+<p><strong>合成 iRDM:</strong> 精确批内排斥 + 对全量数据一次冻结的 Nyström 吸引, 大而新鲜的生成批, 条件任务上的图文联合律, 以及一排由约束优化平衡的多样编码器。参考 <span class="math inline">\(\bar\mu_\phi\)</span> 每编码器预算一次;每步再抽新鲜批、一次前向生成、带梯度缓存编码、在比例 Lagrangian 权重下把各编码器损失求和。目标里没别的了:无在线教师、无对抗、无轨迹。</p>
+<h2 id="sec-3">3. 实验结果 (Results)</h2>
+<h3 id="sec-3-1">3.1 ImageNet-256 一步生成:SW_r14 1.30 SOTA</h3>
+<p>在 ImageNet-256 上后训练已发布的 pMF-H FD-SIM 检查点 4000 步 (lr <span class="math inline">\(1.6\times10^{-6}\)</span>, <span class="math inline">\(N{=}5120\)</span>, 10 个训练编码器, 全 128 万图压成 4096 地标 Nyström 参考)。<strong>没有一个已发布生成器接近真实地板 1.0</strong>, 最强的到约 2.05。iRDM 把一步 SOTA 定在 <strong>SW_r14 1.30</strong>, 低于所有已发布模型, 在 14 个编码器中的 9 个及总和上都是最好。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>类型</th>
+<th>SW_r14 ↓</th>
+<th>SW†_r4 (留出) ↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Validation baseline (真实)</td>
+<td>—</td>
+<td><strong>1.00</strong></td>
+<td><strong>1.00</strong></td>
+</tr>
+<tr>
+<td>pMF-H (base)</td>
+<td>一步</td>
+<td>4.09</td>
+<td>3.63</td>
+</tr>
+<tr>
+<td>RAE-XL⋆</td>
+<td>多步</td>
+<td>2.43</td>
+<td>2.18</td>
+</tr>
+<tr>
+<td>REPA-E SiT-XL/1⋆</td>
+<td>多步</td>
+<td>2.40</td>
+<td>2.14</td>
+</tr>
+<tr>
+<td>pMF-H (FD-SIM)⋆ (前 SOTA)</td>
+<td>一步</td>
+<td>2.05</td>
+<td>1.98</td>
+</tr>
+<tr>
+<td><strong>iRDM (ours)⋆</strong></td>
+<td><strong>一步</strong></td>
+<td><strong>1.30</strong></td>
+<td>1.54</td>
+</tr>
+</tbody>
+</table>
+<p>它让出 5 个编码器:Inception、ConvNeXt、MAE 让给 FD-loss 模型 (那个模型正是靠<strong>刷穿单个空间</strong>在这几个上打到真实之下), DreamSim 也险败给它, 留出的 FLUX VAE 输给 MAR-H。</p>
+<p><strong>人类偏好 (PickScore, 从不针对它训练) 印证同一排序:</strong></p>
+<ul>
+<li>对起点 pMF-H FD-SIM:<strong>71.2%</strong> 匹配对被偏好 (20.61→20.96, 配对 z=30.5);</li>
+<li>对近期 RAE-XL / REPA-E SiT-XL:<strong>75.7% / 73.2%</strong> 的类被偏好;</li>
+<li>甚至对<strong>留出的真实照片</strong>:<strong>63.6%</strong> 被偏好——据作者所知, 是第一个通过真实照片 PickScore 的一步生成器。</li>
+</ul>
+<h3 id="sec-3-2">3.2 文生图:一步 FLUX.2 反超四步教师, 90 GPU-hours</h3>
+<p>从四步 FLUX.2 [klein] 后训练成一步 (联合图文目标, <span class="math inline">\(N{=}10240\)</span>, lr <span class="math inline">\(2.83\times10^{-6}\)</span>, <strong>仅 180 步 ≈ 90 H200 GPU-hours</strong>)。匹配参考一次性从四步教师采集后冻死 (约 30 万张 PickScore 排序的 COCO 渲染 + 检测器验证的 GenEval 正确样本), 所以后训练<strong>不查询任何在线教师</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>Two Obj.</th>
+<th>Colors</th>
+<th>Position</th>
+<th>Color Attr.</th>
+<th><strong>Overall</strong></th>
+<th>PickScore</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FLUX.2 [klein] (4 步)</td>
+<td>0.904</td>
+<td>0.880</td>
+<td>0.575</td>
+<td>0.623</td>
+<td>0.794</td>
+<td>22.58</td>
+</tr>
+<tr>
+<td>Untrained (1 步)</td>
+<td>0.323</td>
+<td>0.673</td>
+<td>0.225</td>
+<td>0.128</td>
+<td>0.474</td>
+<td>19.95</td>
+</tr>
+<tr>
+<td>DMD2 (1 步)</td>
+<td>0.894</td>
+<td>0.864</td>
+<td>0.603</td>
+<td>0.660</td>
+<td>0.804</td>
+<td>22.36</td>
+</tr>
+<tr>
+<td>iRDM (1 步, <strong>边缘</strong>)</td>
+<td>0.899</td>
+<td>0.910</td>
+<td>0.638</td>
+<td>0.608</td>
+<td>0.801</td>
+<td>22.70</td>
+</tr>
+<tr>
+<td><strong>iRDM (1 步, 联合)</strong></td>
+<td><strong>0.924</strong></td>
+<td><strong>0.923</strong></td>
+<td><strong>0.650</strong></td>
+<td><strong>0.708</strong></td>
+<td><strong>0.826</strong></td>
+<td><strong>22.76</strong></td>
+</tr>
+</tbody>
+</table>
+<p>一步模型在 GenEval 总分 <strong>0.826 反超四步版 0.794</strong>, PickScore 22.76 也高于 22.58;强于同教师蒸馏出的 DMD2 (0.804 / 22.36)。<strong>联合 vs 边缘的对照是关键</strong>:边缘变体 (丢掉 caption) 总分 0.801, 差距集中在最吃图文对齐的类——two-object (0.924 vs 0.899) 和属性绑定 (0.708 vs 0.608);而几乎不吃耦合的 single-object 基本不变。<strong>匹配联合律而非图像边缘律, 正是「提示词保真」进入目标的原因。</strong></p>
+<h3 id="sec-3-3">3.3 三个把设计选择钉死的消融</h3>
+<p><strong>训练距离 (Table 4)</strong> —— 固定其余配方, 只翻每步距离, 各从同一 pMF-H 起点、对单个 DINOv2 微调 100 步, 用两个中立第三方距离评。一个排序在两个评测上都成立:</p>
+<div class="math block">
+\[\text{mmdx} \succ \text{mmd rff} \succ \text{mmd exact} \succ \text{fd} \succ \text{sw} \succ \text{drifting}\]
+</div>
+<p>三个 kernel-MMD 估计器占顶, 矩匹配 (Fréchet) 其次, sliced-Wasserstein 再次, drifting 力场即便在学习率扫描的最佳点也最弱。两个对照证实读法:<strong>精确全两两 MMD 并不打赢它的 Nyström 近似</strong> (低秩交叉项梯度更平滑), 且<strong>在某距离上训练并不能在同一距离上占便宜</strong> (SW 训练的臂在 SW 评测上被每个 MMD 臂甚至矩匹配打败)。这就是为什么 iRDM 用 MMD-Nyström 训、却用独立的 SW 评。</p>
+<p><strong>受约束 vs 均匀加权 (Table 3)</strong> —— 门控比例控制器把预算倒向最差的编码器 (PE-Core), 门掉三个已达标的:SW_r14 略胜 (1.88 vs 1.90), 而<strong>最差编码器决定性改善</strong> (3.49 vs 4.06, 起点 4.83)——几乎是均匀加权改善量的两倍。</p>
+<p><strong>生成批 <span class="math inline">\(N\)</span></strong> —— 等 wall-clock 下质量随 <span class="math inline">\(N\)</span> 爬升到宽最优区;最小批被噪声主导、即便更多优化步也会退步。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation)</h2>
+<ol>
+<li>
+<p><strong>梯度缓存的正确性来自「批内损失不可拆」这一事实</strong> (<code>repo/rdm/train/grad_caching.py:1-19</code>)。批内排斥对全 <span class="math inline">\(N\times N\)</span> 对求平均, 损失<strong>不分解成逐样本项</strong>, 所以朴素梯度累积是<strong>错的</strong>。GradCache 三步走:Pass 1 无梯度生成+编码全部块 → 缓存 detach 特征 <span class="math inline">\(F\)</span>;Middle 对 <span class="math inline">\(L(F)\)</span> 关于 <span class="math inline">\(F\)</span> 反传一次 (小核图) → 缓存 <span class="math inline">\(G=dL/dF\)</span>;Pass 2 逐块重编码、用代理 <span class="math inline">\(\sum(\text{feat}\cdot G_{\text{slice}}.\text{detach}())\)</span> 反传 → 精确 <span class="math inline">\(dL/d\theta\)</span>。</p>
+</li>
+<li>
+<p><strong>梯度是逐元素精确的, 不是近似</strong> (<code>repo/rdm/train/grad_caching.py:55-77</code>)。在确定性 fp32 + 相等 pass1/pass2 分块下, 累积梯度与朴素全批反传<strong>逐元素相同</strong> (仓库 <code>tests</code> 里有证明);bf16 autocast + 不等分块下退化为一阶近似 (仍是有效下降方向)。多卡:middle 反传把聚合的全局 <span class="math inline">\(dL/dF\)</span> 路由回各 rank 的本地行, 外层 all-reduce 求均。</p>
+</li>
+<li>
+<p><strong>Nyström 有两种等价形式, 生产用「预算 alpha」形式</strong> (<code>repo/rdm/compare/nystrom.py</code>)。显式形式 <span class="math inline">\(\psi(x)=K_{ZZ}^{-1/2}k(x,Z)\)</span> 是论文 eq.3 的写法 (螺旋 toy 用它);生产训练用预算好的系数 <span class="math inline">\(\alpha=K_{ZZ}^{-1}\bar\mu\)</span>, 因为 <span class="math inline">\(\psi(g)^\top\bar\mu = k(g,Z)K_{ZZ}^{-1}\mu_{Zr}=k(g,Z)\cdot\alpha\)</span> 代数上恒等, 但 alpha 形式给出一个冻结、零方差的参考。</p>
+</li>
+<li>
+<p><strong>联合特征的核会分解, 所以文本权重靠一个标量 <span class="math inline">\(\beta\)</span> 调</strong> (<code>repo/rdm/representation/joint_feature.py:1-24</code>)。<span class="math inline">\(k(\Phi,\Phi')=k_{\text{img}}\cdot k_{\text{txt}}\)</span>, 取 <span class="math inline">\(\beta=\sigma_{\text{img}}/s_{\text{txt}}\)</span> 使文本核带宽为 <span class="math inline">\(s_{\text{txt}}\)</span> (论文把文本分量权重设 1)。文本嵌入 <span class="math inline">\(\tau(c)\)</span> <strong>预算一次并冻结</strong> (<code>requires_grad=False</code>), 拼接列加零参数梯度, 梯度只流过 <span class="math inline">\(\phi(x)\)</span>。联合运行的图像带宽用「冷」的 <span class="math inline">\(0.25\times\)</span> 中位数。</p>
+</li>
+<li>
+<p><strong>PID 控制器可关, 关了就回退均匀权重</strong> (<code>repo/rdm/train/pid_lagrangian.py:105-110</code>)。<code>build_pid_lagrangian</code> 在 <code>pid_enable=False</code> 时返回 <code>None</code>, 损失尾部退回静态权重。实时分 <span class="math inline">\(s_\phi\)</span> 用的是优化器正在训练的同一个 Nyström-MMD (在 rollout 上算), 所以地板和分数同尺度。</p>
+</li>
+<li>
+<p><strong>仓库结构自证「设计空间」叙事</strong> (<code>repo/rdm/compare/</code>)。<code>compare/</code> 目录并列摆着 6 个消融距离:<code>mmd_nystrom.py</code> (iRDM 主目标)、<code>mmd_exact.py</code>、<code>mmd_rff.py</code>、<code>frechet.py</code>、<code>sliced_wasserstein.py</code>、<code>drifting.py</code>——每个 baseline 就是「换一根轴上的一个选择」, 与论文「一次只变一根轴」的方法论一一对应。</p>
+</li>
+</ol>
+<p><strong>论文 vs 代码的出入</strong>:未发现实质性偏差。核心方程 (eq.3/4/5) 都在对应文件里逐字落地, docstring 甚至写明了「有偏估计」「代数恒等」「fp32 逐元素相等」等论文正文一笔带过的细节。唯一值得标注的是排斥项的<strong>有偏</strong>选择 (含对角、除 <span class="math inline">\(B^2\)</span>), 论文正文只写「精确批内」, 代码 docstring 才点明是 biased 估计——但这与「防塌缩的排斥力」语义一致, 不构成矛盾。</p>
+<h2 id="sec-5">5. 批判与延伸 (Critique &amp; Extensions)</h2>
+<h3 id="sec-5-1">5.1 具体不足</h3>
+<ul>
+<li><strong>与真实仍有可测差距。</strong> SW_r14 1.30 对地板 1.0, 最好的一步生成器仍<strong>明显短于</strong>一次新鲜真实抽样。作者自己把这列为下一个目标 (多尺度核、学习/任务专属编码器面板、更丰富的条件耦合)。</li>
+<li><strong>评测「抗刷分」是相对的, 不是绝对的。</strong> SW_r14 与训练损失不共享机理, 所以「刷穿」被大幅抬高门槛——但它仍是<strong>一组固定编码器</strong>上的距离。如果 14 个编码器有共同盲点 (都源自类似的 ImageNet/网络监督), 一个够狠的生成器原则上仍能同时讨好它们而不真实。作者证明了单编码器可刷、没证明 14 编码器不可刷。</li>
+<li><strong>Nyström 参考一次冻死 = 赌注押在预处理上。</strong> 4096 地标由 k-means 放, 参考在训练全程不动。若训练把生成分布推到地标覆盖稀疏的区域, 吸引信号会失真——这在 ImageNet 后训练 (起点已接近) 没暴露, 但从零训练或分布漂移大的任务上是未验证的风险。</li>
+<li><strong>FLUX 结果是「后训练」不是「从零」。</strong> 90 GPU-hours 的惊艳数字建立在一个已经很强的四步 FLUX.2 检查点 + 一次性从教师采的 30 万参考上。它是把少步采样器压成一步的<strong>高效配方</strong>, 不是无教师从零训练一步生成器的证据 (ImageNet 那条线也是后训练 pMF-H)。</li>
+<li><strong>约束优化的收益在总分上很薄。</strong> 门控 vs 均匀在 SW_r14 上只有 1.88 vs 1.90;真正的收益在<strong>最差编码器</strong> (3.49 vs 4.06)。作者明确不就感知质量下结论——这个聚合本身不直接量它。所以「多样编码器 + 约束优化」提升的是<strong>分布的最差角落</strong>, 对整体画质的贡献是间接论证。</li>
+</ul>
+<h3 id="sec-5-2">5.2 交叉验证:同一范式的三个实例, 谁对谁错</h3>
+<p>RDM 的最大贡献是把三个近期一步生成器放进同一坐标系。下面对照它们在两根轴上的选择与由此得出的<strong>结论/观察</strong>的异同:</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>RDM / iRDM (本文)</th>
+<th>Drifting field (Deng 2026)</th>
+<th>FD-loss (Yang 2026)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>比较距离</td>
+<td>平方 MMD (高斯核)</td>
+<td>逐粒子归一化的 MMD 梯度场</td>
+<td>Fréchet (前两阶矩)</td>
+</tr>
+<tr>
+<td>吸引参考</td>
+<td><strong>全量数据, Nyström 一次冻结</strong></td>
+<td>每批重建 (in-batch)</td>
+<td>全量数据, EMA 队列</td>
+</tr>
+<tr>
+<td>批大小</td>
+<td><strong>大, N&gt;2048</strong></td>
+<td>小 (被每批参考锁死)</td>
+<td>中 (EMA 缓冲)</td>
+</tr>
+<tr>
+<td>编码器</td>
+<td><strong>10 训 + 4 留出, 约束加权</strong></td>
+<td>少数, 固定权重</td>
+<td>少数, 固定权重</td>
+</tr>
+<tr>
+<td>自曝的软肋</td>
+<td>与真实仍差 0.30</td>
+<td>大批塌缩</td>
+<td>可刷穿单空间到真实之下</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一致的观察</strong>:三者都同意「在冻结编码器特征空间里直接匹配分布」能出一步生成器, 无需在线教师。都用「特征距离」作真实感代理。</p>
+<p><strong>矛盾与本文的裁决</strong>:(1) Drifting 声称逐粒子归一化更稳, 本文的螺旋诊断显示<strong>这只在小批成立, 大批直接塌</strong> (Fig.3 drifting 列 B=128), 而其每批参考把它锁死在最噪的小批区。(2) FD-loss 声称能把生成器压到真实分数之下, 本文承认这<strong>是真的</strong>、但正是<strong>病征</strong>——它靠刷穿 Inception/ConvNeXt/MAE 这几个弱代理做到 (Table 1 里 iRDM 恰恰在这几个上让给 FD-loss), 换个抗刷的 SW_r14 就现原形。(3) FD-loss 用 EMA 队列估生成侧, 本文论证这会把梯度带偏成 off-policy, 改用每步新鲜大批。</p>
+<p><strong>分歧的可能成因</strong>:三者的「结论」差异几乎全部可追溯到<strong>估计器</strong>而非「headline idea」——这正是本文方法论的价值。Drifting 的小批锁定来自其参考构造 (每批重建), FD-loss 的可刷来自其距离构造 (两阶矩 + 单/少编码器), 而非它们各自宣称的核心创新。把三者摆到同一两轴坐标系, 才看得出「谁强在机制、谁强在调参」。</p>
+<h3 id="sec-5-3">5.3 研究启发 (可迁移的套路)</h3>
+<div class="takeaway-grid">
+  <div class="card"><h4>老方法+对的估计器 > 新方法</h4><p>MMD 被弃十年不是因为它弱, 是因为估计烂 (小批、重采样参考、坏特征空间)。在下结论「某目标不行」前, 先问「是目标不行还是我估计得烂」。很多「过时」损失可能只差一个 Nyström。</p></div>
+  <div class="card"><h4>非对称估计:两项分开对待</h4><p>吸引 (对固定参考) 和排斥 (批内动态) 诉求相反, 就该用不同估计器:参考端冻死求零方差, 动态端保精确。把一个损失的不同项当成同质来估, 是浪费。</p></div>
+  <div class="card"><h4>单一代理必被过拟合 → 用一排 + 约束</h4><p>任何单个可微评分 (单编码器 FID、单个 reward model) 都会被优化器刷穿。RL 的 reward ensemble、这里的编码器 battery 是同一招:多样 + 短板法则加权 (谁最不满足谁最重), 满足即退出防过拟合。</p></div>
+  <div class="card"><h4>训练指标 ≠ 评测指标, 且不能共享机理</h4><p>用 MMD 训、用 SW 评, 故意让评测与损失「不共享估计器」, 涨分才排除刷分。凡是「训什么评什么」的报告都要打问号——这在任何有可微评分的优化里都成立。</p></div>
+  <div class="card"><h4>反直觉:批大小是一等超参</h4><p>最优生成批在 2048 以上, 比常规大一个数量级, 且小批「更多优化步」反而更差。当估计方差主导时, 花算力在「每步更准」比「更多步」值——梯度缓存让这变得可行。</p></div>
+</div>
+<h3 id="sec-5-4">5.4 延伸阅读</h3>
+<p>本仓库里几篇相关工作可对照阅读:</p>
+<ul>
+<li><a class="wiki-link" data-slug="qwen-image-flash-2026" href="../qwen-image-flash-2026/index.html">qwen-image-flash-2026</a> —— 少步蒸馏的另一条路:把胜负手从「目标函数」搬到「训练配方」(数据/教师/任务)。与 RDM「胜负手在估计器」形成有趣对照:一个说赢在配方, 一个说赢在估计。</li>
+<li><a class="wiki-link" data-slug="diffusion-opd-2026" href="../diffusion-opd-2026/index.html">diffusion-opd-2026</a>、<a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> —— on-policy distillation 系列, 同样关心「一步/少步 + 无/弱教师」, 但走蒸馏轨迹而非直接分布匹配。</li>
+<li><a class="wiki-link" data-slug="self-flow-2026" href="../self-flow-2026/index.html">self-flow-2026</a>、<a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a> —— flow 侧的快速采样, 可对照 RDM「约束输出分布使一步天生成立」的思路。
+</content>
+</invoke></li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

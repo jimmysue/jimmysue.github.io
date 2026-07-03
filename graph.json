@@ -300,6 +300,15 @@
       "url": "papers/qwen-image-flash-2026/index.html"
     },
     {
+      "id": "papers/rdm-2026",
+      "type": "paper",
+      "slug": "rdm-2026",
+      "title": "RDM: 把「一步生成」拆成两根设计轴——十年前被判死刑的 MMD, 估计对了就是 SOTA",
+      "date": "2026-07-01",
+      "tldr": "一步图像生成 = 让生成分布在冻结编码器的特征空间里对齐真实分布。作者把这条无教师路线命名为 RDM (Representation Distribution Matching), 指出所有实例只差两根轴:怎么比 (comparison) 和 在哪比 (representation)。逐轴消融翻掉三条隐含假设:(1) 十年前被嫌太弱的经典 MMD, 只要「批内精确排斥 + 对全量数据的 Nyström 冻结吸引」估计对, 就是又强又可扩的目标;(2) 生成批越大越好, 最优点在 2048 以上, 远超常规;(3) 任何单个编码器都能被刷穿 (分数掉到真实之下但图仍假), 所以要对一整排编码器做「受约束优化」。合成 iRDM:ImageNet 一步 SOTA SW_r14 1.30 (真实地板 1.0), 并把四步 FLUX.2 [klein] 后训练成一步模型, GenEval 0.826 反超四步版 0.794, 只花 90 H200 GPU-hours。\n",
+      "url": "papers/rdm-2026/index.html"
+    },
+    {
       "id": "papers/rep-forcing-2026",
       "type": "paper",
       "slug": "rep-forcing-2026",
@@ -1834,12 +1843,36 @@
       "url": "concepts/on-policy-distillation.html"
     },
     {
-      "id": "concepts/unified-model",
+      "id": "concepts/distribution-matching",
       "type": "concept",
-      "slug": "unified-model",
-      "name": "unified-model",
+      "slug": "distribution-matching",
+      "name": "distribution-matching",
       "has_file": false,
-      "url": "concepts/unified-model.html"
+      "url": "concepts/distribution-matching.html"
+    },
+    {
+      "id": "concepts/mmd",
+      "type": "concept",
+      "slug": "mmd",
+      "name": "mmd",
+      "has_file": false,
+      "url": "concepts/mmd.html"
+    },
+    {
+      "id": "concepts/nystrom-approximation",
+      "type": "concept",
+      "slug": "nystrom-approximation",
+      "name": "nystrom-approximation",
+      "has_file": false,
+      "url": "concepts/nystrom-approximation.html"
+    },
+    {
+      "id": "concepts/sliced-wasserstein",
+      "type": "concept",
+      "slug": "sliced-wasserstein",
+      "name": "sliced-wasserstein",
+      "has_file": false,
+      "url": "concepts/sliced-wasserstein.html"
     },
     {
       "id": "concepts/representation-learning",
@@ -1848,6 +1881,54 @@
       "name": "representation-learning",
       "has_file": false,
       "url": "concepts/representation-learning.html"
+    },
+    {
+      "id": "concepts/frozen-encoder",
+      "type": "concept",
+      "slug": "frozen-encoder",
+      "name": "frozen-encoder",
+      "has_file": false,
+      "url": "concepts/frozen-encoder.html"
+    },
+    {
+      "id": "concepts/constrained-optimization",
+      "type": "concept",
+      "slug": "constrained-optimization",
+      "name": "constrained-optimization",
+      "has_file": false,
+      "url": "concepts/constrained-optimization.html"
+    },
+    {
+      "id": "concepts/lagrangian",
+      "type": "concept",
+      "slug": "lagrangian",
+      "name": "lagrangian",
+      "has_file": false,
+      "url": "concepts/lagrangian.html"
+    },
+    {
+      "id": "concepts/gradient-caching",
+      "type": "concept",
+      "slug": "gradient-caching",
+      "name": "gradient-caching",
+      "has_file": false,
+      "url": "concepts/gradient-caching.html"
+    },
+    {
+      "id": "repos/vita-epfl/RDM",
+      "type": "repo",
+      "url": "https://github.com/vita-epfl/RDM",
+      "host": "github.com",
+      "owner": "vita-epfl",
+      "name": "RDM"
+    },
+    {
+      "id": "concepts/unified-model",
+      "type": "concept",
+      "slug": "unified-model",
+      "name": "unified-model",
+      "has_file": false,
+      "url": "concepts/unified-model.html"
     },
     {
       "id": "concepts/vector-quantization",
@@ -2434,12 +2515,12 @@
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/argus-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -2549,12 +2630,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/ggt-100k-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -2619,17 +2700,17 @@
     },
     {
       "from": "papers/colt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/colt-2026",
       "to": "papers/rls-razor-2025",
       "kind": "cites"
     },
     {
       "from": "papers/colt-2026",
       "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/colt-2026",
-      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -2784,12 +2865,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -2844,17 +2925,17 @@
     },
     {
       "from": "papers/ferret-2023",
-      "to": "tutorials/vlm-grounding-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-2023",
       "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
       "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -2904,12 +2985,12 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/lisa-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -3074,12 +3155,12 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/sefi-image-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3094,7 +3175,7 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -3149,12 +3230,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3169,7 +3250,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -3284,17 +3365,17 @@
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/krea-2-2026",
       "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/krea-2-2026",
       "to": "papers/sefi-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -3419,17 +3500,17 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/lisa-2023",
       "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
       "to": "papers/q-ground-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lisa-2023",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -3469,12 +3550,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3559,12 +3640,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -3574,7 +3650,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -3629,12 +3710,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3734,12 +3815,12 @@
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
@@ -3849,12 +3930,12 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/lisa-2023",
+      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -3904,12 +3985,12 @@
     },
     {
       "from": "papers/physeditworld-2026",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/starchild-1-2026",
       "kind": "cites"
     },
     {
       "from": "papers/physeditworld-2026",
-      "to": "papers/starchild-1-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
@@ -3959,12 +4040,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -4039,12 +4120,12 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/mambo-g-2025",
       "kind": "cites"
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4054,7 +4135,12 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/mambo-g-2025",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -4064,13 +4150,103 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
-      "from": "papers/qwen-image-flash-2026",
+      "from": "papers/rdm-2026",
+      "to": "concepts/one-step-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/distribution-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/mmd",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/nystrom-approximation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/sliced-wasserstein",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/representation-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/frozen-encoder",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/constrained-optimization",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/lagrangian",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/gradient-caching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/diffusion-distillation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "concepts/flux",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/asymflow-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/qwen-image-flash-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
       "to": "papers/self-flow-2026",
       "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "repos/vita-epfl/RDM",
+      "kind": "implements"
     },
     {
       "from": "papers/rep-forcing-2026",
@@ -4109,12 +4285,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -4354,12 +4530,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -4369,7 +4540,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/locate-anything-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4514,12 +4690,12 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/omgsr-2025",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -4744,17 +4920,17 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
+      "to": "tutorials/opd-diffusion-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
       "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
       "to": "papers/self-forcing-2025",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -4844,12 +5020,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
@@ -4914,12 +5090,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
@@ -5019,12 +5195,12 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -5139,7 +5315,7 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "covers"
     },
     {
@@ -5149,7 +5325,7 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {

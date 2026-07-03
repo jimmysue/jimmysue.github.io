@@ -49,6 +49,20 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10.8k 字</span> · <span class="post-card__extra">80–110 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/rl-for-diffusion-2023/index.html">扩散模型强化学习: 从 DDPO 到 AWM 的方法演进与代码实现</a></h3>
+  <p class="post-card__tldr">8 节螺旋结构系统讲透扩散模型 RL fine-tuning 的完整发展脉络 (2023.05 - 2025.09)。覆盖 RWR/ReFL → DDPO → DPOK → GRPO → Flow-GRPO → Dance-GRPO → AWM,每个方法的&quot;修了什么/为什么修/代码怎么落&quot;全部讲清。代码 verbatim 引自 kvablack/ddpo-pytorch、yifan123/flow_grpo、XueZeyue/DanceGRPO、scxue/AWM 四个 repo。AWM 那章包含 Theorem 1+2 的完整推导和 paper-vs-code gap 警告。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/ddpo.html">ddpo</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -159,20 +173,6 @@
       <a class="tag-chip" href="concepts/distillation.html">distillation</a>
       <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/awm-2025/index.html">Advantage Weighted Matching: 把扩散模型 RL 拽回到预训练目标</a></h3>
-  <p class="post-card__tldr">UCAS + Adobe + HKU + MIT。一个定理 + 一个简单替换:DDPO/Flow-GRPO 那套 per-step 高斯似然其实是 noisy-$x_s$ 上的 DSM,多出 $d\cdot\kappa(s,t)$ 的目标向量方差,这是它收敛慢的根。AWM 把 RL surrogate 直接换回预训练用的 flow matching loss × advantage,decouple sampler/training,SD3.5-M 上 OCR 23.6× / GenEval 8× / PickScore 10× 加速,同质量。但 release 代码里 $\beta$、$w(t)$、EMA 自蒸馏三处跟论文不一致。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/grpo.html">grpo</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
   </div>
 </div>
 </div>
