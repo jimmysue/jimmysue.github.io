@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>LA-SR: 一张照片里的「远处即 LR、近处即 HR」——把无配对超分搬进 CLIP 语言空间</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 第一步:用深度抠出真实 LR/HR 补丁</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 编码器:去掉位置编码的 CLIP</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Linguistic-content loss:在语言空间保内容 (eq. 1–2)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 Linguistic-quality loss:在语言空间拉画质 (eq. 3–4)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 改良 VGG 损失 + 总损失 (eq. 5)</a></li>
+    <li class="h2"><a href="#sec-3">3. 实验结果 (Results)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 对比无 / 自监督方法 (Table 1)</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 对比监督方法 (Table 2)</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 关键消融</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 编码器学到了什么 (Fig. 7)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸 (Critique &amp; Extensions)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 具体不足</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 交叉验证:同是「真实退化超分」, 三条路线的分歧</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 研究启发 (可迁移的套路)</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 延伸阅读</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Language-Assisted Super-Resolution from Real-World Low-Resolution Patches</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-02</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-02</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Joonkyu Park, Kyoung Mu Lee (Seoul National University)</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.31363">arXiv:2606.31363</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/super-resolution.html">super-resolution</a> <a class="concept-chip" href="../../concepts/real-world-sr.html">real-world-sr</a> <a class="concept-chip" href="../../concepts/unpaired-learning.html">unpaired-learning</a> <a class="concept-chip" href="../../concepts/vision-language-model.html">vision-language-model</a> <a class="concept-chip" href="../../concepts/clip.html">clip</a> <a class="concept-chip" href="../../concepts/contrastive-learning.html">contrastive-learning</a> <a class="concept-chip" href="../../concepts/depth-estimation.html">depth-estimation</a> <a class="concept-chip" href="../../concepts/perceptual-quality.html">perceptual-quality</a> <a class="concept-chip" href="../../concepts/image-restoration.html">image-restoration</a> <a class="concept-chip" href="../../concepts/no-reference-iqa.html">no-reference-iqa</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-overview.png" alt="LA-SR 概念图: 一张老虎照片里近处的虎是 HR、远处的草是 LR, 用深度分割出真实 LR/HR 补丁, 再在 CLIP 的内容×质量二维语言空间里对齐">
+  <figcaption>
+    <strong>Fig. 1</strong> — LA-SR 总览。同一张照片因主体到相机的<strong>距离不同</strong>, 天然含 LR (远处草) 与 HR (近处虎) 区域。用深度分割出真实 LR/HR 补丁后, 把每块编码到与其<strong>内容文本</strong>强相关的位置, 其中 LR 对齐<strong>低质文本</strong>、HR 对齐<strong>高质文本</strong>。SR 网络被训练去产出同时对齐「输入内容 + 高质文本」的图 (图中红 ✖ 位置), 从而既保内容又长细节。横轴 = 内容, 纵轴 = 质量。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>问题</h3><p>真实超分要成对 HR-LR 数据, 现实拿不到;合成退化 (bicubic / ISP 管线) 抓不住真实退化的复杂度, 训出来在真图上泛化差。</p></div>
+  <div class="card"><h3>数据观察</h3><p>同一张高清图里, <strong>远景因景深天然是真·LR、近景是 HR</strong>。用深度图 + top-k 就能从任意图抠出真实退化的无配对 LR/HR 补丁, 不需专用相机。</p></div>
+  <div class="card"><h3>方法</h3><p>把无配对超分<strong>重定义在 CLIP 语言空间</strong>:内容文本 (BLIP 生成) + 质量文本 ({good}/{bad}) 作锚, 两个对比损失分别管「保内容」和「拉画质」。</p></div>
+  <div class="card"><h3>结果</h3><p>真实低质数据 (DRealSR/CameraFusion/OST) 上无参考感知指标 (CLIPIQA/MUSIQ/TOPIQ/BRISQUE) 全面胜过合成退化训练的 RealESRGAN 与无/自监督基线。</p></div>
+</div>
+<div class="term-grid">
+  <div class="card"><h4>SISR</h4><p>单图超分辨率:从一张低分辨率图 (LR) 重建高分辨率图 (HR)。</p></div>
+  <div class="card"><h4>成对 / 无配对</h4><p>成对 = 每张 LR 都有对应 HR 真值可做逐像素监督;无配对 = 只有一堆 LR 和一堆无关的 HR, 没有一一对应。</p></div>
+  <div class="card"><h4>合成退化</h4><p>人工把 HR 降质造 LR (bicubic 下采样、加噪、模糊、JPEG、模拟 ISP)。便宜但和真实退化有域差。</p></div>
+  <div class="card"><h4>CLIP</h4><p>把图像和文本编码到同一空间、可算余弦相似度的视觉-语言模型。LA-SR 用它的图像/文本编码器当「懂内容也懂画质」的裁判。</p></div>
+  <div class="card"><h4>对比损失 (InfoNCE)</h4><p>拉近匹配对 (图↔它的文本)、推远不匹配对的损失。LA-SR 用它把图对齐到内容文本与质量文本。</p></div>
+  <div class="card"><h4>深度图</h4><p>每个像素到相机的相对距离图。这里用预训练 DepthFM 估计, 亮=远 (选作 LR 中心), 暗=近 (选作 HR 中心)。</p></div>
+  <div class="card"><h4>无参考 IQA</h4><p>不需真值 HR 就能给画质打分的指标:BRISQUE (越低越好)、CLIPIQA / MUSIQ / TOPIQ (越高越好)。感知超分的主战场。</p></div>
+  <div class="card"><h4>DGDML-SR</h4><p>LA-SR 的灵感来源 (Cheng 2020):也用景深抠 LR/HR, 但要求两块<strong>纹理相似</strong>才配对, 现实很少成立——LA-SR 去掉了这个约束。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p><strong>超分的地基裂缝是数据。</strong> 训一个超分网络通常要成对的 HR-LR:同一内容, 一张高清一张低清, 好做逐像素监督。但真实世界几乎拿不到这种对——你没法让同一时刻同一场景既拍高清又拍低清。于是主流做法是<strong>人工造 LR</strong>:把 HR 用 bicubic 下采样, 或模拟相机 ISP 管线 (加噪、模糊、压缩)。</p>
+<p>问题是<strong>合成退化不像真的</strong>。真实低清图的退化是镜头、传感器、抖动、景深、压缩层层叠加的复杂结果, 手工核和 ISP 模拟抓不全, 训出来的网络一遇真图就泛化崩。另一条路是用专用硬件 (分光棱镜双拍、多焦距相机) 采真实 LR-HR 对, 但要贵设备、还绑死在某个相机型号上, 换个场景又不灵。</p>
+<p><strong>LA-SR 的破题点是一个朴素观察</strong> (受 DGDML-SR 启发):<strong>同一张高清照片里, 因为主体到相机的距离不同, 不同区域天然就有不同的分辨率</strong>——远处的草、树叶因景深模糊、占像素少, 本身就是「真·LR」;近处的虎清晰、占像素多, 是 HR (见 Fig. 1)。这意味着<strong>从任意一张高清图, 用深度就能抠出真实退化的 LR 和 HR 补丁</strong>, 不要专用相机、不要合成退化。</p>
+<p>但这些 LR 补丁<strong>没有配对的 HR 真值</strong> (远处那块草, 你没有它的高清版), 逐像素监督用不了。DGDML-SR 的老办法是在同图里找<strong>纹理高度相似</strong>的两块凑配对, 但「远处的草恰好和近处某块草长得一样」这种假设现实极少成立。</p>
+<p><strong>LA-SR 换个空间做监督:把无配对超分重定义在语言空间里。</strong> 用 CLIP 这类视觉-语言模型——它既懂<strong>语义内容</strong>也懂<strong>感知质量</strong>——不需要像素级配对, 只要让生成结果在语言空间里「内容对得上输入、质量对得上 HR」即可。具体两个损失:<strong>linguistic-content loss</strong> 保住输入内容, <strong>linguistic-quality loss</strong> 保证输出画质。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig2-pipeline.png" alt="LA-SR 训练框架: (a) 用深度模型 + 固定核抠出 I_LR 和 I_HR; (b) CLIP 图像编码器出 F_LR/F_HR/F_SR, 文本编码器出内容文本 C 和质量文本 Q, 四个对比损失把它们对齐">
+  <figcaption>
+    <strong>Fig. 2</strong> — LA-SR 训练框架。<strong>(a) 补丁准备</strong>:深度模型估深度 → 固定核平滑 → 得深度图 D → top-k 选远处中心作 $I_{LR}$、近处中心作 $I_{HR}$。<strong>(b) 训练</strong>:图像编码器 $\mathcal{E}_I$ 出 $F_{LR}/F_{HR}/F_{SR}$;文本编码器 $\mathcal{E}_T$ 把 BLIP 生成的内容文本编成 $C_{LR}/C_{HR}$、把质量文本编成 $Q_-/Q_+$。四个对比损失:$\mathcal{L}^{\mathcal{E}}_{LC}$/$\mathcal{L}^{\mathcal{E}}_{LQ}$ 训编码器, $\mathcal{L}^{SR}_{LC}$/$\mathcal{L}^{SR}_{LQ}$ 训 SR 网络。SR 网络本身是<strong>不改动的现成 RRDB/ESRGAN 主干</strong>, 创新全在损失。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>说明</strong>:LA-SR 未开源代码 (arxiv、作者 Scholar / 主页均无仓库链接)。以下代码块为<strong>等价伪代码——非原文逐字</strong>, 据论文式 (1)–(5) 与 §3 重构, 用来锚定每个损失在算什么, 非可直接运行。</p>
+</blockquote>
+<h3 id="sec-2-1">2.1 第一步:用深度抠出真实 LR/HR 补丁</h3>
+<p>先用预训练深度估计网络 (DepthFM) 得到每像素到相机的相对距离。这里有个细节:为了让「一整块补丁」的深度稳定 (而不是被单像素噪声带偏), 作者对深度图卷一个<strong>全 1 的大固定核</strong> (<span class="math inline">\(\mathbb{R}^{1\times3\times29\times29}\)</span>), 用邻域平均得到最终深度图 <span class="math inline">\(D\)</span>。然后 top-k 选<strong>最远的 k 个像素</strong>作 <span class="math inline">\(I_{LR}\)</span> 的中心、<strong>最近的 k 个</strong>作 <span class="math inline">\(I_{HR}\)</span> 的中心, 抠出小的 <span class="math inline">\(I_{LR}\in\mathbb{R}^{h\times w\times3}\)</span> 和大的 <span class="math inline">\(I_{HR}\in\mathbb{R}^{H\times W\times3}\)</span>, 其中 <span class="math inline">\((H,W)=(sh,sw)\)</span>, <span class="math inline">\(s\)</span> 是放大倍数。<strong>与 DGDML-SR 的关键区别:不要求 LR/HR 纹理相似</strong>, 任意内容都能抠。</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据 §3.1 重构):深度引导的 LR/HR 补丁提取</p>
+<pre><code class="language-python">def prepare_lr_hr(img, depth_model, s, h, w, k):
+    D = depth_model(img)                      # 每像素到相机的相对距离
+    D = avgpool_fixed_kernel(D, ksize=29)     # 全1大核平滑: 按邻域定补丁深度
+    far  = topk_pixels(D, k, mode=&quot;farthest&quot;) # 亮区=远 -&gt; LR 中心
+    near = topk_pixels(D, k, mode=&quot;nearest&quot;)  # 暗区=近 -&gt; HR 中心
+    I_LR = crop(img, centers=far,  size=(h, w))        # 小的真·LR 补丁
+    I_HR = crop(img, centers=near, size=(s*h, s*w))    # 大的 HR 补丁 (内容与 LR 无关)
+    return I_LR, I_HR
+</code></pre>
+<h3 id="sec-2-2">2.2 编码器:去掉位置编码的 CLIP</h3>
+<p>图像编码器 <span class="math inline">\(\mathcal{E}_I\)</span>、文本编码器 <span class="math inline">\(\mathcal{E}_T\)</span> 都取自预训练 CLIP。一个工程要点:CLIP 原生固定输入 224×224, 而这里补丁尺寸各异 (LR 56×56、HR/SR 224×224), 所以<strong>去掉图像编码器的位置编码</strong>, 让它吃可变尺寸输入。所有特征 <span class="math inline">\(\in\mathbb{R}^{1\times c}\)</span> (batch=1 时)。</p>
+<h3 id="sec-2-3">2.3 Linguistic-content loss:在语言空间保内容 (eq. 1–2)</h3>
+<p>以前的超分直接比 <span class="math inline">\(I_{SR}\)</span> 和 <span class="math inline">\(I_{HR}\)</span> 像素来保内容——这里没配对, 用不了。改为:先用图像转文本模型 (BLIP) 从 <span class="math inline">\(I_{LR}\)</span>、<span class="math inline">\(I_{HR}\)</span> 生成<strong>内容文本</strong>, 经 <span class="math inline">\(\mathcal{E}_T\)</span> 得 <span class="math inline">\(C_{LR}\)</span>、<span class="math inline">\(C_{HR}\)</span>;图像特征 <span class="math inline">\(F_{LR}\)</span>、<span class="math inline">\(F_{HR}\)</span>、<span class="math inline">\(F_{SR}\)</span> 经 <span class="math inline">\(\mathcal{E}_I\)</span> 得到。核心是一个对比函数:</p>
+<div class="math block">
+\[\text{Cont}(A,B) = -\frac{1}{*}\sum_{i=1}^{*}\log\frac{e^{\cos(A_i,B_i)}}{\sum_{k=1[k\neq i]}^{*} e^{\cos(A_i,B_k)}},\qquad \mathcal{L}^{\mathcal{E}}_{LC}=\text{Cont}(F_{LR}\,\|\,F_{HR},\ C_{LR}\,\|\,C_{HR})\]
+</div>
+<p class="math-translation">—— 翻译: $\text{Cont}(A,B)$ 就是 InfoNCE 式对比——<strong>拉近</strong>配对 $(A_i,B_i)$ 的余弦相似度、<strong>推远</strong>与其它 $B_k$ 的相似度 ($\|$ 是沿 batch 维拼接)。$\mathcal{L}^{\mathcal{E}}_{LC}$ 把「LR 图↔LR 的内容文本」「HR 图↔HR 的内容文本」拉到一起, 同时和别的图/文本推开——即<strong>训编码器把图像对齐到它自己的内容描述</strong>。</p>
+<p>对 SR 网络, 则要求生成图 <span class="math inline">\(I_{SR}\)</span> 的特征 <span class="math inline">\(F_{SR}\)</span> 和<strong>输入 <span class="math inline">\(I_{LR}\)</span> 的内容文本 <span class="math inline">\(C_{LR}\)</span></strong> 强相关 (保证 SR 与输入同内容):</p>
+<div class="math block">
+\[\mathcal{L}^{SR}_{LC} = \text{Cont}(F_{SR}, C_{LR})\]
+</div>
+<p>内容损失合起来 <span class="math inline">\(\mathcal{L}_{LC}=\mathcal{L}^{\mathcal{E}}_{LC}+\mathcal{L}^{SR}_{LC}\)</span>。</p>
+<h3 id="sec-2-4">2.4 Linguistic-quality loss:在语言空间拉画质 (eq. 3–4)</h3>
+<p>内容要 <span class="math inline">\(I_{SR}\)</span> 和 <span class="math inline">\(I_{LR}\)</span> 一致, 但<strong>质量要 <span class="math inline">\(I_{SR}\)</span> 比 <span class="math inline">\(I_{LR}\)</span> 更好</strong> (它用更多像素表达同样内容)。前提假设:近处 <span class="math inline">\(I_{HR}\)</span> 比远处 <span class="math inline">\(I_{LR}\)</span> 细节更多。先准备两组质量文本:低质 (如 {bad}) 和高质 (如 {good}), 编成 <span class="math inline">\(Q_-\)</span>、<span class="math inline">\(Q_+\)</span>。训编码器把 <span class="math inline">\(F_{HR}\)</span> 判为比 <span class="math inline">\(F_{LR}\)</span> 更高质:</p>
+<div class="math block">
+\[\mathcal{L}^{\mathcal{E}}_{LQ} = \text{Cont}(F_{LR}\,\|\,F_{HR},\ Q_-\,\|\,Q_+)\]
+</div>
+<p class="math-translation">—— 翻译: 把「LR 图↔低质文本」「HR 图↔高质文本」拉到一起——教编码器<strong>沿质量轴</strong>区分 LR 和 HR。这一步让后面 $\mathcal{L}^{SR}_{LQ}$ 的梯度有意义:编码器得先真的能分好坏, SR 才有方向往「好」走。</p>
+<p>对 SR 网络, 要求<strong>每个 <span class="math inline">\(I_{SR}\)</span> 都对齐到唯一的高质文本 <span class="math inline">\(Q_+\)</span></strong> (不同于内容损失里每张图配各自的文本):</p>
+<div class="math block">
+\[\mathcal{L}^{SR}_{LQ} = -\frac{1}{*}\log\frac{e^{\cos(F_{SR},Q_+)}}{e^{\cos(F_{SR},Q_-)}}\]
+</div>
+<p class="math-translation">—— 翻译: 把生成图 $I_{SR}$ 的特征往<strong>高质文本 $Q_+$</strong> 拉、往低质 $Q_-$ 推——直接命令「你要长得像 good, 别像 bad」。实际训练里 $Q_\pm$ 扩到 $N$ 个 batch, $*$ 取 $N$。</p>
+<p>质量损失合起来 <span class="math inline">\(\mathcal{L}_{LQ}=\mathcal{L}^{\mathcal{E}}_{LQ}+\mathcal{L}^{SR}_{LQ}\)</span>。下面伪代码把四个对比损失串起来:</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据式 1–4 重构):两组语言损失的联合计算</p>
+<pre><code class="language-python">def cont(A, B):                                # InfoNCE 式对比 (式1)
+    S = cosine_sim_matrix(A, B)                # (*, *)
+    pos = torch.exp(torch.diag(S))             # e^{cos(A_i, B_i)}
+    neg = (torch.exp(S) * (1 - eye)).sum(dim=1)# Σ_{k≠i} e^{cos(A_i, B_k)}
+    return -(torch.log(pos / neg)).mean()
+
+# 图像特征 / 文本特征
+F_LR, F_HR, F_SR = E_I(I_LR), E_I(I_HR), E_I(I_SR)
+C_LR, C_HR       = E_T(blip(I_LR)), E_T(blip(I_HR))     # 内容文本
+Q_neg, Q_pos     = E_T(&quot;bad ...&quot;), E_T(&quot;good ...&quot;)      # 质量文本
+
+L_LC = cont(cat(F_LR, F_HR), cat(C_LR, C_HR)) + cont(F_SR, C_LR)          # 式1 + 式2
+L_LQ = cont(cat(F_LR, F_HR), cat(Q_neg, Q_pos)) \
+       - log(exp(cos(F_SR, Q_pos)) / exp(cos(F_SR, Q_neg))).mean()        # 式3 + 式4
+</code></pre>
+<h3 id="sec-2-5">2.5 改良 VGG 损失 + 总损失 (eq. 5)</h3>
+<p>只靠两个语言损失可能保不住<strong>低频信息</strong> (结构、颜色)。作者在 <span class="math inline">\(I_{SR}\)</span> 与 <span class="math inline">\(I_{LR}\)</span> 之间加一个改良的感知 (VGG) 损失——因两者分辨率不同, 对 <span class="math inline">\(I_{SR}\)</span> 多加几层池化再取 VGG 特征。总损失:</p>
+<div class="math block">
+\[\mathcal{L}_{tot} = \lambda_{LC}\mathcal{L}_{LC} + \lambda_{LQ}\mathcal{L}_{LQ} + \lambda_{VGG}\mathcal{L}_{VGG}\]
+</div>
+<p>其中 <span class="math inline">\(\lambda_{LC}=0.5\)</span>, <span class="math inline">\(\lambda_{LQ}=0.5\)</span>, <span class="math inline">\(\lambda_{VGG}=0.1\)</span>。<strong>三者分工</strong>:<span class="math inline">\(\mathcal{L}_{LC}\)</span> 管语义对齐、<span class="math inline">\(\mathcal{L}_{LQ}\)</span> 管感知画质、<span class="math inline">\(\mathcal{L}_{VGG}\)</span> 管低频结构与颜色。一个训练步里<strong>编码器和 SR 网络一起更新</strong>——语言损失同时含训编码器的 <span class="math inline">\(\mathcal{L}^{\mathcal{E}}\)</span> 项和训 SR 网络的 <span class="math inline">\(\mathcal{L}^{SR}\)</span> 项:</p>
+<p class="code-source">等价伪代码 — 非原文逐字 (据式 5 + §3 重构):一个训练步</p>
+<pre><code class="language-python">def train_step(img, sr_net, E_I, E_T, depth_model, opt):
+    I_LR, I_HR = prepare_lr_hr(img, depth_model, s=4, h=56, w=56, k=K)
+    I_SR = sr_net(I_LR)                                   # 现成 RRDB 主干, 一次前向
+
+    L_LC = compute_content_loss(I_LR, I_HR, I_SR, E_I, E_T)   # 式1 + 式2
+    L_LQ = compute_quality_loss(I_LR, I_HR, I_SR, E_I, E_T)   # 式3 + 式4
+    L_VGG = modified_vgg(I_SR, I_LR)                          # 多加池化对齐分辨率差
+
+    L = 0.5*L_LC + 0.5*L_LQ + 0.1*L_VGG                       # 式5
+    opt.zero_grad(); L.backward(); opt.step()                # 同时更新 E_I, E_T, sr_net
+    return L
+</code></pre>
+<h2 id="sec-3">3. 实验结果 (Results)</h2>
+<p><strong>设置</strong>:只用高清图 (DF2K + LSDIR) 训练;SR 主干用不改动的 RRDB (ESRGAN 骨干), 从 PSNR 预训练权重初始化, 微调 30 万步, lr <span class="math inline">\(5\times10^{-5}\)</span>, batch 16, <span class="math inline">\(I_{LR}\)</span> 56×56 / <span class="math inline">\(I_{HR}\)</span> 224×224, 4×Quadro RTX 8000 训 50 小时。评测以<strong>无参考感知指标</strong>为主 (BRISQUE↓, CLIPIQA↑, TOPIQ↑, MUSIQ↑)。</p>
+<h3 id="sec-3-1">3.1 对比无 / 自监督方法 (Table 1)</h3>
+<p>在真实低质数据上 LA-SR 全面领先, 尤其 <strong>CameraFusion</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>数据集</th>
+<th>BRISQUE↓</th>
+<th>CLIPIQA↑</th>
+<th>TOPIQ↑</th>
+<th>MUSIQ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DASR (无监督)</td>
+<td>DRealSR</td>
+<td>45.67</td>
+<td>0.29</td>
+<td>0.26</td>
+<td>27.73</td>
+</tr>
+<tr>
+<td>SRTTA (无监督)</td>
+<td>DRealSR</td>
+<td>37.06</td>
+<td>0.42</td>
+<td>0.32</td>
+<td>37.22</td>
+</tr>
+<tr>
+<td><strong>LA-SR</strong></td>
+<td>DRealSR</td>
+<td>30.07</td>
+<td><strong>0.46</strong></td>
+<td><strong>0.40</strong></td>
+<td><strong>40.70</strong></td>
+</tr>
+<tr>
+<td>MASA-SR (用参考图)</td>
+<td>CameraFusion</td>
+<td>28.23</td>
+<td>0.60</td>
+<td>0.56</td>
+<td>58.88</td>
+</tr>
+<tr>
+<td>DCSR (用参考图)</td>
+<td>CameraFusion</td>
+<td>34.46</td>
+<td>0.48</td>
+<td>0.41</td>
+<td>55.29</td>
+</tr>
+<tr>
+<td><strong>LA-SR (无参考图)</strong></td>
+<td>CameraFusion</td>
+<td><strong>12.47</strong></td>
+<td><strong>0.69</strong></td>
+<td><strong>0.58</strong></td>
+<td><strong>58.97</strong></td>
+</tr>
+</tbody>
+</table>
+<p>注意 MASA-SR / DCSR 还额外用了<strong>参考图</strong>, LA-SR 什么额外输入都不用, 在 BRISQUE / CLIPIQA / TOPIQ 上仍反超。</p>
+<h3 id="sec-3-2">3.2 对比监督方法 (Table 2)</h3>
+<p>即使对上<strong>用成对数据训</strong>的监督方法, LA-SR 的感知指标也普遍最好。举几组 (×4):</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>Set5 BRISQUE↓</th>
+<th>Set5 CLIPIQA↑</th>
+<th>Urban100 CLIPIQA↑</th>
+<th>OST MUSIQ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ESRGAN (bicubic 训)</td>
+<td>61.08</td>
+<td>0.53</td>
+<td>0.54</td>
+<td>35.25</td>
+</tr>
+<tr>
+<td>ESRGAN† (真相机 LR 训)</td>
+<td>32.13</td>
+<td>0.47</td>
+<td>0.45</td>
+<td>43.13</td>
+</tr>
+<tr>
+<td>RealESRGAN (合成退化训)</td>
+<td>24.20</td>
+<td>0.52</td>
+<td>0.59</td>
+<td>62.06</td>
+</tr>
+<tr>
+<td><strong>LA-SR</strong></td>
+<td><strong>11.53</strong></td>
+<td><strong>0.65</strong></td>
+<td><strong>0.71</strong></td>
+<td>60.82</td>
+</tr>
+</tbody>
+</table>
+<p>bicubic 训的 ESRGAN 因训练/测试域差最差;真相机 LR 训的 ESRGAN† 绑死型号泛化有限;合成退化的 RealESRGAN 在高清图上吃力。LA-SR 因训练用的就是<strong>自然景深退化的真 LR</strong>, 在真实低质图上也稳。它甚至在<strong>AI 生成图</strong> (LDM / Dataset Diffusion) 上也领先, 说明跨域泛化。</p>
+<h3 id="sec-3-3">3.3 关键消融</h3>
+<ul>
+<li><strong>补丁准备方式 (Table 3)</strong>:depth-based (LA-SR) vs overlap / inclusion / random。overlap 和 inclusion 让 LR/HR 太像、难区分;random 好一些;<strong>depth-based 的 MUSIQ 46.31 明显最高</strong> (其它三者 ~42)。</li>
+<li><strong>损失消融 (Table 6, Fig. 6)</strong>:去掉 <span class="math inline">\(\mathcal{L}_{LQ}\)</span> → BRISQUE 从 10.90 暴涨到 38.42、严重伪影 (无质量正则, 高频乱长);去掉 <span class="math inline">\(\mathcal{L}_{LC}\)</span> → 生成无关细节 (内容漂移);去掉 <span class="math inline">\(\mathcal{L}_{VGG}\)</span> → 低频丢失、明显色偏。三者缺一不可。</li>
+<li><strong>合成退化增强 (Table 5)</strong>:叠 RealESRGAN 式合成退化, 在重度退化的 Real38 上大涨, 但在自然退化的 DRealSR 上小跌——是个权衡。</li>
+</ul>
+<h3 id="sec-3-4">3.4 编码器学到了什么 (Fig. 7)</h3>
+<figure>
+  <img class="zoomable" src="figures/fig7-tsne.png" alt="t-SNE: (a) LR 特征与 HR 特征被清晰分成红蓝两簇; (b) HR 特征按内容关键词 (Book/Car/Cat/Dog/Metal/Tree/Sky/Water) 聚成不同簇, Cat 和 Dog 靠得近">
+  <figcaption>
+    <strong>Fig. 7</strong> — 编码特征的 t-SNE。<strong>(a)</strong> 编码器把 $F_{LR}$ (红) 与 $F_{HR}$ (蓝) 分到两个空间——证明它确实沿质量轴区分 LR/HR, 使 $\mathcal{L}^{SR}_{LQ}$ 的梯度有意义。<strong>(b)</strong> HR 特征按内容关键词聚簇 (同色=同关键词);有趣的是 <em>Cat 和 Dog 的簇靠得近</em>, 反映编码器捕捉到二者的语义相似。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig4-qualitative.png" alt="×4 超分定性对比: bicubic / ESRGAN / ESRGAN† / RealESRGAN / LA-SR 在鸟羽毛、达斯维达、玫瑰上的放大对比, LA-SR 细节更锐更自然">
+  <figcaption>
+    <strong>Fig. 4</strong> — ×4 定性对比。即便对上监督方法, LA-SR 在发丝、羽毛、花瓣纹理上都更锐、更自然 (放大看)。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节 (Implementation)</h2>
+<blockquote>
+<p>无官方代码, 以下细节全部来自论文正文 (§3–§4);实现者复现时这些是坑位。</p>
+</blockquote>
+<ol>
+<li><strong>深度模型是 DepthFM (Gui et al. 2025)</strong>, 一个 flow-matching 的快速单目深度估计。LA-SR 只用它的相对深度排序 (谁远谁近), 不需要绝对尺度。</li>
+<li><strong>29×29 全 1 固定核平滑深度</strong>是防「单像素深度噪声选错补丁中心」的关键——按邻域平均决定一块补丁的深度, 再 top-k 选中心。这一步论文强调过, 容易被复现者忽略。</li>
+<li><strong>CLIP 图像编码器去位置编码</strong> (仿 Wang et al. 2023b), 否则固定 224×224 吃不下 56×56 的 LR 补丁。文本编码器保持原样。</li>
+<li><strong>内容文本来自 BLIP (Li et al. 2022) 的 image-to-text</strong>, 对每个补丁在线生成 caption;质量文本是<strong>预定义的固定短语</strong> ({good, detailed, clear, high-reso.} / {noisy, low-reso., bad})。</li>
+<li><strong>式 (4) 的分母只有 <span class="math inline">\(Q_-\)</span>、分子只有 <span class="math inline">\(Q_+\)</span></strong>——不同于式 (2) 每图配各自文本, 质量损失让<strong>所有 SR 图对齐同一个 <span class="math inline">\(Q_+\)</span></strong>。这是「内容要多样、质量要统一往好走」的设计取舍。</li>
+<li><strong>SR 网络从 PSNR 预训练权重初始化</strong>再用 LA-SR 微调 (和 RealESRGAN/BSRGAN 一样的暖启动套路), 不是从零训。</li>
+<li><strong>改良 VGG 损失对 <span class="math inline">\(I_{SR}\)</span> 多加池化</strong>以对齐 <span class="math inline">\(I_{LR}\)</span> 的分辨率差 (56 vs 224), 才能在不同尺度上比 VGG 特征。</li>
+<li><strong>对比函数式 (1) 的分母写作 <span class="math inline">\(\sum_{k\neq i}\)</span> (只含负样本)</strong>, 与标准 InfoNCE (分母含正样本) 略有出入。按论文字面它最大化「正相似 − 负相似」;这属于论文表述细节, 语义上仍是「拉正推负」, 不影响理解, 但复现者需照式子实现。</li>
+</ol>
+<p><strong>论文 vs 代码的出入</strong>:无代码可对照, 无法做逐行交叉验证——这是本页最大的不确定性来源。所有公式落地 (尤其式 1 的分母、VGG 的额外池化、质量文本的具体措辞) 都只能按论文文字理解, 官方未开源前无法确认实现与描述完全一致。</p>
+<h2 id="sec-5">5. 批判与延伸 (Critique &amp; Extensions)</h2>
+<h3 id="sec-5-1">5.1 具体不足</h3>
+<ul>
+<li><strong>&quot;真·LR&quot; 只覆盖景深退化, 不覆盖真实退化的大头。</strong> 作者自己在 §5 承认:LR 补丁主要来自高清图的<strong>景深模糊</strong>, 对动画、老胶片那种噪声/压缩/振铃退化无能为力 (Table 5 也显示得叠合成退化才行)。所以「摆脱合成退化」这个卖点是<strong>打了折的</strong>——真正复杂的真实退化 (传感器噪声、JPEG、运动模糊) 它并没学到, 反而要靠合成退化补。景深模糊 ≠ 真实世界退化的全集。</li>
+<li><strong>核心假设「远=低质、近=高质」很脆。</strong> 远处不一定低质 (远处的天空、纯色墙可能很干净), 近处也可能失焦。Table 4 已暴露:深度采样偏向选到<strong>背景</strong> (背景通常远), 而背景往往缺结构细节。用「距离」当「质量」的代理, 是个会漏判的强假设。</li>
+<li><strong>质量监督的粒度极粗。</strong> 质量文本只有 {good}/{bad} 二档, <span class="math inline">\(\mathcal{L}^{SR}_{LQ}\)</span> 把所有 SR 图往同一个 <span class="math inline">\(Q_+\)</span> 拉。这可能把画质推向「CLIP 觉得好看」的某种平均高频纹理, 而非真实细节——这也是为什么全靠无参考 IQA (CLIPIQA/MUSIQ 本身就和 CLIP 同源) 评测<strong>有既当运动员又当裁判之嫌</strong>。</li>
+<li><strong>评测几乎回避保真度。</strong> 主指标全是无参考感知分, PSNR/SSIM/LPIPS 被搁到附录、明说「不是重点」。感知超分固然该看感知, 但完全不正面报保真, 读者无法判断它是不是在「编细节」(hallucinate) 而非「复原细节」。</li>
+<li><strong>CLIP 无位置编码 + 变尺寸输入的代价没量化。</strong> 去掉位置编码让 CLIP 吃变尺寸, 但也丢了空间结构信息——对「质量」判断也许够, 对「内容」对齐的精度影响多大, 没有消融。</li>
+</ul>
+<h3 id="sec-5-2">5.2 交叉验证:同是「真实退化超分」, 三条路线的分歧</h3>
+<p>LA-SR 属于「怎么搞到真实退化的训练信号」这条主线。对照本站另外两篇思路迥异的真实超分工作:</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LA-SR (本文)</th>
+<th>RealESRGAN (合成退化派)</th>
+<th>DGDML-SR (Cheng 2020, 景深派前身)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LR 从哪来</td>
+<td>高清图里景深远景, 真退化</td>
+<td>HR 叠高阶合成退化 (噪/模糊/压缩)</td>
+<td>同图景深远景</td>
+</tr>
+<tr>
+<td>配对方式</td>
+<td><strong>无配对</strong>, 靠语言空间对齐</td>
+<td>合成即天然成对</td>
+<td>同图找<strong>纹理相似</strong>块凑对</td>
+</tr>
+<tr>
+<td>监督信号</td>
+<td>CLIP 内容/质量文本对比</td>
+<td>逐像素 + GAN + 感知</td>
+<td>内部退化学习 + 像素</td>
+</tr>
+<tr>
+<td>自曝软肋</td>
+<td>只覆盖景深退化, 需合成退化补重度</td>
+<td>合成 ≠ 真实, 高清图上吃力</td>
+<td>纹理相似假设现实少成立</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一致</strong>:三者都认同「bicubic 下采样训不出真实超分」, 也都承认真实退化难获取。</p>
+<p><strong>矛盾与本文裁决</strong>:(1) RealESRGAN 主张「把退化建得够复杂就能逼近真实」, LA-SR 的 Table 2 反驳——合成退化训的模型在<strong>自然高清图</strong>上反而吃力 (域仍不匹配);但 LA-SR 的 Table 5 又反过来承认——遇到<strong>重度退化</strong>时还得请回 RealESRGAN 式合成退化。<strong>两者其实互补</strong>:LA-SR 强在自然/轻度退化, 合成退化强在重度/artifact 退化。(2) 相对 DGDML-SR, LA-SR 去掉「纹理相似」硬约束是明确进步 (Table 3 的 depth-based ≫ random 佐证了「不需要相似」这条也成立), 分歧成因是 DGDML-SR 在<strong>像素空间</strong>配对必须要相似纹理, 而 LA-SR 搬到<strong>语言空间</strong>后只需内容语义对齐, 天然松绑。</p>
+<h3 id="sec-5-3">5.3 研究启发 (可迁移的套路)</h3>
+<div class="takeaway-grid">
+  <div class="card"><h4>数据不够, 换空间做监督</h4><p>没有配对真值时, 别硬凑像素对——把监督搬到一个「懂内容也懂质量」的预训练表征空间 (这里是 CLIP)。逐像素约束 → 语义/属性约束, 是绕开「拿不到配对」的通用招。</p></div>
+  <div class="card"><h4>把免费的物理先验当标注</h4><p>景深让「远=退化、近=清晰」天然成立——一张普通照片里就藏着无数无配对 LR/HR。找任务里「本就存在、免费、可自动提取」的物理信号当弱标签, 比造合成数据更接近真实分布。</p></div>
+  <div class="card"><h4>内容与质量解耦成两个损失</h4><p>图像复原的两大轴 (保内容 / 提质量) 诉求不同, 就该拆成两个独立对齐目标:内容要「各图配各文本」(多样), 质量要「所有图往同一好文本」(统一)。别用一个损失硬扛两件事。</p></div>
+  <div class="card"><h4>反直觉:去掉位置编码换灵活性</h4><p>为吃变尺寸输入, 直接把 CLIP 的位置编码删了。当空间精度不是瓶颈 (质量判断为主) 时, 牺牲结构信息换输入灵活是划算的——先想清楚下游到底需不需要那部分归纳偏置。</p></div>
+  <div class="card"><h4>警惕「同源指标自证」</h4><p>用 CLIP 训、又用 CLIPIQA/MUSIQ 评, 涨分可能只是「讨好了同一个 CLIP」。凡是训练信号和评测指标共享底座, 结论都要打折——尽量找不共享机理的第三方指标 (或人评) 佐证。</p></div>
+</div>
+<h3 id="sec-5-4">5.4 延伸阅读</h3>
+<p>本站相关的真实/感知超分工作:</p>
+<ul>
+<li><a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a> —— 一步超分的关键不在蒸馏而在别处, 与 LA-SR「关键不在退化建模而在监督空间」的思路可对照:两者都在问「超分的胜负手到底在哪一环」。</li>
+<li><a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a> —— 一步、无分块的真实世界 4K 超分, GAN 式一步微调;和 LA-SR 同样面向真实退化, 但走的是高效架构而非语言监督。</li>
+<li><a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a> —— 扩散超分的survey, 系统梳理真实退化建模与感知-保真权衡, 可作为 LA-SR 所处赛道的全景背景。</li>
+<li><a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a> —— flow 视角的超分, 关注保真-感知权衡的另一条技术路线。
+</content></li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

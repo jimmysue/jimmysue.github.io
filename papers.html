@@ -47,8 +47,38 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 46 篇论文精读。</p>
+<p class="page__intro">共 47 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-03</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rdm-2026/index.html">RDM: 把「一步生成」拆成两根设计轴——十年前被判死刑的 MMD, 估计对了就是 SOTA</a></h3>
+  <p class="post-card__tldr">一步图像生成 = 让生成分布在冻结编码器的特征空间里对齐真实分布。作者把这条无教师路线命名为 RDM (Representation Distribution Matching), 指出所有实例只差两根轴:怎么比 (comparison) 和 在哪比 (representation)。逐轴消融翻掉三条隐含假设:(1) 十年前被嫌太弱的经典 MMD, 只要「批内精确排斥 + 对全量数据的 Nyström 冻结吸引」估计对, 就是又强又可扩的目标;(2) 生成批越大越好, 最优点在 2048 以上, 远超常规;(3) 任何单个编码器都能被刷穿 (分数掉到真实之下但图仍假), 所以要对一整排编码器做「受约束优化」。合成 iRDM:ImageNet 一步 SOTA SW_r14 1.30 (真实地板 1.0), 并把四步 FLUX.2 [klein] 后训练成一步模型, GenEval 0.826 反超四步版 0.794, 只花 90 H200 GPU-hours。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
+      <a class="tag-chip" href="concepts/distribution-matching.html">distribution-matching</a>
+      <a class="tag-chip" href="concepts/mmd.html">mmd</a>
+      <span class="tag-chip tag-chip--more">+10 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-02</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/la-sr-2026/index.html">LA-SR: 一张照片里的「远处即 LR、近处即 HR」——把无配对超分搬进 CLIP 语言空间</a></h3>
+  <p class="post-card__tldr">真实世界超分的老大难是拿不到成对 HR-LR 数据, 合成退化 (bicubic / ISP) 又不像真的。LA-SR 的观察:同一张高清照片里, 远景因景深天然就是「真·LR」, 近景是 HR——用深度图就能从任意图里抠出真实退化的无配对 LR/HR 补丁。没有配对怎么监督? 把无配对超分重新定义在 CLIP 的语言空间里:用「内容文本」(BLIP 生成) 和「质量文本」({good}/{bad}) 作锚点, 两个对比损失——linguistic-content 保内容、linguistic-quality 拉画质, 训练 SR 网络产出「内容像输入、质量像 HR」的结果。在真实低质数据 (DRealSR/CameraFusion) 上感知指标 (CLIPIQA/MUSIQ/TOPIQ) 全面超过合成退化训练的 RealESRGAN 等。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/super-resolution.html">super-resolution</a>
+      <a class="tag-chip" href="concepts/real-world-sr.html">real-world-sr</a>
+      <a class="tag-chip" href="concepts/unpaired-learning.html">unpaired-learning</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -62,21 +92,6 @@
       <a class="tag-chip" href="concepts/chain-of-thought.html">chain-of-thought</a>
       <a class="tag-chip" href="concepts/reasoning-efficiency.html">reasoning-efficiency</a>
       <span class="tag-chip tag-chip--more">+7 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rdm-2026/index.html">RDM: 把「一步生成」拆成两根设计轴——十年前被判死刑的 MMD, 估计对了就是 SOTA</a></h3>
-  <p class="post-card__tldr">一步图像生成 = 让生成分布在冻结编码器的特征空间里对齐真实分布。作者把这条无教师路线命名为 RDM (Representation Distribution Matching), 指出所有实例只差两根轴:怎么比 (comparison) 和 在哪比 (representation)。逐轴消融翻掉三条隐含假设:(1) 十年前被嫌太弱的经典 MMD, 只要「批内精确排斥 + 对全量数据的 Nyström 冻结吸引」估计对, 就是又强又可扩的目标;(2) 生成批越大越好, 最优点在 2048 以上, 远超常规;(3) 任何单个编码器都能被刷穿 (分数掉到真实之下但图仍假), 所以要对一整排编码器做「受约束优化」。合成 iRDM:ImageNet 一步 SOTA SW_r14 1.30 (真实地板 1.0), 并把四步 FLUX.2 [klein] 后训练成一步模型, GenEval 0.826 反超四步版 0.794, 只花 90 H200 GPU-hours。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
-      <a class="tag-chip" href="concepts/distribution-matching.html">distribution-matching</a>
-      <a class="tag-chip" href="concepts/mmd.html">mmd</a>
-      <span class="tag-chip tag-chip--more">+10 more</span>
   </div>
 </div>
 <div class="post-card post-card--paper">
@@ -173,23 +188,6 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
       <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
       <a class="tag-chip" href="concepts/mmdit.html">mmdit</a>
       <span class="tag-chip tag-chip--more">+18 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/i1-2026/index.html">i1 精读：一份「完全开源」的强文生图配方——用 300+ 控制实验把设计空间逐个钉死</a></h3>
-  <p class="post-card__tldr">i1 是普林斯顿 Zhuang Liu 组放出的 3B 文生图扩散模型，卖点不是新模块，而是**完全开源（权重 + 数据 + 代码 + 配方）** 且**用 300+ 个控制实验**（700K+ TPU v6e 小时）把「文/噪声条件、骨干结构、合成 caption、数据混合」这几个设计维度逐个单变量消融，给出 10 条可复用结论。
-最终配方极简：双流 MMDiT + 长跳连接（long skip）+ 砍掉 AdaLN（省 0.23B 参数）+ 单个强文本编码器（T5Gemma-2B）配一个**更大的 transformer adapter**（替代「多文本编码器」）+ 只用长合成 caption 训练、推理时用 LLM 把短 prompt 扩写对齐训练分布 + 各数据集**等权重**混合。
-在 GenEval/DPG/PRISM/CVTG-2K/LongText 五个 benchmark 上，i1（3B）平均超过此前最强「完全开源」模型 **29.5 个百分点**，并在多数指标上压过 12B FLUX.1 [Dev]、17B HiDream-I1。本文交叉阅读其 JAX 代码，把每条结论落到 `file:Lnn`。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
-      <a class="tag-chip" href="concepts/mmdit.html">mmdit</a>
-      <span class="tag-chip tag-chip--more">+11 more</span>
   </div>
 </div>
 </div>

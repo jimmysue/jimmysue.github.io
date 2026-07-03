@@ -57,6 +57,15 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-02</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/la-sr-2026/index.html">LA-SR: 一张照片里的「远处即 LR、近处即 HR」——把无配对超分搬进 CLIP 语言空间</a></h3>
+  <p class="post-card__tldr">真实世界超分的老大难是拿不到成对 HR-LR 数据, 合成退化 (bicubic / ISP) 又不像真的。LA-SR 的观察:同一张高清照片里, 远景因景深天然就是「真·LR」, 近景是 HR——用深度图就能从任意图里抠出真实退化的无配对 LR/HR 补丁。没有配对怎么监督? 把无配对超分重新定义在 CLIP 的语言空间里:用「内容文本」(BLIP 生成) 和「质量文本」({good}/{bad}) 作锚点, 两个对比损失——linguistic-content 保内容、linguistic-quality 拉画质, 训练 SR 网络产出「内容像输入、质量像 HR」的结果。在真实低质数据 (DRealSR/CameraFusion) 上感知指标 (CLIPIQA/MUSIQ/TOPIQ) 全面超过合成退化训练的 RealESRGAN 等。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/ggt-100k-2026/index.html">GGT-100K：用多模态大模型「生成」真实世界修复的 Ground Truth</a></h3>
