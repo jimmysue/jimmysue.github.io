@@ -52,6 +52,21 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-08</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/lingbot-video-2026/index.html">LingBot-Video: 把 MoE 搬进视频扩散——为具身智能从零 scale 的稀疏 DiT 世界模型</a></h3>
+  <p class="post-card__tldr">Robbyant 团队。第一个大规模开源 MoE 视频基础模型,专为具身智能设计。三条主线:①架构上把稠密 DiT 的 FFN 换成 DeepSeekMoE 式稀疏专家(共享专家+top-K 路由),用「容量-算力解耦」把 30B 总参数压到 3B 激活,1M token 序列下比 Dense-30B 快 3.18×;②数据上用 Data Profiling Engine + 世界知识拓扑图把 7 万小时具身视频(机械臂/导航/第一视角)灌进语料,五阶段课程从 192p 图像涨到 1080p;③训练上六路奖励(视觉/对齐/动态/连贯/人体/物理合理性)+ 单步探索 GRPO(Flash-GRPO/CPS)+ 用真实视频当负样本的 DiffusionNFT 微调防 reward hacking。RBench 0.620(开源第一,超闭源 Wan2.6 的 0.607)、Physics-IQ Verified 40.4(开源第一)。开源权重(Dense-1.3B / MoE-30B-A3B)+ 推理代码 + rewriter。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
+      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
+      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
+      <span class="tag-chip tag-chip--more">+12 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-06</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/mfd-2026/index.html">MFD: 不比「瞬时速度」比「平均速度」——把时间积分当低通滤波器, 给 flow matching 蒸馏降方差</a></h3>
@@ -172,22 +187,6 @@ HiWave（8192² 免训练）、PixelRush（单卡 8K &lt; 100s）、Scale-DiT（
   <div class="post-card__tags">
       <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
       <a class="tag-chip" href="concepts/4k-super-resolution.html">4k-super-resolution</a>
-      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/omgsr-2025/index.html">OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</a></h3>
-  <p class="post-card__tldr">OMGSR 把一步真实世界超分（Real-ISR）的成败归结为一个「潜空间鸿沟」：以往方法把低清图 latent 注入到扩散调度器的 t=999（纯噪声）或 t=1（干净图），但低清图 latent 既不是噪声也不是干净图——它最接近预训练扩散在某个**中间时刻 t\*** 的带噪 latent。
-作者用信噪比 (SNR) 把这个「最佳中间时刻」**算出来**（SD2.1-base 上 t\*=273），再用 LRR 损失（LoRA 微调 VAE 编码器）把低清 latent 进一步拉向 t\* 的带噪 latent，然后在 t\* 处做一步去噪。整套是 **GAN 训练**（生成器=扩散模型本身，判别器=DINOv3-ConvNeXt + 多级头），不是师生蒸馏。这就是 [[op4ksr-2026]] 4K 超分的直接前身。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/real-isr.html">real-isr</a>
       <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
       <span class="tag-chip tag-chip--more">+7 more</span>
   </div>

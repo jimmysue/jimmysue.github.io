@@ -247,6 +247,7 @@ mjx-container[display="true"] { margin: 1.2rem 0 !important; }
 .summary-grid .card > :last-child,
 .term-grid .card > :last-child { margin-bottom: 0; }
 .summary-grid .card h3,
+.summary-grid .card h4,
 .term-grid .card h4 { font-size: 1rem; }
 .summary-grid .card p,
 .term-grid .card p { font-size: 0.9rem; color: var(--text-secondary); }

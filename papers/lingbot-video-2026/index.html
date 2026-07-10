@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>LingBot-Video: 把 MoE 搬进视频扩散——为具身智能从零 scale 的稀疏 DiT 世界模型</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 稀疏 MoE:容量-算力解耦(全篇的地基)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 后训练之一:单步探索 GRPO + CPS</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 后训练之二:真实视频当负样本的 DiffusionNFT 微调</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 架构里的两个稳态细节(代码可查)</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 单流里怎么区分「条件 token」和「视觉 token」——代码考证</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 数据引擎与级联 refiner(略表)</a></li>
+    <li class="h3"><a href="#sec-2-7">2.7 A2V:把世界模型变成动作条件预测器</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>LingBot-Video: 把 MoE 搬进视频扩散——为具身智能从零 scale 的稀疏 DiT 世界模型</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-08</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-08</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Shuailei Ma, Jiaqi Liao, Xinyang Wang, Jingjing Wang, Chaoran Feng, ... , Yujun Shen, Ka Leong Cheng (Robbyant Team)</span> · <span class="post-meta__venue">arXiv 2026 (cs.CV)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2607.07675">arXiv:2607.07675</a> · <a class="post-meta__link" href="https://technology.robbyant.com/lingbot-video">项目页</a> · <a class="post-meta__link" href="https://github.com/robbyant/lingbot-video">代码</a> · <a class="post-meta__link" href="https://huggingface.co/robbyant/lingbot-video">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/mixture-of-experts.html">mixture-of-experts</a> <a class="concept-chip" href="../../concepts/video-generation.html">video-generation</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/world-model.html">world-model</a> <a class="concept-chip" href="../../concepts/embodied-ai.html">embodied-ai</a> <a class="concept-chip" href="../../concepts/group-relative-policy-optimization.html">group-relative-policy-optimization</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/rectified-flow.html">rectified-flow</a> <a class="concept-chip" href="../../concepts/reward-modeling.html">reward-modeling</a> <a class="concept-chip" href="../../concepts/diffusion-nft.html">diffusion-nft</a> <a class="concept-chip" href="../../concepts/expert-parallelism.html">expert-parallelism</a> <a class="concept-chip" href="../../concepts/sequence-parallelism.html">sequence-parallelism</a> <a class="concept-chip" href="../../concepts/action-conditioned-generation.html">action-conditioned-generation</a> <a class="concept-chip" href="../../concepts/distillation.html">distillation</a> <a class="concept-chip" href="../../concepts/scaling-laws.html">scaling-laws</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture.png" alt="LingBot-Video 任务统一单流扩散 Transformer 总览:统一输入经堆叠 block,时间步调制控制 Attention 与 Sparse MoE 两支;Attention 支用 QK-Norm 和 3D RoPE,MoE 支组合常开共享专家与 top-K 路由专家,最后预测速度">
+  <figcaption>
+    <strong>Fig. 2</strong> — 全篇的骨架。<strong>单流(single-stream)</strong>:视觉 latent 和多模态条件 token 拼成一条序列,共享同一套 block,不分双流。每个 block 两支:<strong>Attention 支</strong>做 QK-Norm + 多模态 3D RoPE 的多头自注意力;<strong>Sparse MoE 支</strong>把稠密 FFN 换成「常开共享专家 <em>N<sub>s</sub></em> + top-<em>K<sub>r</sub></em> 路由专家」。两支都由时间步调制的 (scale, shift, gate) 控制(adaLN-single)。最终回归<strong>速度场</strong>(flow matching)。这张图右上角的 MoE 支就是全文最核心的改动。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h4>① 架构</h4><p>单流 DiT + 稀疏 MoE(共享专家 + 组限制 sigmoid 路由,DeepSeekMoE 血统)。容量-算力解耦:30B 总参 / 3B 激活,推理保持 3B 速度。</p></div>
+  <div class="card"><h4>② 数据</h4><p>Data Profiling Engine 把每条样本打成五维结构化档案 → 世界知识拓扑图做分布感知采样 → 7 万小时具身视频 + 稠密结构化 caption。</p></div>
+  <div class="card"><h4>③ 系统</h4><p>Token 预算打包 + DP/FSDP/SP/EP 四维可组合并行 + compile-first + DeepEP。RL 侧 30B 全参权重同步 20s/step,MFU 43.9%。</p></div>
+  <div class="card"><h4>④ 训练</h4><p>五阶段渐进预训练(192p→1080p)→ 六路奖励 GRPO(单步探索 + CPS)→ 真实视频负样本 DiffusionNFT → A2V 动作条件世界模型 → DMD2 少步蒸馏。</p></div>
+  <div class="card"><h4>⑤ 定位</h4><p>不是「更好看的视频模型」,而是「更懂物理的世界模型」。评测轴是物理合理性 + 任务完成,不是纯美学。开源填补 MoE 视频空白。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>视频生成模型这两年被越来越多人当成<strong>物理世界的隐式模拟器</strong>——既是生成系统,也是能支撑规划、策略学习、想象式控制的<strong>预测型世界模型 (world model)</strong>。但把一个「会画好看视频」的模型改造成「懂具身交互」的模型,中间隔着一道结构性的坎。论文把这道坎拆成三个<strong>互相耦合</strong>的维度:</p>
+<ul>
+<li><strong>架构</strong>:主流视频 DiT 是稠密的——所有参数对所有 token、所有 timestep 一视同仁地激活。视频序列动辄百万 token(1M+),稠密 scale 的推理成本高到不实际。</li>
+<li><strong>数据</strong>:训练语料被互联网视频主导,缺机器人具身先验和精确交互动力学,物理落地弱。</li>
+<li><strong>训练目标</strong>:现有对齐只优化美学和图文一致,不显式约束物理可行性、任务完成、长时程一致性。所以现有系统很难<strong>同时</strong>做到可扩展、物理一致、具身落地。</li>
+</ul>
+<p>LingBot-Video 的答案就是一一对应地打这三个点:MoE 架构解决 scale,机器人增强语料解决数据,多维奖励系统解决目标。它自称是<strong>首个大规模开源 MoE 视频基础模型</strong>——这句话里每个定语都是卖点:MoE(不是稠密)、开源(不是闭源技术报告)、视频基础模型(不是专用小模型)。</p>
+<div class="term-grid">
+  <div class="card"><h4>MoE (Mixture-of-Experts)</h4><p>把一个大 FFN 拆成很多小「专家」,每个 token 只激活其中几个;总参数(容量)很大,但单 token 算力(激活参数)很小。</p></div>
+  <div class="card"><h4>容量-算力解耦</h4><p>MoE 的核心红利:总参数和每 token FLOPs 不再绑死。可以把总容量扩到 30B 装物理先验,却只花 3B 的算力。</p></div>
+  <div class="card"><h4>DiT (Diffusion Transformer)</h4><p>用 Transformer 当扩散模型的去噪主干,是当前视频/图像生成的主流骨架。</p></div>
+  <div class="card"><h4>共享专家 / 路由专家</h4><p>共享专家(shared)对所有 token 常开,学通用物理先验;路由专家(routed)按 token 选,学专门化特征。DeepSeekMoE 的关键设计。</p></div>
+  <div class="card"><h4>QK-Norm</h4><p>算注意力前对 Query、Key 每个 head 做 RMSNorm,防止深层大模型里注意力 logit 爆炸,稳训练。</p></div>
+  <div class="card"><h4>Flow Matching / 速度场</h4><p>扩散的一种连续表述:模型学一个速度场 v(x,t),沿 ODE 把噪声搬到数据。本文预测的就是这个速度。</p></div>
+  <div class="card"><h4>GRPO</h4><p>Group Relative Policy Optimization:同一 prompt 采一组样本,用组内相对好坏当 advantage,免 critic 的 RL 方法(源自 LLM 后训练)。</p></div>
+  <div class="card"><h4>CPS (Coefficients-Preserving Sampling)</h4><p>GRPO 探索时注入噪声的一种 DDIM 式转移,保证注入噪声量正好匹配 schedule,不像 SDE 转换那样超标。</p></div>
+  <div class="card"><h4>DiffusionNFT</h4><p>一种前向过程的扩散 RL 框架:不反传去噪轨迹,直接在单步噪声态上用速度预测构造正/负策略。本文拿它做真实视频负样本微调。</p></div>
+  <div class="card"><h4>A2V (Action-to-Video)</h4><p>动作条件世界模型:给初始帧 + 一串机器人动作,预测未来视觉 rollout。检验模型有没有真学到物理因果。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>这是一篇技术报告,方法不是一条公式而是一整套<strong>设计决策</strong>。先用一张决策表把全篇的关键取舍摆出来,再逐个展开最 load-bearing 的三块:MoE 路由、单步探索 GRPO+CPS、真实视频负样本 DiffusionNFT。</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点</th>
+<th>消融方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>稠密 vs 稀疏</td>
+<td>Dense 1.3B</td>
+<td>Dense 1.3B / MoE 13B-A1.4B(同激活)</td>
+<td><strong>MoE</strong></td>
+<td>同算力下 MoE 训练/验证 loss 全程更低;10× 总参数是更大的物理先验仓库(Fig 5)</td>
+</tr>
+<tr>
+<td>专家池规模 E</td>
+<td>—</td>
+<td>E ∈ {64, 128, 256}(激活固定 1.4B)</td>
+<td><strong>E=128</strong></td>
+<td>64→128 提升大,128→256 边际;128 captures 大部分容量红利又不背通信/存储包袱(Fig 3)</td>
+</tr>
+<tr>
+<td>路由粒度</td>
+<td>粗(64 选 4)</td>
+<td>细(128 选 8)vs 粗(64 选 4),总参固定 13B</td>
+<td><strong>细粒度 128 选 8</strong></td>
+<td>组合路由空间 C(128,8)≫C(64,4),定制化执行路径多;粗路由引发参数级梯度冲突和知识混杂(Fig 4)</td>
+</tr>
+<tr>
+<td>单流 vs 双流</td>
+<td>双流(条件/视觉分开)</td>
+<td>双流 / 单流</td>
+<td><strong>单流</strong></td>
+<td>多模态特征合成更大的 GEMM,MFU 高、kernel launch 少;序列并行下通信更简单,无额外负载不均</td>
+</tr>
+<tr>
+<td>GRPO 探索</td>
+<td>全步随机(Flow-GRPO)</td>
+<td>全步随机 / 单步随机(Flash-GRPO)</td>
+<td><strong>单步随机</strong></td>
+<td>全步随机 + 轨迹级 advantage 造成严重 credit assignment 问题;单步随机让 advantage 在同一 timestep 比较,精确归因</td>
+</tr>
+<tr>
+<td>随机采样方式</td>
+<td>SDE 转换</td>
+<td>SDE / CPS</td>
+<td><strong>CPS</strong></td>
+<td>SDE 的 Euler–Maruyama 注入噪声超标、高噪声区扩散系数爆炸要额外 clip;CPS 按构造保证总噪声匹配 schedule,奖励永远在干净视频上评</td>
+</tr>
+<tr>
+<td>RL 信号来源</td>
+<td>纯奖励模型</td>
+<td>纯 RM / RM + 真实视频负样本</td>
+<td><strong>加真实视频负样本</strong></td>
+<td>纯 RM 有 reward hacking 风险;真实视频当正样本、生成视频当负样本(DiffusionNFT),给一个不可 hack 的锚</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-2-1">2.1 稀疏 MoE:容量-算力解耦(全篇的地基)</h3>
+<p>稠密 FFN 逼所有 token 走同一套参数,在统一视频预训练里会造成<strong>子任务干扰</strong>:一套参数要同时建模空间纹理 vs 时间运动这种非对称域,还要兼容 T2I/T2V/TI2V 多种任务格式,外加扩散本身在高噪声(全局布局)和低噪声(细节重建)之间的 regime shift。MoE 的思路是:每个 block 只把稠密 FFN 换成 token-choice 稀疏 MoE,其余单流残差结构不动。</p>
+<p>给定 token <span class="math inline">\(t\)</span> 的调制后 FFN 输入 <span class="math inline">\(u_t\)</span>,MoE 支输出是共享专家 + 路由专家两部分之和:</p>
+<div class="math block">
+\[m(u_t) = \sum_{i=1}^{N_s} E_i^{(s)}(u_t) + \sum_{j \in R_b(u_t)} g_{t,j}\, E_j^{(r)}(u_t)\]
+</div>
+<p class="math-translation">—— 翻译: 每个 token 先过 N<sub>s</sub> 个「常开」共享专家(不管你是谁都算,负责通用物理先验),再过被路由选中的那几个专家(每个乘上门控权重 g)。前一项是公摊底座,后一项是定制服务。每个专家都是一个 SwiGLU MLP。</p>
+<p>路由怎么选?先算 token 和专家的亲和度(用 sigmoid 而非 softmax),加上一个在线校正 bias 后做<strong>组限制 top-K</strong>:把 <span class="math inline">\(N_r\)</span> 个专家分成 <span class="math inline">\(N_g\)</span> 组,每组按其 top-2 亲和度之和打分,选出 top-<span class="math inline">\(K_g\)</span> 组,再在组内选 top-<span class="math inline">\(K_r\)</span> 个专家:</p>
+<div class="math block">
+\[\alpha_{t,j} = \mathrm{Sigmoid}\!\left(u_t^\top r_j\right), \qquad \tilde\alpha_{t,j} = \alpha_{t,j} + b_j\]
+</div>
+<p class="math-translation">—— 翻译: α 是 token 对每个专家的「想去程度」;r<sub>j</sub> 是第 j 个专家的可学路由嵌入。选专家时用「亲和度 + 校正 bias」的 α̃,但真正的门控权重 g 用的是**不含 bias 的原始 α**——这个「选的时候加 bias、算权重时不加」的不对称是关键(见下方代码)。</p>
+<p>负载均衡不靠辅助 loss 硬压,而是用 DeepSeek 的<strong>无辅助损失</strong>策略:给每个专家一个动态校正 bias <span class="math inline">\(b_j\)</span>,每个 optimizer step 按它的负载偏差符号更新:</p>
+<div class="math block">
+\[b_j \leftarrow b_j - \eta\,\mathrm{sign}(n_j - \bar n)\]
+</div>
+<p class="math-translation">—— 翻译: 哪个专家被选得比平均多(n<sub>j</sub> &gt; n̄),就调低它的 bias 让它下一步少被选;反之调高。只用符号,不用梯度,所以叫「无辅助损失」——不会往主 loss 里塞一个和生成质量打架的均衡项。</p>
+<p>此外还叠了 DeepSeek-V3 的<strong>序列级辅助均衡 loss</strong> <span class="math inline">\(L_{seq}\)</span>(Eq 7–9),因为视频序列很长,batch 级均衡会掩盖单条视频内部的路由失衡——它逼每条打包序列内部专家使用也均衡,最终 <span class="math inline">\(L = L_{diff} + \lambda_{aux}L_{seq}\)</span>。</p>
+<p><strong>代码对照:路由的组限制 top-K。</strong> 论文说「分组、每组按 top-2 之和打分、选 top-<span class="math inline">\(K_g\)</span> 组、组内选 top-<span class="math inline">\(K_r\)</span>」——代码逐字实现了:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L353-L367 — 组限制 top-K 路由(Eq 组路由)</p>
+<pre><code class="language-python">def _group_limited_topk(self, scores_for_choice):
+    seq_len = scores_for_choice.shape[0]
+    experts_per_group = self.num_experts // self.n_group
+    grouped = scores_for_choice.view(seq_len, self.n_group, experts_per_group)
+    group_scores = grouped.topk(2, dim=-1)[0].sum(dim=-1)          # 每组 top-2 之和当组分
+    group_idx = torch.topk(group_scores, k=self.topk_group, dim=-1, sorted=False)[1]  # 选 top-K_g 组
+    group_mask = torch.zeros_like(group_scores)
+    group_mask.scatter_(1, group_idx, 1)
+    score_mask = (group_mask.unsqueeze(-1)
+                  .expand(seq_len, self.n_group, experts_per_group)
+                  .reshape(seq_len, -1))
+    masked = scores_for_choice.masked_fill(~score_mask.bool(), float(&quot;-inf&quot;))  # 落选组置 -inf
+    return torch.topk(masked, k=self.top_k, dim=-1, sorted=False)[1]           # 组内选 top-K_r
+</code></pre>
+<p>而 Eq 2–4 那个「选的时候加 bias、算门控时用无 bias 分」的不对称,代码里有一条明确的 docstring 提醒,并且严格执行:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L369-L385 — sigmoid 路由 + bias 不对称 + route_scale(Eq 2–4)</p>
+<pre><code class="language-python">def forward(self, tokens: torch.Tensor):
+    with torch.amp.autocast(tokens.device.type, enabled=False):
+        logits = F.linear(tokens.float(), self.weight.float())     # fp32 算路由,数值敏感
+    scores = logits.sigmoid() if self.score_func != &quot;softmax&quot; else F.softmax(logits, dim=-1)
+    scores_for_choice = scores + self.e_score_correction_bias.unsqueeze(0)  # 选专家:加 bias
+    if self.n_group is not None and self.n_group &gt; 1:
+        top_indices = self._group_limited_topk(scores_for_choice)
+    else:
+        top_indices = torch.topk(scores_for_choice, k=self.top_k, dim=-1, sorted=False)[1]
+    top_scores = scores.gather(1, top_indices)                     # 门控权重:gather 无 bias 的原始 α
+    if self.top_k &gt; 1 and self.norm_topk_prob:
+        top_scores = top_scores / (top_scores.sum(dim=-1, keepdim=True) + 1e-20)  # 归一化(Eq 4)
+    top_scores = top_scores * self.route_scale                     # 乘缩放因子 γ
+    return top_indices, top_scores.to(tokens.dtype), logits, scores, scores_for_choice
+</code></pre>
+<p>共享专家 + 路由专家的求和(Eq 1)在 block forward 里清清楚楚——路由输出算完再加上共享专家的输出:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L854-L872 — MoE 支前向:路由输出 + 共享专家(Eq 1)</p>
+<pre><code class="language-python">def forward(self, hidden_states, padding_mask=None):
+    tokens = hidden_states.view(-1, self.hidden_size)
+    top_indices, top_scores, *_ = self.router(tokens)
+    out = self._run_selected_experts(tokens, top_scores, top_indices)   # 路由专家加权和
+    out = out.view(B, -1, self.hidden_size)
+    if self.shared_experts is not None:
+        shared_output = self.shared_experts(hidden_states)
+        out = out + shared_output                                       # + 共享专家(常开)
+    return out
+</code></pre>
+<p><strong>规模效应(Fig 6、Fig 7)</strong>:同激活算力下,MoE 13B-A1.4B 全程压过 Dense 1.3B;MoE 30B-A3B 逼近 Dense 14B。总参数从 13B scale 到 120B(激活 1.4B→11B)时训练 loss 可预测下降,符合 scaling law。推理端最漂亮:1M token 下 MoE 30B-A3B 相对 Dense 3B 只有 0.97×(近乎无路由开销),却相对 Dense 6B/14B/30B 分别快 1.50×/2.59×/<strong>3.18×</strong>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig6-scaling.png" alt="训练 loss 对比:(a) Dense 1.3B/3B/6B/14B 与 MoE 13B-A1.4B/30B-A3B 的稠密-稀疏 scaling;(b) MoE 13B/30B/60B/120B 在对齐步数下的 scaling">
+  <figcaption><strong>Fig. 6</strong> — 左:同算力下 MoE(实线)全程压过对应稠密模型(虚线),MoE 30B-A3B 逼近 Dense 14B。右:MoE 从 13B scale 到 120B,对齐步数下模型越大 loss 越低,scaling 可预测。</figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig7-speed.png" alt="MoE 30B-A3B 相对各稠密模型的推理加速比,横轴序列长度 16K 到 1M">
+  <figcaption><strong>Fig. 7</strong> — 加速比 = Dense 延迟 / MoE 30B-A3B 延迟。1M token 下相对 Dense-3B 是 0.97×(路由开销几乎为零),相对 Dense-30B 达 3.18×。稀疏架构把 30B 的容量装进了 3B 的推理速度。</figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 后训练之一:单步探索 GRPO + CPS</h3>
+<p>预训练完是 flow matching 的速度回归;后训练要用 RL 把「物理合理」「任务完成」这些没法直接监督的目标顶上去。论文用六个专门奖励模型(视觉质量、图文对齐、动态程度、运动连贯、人体运动一致、物理合理性)替代传统单标量奖励,再用 GRPO 优化。</p>
+<p>GRPO 需要随机采样才能在组内比较。Flow-GRPO/DanceGRPO 让<strong>每个</strong>去噪步都随机、共享一个轨迹级 advantage——这带来严重的 credit assignment 问题(是哪一步的随机造成了好/坏?说不清)。本文跟 Flash-GRPO:一组 rollout <strong>只在一个</strong>去噪步随机(step index <span class="math inline">\(k\)</span> 从前半 schedule 均匀抽、组内共享),其余步都是确定性 ODE。这样每条轨迹只有一次随机转移,advantage 在同一 timestep 比较,策略更新精确落在产生变化的那一步。</p>
+<p>那一步的噪声注入用 <strong>CPS</strong>(而非常见的 SDE 转换)。给推理 schedule <span class="math inline">\(1=t_0&gt;\dots&gt;t_N=0\)</span>,在 <span class="math inline">\(t_i\)</span> 由速度预测 <span class="math inline">\(\hat v_\theta\)</span> 反解出干净估计和噪声估计,再做转移:</p>
+<div class="math block">
+\[\hat x_0 = x_{t_i} - t_i \hat v_\theta, \qquad \hat\epsilon = x_{t_i} + (1-t_i)\hat v_\theta\]
+</div>
+<div class="math block">
+\[x_{t_{i+1}} = \mu_\theta + s_i \epsilon, \qquad \mu_\theta = (1-t_{i+1})\hat x_0 + \sqrt{t_{i+1}^2 - s_i^2}\,\hat\epsilon, \qquad s_i = t_{i+1}\sin(\eta\pi/2)\]
+</div>
+<p class="math-translation">—— 翻译: 因为 (t²<sub>i+1</sub> − s²<sub>i</sub>) + s²<sub>i</sub> = t²<sub>i+1</sub>,转移后的总噪声正好等于 schedule 规定的系数——注入的探索噪声 s<sub>i</sub>ε 和确定性部分「刚好凑满」,不多不少。η∈[0,1] 调探索强度(实验 0.7)。SDE 转换会注多了,留下伪影污染奖励;CPS 按构造避免,奖励永远在「干净视频」上评。</p>
+<p>不同 timestep 的策略梯度强度随转移增益 <span class="math inline">\(\kappa_k\)</span> 剧烈变化,所以再按增益倒数重加权 <span class="math inline">\(\lambda_k\)</span>(Eq 15–16)拉平各步更新幅度;六个奖励尺度各异,先各自组内标准化再加权融合成单一 advantage(Eq 17)。最终目标是严格 on-policy 的重加权策略梯度,<strong>无 KL 惩罚、无参考模型、全参微调</strong>:</p>
+<div class="math block">
+\[\hat A^{(i)} = \sum_r w_r\,\frac{R_r(x_0^{(i)},c) - \mu_r}{\sigma_r + \delta}, \qquad L_{GRPO}(\theta) = -\,\mathbb{E}\!\left[\lambda_k\,\hat A^{(i)}\,\log\pi_\theta\!\left(x_{t_{k+1}}^{(i)}\mid x_{t_k}^{(i)}\right)\right]\]
+</div>
+<p class="math-translation">—— 翻译: 每个奖励先减均值除标准差(消尺度),加权求和成一个 advantage Â;损失就是「这一步转移的对数似然 × Â × 步权重 λ」的负期望。每批 rollout 只做一次梯度更新,所以重要性比恒为 1,严格 on-policy。</p>
+<h3 id="sec-2-3">2.3 后训练之二:真实视频当负样本的 DiffusionNFT 微调</h3>
+<p>纯靠奖励模型有 reward hacking 风险。论文用一个不可 hack 的锚:<strong>真实视频当正样本(chosen),模型自己生成的当负样本(rejected)</strong>,同一 prompt、同一随机 timestep、同一噪声。优化框架借 DiffusionNFT——<strong>前向过程优化,不反传去噪轨迹</strong>,所以每步很轻。</p>
+<p>维护两条共享底座的预测路径:活跃策略 <span class="math inline">\(\theta\)</span>(收梯度)和 old 策略(θ 的 EMA 拷贝,稳优化)。用它们的速度预测混出一个「隐式正策略」去模仿目标、一个「隐式负策略」去压制:</p>
+<div class="math block">
+\[\hat v_{pos} = \beta\hat v_\theta + (1-\beta)\hat v_{old}, \qquad \hat v_{neg} = (1+\beta)\hat v_{old} - \beta\hat v_\theta\]
+</div>
+<p class="math-translation">—— 翻译: 正策略是活跃与 old 的**内插**(往目标靠一点点,β 控步长);负策略是**外插**(越过 old 往反方向推,主动远离要压制的分布)。β∈(0,1] 控制活跃策略被允许偏离 old 多远。</p>
+<div class="math block">
+\[L_{NFT}(r) = r\,\|\hat v_{pos} - v\|^2 + (1-r)\,\|\hat v_{neg} - v\|^2\]
+</div>
+<p class="math-translation">—— 翻译: v = ε − x₀ 是真值 flow matching 速度,r∈[0,1] 是归一化奖励。真实视频 r=1(只用正项、往它靠),生成视频这里干脆令 r=0(只用负项、只推开它,免掉再挂奖励模型)。总目标 = L<sub>chosen</sub> + L<sub>reject</sub> + λ<sub>KL</sub>L<sub>KL</sub>,KL 项把活跃策略拴在冻结 base 附近防漂移。</p>
+<p>Fig 12/13 的定性对比显示:后训练显著修掉了手/肢体不一致、文字模糊、结构变形(通用),以及机械臂结构畸变、非物理穿透、过早松手、物体复制(具身)。</p>
+<h3 id="sec-2-4">2.4 架构里的两个稳态细节(代码可查)</h3>
+<p><strong>QK-Norm</strong>:论文说「算注意力前对 Q、K 每个 head 做 RMSNorm」。代码里 <code>norm_q</code>/<code>norm_k</code> 是作用在 <code>head_dim</code> 上的 RMSNorm,而且<strong>先 norm 再上 RoPE</strong>:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L211-L250 — QK-Norm(per-head RMSNorm)+ 3D RoPE</p>
+<pre><code class="language-python">class LingBotVideoAttention(nn.Module):
+    def __init__(self, hidden_size, num_heads, norm_eps, qkv_bias, out_bias):
+        ...
+        self.norm_q = LingBotVideoRMSNorm(self.head_dim, norm_eps)  # per-head
+        self.norm_k = LingBotVideoRMSNorm(self.head_dim, norm_eps)
+
+    def forward(self, x, rotary_emb, attention_mask=None, packed_indices=None, ...):
+        q = self.to_q(x).unflatten(2, (self.num_heads, self.head_dim))
+        k = self.to_k(x).unflatten(2, (self.num_heads, self.head_dim))
+        v = self.to_v(x).unflatten(2, (self.num_heads, self.head_dim))
+        q = apply_rotary_emb(self.norm_q(q), rotary_emb)   # 先 QK-Norm,后 RoPE
+        k = apply_rotary_emb(self.norm_k(k), rotary_emb)
+        ...
+</code></pre>
+<p><strong>adaLN-single</strong>:论文说「一次性算共享时间步调制,每 block 加一张 layer-specific 可学表」。代码里 <code>scale_shift_table</code>(6D)加到 token 级 temb 上,chunk 成 6 份(msa/mlp 各 shift/scale/gate),门控走 tanh、scale 走 1+x——而且注释明确点出敏感路径全程 fp32:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L937-L964 — adaLN-single 调制 + fp32 敏感路径</p>
+<pre><code class="language-python">mod = temb6.view(x.shape[0], x.shape[1], -1) + self.scale_shift_table.unsqueeze(0)  # 共享调制 + 每层表
+shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = mod.chunk(6, dim=-1)
+gate_msa, gate_mlp = gate_msa.tanh(), gate_mlp.tanh()
+scale_msa, scale_mlp = 1.0 + scale_msa, 1.0 + scale_mlp
+bulk_dtype = self.attn.to_q.weight.dtype
+attn_in = (self.norm1(x) * scale_msa + shift_msa).to(bulk_dtype)   # 调制/norm 在 fp32,只在 bf16 Linear 边界降精度
+attn_out = self.attn(attn_in, rotary_emb, attention_mask, packed_indices=packed_indices, ...)
+x = x + (gate_msa * self.norm_post_attn(attn_out)).to(x.dtype)     # 门控残差
+</code></pre>
+<h3 id="sec-2-5">2.5 单流里怎么区分「条件 token」和「视觉 token」——代码考证</h3>
+<p>§2.1 说单流把视觉 latent 和条件 token 拼成一条序列,靠「3D MM-RoPE 把它们放到非重叠的 temporal 坐标区间」来区分:条件 token 用纯时间坐标 <span class="math inline">\((i,0,0)\)</span>,视觉 patch 用 <span class="math inline">\((L+1+f, h, w)\)</span>。这句话的代码能逐字对上——而且对上之后能澄清一个常见误解:<strong>RoPE 根本不负责区分模态</strong>。(这也是读者常问的:&quot;RoPE 只是位置编码,凭什么区分是两张视觉图、还是一张语义一张图像?&quot;)</p>
+<p><strong>考证一:RoPE 坐标确实非重叠,但它只管位置。</strong> <code>make_joint_position_ids</code> 逐字实现了论文的坐标分配:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L164-L180 — 3D RoPE 联合位置构造(条件 vs 视觉:非重叠 temporal 区间)</p>
+<pre><code class="language-python">def make_joint_position_ids(text_len, grid_t, grid_h, grid_w, device):
+    # video t 轴起点 = text_len + 1;video 占 (t, h, w)
+    tt = torch.arange(grid_t, device=device) + (text_len + 1)
+    grid = torch.stack(torch.meshgrid(tt, hh, ww, indexing=&quot;ij&quot;), -1).flatten(0, 2)  # (t≥L+1, h, w)
+    text_t = torch.arange(text_len, device=device) + 1
+    text_pos = torch.stack([text_t, zeros, zeros], -1)   # 条件 token: (i, 0, 0),纯时间轴
+    return torch.cat([grid, text_pos], dim=0)            # [video ; text]
+</code></pre>
+<div class="math block">
+\[\text{条件 token}: (i,\,0,\,0),\ i=1..L; \qquad \text{视觉 token}: (L+1+f,\,h,\,w)\]
+</div>
+<p class="math-translation">—— 翻译: 条件 token 全挤在 h=w=0 的时间轴上、编号 1..L;视觉 token 的时间编号从 L+1 起、再铺开 h/w 空间格。两者 temporal 编号不重叠(1..L vs ≥L+1)——和论文 §2.1 一字不差。</p>
+<p><strong>考证二:模态其实靠&quot;走哪个投影&quot;,不是靠 RoPE。</strong> forward 里条件 token 和视觉 token 从一开始就走<strong>两条独立的可学投影</strong>,再 concat 成单流,RoPE 只在拼好之后贴位置:</p>
+<p class="code-source">repo/lingbot_video/transformer_lingbot_video.py:L1132-L1153 — 两条 modality-specific 投影 + 拼接 + 事后 RoPE</p>
+<pre><code class="language-python">x    = self.patch_embedder(patch_tokens)            # 视觉:patchify → Linear 投影
+text = self.text_embedder(encoder_hidden_states)    # 条件:RMSNorm → Linear-SiLU-Linear(CondProjection)
+joint = torch.cat([x, text], dim=1)                 # [video; text] 拼成单流
+rotary = self.rope(make_joint_position_ids(text_lens_list[i], gt, gh, gw, device))  # 只给位置
+</code></pre>
+<p><code>patch_embedder</code>(视觉)和 <code>text_embedder</code>(= <code>LingBotVideoTextEmbedder</code>,条件,见 L197-L205)是两个<strong>完全不同的投影</strong>,把两类 token 送进<strong>不同的特征子空间</strong>。backbone 靠 token 的 content 就知道谁是谁——<strong>RoPE 那一步只贴位置,不贴身份</strong>。</p>
+<p><strong>结论(回应&quot;RoPE 凭什么区分模态&quot;):</strong> 三条职责正交——</p>
+<ul>
+<li><strong>模态身份 = 走哪个投影</strong>(<code>patch_embedder</code> vs <code>text_embedder</code>)→ 内容/特征子空间(代码 L1132 / L1147);</li>
+<li><strong>位置 = 3D RoPE</strong>(条件在时间轴 1..L,视觉在 ≥L+1 加空间)→ 代码 L164-L180;</li>
+<li>temporal 的非重叠只是<strong>位置隔离</strong>;即便两个 token 的 RoPE 坐标撞了,身份也不会撞,因为身份在 content 里。所以&quot;用同一个 t 维度既标模态又标实例&quot;的二义性根本不存在——<strong>t 从不承担模态区分</strong>。</li>
+</ul>
+<p><strong>交叉验证到 Z-Image(arxiv 2511.22699,同源设计的三模态版):</strong> Z-Image 的 S3-DiT 是同一原理的三模态推广——text(Qwen3-4B)、image semantic(SigLIP-2,仅编辑)、VAE image 各过各的 <strong>modality-specific processor</strong>(= 这里的独立投影),再用 3D Unified RoPE 摆位置;编辑时&quot;参考图 vs 目标图&quot;这<strong>同模态</strong>内的两张图,才用 temporal offset + 不同 timestep(clean/noisy)区分实例。可见「<strong>模态靠投影、位置靠 RoPE、同模态实例靠 temporal offset/timestep</strong>」是这一系单流 MM-DiT 的共同法则——LingBot 的两模态版在代码里可完全证实,Z-Image 把它扩到三模态。</p>
+<h3 id="sec-2-6">2.6 数据引擎与级联 refiner(略表)</h3>
+<ul>
+<li><strong>Data Profiling Engine</strong>(Fig 9):每条样本打成结构化/语义/运动/相机/质量五维档案,VLM 标注为主 + TransNetV2 切镜头、LocoTrack 追踪运动、HPSv3 打美学、OmniAID 查 AI 生成。</li>
+<li><strong>世界知识拓扑图</strong>(Fig 10):50,000 叶概念 + 1,000 中间类 → LLM 辅助合并成 25 顶层组;外加动作树。用节点级 loss 反馈上/下采样,补长尾。</li>
+<li><strong>稠密结构化 caption</strong>:图/视频/VLA/第一视角四类共享 JSON schema;推理端用两阶段 <strong>Caption Rewriter</strong>(Expand 用零样本 LLM 出简描述 → Map 用 LoRA 微调模型填 JSON,严格 bounded completion 防幻觉)弥合训练-推理 prompt 分布差。</li>
+<li><strong>级联 refiner</strong>(Fig 8):base 出 480p,refiner 用<strong>阈值化 rectified flow</strong>(<span class="math inline">\(\tau\sim U(0.85,0.95)\)</span>,只在 <span class="math inline">\(t\le\tau\)</span> 的近条件噪声区去噪)升到 1080p,保留 base 的语义和运动,只补高频细节。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig9-data-engine.png" alt="Data Profiling Engine 总览:每条图像/视频被标注成结构、语义、运动、相机、质量五个互补维度的结构化档案">
+  <figcaption><strong>Fig. 9</strong> — Data Profiling Engine。图像和视频被投影到固定 schema(五维档案),再驱动下游的过滤、均衡采样和 captioning。「不用自由文本标注,而是投影到可查询的固定 schema」是这套数据基建能规模化的关键。</figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig11-curriculum.png" alt="五阶段渐进预训练数据课程:图像流(蓝)与视频流(绿)各自的来源占比随阶段演化,分辨率从 192p 升到 1080p">
+  <figcaption><strong>Fig. 11</strong> — 五阶段课程。Stage 1 纯 192p 图像 → Stage 2 加视频 + 注入 7 万小时具身footage → Stage 3 升 480p → Stage 4 挑战聚焦重平衡(通用视频严过滤,稀缺具身源几乎不过滤)→ Stage 5 极小 1080p 精修集(&lt;1%)训 refiner。「渐进」是为了让稀疏 router 逐步专门化,而不是一上来就面对全部异质性。</figcaption>
+</figure>
+<h3 id="sec-2-7">2.7 A2V:把世界模型变成动作条件预测器</h3>
+<p>预训练完的 LingBot-Video 是个 T2V/TI2V 模拟器;A2V 把它改造成「给初始帧 + 机器人动作序列 → 预测未来 rollout」的预测器。三步:①重写 caption 只描述初始状态(加严格未来泄漏检查,逼模型靠动作而非文字驱动演化);②动作转成相对增量、flatten 后过 ActionEmbedder,prepend 一个零动作对齐 <span class="math inline">\(T+1\)</span> 视觉 latent,当残差注入每个 block;③ActionEmbedder 最后一层零初始化,让动作支渐进融入 backbone。用 Fourier GR-1 数据集训 8k 步。</p>
+<figure>
+  <img class="zoomable" src="figures/fig14-a2v.png" alt="LingBot-Video-A2V 架构:frame-wise 动作 reshape 后过 ActionEmbedder,零 prepend 对齐 latent,作为残差注入预训练 block">
+  <figcaption><strong>Fig. 14</strong> — A2V 架构。未来 4T 帧的动作 → 相对动作 → flatten → ActionEmbedder → 零 prepend 对齐 T+1 视觉 latent → 连同时间嵌入注入每个 block。零初始化 ActionEmbedder 末层是稳后训练的关键 trick。</figcaption>
+</figure>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>公开基准(具身/物理向)</strong>:</p>
+<ul>
+<li><strong>RBench</strong>(650 机器人交互 prompt,5 任务类 + 4 具身形态):LingBot-Video <strong>平均 0.620</strong>,开源第一,且<strong>超过闭源 Wan 2.6(0.607)、Seedance 1.5 pro(0.584)、Veo 3(0.563)</strong>。子项里 Manipulation 0.578、Reasoning 0.634、Humanoid 0.758、Quadruped 0.689 均领先或接近最好。</li>
+<li><strong>Physics-IQ Verified</strong>(66 个受控物理实验,I2V 模式):<strong>40.4</strong>,开源第一,险胜 Cosmos 3(39.5),大幅甩开 Hunyuan Video 1.5(33.4)、Wan 2.2 A14B(32.2)。</li>
+</ul>
+<p><strong>内部基准</strong>:TI2V 任务上通用质量 + 具身域<strong>双料第一</strong>;T2V 通用质量第二,但具身域仍稳超 Cosmos——说明即使没有初始图条件,模型也带着内生物理先验。</p>
+<p><strong>规模与效率</strong>:同算力 MoE 全程压稠密;120B 前期 scaling 可预测;1M token 下 MoE 30B-A3B 保持 3B 级速度,相对 Dense-30B 快 <strong>3.18×</strong>。</p>
+<p><strong>用户研究(GSB,400 prompt/对)</strong>:TI2V 上对所有开源基线 Good&gt;Bad(对 Wan 2.2 5B 优势尤大);T2V 上稳赢 Wan 2.2 5B / LongCat / LTX-2.3,和更强的 Hunyuan 1.5、Cosmos 3 接近;整体仍落后最强商用模型。</p>
+<p><strong>系统数字</strong>:RL 侧 30B 全参权重同步 <strong>20s/step</strong>,GB 级中间态跨节点 50ms 内交换,端到端 <strong>MFU 43.9%</strong>;compile-first + 全块激活重算把 MFU 提 <strong>1.9×</strong>。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ul>
+<li><strong>单流打包成 1D 序列</strong>:不 stack 成矩形张量,而是把所有样本的视觉 + 条件 token 拼成一条 <code>[x1,y1,x2,y2,...]</code>,配 cumulative seqlen + attention mask 走 FlashAttention varlen,一次 forward 处理整个打包 batch 且防跨样本注意力泄漏。代码里 <code>packed_indices</code> 路径正是走 <code>flash_attn_varlen_func_v3</code>(transformer_lingbot_video.py:L260-L269),与论文的 token 预算打包一致。</li>
+<li><strong>四维可组合并行</strong>:DP / FSDP(→HSDP)/ SP(Ulysses)/ EP(专家分片,DeepEP 加速 dispatch-combine)用命名多维 device mesh 组合,不改核心训练循环。FSDP sharding 在激活重算和编译决策<strong>之后</strong>才应用,以保证 norm/routing scale 这类数值敏感参数留在 FP32。</li>
+<li><strong>数值敏感路径全程 FP8→FP32 分层</strong>:路由 logits 用 fp32 算(L370-L371);adaLN 调制表、norm、routing gate 保 FP32,只在 bf16 Linear 边界降精度(L944-L948 注释明确写了这替换了旧的 ambient autocast)。Speed-First serving 才把路由专家换成 FP8 Triton kernel。</li>
+<li><strong>专家计算三条后端</strong>:<code>torch._grouped_mm</code> 分组 GEMM(有则用)/ per-expert for-loop 回退 / SGLang fused Triton(可 FP8)——同一 MoE 权重按环境变量切后端(L531-L568, L613-L638),这是「fidelity-first 参考路径 vs speed-first 优化路径」在代码里的落地。</li>
+</ul>
+<p><strong>paper↔code 落差(如实标注)</strong>:开源仓库是<strong>推理 + serving 栈</strong>,不是训练栈。所以:</p>
+<ul>
+<li>✅ <strong>架构完全可查</strong>:MoE 路由(Eq 1–4)、组限制 top-K、QK-Norm、adaLN-single、单流打包注意力,全部逐行对得上,连「选加 bias / 门控不加 bias」的不对称都有 docstring 守着。</li>
+<li>⚠️ <strong>训练/后训练组件不在开源码里</strong>:CPS 转移(Eq 13–16)、六路奖励模型、GRPO 目标(Eq 17–18)、DiffusionNFT 微调(Eq 19–24)、A2V 的 ActionEmbedder、DMD2 蒸馏(Eq 25)——这些是训练时逻辑,仓库里没有对应实现(<code>grep -i action/cps/grpo</code> 在 <code>lingbot_video/</code> 只命中 argparse 的 <code>action=</code>)。推理侧的 scheduler 是 <code>scheduling_flow_unipc.py</code>(UniPC flow),不是训练用的 CPS。想复现后训练得自己按论文公式实现。</li>
+<li>⚠️ <strong>在线 bias 更新 / 序列级辅助 loss(Eq 5–10)</strong> 是训练时行为;推理码里 <code>e_score_correction_bias</code> 只是个已训好的 buffer(L351),不做更新。</li>
+<li>结论:**这是一个&quot;权重 + 推理开源、训练配方靠论文&quot;**的发布形态——架构可信度极高(代码为证),训练配方可信度取决于你信不信论文的公式描述。</li>
+</ul>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>架构-数据-目标三点闭环打得干净</strong>:不是「拿个开源模型 + 具身数据 finetune」,而是从零 scale 一个为具身设计的 MoE。MoE 把「装物理先验要大容量」和「1M token 推理要省算力」这对矛盾解耦得漂亮,3.18× 加速是硬指标。</li>
+<li><strong>评测轴选对了</strong>:RBench + Physics-IQ Verified 都是<strong>物理/具身正确性</strong>基准,不是纯美学。在这两个轴上超过 Wan 2.6 这种闭源强模型,比「VBench 涨零点几」有说服力。</li>
+<li><strong>后训练很克制且有针对性</strong>:六路奖励每个都对应一个具体失败模式(静态塌缩、慢动作、人体畸变、物理穿透),单步探索 GRPO 解决 credit assignment,DiffusionNFT + 真实视频负样本给 reward hacking 上了个锚。这套组合拳的动机链条完整。</li>
+<li><strong>开源诚意</strong>:权重(Dense + MoE)+ 推理码 + rewriter + Diffusers/SGLang 兼容包,架构层面完全可审计。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>训练栈没开源</strong>,复现后训练(GRPO/DiffusionNFT/A2V/DMD2)只能照论文公式自己写——而这些正是「具身」卖点的来源。架构好复现,配方难复现。</li>
+<li><strong>T2V 通用质量仅第二</strong>,GSB 对最强商用模型(Kling-V3、Seedance 2.0 等)仍落后;「开源第一」是真的,但和闭源天花板还有距离。</li>
+<li><strong>物理评测的粒度存疑</strong>:RBench/Physics-IQ 是「看起来符不符合物理」的代理指标,和「能不能真驱动机器人策略」之间还有 gap。A2V 只在 GR-1 + 两个 OOD 集上验证,规模有限。</li>
+<li><strong>六路奖励 + 世界知识拓扑图 + 五阶段课程 = 巨大的工程复杂度</strong>,很多超参(如 <span class="math inline">\(\eta=0.7\)</span>、<span class="math inline">\(\tau\sim U(0.85,0.95)\)</span>、<span class="math inline">\(\lambda_{aux}\)</span>、各奖励权重 <span class="math inline">\(w_r\)</span>)论文给了值但没给敏感性分析,外人调起来是黑盒。</li>
+<li><strong>&quot;world model&quot; 的强主张</strong>主要靠生成质量基准背书,缺「用它做规划/策略学习真能涨点」的下游闭环实验(论文把这些列为 A2V 的 motivation 但没做完整实证)。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>该用</strong>:想要一个开源、推理高效(3B 级速度 / 30B 级容量)、对机器人/具身/物理场景友好的视频/世界模型底座;或想学 MoE 视频 DiT 的工程落地(路由、并行、serving 全套可抄)。</li>
+<li><strong>不该用</strong>:纯追求最高美学质量的创意生成(闭源商用仍更强);或需要开箱即用的具身后训练配方(训练码缺位,得自己实现)。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较 (Cross-validation against similar work)</strong> — LingBot-Video 的后训练同时踩在「扩散 RL」和「MoE」两个已有研究脉络上,拿三篇本库已精读的工作对照它的结论与观察:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>本文 (LingBot-Video)</td>
+<td>MoE 解耦容量/算力 + 多维奖励 GRPO + 真实视频负样本,能做出物理向 SOTA 开源视频世界模型</td>
+<td>全步随机 GRPO credit assignment 差;纯奖励模型会 reward hacking;单步探索 + CPS + DiffusionNFT 修之</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a></td>
+<td>Flow-GRPO 那套 per-step 高斯似然本质是 noisy-<span class="math inline">\(x_s\)</span> 上的 DSM,多出 <span class="math inline">\(d\cdot\kappa\)</span> 目标方差,是它慢的根;换回 flow matching loss × advantage 提速 8–23×</td>
+<td>扩散 RL 的 surrogate 和预训练目标脱节是病灶</td>
+<td><strong>同</strong>:都认为逐步随机 GRPO 有病(本文说 credit assignment,AWM 说目标方差),都想「回到更接近预训练的更新」;<strong>异</strong>:本文靠<strong>单步随机 + CPS</strong> 治标,AWM 靠<strong>换损失函数</strong>治本。两者其实互补,可叠加</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="deepseek-v4-2026" href="../deepseek-v4-2026/index.html">deepseek-v4-2026</a></td>
+<td>MoE(共享+路由专家、无辅助损失均衡、序列级辅助 loss)是 million-token 高效智能的地基</td>
+<td>稀疏路由 + 分组限制是 scale 的关键杠杆</td>
+<td><strong>同</strong>:本文的 MoE 路由(sigmoid 亲和、bias 校正、组限制 top-K、序列级 aux loss)几乎逐条继承 DeepSeekMoE 谱系;<strong>异</strong>:DeepSeek 是 LLM/文本,本文把同一套搬到<strong>视频扩散</strong>并证明在异质视觉 token 上同样吃香</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="worldforge-2026" href="../worldforge-2026/index.html">worldforge-2026</a></td>
+<td>不训练,靠 inference-time 模块就能把 6-DoF 相机轨迹注入 Wan2.1,3D FID/4D FVD SOTA</td>
+<td>视频扩散已隐含足够世界先验,可零训练操控</td>
+<td><strong>异(方法论对立)</strong>:WorldForge 主张「先验够了,推理时挖」;本文主张「先验不够,得从零 scale + 灌具身数据 + RL 对齐」。<strong>同</strong>:都把视频扩散当世界模型用。分歧点是「现有模型的物理先验到底够不够」</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>:① 本文 vs AWM 的差异在<strong>入手层次</strong>——本文改采样过程(单步 + CPS),AWM 改优化目标(损失函数),二者不互斥,理论上叠加能更快更稳;② 本文 vs WorldForge 的分歧在<strong>目标场景</strong>——WorldForge 只要相机可控的创意视频(先验确实够),本文要的是机械臂抓取这种精确物理交互(现成先验确实不够,得灌 7 万小时具身数据),所以一个选零训练、一个选从零 scale,本质是任务对物理精度的要求不同。</p>
+<p><strong>相关工作 (Related work)</strong></p>
+<ul>
+<li><a class="wiki-link" data-slug="self-forcing-2025" href="../self-forcing-2025/index.html">self-forcing-2025</a> — 视频扩散的自展开训练 + DMD 蒸馏;本文 §5.4 的 DMD2 少步蒸馏是同一谱系。</li>
+<li><a class="wiki-link" data-slug="dapo-2025" href="../dapo-2025/index.html">dapo-2025</a> — GRPO 在 LLM 侧的工程修复(Clip-Higher / Dynamic Sampling 等);本文把 GRPO 搬到扩散侧,踩的坑(credit assignment、on-policy)有共性。</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h4>1. 容量-算力解耦是"用大先验但不加推理税"的通法</h4><p>凡是「任务异质、需要大容量装先验、但推理算力受限」的场景(不止视频——多任务感知、长上下文),MoE 的「30B 容量 / 3B 激活」范式都值得抄。关键不是省训练,是省**推理**。</p></div>
+  <div class="card"><h4>2. 奖励拆维,一个奖励对一个失败模式</h4><p>单标量奖励掩盖复杂失败。把「静态塌缩」「慢动作」「人体畸变」「物理穿透」各配一个专门奖励,比调一个大而全的奖励模型更可控、更好 debug。这个「奖励 = 失败模式清单」的思路可迁移到任何多失败模式的生成任务。</p></div>
+  <div class="card"><h4>3. 给 RL 一个不可 hack 的锚</h4><p>纯奖励模型必被 hack。用「真实数据当正、生成当负」的偏好对(DiffusionNFT/RealDPO 思路)给优化钉一个现实锚点,是对抗 reward hacking 的便宜好使的招——生成任务通用。</p></div>
+  <div class="card"><h4>4. 反直觉点:随机"少"一点反而学得准</h4><p>直觉上 RL 探索越多越好,但 Flow-GRPO 全步随机反而因 credit assignment 混乱而学不好;Flash-GRPO 只让**一步**随机,把功劳精确归因到那一步,效果更好。探索的**可归因性**比探索的**量**更重要。</p></div>
+  <div class="card"><h4>5. "开源"可以分层:权重+推理开,训练靠论文</h4><p>LingBot 的发布形态——架构代码完全可审计、训练配方留在公式——是一种现实的开源策略。对读者的启示:判断一个"开源"模型,先看它开的是权重、推理还是训练,三者可信度和可复现性天差地别。</p></div>
+  <div class="card"><h4>6. 反直觉点:数据过滤要"非对称"</h4><p>Stage 4 对通用视频严过滤、对稀缺具身源几乎不过滤——刻意用冗余通用数据换长尾动作数据。均匀的高质量门槛会把稀缺但高价值的数据也筛掉;按来源价值调过滤力度才对。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

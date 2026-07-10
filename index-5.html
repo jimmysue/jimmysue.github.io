@@ -52,6 +52,21 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-02</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/diffusion-opd-2026/index.html">DiffusionOPD: 把 LLM 的 On-Policy Distillation 抬到 diffusion 上, 一个 closed-form 反向 KL 干掉 multi-task RL 的 PPO 噪声</a></h3>
+  <p class="post-card__tldr">Fudan + 阿里 Wan Team (arXiv 2026/05/14)。多任务 diffusion RL 现有两条路都不好走: joint 多目标互相打架 + 难任务被压制, cascade 多阶段繁琐 + 灾难遗忘。DiffusionOPD 抄 LLM 的 On-Policy Distillation (OPD) 思路, 把它从 token 序列搬到 Euler-Maruyama 离散化的反向 SDE: 学生和老师在同一个噪声 schedule 上有同协方差的 one-step Gaussian transition, 反向 KL 解析地坍缩成 $\|\mu^S - \mu^T\|^2 / (2\bar\sigma^2)$, 在 ODE 极限 (a→0) 进一步退化成纯 L2 transition matching (Eq. 12)。配 round-robin 多 teacher (per-task LoRA adapter), 一个 backward 一个 round。SD3.5-M 上 GenEval 0.96 + OCR 0.94 + Aes 6.15, average 0.929 反超 cascade NFT 0.851 / multi-task NFT 0.715, 总 wall-clock 比 cascade 少 ~50 GPU h。论文最有教育意义的是 §3.3: PPO-style 跟 closed-form KL 期望梯度相同, 但 PPO 多一个 $\epsilon_j / \bar\sigma_j$ 的 score-function 项, 是纯方差; 而 closed-form 通过 pathwise gradient 完全消掉这一项。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/worldforge-2026/index.html">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</a></h3>
@@ -157,20 +172,6 @@
       <a class="tag-chip" href="concepts/autoregressive.html">autoregressive</a>
       <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <span class="tag-chip tag-chip--more">+1 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/self-flow-2026/index.html">Self-Supervised Flow Matching for Scalable Multi-Modal Synthesis</a></h3>
-  <p class="post-card__tldr">BFL + MIT:REPA 类外部对齐反向 scaling(encoder 越强 FID 越差),跨模态崩。Self-Flow 把表征学习内嵌到 flow matching — Dual-Timestep Scheduling 给不同 token 加不同噪声制造信息不对称,EMA self-teacher 在 $\min(t,s)$ 上看更干净版本。625M 超 REPA 1B,T2I/V/A 全模态 SOTA。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
 </div>

@@ -215,6 +215,37 @@
         return torch.cat([sem_emb, tex_emb], dim=-1)   # 两路嵌入拼起来注入 DiT
 </code></pre>
 <p>值得一提的是，FLUX.2 原本的 <code>time_guidance_embed</code> 被直接换成了 <code>nn.Identity()</code>（<code>flux2_sefi_transformer.py:L71</code>）——SFD「自己显式管理语义/纹理两个时间步，不再复用 guidance 那一套」。</p>
+<h4>代码：文本 token 与图像 token 如何区分</h4>
+<p>一个容易搞混的点：进 DiT 的 token 只有<strong>两类</strong>——文本 token 与图像 token；而「语义 / 纹理」<strong>不是</strong>靠 token 区分的，它俩是在<strong>通道维</strong>拼进同一批图像 token 里（<code>latents = cat([lat_sem, lat_tex], dim=1)</code>，见 §4.1），靠上面的双时间步嵌入和输出端的通道切分来区分。两套机制正交，别混为一谈。</p>
+<p>那文本 token 和图像 token 又靠什么区分？这是标准的 <strong>FLUX.2 MMDiT 双流（double-stream）结构</strong>——不是靠一个「类型 flag」，而是靠<strong>四重物理隔离</strong>：不同的输入投影、不同的 RoPE 坐标、双流各自的调制权重、固定的「文本在前」拼接顺序。全部写在 forward 里：</p>
+<p class="code-source">repo/sefi/modeling/flux2_sefi_transformer.py:L168-L217 — 文本/图像双流：独立投影 + 独立 RoPE + 顺序拼接</p>
+<pre><code class="language-python">num_txt_tokens = encoder_hidden_states.shape[1]          # ① 先记住文本长度，用于最后划界
+
+# ② 两套独立投影：图像走 x_embedder，文本走 context_embedder
+hidden_states         = self.backbone.x_embedder(hidden_states)
+encoder_hidden_states = self.backbone.context_embedder(encoder_hidden_states)
+
+# ③ 两套独立位置编码：图像=2D 空间网格坐标，文本=专属坐标；文本在前拼接
+image_rotary_emb = self.backbone.pos_embed(img_ids)
+text_rotary_emb  = self.backbone.pos_embed(txt_ids)
+concat_rotary_emb = (
+    torch.cat([text_rotary_emb[0], image_rotary_emb[0]], dim=0),
+    torch.cat([text_rotary_emb[1], image_rotary_emb[1]], dim=0),
+)
+
+# ④ 双流 block：文本、图像始终是两个分开的张量，各用各的时间步调制
+for block in self.backbone.transformer_blocks:
+    encoder_hidden_states, hidden_states = block(
+        hidden_states=hidden_states, encoder_hidden_states=encoder_hidden_states,
+        temb_mod_img=double_stream_mod_img, temb_mod_txt=double_stream_mod_txt,
+        image_rotary_emb=concat_rotary_emb, ...)
+
+# ⑤ 进 single-stream 才拼成一条序列（文本在前），输出时按 num_txt_tokens 切掉文本前缀
+hidden_states = torch.cat([encoder_hidden_states, hidden_states], dim=1)
+# ... single-stream blocks ...
+hidden_states = hidden_states[:, num_txt_tokens:, ...]   # 只解码图像段去算速度预测
+</code></pre>
+<p>一句话：文本与图像不是靠标记位区分，而是 <strong>不同投影层（<code>x_embedder</code> vs <code>context_embedder</code>）+ 不同 RoPE 坐标（<code>img_ids</code> 是 2D 网格、<code>txt_ids</code> 是文本专属坐标）+ 双流各自的调制权重 + 固定的「文本在前」拼接顺序 + <code>num_txt_tokens</code> 边界记账</strong>，五者叠加，让 transformer 从头到尾都清楚每个 token 的模态。这套机制 SeFi 完全继承自 FLUX.2，SFD 的改造只落在时间步与通道那一层。</p>
 <h3 id="sec-2-5">2.5 推理：三阶段异步去噪（论文用二值 mask，代码用 sigma 钳位）</h3>
 <p>推理时 SFD 用一个三阶段异步去噪表（对应 Fig. 2）。论文用两个<strong>二值 mask</strong> <span class="math inline">\(M_s, M_z\)</span> 来形式化「哪一路在当前阶段更新」：</p>
 <div class="math block">
