@@ -47,8 +47,24 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 49 篇论文精读。</p>
+<p class="page__intro">共 50 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/omgsr-2025/index.html">OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</a></h3>
+  <p class="post-card__tldr">OMGSR 把一步真实世界超分（Real-ISR）的成败归结为一个「潜空间鸿沟」：以往方法把低清图 latent 注入到扩散调度器的 t=999（纯噪声）或 t=1（干净图），但低清图 latent 既不是噪声也不是干净图——它最接近预训练扩散在某个**中间时刻 t\*** 的带噪 latent。
+作者用信噪比 (SNR) 把这个「最佳中间时刻」**算出来**（SD2.1-base 上 t\*=273），再用 LRR 损失（LoRA 微调 VAE 编码器）把低清 latent 进一步拉向 t\* 的带噪 latent，然后在 t\* 处做一步去噪。整套是 **GAN 训练**（生成器=扩散模型本身，判别器=DINOv3-ConvNeXt + 多级头），不是师生蒸馏。这就是 [[op4ksr-2026]] 4K 超分的直接前身。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
+      <a class="tag-chip" href="concepts/real-isr.html">real-isr</a>
+      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -179,23 +195,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/real-world-restoration.html">real-world-restoration</a>
       <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
       <span class="tag-chip tag-chip--more">+6 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/boogu-image-2026/index.html">Boogu-Image-0.1：用 1/10 数据做开源「统一生成+编辑」大模型（代码精读）</a></h3>
-  <p class="post-card__tldr">Boogu-Image-0.1 是一个 Apache-2.0 开源的「统一文生图 + 图像编辑」模型族（Base / Edit / Turbo，均 10B），主打照片级真实感和中英双语文字渲染，号称用比同类开源模型少约一个数量级的训练数据做到接近闭源（GPT-Image-2 / Nano-Banana-Pro）的水平。
-架构是 Lumina-Image-2 谱系的 DiT（noise/context/ref 三套 refiner + 双流/单流 MMDiT 块），文本条件来自一个 Qwen3-VL 多模态大模型（既当指令编码器、又当 prompt 改写/推理器）；Turbo 变体用 Decoupled DMD 蒸馏到 4 步、无 CFG。
-⚠️ 正式技术报告尚未发布（仓库标注 &quot;Coming Soon&quot;），本文是基于 README + 推理代码的交叉精读，非官方报告解读。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 </div>

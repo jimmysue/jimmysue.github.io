@@ -47,8 +47,22 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 49 篇论文精读。</p>
+<p class="page__intro">共 50 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sensenova-u1/index.html">SenseNova-U1: Unifying Multimodal Understanding and Generation with NEO-unify Architecture</a></h3>
+  <p class="post-card__tldr">不用 ViT 也不用 VAE 的&quot;理解+生成&quot;统一模型，直接在像素空间做 flow matching，把两条流装进同一个 Mixture-of-Transformers。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -159,20 +173,6 @@
       <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <a class="tag-chip" href="concepts/distillation.html">distillation</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/deepseek-v4-2026/index.html">DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</a></h3>
-  <p class="post-card__tldr">1.6T MoE / 1M context。CSA+HCA 混合注意力把 KV cache 砍到 V3.2 的 10%,残差用 Sinkhorn 投影双随机矩阵稳定 61 层堆叠。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
-      <a class="tag-chip" href="concepts/attention.html">attention</a>
-      <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </div>
 </div>

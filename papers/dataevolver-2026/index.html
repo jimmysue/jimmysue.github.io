@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>DataEvolver:把「被拒样本」变成数据构造策略的梯度</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 把「数据集」换成「策略」——优化对象变了</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 轮级反馈信号——把一轮压成一个五维向量</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Critic:把统计量翻译成自然语言策略——本篇的「梯度」</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 Generator:把覆盖空洞变成定向合成</a></li>
+    <li class="h2"><a href="#sec-3">3. 结果 (Results)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 主结果:相对涨幅显著,但绝对值仍是个位数</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 消融:Critic &gt; Generator,且优势在「构造期」就已产生</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 Scaling 与多样性</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节与代码交叉验证 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸 (Critique)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 这篇工作真正的贡献</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 具体不足 (不是 future work)</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 交叉验证:和相邻工作比,谁在「文字图」这条线上赌了什么</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>DataEvolver: Self-Evolving Multi-Agent Data Construction for Text-Rich Image Generation</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-13</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-13</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Siyu Yan, Yizhen Gao, Yilin Wang, Dongxing Mao, Alex Jinpeng Wang</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.31537">arXiv:2606.31537</a> · <a class="post-meta__link" href="https://github.com/CSU-JPG/DataEvolver">项目页</a> · <a class="post-meta__link" href="https://github.com/CSU-JPG/DataEvolver">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-rich-image-generation.html">text-rich-image-generation</a> <a class="concept-chip" href="../../concepts/dataset-construction.html">dataset-construction</a> <a class="concept-chip" href="../../concepts/multi-agent.html">multi-agent</a> <a class="concept-chip" href="../../concepts/self-improvement.html">self-improvement</a> <a class="concept-chip" href="../../concepts/ocr.html">ocr</a> <a class="concept-chip" href="../../concepts/data-centric-ai.html">data-centric-ai</a> <a class="concept-chip" href="../../concepts/closed-loop.html">closed-loop</a> <a class="concept-chip" href="../../concepts/experience-memory.html">experience-memory</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="静态数据构造 vs DataEvolver 闭环,以及 OCR-F1 随数据规模的 scaling 曲线">
+  <figcaption>
+    <strong>Fig. 1</strong> — 上半:静态构造 (crawl→filter→freeze) 把被拒样本 <em>Discarded</em>;DataEvolver 把 Rejected Samples 经 Critic 转成 <em>Policy Update</em> 回灌下一轮。下半:PixArt-α 在匹配数据预算下的 OCR-F1 scaling——DataEvolver (Ours) 在每个规模都压过 AnyWord / MARIO,且 0.75M 处差距最大 (8.45 vs 4.56)。注意纵轴单位是 <strong>百分点且个位数</strong>,这决定了后面 §5 的所有判断。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>问题重构</h3><p>数据构造 = 策略演化,不是一次性预处理。优化对象是「生产数据的过程 π」,不是「一批冻结的数据」。</p></div>
+  <div class="card"><h3>四智能体闭环</h3><p>Retriever(拉候选) → Verifier(打分+归因) → Critic(反馈→改策略) → Generator(补覆盖空洞),反馈记忆驱动下一轮。</p></div>
+  <div class="card"><h3>无梯度优化</h3><p>整个「优化」发生在自然语言策略空间:改 query、改 prompt、改经验库。不更新任何模型参数,靠 LLM agent 读统计量吐策略。</p></div>
+  <div class="card"><h3>验证器固定</h3><p>Verifier 配置全程冻结、不参与优化——这是让「策略变好」这件事可归因的实验设计前提。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>文字图生成 (text-rich image generation) 是图像生成里最难的设定之一:模型要同时满足<strong>视觉真实、文字可读、语义对齐、版式一致</strong>四件事。一个招牌上的 &quot;FARMERS MARKET&quot; 少一个字母、糊一块,人眼立刻发现,OCR 指标也立刻崩。而模型能力的天花板,越来越不是架构,而是<strong>喂进去的训练数据</strong>。</p>
+<p>现有的大规模多模态数据集 (LAION-5B、COYO-700M、DataComp,以及文字图专用的 MARIO-10M、AnyWord-3M) 几乎都遵循同一个范式:<strong>crawl → filter → freeze</strong>。采集候选、跑一遍固定过滤规则、把通过的冻结成训练集。这个范式在「规模」上很成功,但它把一件事当垃圾扔了——<strong>被拒的样本</strong>。</p>
+<p>论文的观察很朴素但站得住:被拒样本不是噪声,是<strong>诊断证据</strong>。它们能暴露:哪些检索 query 反复产生重复图 (pHash 撞车)、哪些主题始终覆盖不足、哪些版式/字体/文字模式反复触发 OCR 失败。静态管线把这些信号只当作「过滤结果」用掉一次就丢,于是<strong>后面几轮会重复犯同样的错</strong>。</p>
+<p>DataEvolver 的问题重构是:<strong>不要只收集更多样本,要把构造期的失败转成显式反馈,去引导后续的检索规划和定向补全</strong>。换句话说,把「数据构造」从一次性预处理,变成一个<strong>策略执行 → 反馈收集 → 策略修订</strong>的闭环。</p>
+<div class="term-grid">
+  <div class="card"><h4>text-rich image</h4><p>画面里含有大量可读文字的图:招牌、菜单、包装标签、票据、说明书、UI 截图等。评测靠 OCR 读出文字再和 prompt 比对。</p></div>
+  <div class="card"><h4>OCR-F1</h4><p>把生成图跑 OCR,识别出的文字与目标文字做模糊匹配 (阈值 70) 后算 precision/recall 的调和平均。本文的主指标。</p></div>
+  <div class="card"><h4>pHash</h4><p>感知哈希。给图算一个对轻微变化鲁棒的指纹,汉明距离 ≤ 阈值即判近重复,用来去重。</p></div>
+  <div class="card"><h4>Verifier</h4><p>验证器。对每张候选做多维检查 (质量/OCR/语义/去重/水印/文字一致),输出通过与否 + 拒绝原因。全程配置固定。</p></div>
+  <div class="card"><h4>Critic</h4><p>策略演化核心。把一轮的拒绝统计读成一段自然语言反馈,再据此改写下一轮的 query / prompt,并维护经验库。</p></div>
+  <div class="card"><h4>经验库 (Experience Library)</h4><p>一个跨轮持久化的 JSON 记忆,存高价值的语义反馈和有效 query 模式,靠 Add/Delete/Keep 操作防止无限膨胀。</p></div>
+  <div class="card"><h4>覆盖空洞 (coverage gap)</h4><p>某个 topic–subtopic 在通过集里的样本数显著低于均值 (或低于下限)。Generator 专门给这些格子做定向合成。</p></div>
+  <div class="card"><h4>匹配数据预算 (matched budget)</h4><p>所有方法在**同样的训练样本数**下比较 (0.1M/0.25M/0.5M/0.75M),隔离「数据质量」这一个变量。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>DataEvolver 把数据构造形式化成一个<strong>迭代策略精化 (iterative policy refinement)</strong>。整节的骨架只有五个式子,但每一个都在代码里有对应的落点。这一节的写法是:先给式子 → 一句翻译 → 指到 <code>repo/</code> 里实现它的那个函数。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-framework.png" alt="DataEvolver 四智能体闭环:Retriever→Verifier→Critic→Generator,反馈信号驱动 query/experience/prompt 三处更新">
+  <figcaption>
+    <strong>Fig. 2</strong> — 框架总览。左侧 Retriever(拉候选)与 Generator(补空洞)共同喂给中间的 Verifier;Verifier 产出 <em>Feedback Signal</em>(Pass Rate / OCR / Semantic / Image Quality / <strong>Rejection Causes</strong>);Critic(Policy Evolution Core,含 LLM + Experience Library)读它,吐出 <em>Semantic Feedback</em> 和 <em>Next Round Policy</em>,分三路回灌:<strong>Query Update</strong>(给 Retriever)、<strong>Experience Update</strong>(更新记忆)、<strong>Prompt Refinement</strong>(给 Generator)。全图唯一「冻结」的是 Verifier。
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 把「数据集」换成「策略」——优化对象变了</h3>
+<p>传统管线优化的是一批数据 <span class="math inline">\(D\)</span>。DataEvolver 优化的是<strong>生产这批数据的策略</strong> <span class="math inline">\(\pi\)</span>。第 <span class="math inline">\(t\)</span> 轮的策略是一个三元组:</p>
+<div class="math block">
+\[\pi_t = (Q_t,\; P_t,\; E_t)\]
+</div>
+<p class="math-translation">—— 翻译:策略 = (检索策略 $Q_t$,生成 prompt 策略 $P_t$,经验库 $E_t$)。注意 Verifier 的配置<strong>不在这个元组里</strong>——它是固定的裁判,不是被优化的选手。这是全篇最关键的设计取舍:如果裁判也跟着变,你就无法判断「第 5 轮数据比第 1 轮好」到底是策略变聪明了还是裁判放水了。</p>
+<p>在策略 <span class="math inline">\(\pi_t\)</span> 下,系统先产出一批原始候选 <span class="math inline">\(I_{\text{raw}}^t = \{i_1,\dots,i_n\}\)</span>,再经固定验证得到通过集:</p>
+<div class="math block">
+\[I_{\text{pass}}^t \subseteq I_{\text{raw}}^t\]
+</div>
+<p class="math-translation">—— 翻译:候选进来 $n$ 张,固定裁判筛掉一批,剩下的进数据集。子集符号 $\subseteq$ 就是「只减不增」的过滤。</p>
+<p><strong>一个高中生能懂的类比</strong>:这像一家不断改进采购流程的工厂。传统做法是「按固定清单进货 → 质检 → 合格的入库,不合格的扔掉」。DataEvolver 是「每天下班统计今天为什么退货这么多 (太多重复款?某个尺码没人要?),明天照着改进货单」。优化的不是今天这批货,是<strong>进货单本身</strong>。</p>
+<h3 id="sec-2-2">2.2 轮级反馈信号——把一轮压成一个五维向量</h3>
+<p>要让策略能被修订,得先把「这一轮干得怎么样」量化。作者不用单一的 pass/fail,而是一个多维反馈:</p>
+<div class="math block">
+\[s_t = (\rho_t,\; \bar{O}_t,\; \bar{C}_t,\; \bar{I}_t,\; R_t)\]
+</div>
+<p class="math-translation">—— 翻译:一轮的体检报告有五项:$\rho_t$ 通过率、$\bar O_t$ 平均 OCR 质量、$\bar C_t$ 平均语义一致性、$\bar I_t$ 平均图像质量、$R_t$ <strong>拒绝原因向量</strong>(把失败按「模糊 / OCR 失败 / 语义不符 / 版式损坏 / 重复」分类计数)。前四项说「好不好」,第五项说「为什么不好」——第五项才是能拿来改策略的那个。</p>
+<p>这个 <span class="math inline">\(s_t\)</span> 在代码里就是 <code>RejectionVectorRoundTracker._persist_round</code>。每积满一轮 (默认 <code>round_size: 1000</code>) 就把它序列化成一个 payload:</p>
+<p class="code-source">repo/src/utils/trackers.py:317-345 — 把一轮的原始计数落成反馈信号 $s_t$(pass_rate=$\rho$、metrics=$\bar O,\bar C,\bar I$、rejection_vector=$R$)</p>
+<pre><code class="language-python">def _persist_round(self) -&gt; None:
+    &quot;&quot;&quot;Finalise the current round: build vector, call critic, persist JSON.&quot;&quot;&quot;
+    vector = self._build_vector()                       # R_t:按拒绝原因分桶的百分比向量
+    vector.append(self._reason_total)
+    pass_rate = (self.accepted / self.processed) if self.processed else 0.0   # ρ_t
+
+    payload = {
+        &quot;round_id&quot;: self.round_index,
+        &quot;processed&quot;: self.processed,
+        &quot;accepted&quot;: self.accepted,
+        &quot;rejected&quot;: self.rejected,
+        &quot;pass_rate&quot;: round(pass_rate, 6),               # ρ_t
+        &quot;rejection_vector&quot;: vector,                     # R_t
+        &quot;vector_labels&quot;: self.vector_labels,
+        &quot;metrics&quot;: self._metrics_payload(),             # {avg_ocr_conf=Ō, semantic=C̄, quality=Ī, ...}
+        &quot;rejection_reason_counts&quot;: dict(self._reason_counts),
+        &quot;accepted_queries&quot;: sorted(...),                # 哪些 query 产出了通过样本
+        ...
+    }
+</code></pre>
+<p><code>_build_vector</code> 里有个值得一提的细节:一张被拒图可能同时命中多个原因,它把「100 分」按被拒总数均分,再在多原因间<strong>再均分</strong>——<code>weight = base / count</code>——避免一张多标签图把某个原因的占比灌爆 (<code>trackers.py:277-291</code>)。这是把「拒绝原因」做成可比较分布、而非裸计数的工程处理。</p>
+<h3 id="sec-2-3">2.3 Critic:把统计量翻译成自然语言策略——本篇的「梯度」</h3>
+<p>有了 <span class="math inline">\(s_t\)</span>,怎么改 <span class="math inline">\(\pi\)</span>?这里是全篇最反常规的一步。传统机器学习会对某个 loss 求梯度。DataEvolver <strong>没有梯度</strong>——它让一个 LLM 读 <span class="math inline">\(s_t\)</span> 和上一轮 <span class="math inline">\(s_{t-1}\)</span>、以及经验库 <span class="math inline">\(E_{t-1}\)</span>,吐出一段<strong>自然语言反馈</strong> <span class="math inline">\(F_t\)</span>:</p>
+<div class="math block">
+\[F_t = \text{Critic}(s_t,\; s_{t-1},\; E_{t-1})\]
+</div>
+<p class="math-translation">—— 翻译:Critic 对比这一轮和上一轮的拒绝分布 + 翻历史经验,写出一段话,例如「去重失败从 5 涨到 20、水印相关关键词拒绝率高,建议弱化含 watermark 的 query」。这段话就是本方法的「梯度」——它指出策略该往哪个方向调。</p>
+<p>然后用这段反馈<strong>组合</strong>出下一轮策略:</p>
+<div class="math block">
+\[\pi_{t+1} = \text{Compose}(\pi_t,\; F_t,\; E_t)\]
+</div>
+<p class="math-translation">—— 翻译:新策略 = 拿旧策略,按反馈 $F_t$ 改写 query 和 prompt,并更新经验库。整个精化「完全发生在自然语言策略空间」(原文),不碰任何模型权重。这既是它的优点 (便宜、可解释、可追溯),也是它的天花板 (见 §5)。</p>
+<p><span class="math inline">\(F_t = \text{Critic}(\cdot)\)</span> 落在 <code>_generate_semantic_advantage</code>。注意它喂给 LLM 的正是当前轮/上一轮的<strong>拒绝计数</strong>加上 <strong>keyword 表现</strong> (哪些 query 词更多出现在被拒 vs 通过样本里):</p>
+<p class="code-source">repo/src/critic.py:333-360 — F_t = Critic(s_t, s_{t-1}, E_{t-1}):把两轮拒绝计数 + keyword 分析注入 SemanticAdvantageAgent</p>
+<pre><code class="language-python">def _generate_semantic_advantage(self, current, previous) -&gt; str:
+    ...
+    current_counts = current.get(&quot;rejection_counts&quot;) or {}
+    prev_counts = (previous.get(&quot;rejection_counts&quot;) or {}) if previous else {}
+    kw_analysis = current.get(&quot;queries&quot;) or {}          # {accepted:[...], rejected:[...]}
+
+    inject_data = {
+        &quot;current_rejection_counts&quot;: json.dumps(current_counts, ensure_ascii=False),
+        &quot;prev_rejection_counts&quot;: json.dumps(prev_counts, ensure_ascii=False),
+        &quot;keyword_analysis&quot;: json.dumps(kw_analysis, ensure_ascii=False),
+    }
+    text = self.semantic_agent.run_template(inject_data).strip()   # LLM 吐出 4-6 句自然语言反馈 F_t
+    return text or self._fallback_advantage(context)
+</code></pre>
+<p>对应的 prompt (附录 B.2) 明确要求输出「一段 4–6 句连续自然语言,不要 bullet、不要 JSON」,并给了范式:<em>&quot;Blurry sample ratio increased (Prev: 5 -&gt; Curr: 20)... Suggestions: remove watermark-related keywords due to high rejection association.&quot;</em> ——这正是 Fig. 3 那个「去重失败 278 → 148」案例的来源。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-critic-update.png" alt="Critic 把一轮去重失败的拒绝反馈,转成下一轮的 query 多样化策略">
+  <figcaption>
+    <strong>Fig. 3</strong> — Critic-guided policy update 的真实日志。上一轮 query "High resolution auto repair bill or utility bill…" 产生大量 pHash 近重复 (dedup_failure: 278,某条 query 出现 15 次);Critic 总结出「增加 query 多样性:不同版式、配色、书写风格、开票方」;下一轮 dedup 失败降到 148。<strong>这就是 $F_t$ 起作用的可视化</strong>——注意它改的是检索行为,不是任何模型。
+  </figcaption>
+</figure>
+<p><code>Compose(·)</code> 在代码里被拆成两个<strong>并行</strong>分支:更新经验库 + 规划下一轮 query。这里的工程细节是用 <code>ThreadPoolExecutor</code> 同时跑,因为两者都要等 LLM,串行会翻倍延迟:</p>
+<p class="code-source">repo/src/critic.py:251-266 — Compose:advantage 出来后,并行地(经验库更新 || 策略规划)</p>
+<pre><code class="language-python">candidates = self._candidate_queries_from_stats(stats)
+with ThreadPoolExecutor(max_workers=2) as executor:
+    future_exp   = executor.submit(self._update_experience_library, adv_entry, candidates)
+    future_strat = executor.submit(self._plan_strategy, adv_entry)     # 生成下一轮 query
+    self.experience = future_exp.result()      # E_{t+1}
+    strategy        = future_strat.result()    # Q_{t+1} 的 query 列表
+</code></pre>
+<p>生成的新 query 由 <code>feedback_loop</code> 在下一轮开始时压进检索队列——这就完成了 <span class="math inline">\(Q_t \to Q_{t+1}\)</span> 的闭环 (<code>worker/feedback.py:67-104</code>)。经验库更新还有一个「Add | Delete | Keep」的保守协议 (附录 B.2 的 Experience Library prompt),默认 Keep,只有当反馈「确实新颖且显著更强」才 Add——这是防止记忆无限膨胀 / 被噪声污染的护栏。</p>
+<h3 id="sec-2-4">2.4 Generator:把覆盖空洞变成定向合成</h3>
+<p>检索有天花板:稀有主题、复杂版式、长尾文字模式,爬不到就是爬不到。Generator 负责补。它先数每个 topic–subtopic 的覆盖:</p>
+<div class="math block">
+\[G_t(u,v) = \bigl|\{\, i \in I_{\text{pass}}^t : \text{topic}(i)=u,\ \text{subtopic}(i)=v \,\}\bigr|\]
+</div>
+<p class="math-translation">—— 翻译:$G_t(u,v)$ 就是「主题 $u$、子主题 $v$ 这个格子,当前通过集里有几张」。竖线 $|\cdot|$ 是集合计数。显著低于均值、或低于预设下限的格子,标记为「欠代表」,交给生成器补。</p>
+<p>覆盖统计和「每个格子还差几张」的分配落在 <code>count_analyse.py</code>。它先让 LLM 规划需求 (附录 B.1 的 Coverage Planning prompt),再用 <code>scale_count_needs</code> 按缺口 <code>gap</code> 等比缩放、并尊重每格上限:</p>
+<p class="code-source">repo/src/tools/count_analyse.py:105-120 — 把 LLM 规划的「各格需求」按总缺口等比缩放(coverage gap → 定向合成配额)</p>
+<pre><code class="language-python">if raw_total &gt;= gap:
+    ratio = gap / raw_total                     # 需求超过缺口就等比压缩
+    prelim, fracs, used = {}, [], 0
+    for k, v in clipped.items():
+        scaled = v * ratio
+        base = math.floor(scaled)
+        rem = caps_remaining[k]
+        if rem is not None:
+            base = min(base, rem)               # 不超过该格剩余上限
+        prelim[k] = base
+        used += base
+        fracs.append((scaled - base, k))        # 留小数余量,后面按大小分配 leftover
+</code></pre>
+<p>生成图 (Qwen-Image T2I) <strong>走和检索图完全相同的固定 Verifier</strong>。关键闭环:如果某类生成样本反复在 OCR/语义/质量上失败,这些失败也进 <span class="math inline">\(R_t\)</span>,Critic 会把它总结成反馈去<strong>改写生成 prompt</strong> (附录 B.2 的 Prompt Refinement,按 failure_stage 分四种改写规则:generation/quality/semantic/text_consistency failure 各有对应模板)。于是 Generator 不只是「补数量」,而是被同一套反馈机制持续纠偏。</p>
+<h2 id="sec-3">3. 结果 (Results)</h2>
+<p>评测的实验设计问了四个问题:(i) 跨下游模型/基准是否都涨;(ii) Critic 和 Generator 是否都必要;(iii) 优势是否随预算保持;(iv) 构造期的数据质量/失败模式如何变化。下面按证据强度排。</p>
+<h3 id="sec-3-1">3.1 主结果:相对涨幅显著,但绝对值仍是个位数</h3>
+<p><strong>0.75M 匹配预算,主指标 OCR-F1</strong> (Table 1):</p>
+<table>
+<thead>
+<tr>
+<th>下游模型</th>
+<th>基准</th>
+<th>AnyWord</th>
+<th>MARIO</th>
+<th><strong>DataEvolver</strong></th>
+<th>相对最强基线</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PixArt-α</td>
+<td>TextScenesHQ</td>
+<td>0.63</td>
+<td>4.56</td>
+<td><strong>8.45</strong></td>
+<td><strong>+85.3%</strong> (↑3.89)</td>
+</tr>
+<tr>
+<td>PixArt-α</td>
+<td>LongTextBench</td>
+<td>0.54</td>
+<td>6.71</td>
+<td><strong>9.08</strong></td>
+<td><strong>+35.3%</strong> (↑2.37)</td>
+</tr>
+<tr>
+<td>Show-o2</td>
+<td>TextScenesHQ</td>
+<td>0.16</td>
+<td>0.19</td>
+<td><strong>0.45</strong></td>
+<td>↑0.26</td>
+</tr>
+<tr>
+<td>Show-o2</td>
+<td>LongTextBench</td>
+<td>0.21</td>
+<td>0.27</td>
+<td><strong>0.44</strong></td>
+<td>↑0.17</td>
+</tr>
+</tbody>
+</table>
+<p>四个设定 DataEvolver 全部拿到最高 OCR <strong>accuracy / recall / F1</strong>。细看:PixArt-α 上 MARIO 的 <strong>precision 更高</strong> (18.07 vs 14.21),但 recall 低到 2.61,说明 MARIO「宁缺毋滥」——正确匹配的文字实例总量少;DataEvolver 把 recall 拉到 6.01 同时保住 competitive precision,于是平衡后的 F1 赢。当 FID 可用时 (TextScenesHQ),DataEvolver 两个下游都拿最低 FID (68/64)。</p>
+<p><strong>但必须把这些数字放回坐标系</strong>:最好的 OCR-F1 是 <strong>8.45%</strong>。Show-o2 上更是 0.44–0.45%。这不是「文字渲染基本解决、还差一点」,而是「<strong>任务整体还在地板上,DataEvolver 把地板从 4.5 抬到 8.5</strong>」。CLIP Score 也印证:它和 OCR-F1 不总同向 (AnyWord 在 PixArt-α LongTextBench 上 CLIP 最高 0.209,但 OCR-F1 最低),说明全局语义对齐和文字可读是两回事,DataEvolver 买的是后者。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-qualitative.png" alt="AnyWord/MARIO/Ours(0.1M)/Ours(0.75M) 四列定性对比,含 farmers market、chalkboard menu、cartoon owls 三行">
+  <figcaption>
+    <strong>Fig. 4</strong> — 定性对比。DataEvolver 确实缓解了 baseline 的典型崩坏:AnyWord 的 <em>off-topic scene / wrong script</em>、MARIO 的 <em>garbled text / illegible text / missing dialogue</em>。但**诚实地看 "Ours" 那两列**:招牌上是 "FERSH HOUL / Farmzloul / MAREST",黑板上是 "FREESIHY / BUFFED"——依然是**语义无关的乱码字母**,只是「更像文字、版式更端正」了。这张图与其说证明成功,不如说精确标定了当前水平:<strong>OCR 能读出「有清晰文字」,但文字内容仍不可控</strong>。
+  </figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 消融:Critic &gt; Generator,且优势在「构造期」就已产生</h3>
+<p><strong>模块消融</strong> (Table 2, PixArt-α @ 0.1M):</p>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>TextScenesHQ F1</th>
+<th>LongTextBench F1</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Ours</strong></td>
+<td><strong>1.78</strong></td>
+<td><strong>2.16</strong></td>
+</tr>
+<tr>
+<td>w/o Critic</td>
+<td>1.01 (↓0.77)</td>
+<td>0.90 (↓1.26)</td>
+</tr>
+<tr>
+<td>w/o Generator</td>
+<td>1.40 (↓0.38)</td>
+<td>1.37 (↓0.79)</td>
+</tr>
+</tbody>
+</table>
+<p>去掉 Critic 掉得更狠——这坐实了核心主张:<strong>光有验证信号不够,必须有一个模块把「拒绝原因」翻译成策略级反馈</strong>,否则后面几轮无法避开重复的失败模式。去掉 Generator 掉得较轻但一致,说明它主要补覆盖。</p>
+<p>真正有说服力的是<strong>构造期统计</strong> (Table 3),它证明「优势在下游训练之前就产生了」:</p>
+<table>
+<thead>
+<tr>
+<th>变体</th>
+<th>Pass ↑</th>
+<th>OCR Conf. ↑</th>
+<th>Coverage ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>w/o Critic</td>
+<td>0.532</td>
+<td>0.861</td>
+<td>0.935</td>
+</tr>
+<tr>
+<td>w/o Generator</td>
+<td>0.608</td>
+<td>0.914</td>
+<td>0.818</td>
+</tr>
+<tr>
+<td><strong>Ours</strong></td>
+<td><strong>0.671</strong></td>
+<td><strong>0.938</strong></td>
+<td><strong>0.961</strong></td>
+</tr>
+</tbody>
+</table>
+<p>读法:没 Critic → 覆盖还行 (0.935) 但通过率/OCR 置信度双降,说明「广覆盖 ≠ 高质量监督」;没 Generator → OCR 置信度不差但覆盖塌 (0.818),说明「检索能选干净样本但补不了长尾」。两个模块角色互补:<strong>Critic 管方向,Generator 管覆盖</strong>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-ocr-confidence.png" alt="有无 Critic 时,通过样本的构造期 OCR 置信度分布对比(小提琴+箱线图)">
+  <figcaption>
+    <strong>Fig. 5</strong> — 过程级证据。开 Critic 后,通过样本的平均 OCR 置信度从 <strong>0.861 → 0.938</strong>,而 >0.90 的高置信样本占比从 <strong>29.1% → 81.1%</strong>。整个分布向上平移、在 0.90 阈值之上聚集。这说明 Critic 不是「间接把下游分数刷高」,而是**直接改变了被接受的数据本身**——把反复出现的识别失败在后续轮次里变得可避免。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 Scaling 与多样性</h3>
+<p><strong>Scaling</strong> (Table 5):0.1M→0.75M 每个规模 DataEvolver 都压过两个 baseline (PixArt-α TextScenesHQ:1.78→4.17→6.67→8.45)。作者很克制地说这是 <strong>scaling trend 不是 scaling law</strong>——因为没有足够多的数据点和重复实验做正式拟合。</p>
+<p><strong>Critic backbone 敏感度</strong> (Table 4, 10k scale):把 Critic 从 Qwen3.5-<strong>4B</strong> 换成 <strong>35B</strong>,OCR-Acc 0.41→0.66、OCR-F1 0.75→1.14。<strong>更强的 Critic 直接带来更好的数据</strong>——这是个重要信号:方法的上限跟着「读统计写策略」那个 LLM 的能力走。</p>
+<p><strong>语义多样性</strong> (Table 6, 0.5M):为回应「会不会只是聚焦在窄的高质量场景」,作者用固定 taxonomy + 零样本分类器测覆盖。DataEvolver 的 category coverage 96.97% (vs MARIO 90.91% / AnyWord 78.79%)、tail coverage 2.45% (vs 1.76% / 0.61%) 都最高——反馈驱动构造确实召回了更广的场景,尤其长尾。</p>
+<h2 id="sec-4">4. 实现细节与代码交叉验证 (Implementation)</h2>
+<p>这是一套真能跑的异步多进程管线,不是伪代码。以下是把论文主张锚到 <code>repo/</code> 具体函数的交叉验证,含一处<strong>论文与代码不完全一致</strong>的地方。</p>
+<ol>
+<li>
+<p><strong>反馈信号 <span class="math inline">\(s_t\)</span> 的持久化触发</strong>:每积满 <code>round_size</code>(config 默认 1000)张就 <code>_persist_round</code>,并在同一处直接回调 <code>self.critic.on_round(payload, self._last_payload, ...)</code>——即「攒够一轮 → 立刻算反馈 → 立刻改策略」是同步串在 tracker 里的,不是事后批处理 (<code>trackers.py:346-362</code>)。</p>
+</li>
+<li>
+<p><strong>Verifier 是一条分阶段的 worker 流水线</strong>,不是一个函数。候选依次过:去重 (pHash) → 质量 (含水印) → 语义 (CLIP) → 文字一致性,任一阶段挂掉就带着 canonical 原因出队。这印证了论文「OCR first, then dedup, then 三维评估」的描述:</p>
+</li>
+</ol>
+<p class="code-source">repo/src/worker/quality.py:48-73 — Verifier 的质量+水印阶段:打分→check→带原因拒绝(rejection cause 归因)</p>
+<pre><code class="language-python">qscore = await loop.run_in_executor(None, pipeline.qa.score, str(fp), meta.get(&quot;ocr&quot;, {}))
+meta[&quot;quality&quot;] = qscore
+if hasattr(pipeline.qa, &quot;check&quot;):
+    ok, reasons = pipeline.qa.check(qscore, meta.get(&quot;ocr&quot;, {}))
+else:
+    ok = pipeline.qa.accept(qscore, meta.get(&quot;ocr&quot;, {}))
+    reasons = [] if ok else [&quot;legacy_reject&quot;]
+if not ok:
+    pipeline._record_sample_outcome(meta, reasons)          # reasons 进 R_t
+    pipeline.loop_totals[&quot;quality_rejected&quot;] += 1
+    if &quot;has_watermark&quot; in reasons:
+        pipeline.loop_totals[&quot;watermark_rejected&quot;] += 1
+</code></pre>
+<ol start="3">
+<li>
+<p><strong>拒绝原因被 canonical 化后才计数</strong>:原始 reason 字符串 (如 <code>semantic_topic_0.31</code>) 先经 <code>_canonicalize_reason</code> 映射到固定标签集 (<code>ocr_failure</code>/<code>dedup_failure</code>/<code>semantic_topic_fail</code>/…),才进 <span class="math inline">\(R_t\)</span> 向量 (<code>trackers.py:247-275</code>)。这是让 <span class="math inline">\(R_t\)</span> 跨轮可比的前提——否则每轮标签都不一样,Critic 无从对比。</p>
+</li>
+<li>
+<p><strong>无梯度、无参数更新</strong>:全仓库没有任何 <code>.backward()</code> / optimizer step。所谓「优化」全是 LLM agent (<code>SemanticAdvantageAgent</code>/<code>QueryPlannerAgent</code>/<code>ExperienceLibrarianAgent</code>/<code>PromptCriticAgent</code>) 读模板吐 JSON/文本,经 Ollama 本地起模型 (<code>llm/ollama_client.py</code>)。这与论文「refinement operates entirely in natural-language policy space」完全一致。</p>
+</li>
+<li>
+<p><strong>warmup 机制</strong>:前 <code>warmup_rounds</code>(默认 3)轮不启用 Critic 策略,用 base query 生成,攒够历史再切策略 (<code>critic.py:281-285</code> <code>should_use_new_strategy</code> + <code>feedback.py:111-114</code>)。论文正文没强调这个冷启动细节,但它对「前几轮统计不可靠会污染策略」是必要的护栏。</p>
+</li>
+<li>
+<p><strong>⚠️ 论文↔代码的一处不一致 (值得注意)</strong>:论文 §5 把 Verifier 描述成「predefined verification criteria」(固定阈值)。但代码里那条硬阈值路径 <code>QualityAssessor.check()</code> 被<strong>显式标了 <code>DeprecationWarning</code></strong>,提示改用 <code>LLMQualityDecider</code>;且阈值默认值两处对不上——<code>config.yaml</code> 里 <code>min_ocr_coverage: 0.25</code>,而 <code>quality.py</code> 代码内 fallback 默认是 <code>0.04</code>:</p>
+</li>
+</ol>
+<p class="code-source">repo/src/tools/quality.py:272-286 — 被弃用的硬阈值检查:与论文"fixed criteria"的表述存在张力</p>
+<pre><code class="language-python">def check(self, q, ocr_rec) -&gt; Tuple[bool, List[str]]:
+    &quot;&quot;&quot;Apply hard thresholds; return (accepted, reasons). Deprecated.&quot;&quot;&quot;
+    warnings.warn(&quot;QualityAssessor.check() is deprecated; use LLMQualityDecider.&quot;,
+                  DeprecationWarning)
+    reasons = []
+    Q = self.cfg[&quot;quality&quot;]
+    fail(q[&quot;coverage&quot;] &lt; Q.get(&quot;min_ocr_coverage&quot;, 0.04), &quot;coverage_lt&quot;)   # 代码默认 0.04
+    fail(q[&quot;legibility&quot;] &lt; Q.get(&quot;min_legibility&quot;, 0.55), &quot;legibility_lt&quot;)
+    fail(q[&quot;words&quot;] &lt; self.cfg[&quot;ocr&quot;].get(&quot;min_words&quot;, 4), &quot;words_lt&quot;)
+    ...
+</code></pre>
+<p>含义:开源实现里 Verifier 可能走的是一条<strong>更晚加的 LLM 决策路径</strong>,而论文正文按「固定阈值裁判」来叙述。这不影响主结论 (裁判在所有对比里保持一致即可归因),但读者若想精确复现「固定验证」,得先确认实际走的是 <code>check()</code> 硬阈值还是 <code>LLMQualityDecider</code>——两者行为不同。这类「论文写固定规则、代码留了 LLM 后门」的错位,在 agentic 数据管线里很典型。</p>
+<ol start="7">
+<li><strong>实现栈全本地/开源</strong>:query 与 coverage planning 用 Mistral-7B;ExperienceLibrarian/SemanticFeedback/PromptPlanner 用 Qwen3.5-4B;定向合成用 Qwen-Image;OCR 用 PaddleOCR;语义用 CLIP ViT-B/32;Qwen3-VL 仅用于<strong>可选</strong>的 caption/annotation,<strong>不参与</strong> pass/fail 判定 (§5.1 + README 的 backend 表一致)。</li>
+</ol>
+<h2 id="sec-5">5. 批判与延伸 (Critique)</h2>
+<h3 id="sec-5-1">5.1 这篇工作真正的贡献</h3>
+<p>把「数据构造」显式重构成一个<strong>可迭代、可归因、无需训练的策略演化过程</strong>,并给出一个能跑通、全开源本地栈的四智能体实现。最漂亮的是<strong>过程级证据</strong> (Fig. 5 / Table 3):它没停在「下游分数涨了」,而是证明「被接受的数据在构造期就变好了」——把因果从「玄学调参」推进到「可观测的分布平移」。&quot;更强 Critic → 更好数据&quot; (Table 4) 也把方法上限清晰地挂到了一个可替换组件上。</p>
+<h3 id="sec-5-2">5.2 具体不足 (不是 future work)</h3>
+<ul>
+<li><strong>绝对性能仍在地板</strong>。主指标最好 8.45%,Show-o2 上 0.44%。Fig. 4 的 &quot;Ours&quot; 依然是乱码字母。方法证明了「相对更好」,但没接近「文字内容可控」。把 85.3% 的相对涨幅当「基本解决」来读会严重误判——<strong>基数太小,相对涨幅极易放大</strong>。</li>
+<li><strong>主结果只有单次运行,无误差棒</strong>。作者自己承认 scaling 是 trend 非 law。但连主表 (Table 1) 都没给方差/多种子。在 OCR-F1 = 0.44 vs 0.27 这种个位小数的尺度上,不给误差区间,读者无法判断 Show-o2 上的提升是否在噪声内。</li>
+<li><strong>完全依赖 Verifier 可靠性,却没测这个依赖</strong>。整个闭环的「梯度」来自拒绝统计;若 PaddleOCR/CLIP 打分本身有偏 (对某类字体/语言系统性误判),Critic 会把偏见当信号、越迭代越偏。论文把这列为 limitation,但<strong>没有做「注入噪声裁判」的鲁棒性实验</strong>去量化这条链有多脆。</li>
+<li><strong>Critic 是个 LLM 黑箱,「策略演化」缺乏收敛性刻画</strong>。<span class="math inline">\(\pi_{t+1}=\text{Compose}(\pi_t,F_t,E_t)\)</span> 没有任何收敛保证或停止准则的理论;Fig. 3 是一个精选的成功案例 (278→148),但没有「策略震荡 / 反馈自相矛盾 / 经验库退化」的失败案例分析。§4 发现的 warmup/Add-Delete-Keep 护栏恰恰暗示这个闭环并不稳,需要人工护栏兜底。</li>
+<li><strong>开源实现与论文叙述有错位</strong> (§4 第 6 点):Verifier 的「固定阈值」在代码里是被弃用路径 + 配置/代码默认值打架。这让「固定裁判」这一核心实验前提的可复现性打了折扣。</li>
+</ul>
+<h3 id="sec-5-3">5.3 交叉验证:和相邻工作比,谁在「文字图」这条线上赌了什么</h3>
+<p>文字渲染质量差,可以从三个不同的杠杆去撬:<strong>改数据 / 改目标函数 / 改模型</strong>。把 DataEvolver 和本站已精读的三篇放一起,分歧比相似更有信息量:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>撬动的杠杆</th>
+<th>核心做法</th>
+<th>对「文字图」的结论/观察</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DataEvolver</strong> (本文)</td>
+<td><strong>数据构造过程</strong></td>
+<td>拒绝样本→自然语言反馈→改 query/prompt,模型冻结</td>
+<td>光筛不够,要把失败反馈进构造策略;OCR-F1 相对 +85% 但绝对仍个位</td>
+<td>Verifier 偏见会被放大;无收敛保证</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="ggt-100k-2026" href="../ggt-100k-2026/index.html">ggt-100k-2026</a></td>
+<td><strong>数据(配对生成)</strong></td>
+<td>让 MFM (Nano-Banana-2) &quot;画&quot; 出干净 GT,三级质控建 10 万配对</td>
+<td>没有真实配对时,生成式 GT + VLM 复检可造出可训练数据</td>
+<td>依赖 MFM 质量;GT 本身可能幻觉</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="awm-2025" href="../awm-2025/index.html">awm-2025</a></td>
+<td><strong>目标函数(RL)</strong></td>
+<td>把 DDPO 的 per-step 高斯似然换回 flow-matching loss×advantage,用 OCR 当 reward</td>
+<td>OCR reward 的 RL 微调能快速拉文字质量 (23.6× 加速)</td>
+<td>改的是模型;需可微 reward + RL 基建</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a></td>
+<td><strong>模型(规模+RLHF)</strong></td>
+<td>Qwen3-VL 冻结 encoder + MMDiT + 高压缩 VAE + RLHF + DMD 蒸馏</td>
+<td>够大的模型 + RLHF 能把中文长文本渲染做到 LMArena #1</td>
+<td>75 人团队 + 大规模算力</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>:DataEvolver 和 GGT-100K 都押「数据是瓶颈、模型不动」,区别在 GGT-100K 用生成模型<strong>造</strong> ground-truth,DataEvolver 用反馈<strong>筛选并定向补</strong> real+synthetic 混合数据——前者赌生成 GT 的保真度,后者赌 OCR/CLIP 裁判的可靠度,<strong>两者都把风险转移给了一个『打分/生成的外部模型』</strong>。而 AWM / Qwen-Image-2 押「模型/目标才是瓶颈」,直接优化权重。一个尖锐的观察:DataEvolver 用固定 Verifier (含 OCR reward 的离线版) 去<strong>筛数据</strong>,AWM 用几乎同款 OCR 信号去<strong>训模型</strong>——同一个 OCR 信号,一个当过滤器一个当 reward,<strong>天花板可能都卡在这个 OCR 打分器本身的判别力上</strong> (呼应 Table 4:换更强的 Critic 就涨,暗示瓶颈在评估侧)。谁对谁错取决于:在你的预算下,是「好数据便宜、好模型贵」(选 DataEvolver/GGT) 还是反过来 (选 RL/scale)。DataEvolver 的独特价值是<strong>最省</strong>——不训模型、本地小模型就能跑,适合算力受限但想快速提升某个垂直文字域数据质量的场景。</p>
+<div class="term-grid">
+  <div class="card"><h4>启发① 拒绝样本 = 免费梯度</h4><p>任何「采集→过滤」的管线,被丢弃的负样本里都藏着策略改进方向。把拒绝原因做成可跨轮比较的分布 (canonical 化 + 归一),就能喂给一个 LLM 当"梯度"用,零训练成本。</p></div>
+  <div class="card"><h4>启发② 裁判必须冻结才能归因</h4><p>想证明"我的生产过程变好了",就得把评估器钉死。DataEvolver 把 Verifier 排除出可优化变量,是让实验可信的前提——这个设计纪律可迁移到任何自改进系统。</p></div>
+  <div class="card"><h4>反直觉③ 瓶颈在评估侧不在生成侧</h4><p>Table 4 换更强 Critic 就涨、Fig. 4 生成图仍乱码——共同指向:限制这类闭环的往往是"读统计/打分"那个模型的判别力,而非"生成/检索"的能力。要提升,先升级裁判。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
