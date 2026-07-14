@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·03 联合类型与可辨识联合:pi 为什么不用 enum</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 字面量类型与联合:pi 为什么没有一个 enum</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. as const:把值&quot;钉&quot;成字面量类型</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 可辨识联合 + switch 窄化</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·03 联合类型与可辨识联合:pi 为什么不用 enum</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-11</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-11</span> · <span class="post-meta__extra">4-6k 字</span> · <span class="post-meta__extra">20–25 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/union-types.html">union-types</a> <a class="concept-chip" href="../../concepts/discriminated-union.html">discriminated-union</a></div>
+</aside>
+
+<p>前两篇里我们把「值和类型」(<a href="../typescript-1-values/index.html">TS·01</a>)、「形状」(<a href="../typescript-2-shapes/index.html">TS·02</a>)讲清楚了。这一篇进入 TypeScript 最有个性、也最能拉开它和 Python 距离的部分:<strong>联合类型</strong>(union types)。它是把「一个值可能是这几种之一」直接写进类型系统的机制,而 TypeScript 把它用到了极致——一个字符串常量本身就能当类型用,几个这样的常量拼起来就是一个「枚举」。</p>
+<p>这不是花活。pi 这个 AI coding-agent 框架<strong>整个仓库没有一个 <code>enum</code></strong>,取而代之的全是 <code>&quot;a&quot; | &quot;b&quot; | &quot;c&quot;</code> 这样的字符串字面量联合;它的整套事件系统——LLM 一个 token 一个 token 吐出来的流式事件、agent 的生命周期事件——都是用<strong>可辨识联合</strong>(discriminated union)建模的。读懂这一篇,你就拿到了读懂 pi 事件循环的钥匙。</p>
+<p>三章层层递进:先是字面量联合(为什么没有 enum),它是砖块;再是 <code>as const</code>(把值钉成字面量),它是把砖块砌上去时必须的手法;最后是可辨识联合 + switch 窄化(事件系统的骨架),它把砖块砌成了 pi 的整栋事件大厦。这三者在 pi 的真实代码里几乎总是同时出现,所以放在一篇里讲。</p>
+<h2 id="sec-1">1. 字面量类型与联合:pi 为什么没有一个 enum</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>在 Python 里,「一个参数只能取几个固定值之一」你会用 <code>Enum</code>,或者退一步用 <code>Literal[&quot;off&quot;, &quot;on&quot;]</code>。TypeScript 走的是后一条路,而且走得更彻底:<strong>任何一个字符串常量,本身就是一个类型</strong>。<code>&quot;off&quot;</code> 既是一个值,也是一个「只包含 <code>&quot;off&quot;</code> 这一个成员的类型」。把几个这样的字面量类型用 <code>|</code> 拼起来,<code>&quot;off&quot; | &quot;low&quot; | &quot;high&quot;</code>,就得到一个「只能是这三者之一」的类型——这就是 TypeScript 版的枚举,不需要任何 <code>enum</code> 关键字。</p>
+<p>再往前一步:字面量类型不止字符串。数字 <code>200</code>、布尔 <code>true</code> 也都能当类型用,<code>type HttpOk = 200 | 201 | 204</code> 是合法的。但字符串字面量联合是目前最主流、pi 用得最多的形态,因为它自带可读的「名字」。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>type ThinkingLevel = &quot;off&quot; | &quot;low&quot; | &quot;high&quot;</code> 几乎就是 <code>ThinkingLevel = Literal[&quot;off&quot;, &quot;low&quot;, &quot;high&quot;]</code>。区别是 TS 里这是<strong>语言核心语法</strong>,而非 <code>typing</code> 里的一个特例;而且 TS 编译期会<strong>真的</strong>拦住你写 <code>&quot;medium&quot;</code>。</p>
+</blockquote>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 字符串字面量类型:每个字符串常量都是一个"只有它自己"的类型
+type Mode = "off" | "on";        // 联合:值只能是这两个之一
+
+let m: Mode = "on";              // OK
+m = "off";                       // OK
+// m = "auto";                   // 编译错误:"auto" 不能赋给 Mode
+
+// 联合也能混不同种类的类型
+type Id = number | string;       // 值可以是数字,也可以是字符串
+const a: Id = 42;                // OK
+const b: Id = "user-42";         // OK
+
+// 字面量联合当函数参数,调用点就有了"下拉菜单"式的约束
+function setMode(x: Mode): void {
+  console.log(x);
+}
+setMode("off");                  // OK,编辑器还会自动补全 "off" / "on"
+</code></pre>
+<p><code>type Mode = &quot;off&quot; | &quot;on&quot;</code> 读作:定义一个叫 <code>Mode</code> 的类型别名,它是 <code>&quot;off&quot;</code> 和 <code>&quot;on&quot;</code> 两个字面量类型的联合。变量声明成 <code>Mode</code> 后,赋任何不在这两个之内的字符串都会被编译器拒绝。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<ul>
+<li><strong>字面量类型</strong>:字符串字面量(<code>&quot;off&quot;</code>)、数字字面量(<code>42</code>)、布尔字面量(<code>true</code>)都可以直接当类型。<code>&quot;off&quot;</code> 作为类型时,它的唯一合法值就是字符串 <code>&quot;off&quot;</code>。</li>
+<li><strong>联合类型</strong> <code>A | B</code>:表示「A 或 B」。成员可以是任意类型——字面量、<code>interface</code>、<code>number</code>、<code>null</code>,随便混。值属于联合,当且仅当它属于其中至少一个成员。</li>
+<li><strong>为什么 TS 圈子偏爱字面量联合、而非 <code>enum</code></strong>:
+<ol>
+<li><code>enum</code> 会<strong>编译出运行时代码</strong>(一个真实存在的对象),而字面量联合是<strong>纯类型</strong>,编译后彻底消失(见 <a href="../typescript-0-setup/index.html">TS·00 类型擦除</a>)。</li>
+<li>字面量联合的值就是普通字符串:日志里、JSON 里、<code>switch</code> 里直接可读;<code>enum</code> 成员则要 <code>Mode.Off</code> 这样访问,序列化时还要操心是存名字还是存数字。</li>
+<li>pi 在 <code>tsconfig.base.json</code> 里开了 <strong><code>erasableSyntaxOnly: true</code></strong>——这个开关<strong>禁止一切会生成运行时代码的 TS 专有语法</strong>,<code>enum</code>、<code>namespace</code>、参数属性统统被禁。所以 pi 全仓库<strong>根本不可能有 enum</strong>,这既是团队惯例,也是编译器强制的。</li>
+</ol>
+</li>
+</ul>
+<p><code>erasableSyntaxOnly</code> 背后是一个更大的趋势:新的 JS 运行时(Node 22+、Deno、Bun)开始支持<strong>直接运行 <code>.ts</code> 文件</strong>,做法是把类型「剥掉」——但它们只能剥掉「纯类型语法」,遇到 <code>enum</code> 这种「会生成运行时对象」的东西就无能为力。开了这个开关,就等于承诺「我全部代码都能被一剥了之地运行」,<code>enum</code> 自然出局。你在读整个系列时都可以带着这条约束:pi 里凡是「枚举语义」的东西,一定长成字面量联合的样子。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>Literal[&quot;off&quot;, &quot;on&quot;]</code> 和 <code>enum.Enum</code> 的取舍在 Python 里也存在——<code>Literal</code> 轻、直接是字符串值、和 JSON 无缝;<code>Enum</code> 重、有命名空间和方法。TS 的字面量联合就是把「用 <code>Literal</code>」这一派做成了默认。</p>
+</blockquote>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>pi 用字面量联合的地方多到数不清。看 agent 包的核心类型定义,三个典型的「枚举替代品」:</p>
+<p class="code-source">pi/packages/agent/src/types.ts:L41, L49, L289 — 三个用字面量联合替代 enum 的类型</p>
+<pre><code class="language-typescript">export type ToolExecutionMode = &quot;sequential&quot; | &quot;parallel&quot;;
+
+export type QueueMode = &quot;all&quot; | &quot;one-at-a-time&quot;;
+
+export type ThinkingLevel = &quot;off&quot; | &quot;minimal&quot; | &quot;low&quot; | &quot;medium&quot; | &quot;high&quot; | &quot;xhigh&quot; | &quot;max&quot;;
+</code></pre>
+<p>再看 harness(文件系统抽象层)里两个更「枚举味」的例子——一个描述文件种类,一个是一整套稳定的错误码:</p>
+<p class="code-source">pi/packages/agent/src/harness/types.ts:L108, L111-L121 — FileKind 与 FileErrorCode</p>
+<pre><code class="language-typescript">export type FileKind = &quot;file&quot; | &quot;directory&quot; | &quot;symlink&quot;;
+
+export type FileErrorCode =
+	| &quot;aborted&quot;
+	| &quot;not_found&quot;
+	| &quot;permission_denied&quot;
+	| &quot;not_directory&quot;
+	| &quot;is_directory&quot;
+	| &quot;invalid&quot;
+	| &quot;not_supported&quot;
+	| &quot;unknown&quot;;
+</code></pre>
+<p><strong>对照</strong>:<code>FileErrorCode</code> 换成别的语言几乎必然是个 <code>enum ErrorCode { Aborted, NotFound, ... }</code>。pi 里它就是八个字符串的联合。好处立刻显现:一个 <code>FileError</code> 抛出来,<code>err.code === &quot;not_found&quot;</code> 直接可读、可比较、可以进 JSON 日志,不需要 <code>ErrorCode.NotFound</code> 这层间接;而编译器仍然保证你不会手滑写出 <code>&quot;notfound&quot;</code>(少了下划线)这种拼写错误。<code>ThinkingLevel</code> 七个档位同理——它最终要塞进发给 LLM API 的 JSON,字符串形态天然合适。</p>
+<p>还有一层容易被忽略的好处:因为 <code>FileErrorCode</code> 是纯类型,一个下游函数收到 <code>code: FileErrorCode</code> 时,可以在 <code>switch (code)</code> 里让编译器检查「八种错误码是不是都处理到了」。换成 <code>enum</code>,你既失去了「值本身就是可读字符串」的便利,还多背了一个运行时对象——在一个跨 ~30 家 LLM provider、错误码要在进程与日志间来回传递的系统里,前者的可序列化性是刚需。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>默认就用字面量联合,不要找 <code>enum</code></strong>:这是现代 TS 的主流写法,pi 靠 <code>erasableSyntaxOnly</code> 把它变成了硬约束。你读 pi 时遇到的每一个「枚举」都长这样。</li>
+<li><strong>字面量联合的值即字符串本身</strong>:调试时你看到的是 <code>&quot;not_found&quot;</code> 而不是某个枚举对象,序列化零成本——这是它压过 <code>enum</code> 的最实际理由。</li>
+<li><strong>联合不限于字面量</strong>:<code>number | string</code>、<code>Foo | null</code>、<code>interface A | interface B</code> 都是合法联合;字面量联合只是它最常用的一个特例。下一章的可辨识联合,本质就是「成员为对象、且共享一个字面量 tag 字段」的联合。</li>
+<li><strong>联合成员越多越要给它起类型别名</strong>:pi 把 <code>&quot;off&quot; | ... | &quot;max&quot;</code> 命名为 <code>ThinkingLevel</code>,而不是在每个用到的地方重复写一长串——别名让签名可读,也让「档位集合」有了单一定义处,改一处即可。</li>
+</ul>
+<h2 id="sec-2">2. <code>as const</code>:把值&quot;钉&quot;成字面量类型</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>上一章说「<code>&quot;off&quot;</code> 是一个字面量类型」,但这里有个坑:TypeScript 在<strong>推断</strong>变量类型时,默认会<strong>放宽</strong>(widen)字面量到它的「基础类型」。你写 <code>let x = &quot;text&quot;</code>,TS 推断的是 <code>x: string</code>(宽类型),不是 <code>x: &quot;text&quot;</code>(字面量)——因为 <code>let</code> 可变,推成字面量太严了。可一旦你要把这个值塞进 <code>type: &quot;text&quot; | &quot;toolCall&quot;</code> 这样的联合字段,宽的 <code>string</code> 就<strong>塞不进去</strong>了。<code>as const</code> 就是那句「别放宽,给我钉死成字面量」的指令。</p>
+<p>为什么 TS 要默认放宽?因为 <code>let x = &quot;text&quot;</code> 是可变的,你后面很可能想 <code>x = &quot;other&quot;</code>。如果推成字面量 <code>&quot;text&quot;</code>,那第二次赋值就非法了,太憋屈。所以 TS 的策略是:可变位置默认放宽,需要严格时你用 <code>as const</code> 显式要回来。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:Python 没有这个「推断放宽」问题——<code>Literal</code> 是你显式标注的,不是推断出来的。TS 的 <code>as const</code> 相当于对着一个字面量说「把它当 <code>Literal</code> 而不是 <code>str</code>」。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 目标类型:一个可辨识联合,tag 字段 type 只能是字面量
+type Block =
+  | { type: "text"; text: string }
+  | { type: "image"; url: string };
+
+// 不加 as const:对象字面量里的 "text" 被推断成宽的 string
+const wide = { type: "text", text: "hi" };
+//    wide 的类型是 { type: string; text: string }
+// const b1: Block = wide;   // 编译错误:string 不能赋给 "text" | "image"
+
+// 加 as const:type 被钉成字面量 "text",整个对象刚好匹配某一支
+const narrow = { type: "text" as const, text: "hi" };
+//    narrow 的类型是 { type: "text"; text: string }
+const b2: Block = narrow;    // OK
+
+// 也可以对整个对象加 as const(把每个字段都钉成字面量 + 只读)
+const b3 = { type: "image", url: "x" } as const;  // { readonly type: "image"; readonly url: "x" }
+</code></pre>
+<p>关键差异就在 <code>type: &quot;text&quot;</code> 和 <code>type: &quot;text&quot; as const</code> 之间:前者推断出 <code>string</code>,后者推断出字面量 <code>&quot;text&quot;</code>。只有后者能通过「这个对象是不是 <code>Block</code> 某一支」的检查。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<ul>
+<li><strong>字面量放宽(widening)</strong>:用 <code>let</code>/<code>const</code> 声明或作为对象字面量的属性时,TS 默认把 <code>&quot;text&quot;</code> 推成 <code>string</code>、<code>42</code> 推成 <code>number</code>、<code>true</code> 推成 <code>boolean</code>。这是为了让「可变的变量后续能被赋别的值」这件事合理。</li>
+<li><strong><code>x as const</code></strong>:一个<strong>常量断言</strong>(const assertion)。作用于一个字面量或字面量组成的表达式,告诉编译器:
+<ul>
+<li>字符串/数字/布尔字面量<strong>保留为字面量类型</strong>,不放宽;</li>
+<li>对象/数组的<strong>所有属性变为 <code>readonly</code></strong>,数组变成只读元组。</li>
+</ul>
+</li>
+<li><strong>两种粒度</strong>:<code>{ type: &quot;text&quot; as const, text: s }</code> 只钉 <code>type</code> 这一个字段(其余照常推断);<code>{ ... } as const</code> 钉整个对象的所有字段。pi 里常用前者——它只需要 tag 字段是字面量,<code>text</code> 字段保持普通 <code>string</code> 即可。</li>
+<li>它<strong>不是类型转换</strong>:<code>as const</code> 不改变运行时的值(那还是普通字符串 <code>&quot;text&quot;</code>),只影响编译器如何推断类型。运行后 <code>as const</code> 和它作用的位置一起被擦除。</li>
+</ul>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 在把内部消息「归一化」成发给 LLM 的标准格式时,大量构造 <code>{ type: &quot;text&quot;, text: ... }</code> 这样的内容块。因为目标类型的 <code>type</code> 字段是字面量联合,这里必须用 <code>as const</code>:</p>
+<p class="code-source">pi/packages/agent/src/harness/messages.ts:L133-L152 — 构造内容块时用 as const 钉住 tag 字段</p>
+<pre><code class="language-typescript">				case &quot;custom&quot;: {
+					const content = typeof m.content === &quot;string&quot; ? [{ type: &quot;text&quot; as const, text: m.content }] : m.content;
+					return {
+						role: &quot;user&quot;,
+						content,
+						timestamp: m.timestamp,
+					};
+				}
+				case &quot;branchSummary&quot;:
+					return {
+						role: &quot;user&quot;,
+						content: [{ type: &quot;text&quot; as const, text: BRANCH_SUMMARY_PREFIX + m.summary + BRANCH_SUMMARY_SUFFIX }],
+						timestamp: m.timestamp,
+					};
+</code></pre>
+<p><strong>对照</strong>:注意 <code>{ type: &quot;text&quot; as const, text: m.content }</code>。如果去掉 <code>as const</code>,这个对象字面量里的 <code>type</code> 会被推成 <code>string</code>,而 <code>content</code> 字段期望的是一个 tag 为字面量 <code>&quot;text&quot;</code> 的内容块联合——<code>string</code> 塞不进去,编译直接报错。<code>as const</code> 精准地只把 <code>type</code> 钉成字面量 <code>&quot;text&quot;</code>,而 <code>text</code> 字段仍是普通 <code>string</code>(它本来就该是)。这正是「只钉 tag 字段」这一惯用法的实战样本,而且它在同一个函数里出现了三次(L134/L144/L151),说明这是 pi 里高频的固定套路。</p>
+<p>这段代码本身是 pi 的消息归一化逻辑:它把内部形态各异的消息(<code>custom</code>、<code>branchSummary</code>、<code>compactionSummary</code>……又是一个可辨识联合,tag 是 <code>m</code> 的种类)统一转换成 <code>{ role, content, timestamp }</code> 这种能直接喂给 LLM 的标准格式。可以看到,构造标准内容块时那个 <code>type: &quot;text&quot;</code> 的 tag 全靠 <code>as const</code> 才对得上类型——第二章的 <code>as const</code> 和第三章的可辨识联合,在这里同时出场。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong>看到 <code>type: &quot;x&quot; as const</code> 就懂它在干嘛</strong>:它在把 tag 字段钉成字面量,好让这个对象能匹配某个可辨识联合的一支——这是 pi 构造事件/消息的标配写法。</li>
+<li><strong>报错「<code>string</code> is not assignable to <code>&quot;text&quot; | ...</code>」时,九成是漏了 <code>as const</code></strong>:这是 TS 新手最常撞的墙,根因就是字面量被放宽了。</li>
+<li><strong><code>as const</code> 是零成本抽象</strong>:它只在编译期起作用,运行时那个值还是朴素字符串,不像 <code>enum</code> 会留下一个真实对象。</li>
+<li><strong>只钉 tag、不钉整块</strong>:pi 用 <code>type: &quot;text&quot; as const</code> 而不是给整个对象加 <code>as const</code>,因为它只需要 tag 是字面量;整块 <code>as const</code> 会把 <code>text</code> 也变成只读字面量,反而束缚了后续赋值。</li>
+</ul>
+<h2 id="sec-3">3. 可辨识联合 + switch 窄化</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>前两章准备的零件,在这里组装成 TypeScript 最强大的一个模式。<strong>可辨识联合</strong>(discriminated union,也叫 tagged union):一个联合类型,它的<strong>每个成员都带一个同名的字面量字段</strong>作为「标签」(tag,常叫 <code>type</code> 或 <code>role</code>)。因为每一支的 tag 值互不相同,编译器可以靠「读一下 tag」就判定你手上的值到底是哪一支——这个过程叫<strong>窄化</strong>(narrowing)。于是 <code>switch (event.type)</code> 之后,每个 <code>case</code> 分支里,<code>event</code> 的类型自动收窄到对应那一支,你可以安全地访问那一支<strong>独有</strong>的字段。</p>
+<p>可辨识联合之所以「可辨识」,就在于那个 tag 字段:不同支的 tag 值互斥,编译器读一眼 tag 就能唯一确定是哪一支。这跟第二章连起来了——正因为 tag 是<strong>字面量类型</strong>(靠 <code>as const</code> 或类型定义钉住),编译器才知道「<code>type</code> 是 <code>&quot;start&quot;</code>」这件事精确到某一支;如果 tag 被放宽成 <code>string</code>,窄化就失效了。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:很像对 <code>msg[&quot;type&quot;]</code> 做 <code>match/case</code>,每个 case 处理一种消息。但有本质区别:Python 的 <code>match</code> 是<strong>运行时</strong>行为,访问 <code>msg[&quot;url&quot;]</code> 对不对要跑起来才知道;TS 的窄化是<strong>编译期</strong>的——进错分支访问了不存在的字段,代码根本编译不过,还能检查你有没有漏掉某一支(穷尽性)。</p>
+</blockquote>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 可辨识联合:每支都有一个字面量 tag 字段 kind,但各带不同的独有字段
+type Shape =
+  | { kind: "circle"; radius: number }
+  | { kind: "rect"; width: number; height: number };
+
+function area(s: Shape): number {
+  switch (s.kind) {                 // 对 tag 字段做 switch
+    case "circle":
+      // 这一支里,s 被窄化为 { kind: "circle"; radius: number }
+      return Math.PI * s.radius ** 2;   // 访问 radius 安全;访问 s.width 会编译报错
+    case "rect":
+      // 这一支里,s 被窄化为 { kind: "rect"; width; height }
+      return s.width * s.height;
+  }
+}
+
+console.log(area({ kind: "circle", radius: 2 }));   // 12.566...
+console.log(area({ kind: "rect", width: 3, height: 4 }));  // 12
+</code></pre>
+<p>在 <code>case &quot;circle&quot;:</code> 分支里,编译器<strong>知道</strong> <code>s.kind</code> 是 <code>&quot;circle&quot;</code>,于是把 <code>s</code> 收窄到 circle 那一支——此时 <code>s.radius</code> 合法,而写 <code>s.width</code> 会当场报错(circle 支里没有 <code>width</code>)。这就是「读 tag → 收窄 → 安全访问独有字段」的全过程。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<ul>
+<li><strong>构成条件</strong>:一个联合是「可辨识」的,当且仅当所有成员共享一个<strong>字面量类型</strong>的公共字段(tag)。<code>{ kind: &quot;circle&quot; } | { kind: &quot;rect&quot; }</code> 可辨识;<code>{ x: number } | { y: number }</code> 不可辨识(没有公共字面量字段)。</li>
+<li><strong>窄化触发点</strong>:<code>switch (v.tag)</code> 的每个 <code>case</code>、<code>if (v.tag === &quot;circle&quot;)</code> 的分支内部,编译器都会把 <code>v</code> 收窄到 tag 值匹配的那一支。这是编译器内建的控制流分析。</li>
+<li><strong>窄化后的能力</strong>:收窄到某一支后,该支<strong>独有</strong>的字段可安全访问;访问别支才有的字段是编译错误。</li>
+<li><strong>穷尽性检查(exhaustiveness)</strong>:当 <code>switch</code> 覆盖了联合的所有支,<code>switch</code> 之后的 <code>v</code> 类型收窄为 <code>never</code>(不可能的类型)。若之后新增了一支却忘了加 <code>case</code>,配合 <code>default</code> 里的 <code>never</code> 断言就能让编译器<strong>报错提醒</strong>——这是可辨识联合相较 Python <code>match</code> 的杀手锏,详见 <a href="../typescript-4-narrowing/index.html">TS·04 窄化与类型守卫</a>。</li>
+<li><strong>窄化也能用 <code>if</code></strong>:<code>switch</code> 只是最常见的入口;<code>if (v.tag === &quot;circle&quot;) { ... }</code> 的花括号内部同样会窄化。<code>switch</code> 在「支很多」时更整洁,还便于配合上面的穷尽性检查。</li>
+</ul>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>pi 的整套流式协议就是可辨识联合。先看 <code>ai</code> 包定义的「LLM 一边生成、一边吐出来」的事件流,tag 字段是 <code>type</code>:</p>
+<p class="code-source">pi/packages/ai/src/types.ts:L460-L473 — AssistantMessageEvent:以 type 为 tag 的可辨识联合</p>
+<pre><code class="language-typescript">export type AssistantMessageEvent =
+	| { type: &quot;start&quot;; partial: AssistantMessage }
+	| { type: &quot;text_start&quot;; contentIndex: number; partial: AssistantMessage }
+	| { type: &quot;text_delta&quot;; contentIndex: number; delta: string; partial: AssistantMessage }
+	| { type: &quot;text_end&quot;; contentIndex: number; content: string; partial: AssistantMessage }
+	| { type: &quot;thinking_start&quot;; contentIndex: number; partial: AssistantMessage }
+	// ... 省略 thinking_delta / thinking_end / toolcall_* 若干支 ...
+	| { type: &quot;toolcall_end&quot;; contentIndex: number; toolCall: ToolCall; partial: AssistantMessage }
+	| { type: &quot;done&quot;; reason: Extract&lt;StopReason, &quot;stop&quot; | &quot;length&quot; | &quot;toolUse&quot;&gt;; message: AssistantMessage }
+	| { type: &quot;error&quot;; reason: Extract&lt;StopReason, &quot;aborted&quot; | &quot;error&quot;&gt;; error: AssistantMessage };
+</code></pre>
+<p>上层 agent 运行时再定义一套更粗粒度的生命周期事件 <code>AgentEvent</code>,同样以 <code>type</code> 为 tag,注意每支带的字段各不相同(<code>agent_end</code> 带 <code>messages</code>、<code>tool_execution_start</code> 带 <code>toolCallId</code>/<code>toolName</code>/<code>args</code>):</p>
+<p class="code-source">pi/packages/agent/src/types.ts:L415-L429 — AgentEvent:agent 生命周期的可辨识联合</p>
+<pre><code class="language-typescript">export type AgentEvent =
+	// Agent lifecycle
+	| { type: &quot;agent_start&quot; }
+	| { type: &quot;agent_end&quot;; messages: AgentMessage[] }
+	// Turn lifecycle - a turn is one assistant response + any tool calls/results
+	| { type: &quot;turn_start&quot; }
+	| { type: &quot;turn_end&quot;; message: AgentMessage; toolResults: ToolResultMessage[] }
+	// Message lifecycle - emitted for user, assistant, and toolResult messages
+	| { type: &quot;message_start&quot;; message: AgentMessage }
+	| { type: &quot;message_update&quot;; message: AgentMessage; assistantMessageEvent: AssistantMessageEvent }
+	| { type: &quot;message_end&quot;; message: AgentMessage }
+	// Tool execution lifecycle
+	| { type: &quot;tool_execution_start&quot;; toolCallId: string; toolName: string; args: any }
+	// ... tool_execution_update / tool_execution_end ...
+</code></pre>
+<p>最后看这套联合怎么被消费。agent 主循环 <code>for await</code> 从流里逐个取事件,<code>switch (event.type)</code> 分发——这就是 3.1 讲的窄化在真实代码里的样子(<code>for await</code> 是异步迭代,只此带过,详见 <a href="../typescript-7-async/index.html">TS·07 异步与流式</a>):</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L319-L339 — for await + switch(event.type) 消费事件流并窄化</p>
+<pre><code class="language-typescript">	for await (const event of response) {
+		switch (event.type) {
+			case &quot;start&quot;:
+				partialMessage = event.partial;
+				context.messages.push(partialMessage);
+				addedPartial = true;
+				await emit({ type: &quot;message_start&quot;, message: { ...partialMessage } });
+				break;
+
+			case &quot;text_start&quot;:
+			case &quot;text_delta&quot;:
+			case &quot;text_end&quot;:
+			// ... thinking_* / toolcall_* 多支合并处理,归为一类 ...
+				if (partialMessage) {
+					partialMessage = event.partial;
+					context.messages[context.messages.length - 1] = partialMessage;
+					// ...
+				}
+</code></pre>
+<p><strong>对照</strong>:三段串起来看,可辨识联合的完整链路就清晰了。<code>AssistantMessageEvent</code> / <code>AgentEvent</code> 用 <code>type</code> 字面量当 tag 定义「值可能是这十几种事件之一」;<code>agent-loop.ts</code> 里 <code>switch (event.type)</code> 一进 <code>case &quot;start&quot;:</code>,<code>event</code> 就被编译器窄化到 <code>{ type: &quot;start&quot;; partial: AssistantMessage }</code> 这一支,于是 <code>event.partial</code> 可以安全访问——如果在 <code>&quot;start&quot;</code> 支里写 <code>event.delta</code>(那是 <code>text_delta</code> 支才有的字段),编译器会当场报错。注意 pi 把 <code>text_start</code>/<code>text_delta</code>/…/<code>toolcall_end</code> 一串 <code>case</code> <strong>堆叠</strong>在一起共用一段逻辑:这也是可辨识联合的常见用法——这些支恰好都带 <code>partial</code> 字段,所以合并处理时访问 <code>event.partial</code> 依然类型安全。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>看到 <code>type</code> / <code>role</code> / <code>kind</code> 这类字面量字段,就该意识到它是可辨识联合的 tag</strong>:pi 的事件、消息、内容块全按这个套路建模,认出 tag 是读懂它们的第一步。顺着 tag 去看每一支带什么字段,就摸清了整个协议。</li>
+<li><strong>窄化是编译期的、免费的</strong>:进错分支访问不存在的字段编译就挂,不用写运行时的 <code>isinstance</code>/<code>assert</code>;这是相较 Python <code>match</code> 的核心优势——<code>match</code> 匹配对了也不会帮你检查「这个分支里能不能访问某字段」。</li>
+<li><strong>多个 <code>case</code> 可以堆叠共用逻辑</strong>,但只有这些支都拥有的字段才能在合并分支里安全访问——想访问某支独有字段,得把它单独拆成一个 <code>case</code>。</li>
+<li><strong>tag 字段必须是字面量类型才能触发窄化</strong>:如果 tag 被放宽成了 <code>string</code>(比如漏了 <code>as const</code>),<code>switch</code> 就丧失窄化能力——这也是三章为什么要连着讲的原因。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

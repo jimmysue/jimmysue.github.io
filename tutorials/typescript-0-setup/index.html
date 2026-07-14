@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·00 入门与心智模型:TS = JS + 会被擦除的类型层</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. TS 是什么:一层会被擦除的类型</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 工具链:怎么把 pi 跑起来读代码</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 模块系统:ESM、具名导出、barrel、.ts 扩展名导入</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·00 入门与心智模型:TS = JS + 会被擦除的类型层</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-14</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-14</span> · <span class="post-meta__extra">3-5k 字</span> · <span class="post-meta__extra">15–20 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/tooling.html">tooling</a> <a class="concept-chip" href="../../concepts/esm.html">esm</a></div>
+</aside>
+
+<p>这是「读懂 pi 的 TypeScript」系列的开篇。整个系列的目标只有一个:让一个<strong>熟练的 Python 程序员</strong>在几天内既学会 TypeScript 这门语言,又能看懂 <a href="https://github.com/earendil-works/pi">pi</a> —— 一个真实的 AI coding-agent 框架(TypeScript monorepo,含 LLM 客户端、agent 运行时、CLI、多 agent 编排、自研终端 UI 五个包)。我们不写玩具代码,每一节的「代码引用」都逐字来自 pi 仓库。</p>
+<p>本系列有个明确取向:不脱离真实代码讲抽象语法。语言特性(泛型、联合、窄化……)按依赖顺序逐篇引入,但每一条都落到 pi 里的一处真实用法上,让你「学到即见到」。对 Python 出身的你,重点不在「编程」而在「TS 的语法长相 + 类型系统的思维」,所以每节都配一个 Python 对照,帮你把已有直觉平移过来。</p>
+<p>九篇的路线图:<strong>本篇</strong>先建立心智模型并把仓库跑起来;然后<a href="../typescript-1-values/index.html">值、类型、函数</a> → <a href="../typescript-2-shapes/index.html">interface 与 type</a> → <a href="../typescript-3-unions/index.html">联合与可辨识联合</a> → <a href="../typescript-4-narrowing/index.html">窄化与类型守卫</a> → <a href="../typescript-5-generics/index.html">泛型</a> → <a href="../typescript-6-classes-modules/index.html">类与模块</a> → <a href="../typescript-7-async/index.html">异步与流式</a> → 最后<a href="../typescript-8-capstone/index.html">实战总结</a>。读完 T0,你会理解 TypeScript 到底是什么、pi 的 <code>tsconfig</code> 为什么长那样、怎样用 <code>tsx</code> 直接跑一个 <code>.ts</code> 文件、以及 pi 满仓库带 <code>.ts</code> 后缀的 import 是怎么回事。</p>
+<h2 id="sec-1">1. TS 是什么:一层会被擦除的类型</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>TypeScript 不是一门独立的新语言,而是 <strong>JavaScript 的超集</strong>:任何合法的 JS 都是合法的 TS,TS 只是在 JS 之上加了一层<strong>编译期的类型标注</strong>。关键心智模型是:这层类型在编译后会被<strong>完全擦除</strong>,产物是纯 JavaScript,运行时不留任何类型痕迹。</p>
+<p>为什么要这层类型?因为 JavaScript 是动态类型语言,<code>&quot;5&quot; - 1</code> 会静默算出 <code>4</code>、拼错的字段名要等到运行时才炸。TypeScript 把这些错误提前到<strong>编写代码的那一刻</strong>:编辑器里就红线报错,编译不通过就不给产出。代价是你要多写类型标注、多过编译这一关;收益是重构大型代码库时编译器帮你兜底。pi 这种几万行、五个包相互依赖的项目,正是靠这层类型才敢放心改动。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:TS 的类型标注<strong>看起来</strong>像 Python 的 type hints(<code>x: int</code>),但有两点根本不同。其一,Python 默认不检查 hints,要靠 <code>mypy</code> 这类外部工具;TS 的 <code>tsc</code> 编译时<strong>默认就检查</strong>,类型不匹配直接报错、拒绝出活。其二,Python 的 hints 在运行时仍可通过 <code>__annotations__</code> 读到;TS 的类型在运行时<strong>根本不存在</strong>,连 <code>typeof MyType</code> 都写不出来 —— 类型和值活在两个不重叠的世界里,这个「双世界」直觉贯穿整个系列,务必先立住。</p>
+</blockquote>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 冒号后面是类型标注,编译后会被擦掉
+function greet(name: string): string {
+  return "hello, " + name;
+}
+
+const msg: string = greet("pi");
+// greet(42);  // ← 编译期报错:number 不能传给 string 形参
+
+// 上面这段编译成 JS 后,类型全部消失,只剩:
+//   function greet(name) { return "hello, " + name; }
+//   const msg = greet("pi");
+</code></pre>
+<p><code>: string</code> 是类型标注,<code>function</code>、<code>const</code>、字符串拼接都是原样保留的 JS。编译器做的事就是:先按标注检查一遍,然后把所有标注删掉。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p>一处类型标注的写法是「<strong>在被标注的东西后面加 <code>: 类型</code></strong>」:变量 <code>const x: number</code>、函数形参 <code>(name: string)</code>、函数返回值 <code>function f(): string</code>。这些冒号语法只是给编译器看的元信息,<strong>不产生任何运行时代码</strong>。</p>
+<p>TypeScript 有两种编译/运行路径,对本系列都重要:</p>
+<ul>
+<li><strong><code>tsc</code></strong> —— 官方编译器,把 <code>.ts</code> 检查并转译成 <code>.js</code>(pi 的正式构建走这条,配合原生加速版 <code>tsgo</code>)。</li>
+<li><strong><code>tsx</code></strong> —— 一个「即时转译再执行」的运行器,让你<strong>不用先手动编译</strong>就能直接 <code>tsx foo.ts</code> 跑一个 TypeScript 文件(下一章会用到)。</li>
+</ul>
+<p>pi 在 <code>tsconfig</code> 里开了一个关键开关 <code>erasableSyntaxOnly</code>。它的含义是:<strong>只允许&quot;能被直接擦除&quot;的类型语法</strong>,禁用那些编译后会生成额外运行时代码的 TS 专有构造 —— 例如 <code>enum</code>、<code>namespace</code>(带运行时体的)、构造函数参数属性、以及会注入运行时元数据的旧式 decorator。为什么禁?因为像 <code>enum Color { Red, Green }</code> 这种写法,编译后会<strong>真的生成一个 JS 对象</strong>,它不是「可删除的标注」,而是掺进运行时的代码 —— 这就破坏了「类型层可整体擦除」的干净模型。结果是全仓库看不到 <code>enum</code>,一律改用<strong>字符串字面量联合</strong>(如 <code>&quot;read&quot; | &quot;write&quot;</code>,详见<a href="../typescript-3-unions/index.html">联合</a>)。这样做的直接好处是:<code>.ts</code> 文件在语义上严格等价于「JS + 一堆可删除的标注」,于是任何只做语法擦除、不做类型分析的快速工具(esbuild、甚至 Node 22 内建的 type-stripping)都能正确处理它,构建更快、心智更简单。这也是为什么本系列你不会见到 <code>enum</code> —— 不是没讲,是 pi 里根本没有。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p class="code-source">pi/tsconfig.base.json:L1-L24 — 全仓库共享的编译器基线配置</p>
+<pre><code class="language-json">{
+	&quot;compilerOptions&quot;: {
+		&quot;target&quot;: &quot;ES2022&quot;,
+		&quot;module&quot;: &quot;Node16&quot;,
+		&quot;lib&quot;: [&quot;ES2022&quot;],
+		&quot;strict&quot;: true,
+		&quot;erasableSyntaxOnly&quot;: true,
+		&quot;esModuleInterop&quot;: true,
+		&quot;skipLibCheck&quot;: true,
+		// ...
+		&quot;moduleResolution&quot;: &quot;Node16&quot;,
+		&quot;resolveJsonModule&quot;: true,
+		&quot;allowImportingTsExtensions&quot;: true,
+		&quot;rewriteRelativeImportExtensions&quot;: true,
+		// ...
+		&quot;useDefineForClassFields&quot;: false,
+		&quot;types&quot;: [&quot;node&quot;]
+	}
+}
+</code></pre>
+<p>对照本节讲的点:<code>&quot;target&quot;: &quot;ES2022&quot;</code> 说明擦除后产物是相当现代的 JS;<code>&quot;strict&quot;: true</code> 打开全套严格检查(包括 <code>null</code>/<code>undefined</code> 必须显式处理,后续各篇都建立在它之上);<code>&quot;erasableSyntaxOnly&quot;: true</code> 就是上面说的「只留可擦除语法」的总开关,它直接决定了整个 pi 代码库的写法风格。<code>allowImportingTsExtensions</code> 与 <code>rewriteRelativeImportExtensions</code> 是第 3 章要讲的 <code>.ts</code> 后缀导入的来源,先记个名字。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>类型是编译期的脚手架,不是运行时的对象</strong>。别指望在运行时 <code>if (x is MyType)</code> —— 类型这时已经不存在了;运行时判断要靠真实的 JS 值检查(<code>typeof</code>、字段探测),这正是<a href="../typescript-4-narrowing/index.html">窄化</a>那一篇的主题。</li>
+<li>pi 里看不到 <code>enum</code> 不是作者偏好,是 <code>erasableSyntaxOnly</code> 强制的;看到 <code>&quot;a&quot; | &quot;b&quot;</code> 这种字符串联合当&quot;枚举&quot;用时,就是这个原因。</li>
+<li><code>strict: true</code> 是现代 TS 项目的事实标准。学习期就按严格模式练,免得养成会被编译器打回的习惯。</li>
+</ul>
+<h2 id="sec-2">2. 工具链:怎么把 pi 跑起来读代码</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>要读懂一个仓库,先得能把它跑起来。pi 是个 <strong>monorepo</strong>(单仓多包):一个 git 仓库里并排放着 5 个相互依赖的 npm 包(<code>ai</code>、<code>agent</code>、<code>coding-agent</code>、<code>orchestrator</code>、<code>tui</code>)。管理它们的机制叫 <strong>npm workspaces</strong> —— 在仓库根 <code>npm install</code> 一次,npm 就会把所有子包的依赖装好,并让子包之间用<strong>包名</strong>(如 <code>@earendil-works/pi-ai</code>)直接互相引用,而不必真的发布到公共 npm registry。这就是为什么你能 <code>import { ... } from &quot;@earendil-works/pi-ai&quot;</code> 引到隔壁包 —— npm 在本地把包名软链到了对应目录。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:monorepo + workspaces 大致相当于一个仓库里放多个可安装包、用 <code>pip install -e</code>(editable install)让它们互相引用的组合;<code>package.json</code> 则同时扮演 <code>pyproject.toml</code>(元数据 + 依赖)和 <code>Makefile</code>(<code>scripts</code> 里的命令快捷方式)两个角色。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 假设一个最小 monorepo 根 package.json 的骨架:
+//
+//   {
+//     "type": "module",              // 全仓用 ESM(见第 3 章)
+//     "workspaces": ["packages/*"],  // packages 下每个目录是一个子包
+//     "scripts": { "check": "tsgo --noEmit" },
+//     "engines": { "node": "&gt;=22" }
+//   }
+//
+// 在仓库根执行(注释示意,非代码):
+//   npm install     // 一次装好所有子包依赖
+//   npx tsx packages/agent/src/some-script.ts  // 直接跑 .ts,不用先编译
+//   npm run check   // 运行 scripts.check
+</code></pre>
+<p><code>tsx</code> 是这里的主角:它内部用 esbuild 即时把 <code>.ts</code> 擦成 JS 再交给 Node 执行,所以你读代码时想验证某个文件的行为,直接 <code>npx tsx 那个文件.ts</code> 就行,省掉「先 build 再 node」两步。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p>跑起来 pi 需要几件事,都编码在根 <code>package.json</code> 里:</p>
+<ul>
+<li><strong>Node 版本</strong>:<code>engines.node</code> 声明最低 Node 版本。pi 要求 <code>&gt;=22.19.0</code>(Node 22 才把 ESM、原生 <code>.ts</code> 剥离等能力补齐,所以这是硬门槛)。</li>
+<li><strong><code>workspaces</code></strong>:一个 glob 数组,列出哪些目录是子包。<code>&quot;packages/*&quot;</code> 表示 <code>packages/</code> 下每个目录都是一个 workspace。</li>
+<li><strong><code>scripts</code></strong>:命名的命令快捷方式,用 <code>npm run &lt;名字&gt;</code> 触发。<code>build</code>(编译所有包)、<code>check</code>(lint + 类型检查)是最常用的两个。</li>
+<li><strong><code>devDependencies</code></strong>:只在开发/构建时需要的工具,如 <code>tsx</code>(直接跑 <code>.ts</code>)、<code>jiti</code>(另一个 <code>.ts</code> 运行时加载器)、<code>typescript</code>、以及 <code>@biomejs/biome</code>。</li>
+</ul>
+<p><strong>biome</strong> 是这里的 lint/format 一体化工具(用 Rust 写,替代传统的 ESLint + Prettier 组合);<code>npm run check</code> 里的 <code>biome check --write</code> 会顺手把代码格式化并报出问题。这些工具都进 <code>devDependencies</code> 而非运行时依赖,因为它们只服务开发流程、不进最终产物。</p>
+<p>顺带厘清几个初见易混的名字:<strong>npm</strong> 是 Node 的包管理器兼命令入口(相当于 <code>pip</code> + 一部分 <code>make</code>);<strong><code>npx</code></strong> 是「不全局安装、临时执行某个包的可执行文件」(如 <code>npx tsx foo.ts</code>);<strong><code>tsx</code></strong> 和 <strong><code>jiti</code></strong> 都是「直接加载并运行 <code>.ts</code>」的运行器,区别只是实现细节。对读代码的你来说,记住一条就够:想跑某个 <code>.ts</code>,<code>npx tsx 路径.ts</code>。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p class="code-source">pi/package.json:L1-L16, L41-L55 — 根 package.json:workspaces、scripts、engines、开发工具</p>
+<pre><code class="language-json">{
+	&quot;name&quot;: &quot;pi-monorepo&quot;,
+	&quot;private&quot;: true,
+	&quot;type&quot;: &quot;module&quot;,
+	&quot;workspaces&quot;: [
+		&quot;packages/*&quot;,
+		&quot;packages/coding-agent/examples/extensions/with-deps&quot;,
+		// ...
+	],
+	&quot;scripts&quot;: {
+		&quot;build&quot;: &quot;cd packages/tui &amp;&amp; npm run build &amp;&amp; cd ../ai &amp;&amp; npm run build &amp;&amp; cd ../agent &amp;&amp; npm run build &amp;&amp; cd ../coding-agent &amp;&amp; npm run build &amp;&amp; cd ../orchestrator &amp;&amp; npm run build&quot;,
+		// ...
+	},
+	&quot;devDependencies&quot;: {
+		&quot;@biomejs/biome&quot;: &quot;2.3.5&quot;,
+		&quot;@types/node&quot;: &quot;22.19.19&quot;,
+		&quot;jiti&quot;: &quot;2.7.0&quot;,
+		&quot;tsx&quot;: &quot;4.22.1&quot;,
+		&quot;typescript&quot;: &quot;5.9.3&quot;
+	},
+	&quot;engines&quot;: {
+		&quot;node&quot;: &quot;&gt;=22.19.0&quot;
+	}
+}
+</code></pre>
+<p>对照本节讲的点:<code>&quot;type&quot;: &quot;module&quot;</code>(第 3 章的 ESM 开关)、<code>&quot;workspaces&quot;</code>(monorepo 子包清单)、<code>&quot;scripts&quot;</code> 里 <code>build</code> 逐包编译、<code>check</code> 串起 <code>biome</code> + 一堆自检 + <code>tsgo --noEmit</code>(只做类型检查、不输出文件)。<code>devDependencies</code> 里同时出现 <code>tsx</code> 和 <code>jiti</code> 两个 <code>.ts</code> 运行器,<code>engines.node</code> 钉死 <code>&gt;=22.19.0</code>。这些字段就是「把 pi 跑起来读代码」的全部入口。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li>读 monorepo 从根 <code>package.json</code> 的 <code>workspaces</code> 和 <code>scripts</code> 入手:前者告诉你有哪些包、依赖关系;后者告诉你作者是怎么 build / check / test 的。</li>
+<li>想验证某个 <code>.ts</code> 文件的真实行为,<code>npx tsx 路径.ts</code> 最快 —— 不用管构建产物、不用配置,直接跑源码。</li>
+<li><code>tsgo --noEmit</code> / <code>tsc --noEmit</code> 是「只检查类型、不产出 JS」的惯用法,常用于 CI 门禁;记住 <code>--noEmit</code> 这个组合。</li>
+</ul>
+<h2 id="sec-3">3. 模块系统:ESM、具名导出、barrel、<code>.ts</code> 扩展名导入</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>JavaScript 现代的模块系统叫 <strong>ESM</strong>(ECMAScript Modules),用 <code>import</code> / <code>export</code> 关键字。之所以要强调「现代」,是因为 JS 历史上还有一套老的 <strong>CommonJS</strong>(<code>require()</code> / <code>module.exports</code>,即 Node 早年那套)。pi 在根 <code>package.json</code> 里写了 <code>&quot;type&quot;: &quot;module&quot;</code>,一句话把<strong>全仓库所有 <code>.ts</code>/<code>.js</code> 都按 ESM 解释</strong>,跟 CommonJS 彻底切割。ESM 的默认风格是<strong>具名导出</strong>:一个文件 <code>export</code> 出若干个带名字的东西,别处按名字 <code>import { 名字 }</code> 取用 —— 名字必须对得上,导入侧写错名字编译期就报错。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:ESM 的 <code>import { foo } from &quot;./bar.ts&quot;</code> 约等于 Python 的 <code>from .bar import foo</code>;<code>export * from &quot;./x.ts&quot;</code> 则约等于在 <code>__init__.py</code> 里 <code>from .x import *</code> 做 re-export。差别在于 JS 的具名导出是<strong>静态</strong>的 —— 导出了什么在编译期就确定,打包器可据此做 tree-shaking(删掉没被 import 的代码)。</p>
+</blockquote>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+
+// 文件 math.ts —— 具名导出两个东西
+export function add(a: number, b: number): number {
+  return a + b;
+}
+export type Pair = { x: number; y: number };
+
+// 文件 index.ts —— "barrel":把子模块整体转发出去
+export * from "./math.ts";   // 注意 import 路径带 .ts 后缀!
+
+// 文件 main.ts —— 从 barrel 按名字取用
+import { add, type Pair } from "./index.ts";
+const p: Pair = { x: 1, y: 2 };
+const s: number = add(p.x, p.y);
+</code></pre>
+<p>这里三个要点都出现了:具名导出(<code>export function</code> / <code>export type</code>)、<strong>barrel</strong>(<code>index.ts</code> 用 <code>export * from</code> 把整个子模块转发)、以及 import 路径带 <strong><code>.ts</code> 后缀</strong>。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p><strong>具名导出 vs 默认导出</strong>:ESM 有两类导出。具名导出可以有任意多个,每个带名字;<strong>默认导出</strong>每个文件至多一个,用 <code>export default X</code>,导入侧 <code>import 任意名 from &quot;...&quot;</code>(无花括号)。pi 几乎只用具名导出(<code>export function foo</code>、<code>export const bar</code>、<code>export interface Baz</code>),取用时 <code>import { foo, bar } from &quot;...&quot;</code>,花括号里的名字必须和导出名一致。统一用具名导出的好处是:符号名在导入导出两侧一致,全局搜一个名字就能找齐所有引用,重构友好 —— 这对读大型代码库尤其重要。</p>
+<p><strong>barrel(桶文件)</strong>:一个 <code>index.ts</code>,内容基本全是 <code>export * from &quot;./子模块.ts&quot;</code> 或 <code>export { A, B } from &quot;./子模块.ts&quot;</code>。它把一个目录下分散的多个文件<strong>收拢成一个统一入口</strong>,外部只需 <code>import { 任意符号 } from &quot;包名&quot;</code> 而不用记具体文件路径。这正是 <code>__init__.py</code> 里堆 re-export 的那套用法。</p>
+<p><strong><code>export type</code> —— 纯类型再导出</strong>:<code>export type { Foo } from &quot;./x.ts&quot;</code> 明确标注「这是一个只在类型层存在的导出」。因为类型会被擦除(第 1 章),这行在编译后<strong>完全消失</strong>,不产生任何运行时 import。它给编译器和打包器一个明确信号:此符号无运行时副作用,尽管删。</p>
+<p><strong><code>.ts</code> 扩展名导入</strong>:标准 ESM 要求 import 路径写全扩展名,但通常写的是<strong>编译后</strong>的 <code>.js</code>(即使源文件是 <code>.ts</code>)。pi 反其道而行,直接在源码里 <code>import &quot;./x.ts&quot;</code> —— 这需要 <code>tsconfig</code> 里 <code>allowImportingTsExtensions</code>(允许源码写 <code>.ts</code> 后缀)配合 <code>rewriteRelativeImportExtensions</code>(编译时自动把 <code>.ts</code> 改写回 <code>.js</code>)。好处是源码里的路径和真实文件名一一对应,点开即达,不用在脑内做 <code>.ts</code>↔<code>.js</code> 转换。这在 TS 生态里<strong>不算常见</strong>,看到时要意识到:它是配置换来的,不是默认行为。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p class="code-source">pi/packages/agent/src/index.ts:L1-L5, L44-L46 — agent 包的 barrel 入口:export * 转发 + .ts 后缀</p>
+<pre><code class="language-typescript">// Core Agent
+export * from &quot;./agent.ts&quot;;
+// Loop functions
+export * from &quot;./agent-loop.ts&quot;;
+export * from &quot;./harness/agent-harness.ts&quot;;
+// ...
+// Proxy utilities
+export * from &quot;./proxy.ts&quot;;
+// Types
+export * from &quot;./types.ts&quot;;
+</code></pre>
+<p class="code-source">pi/packages/ai/src/index.ts:L1-L2, L9-L10 — ai 包入口:type-only 再导出(编译后消失)</p>
+<pre><code class="language-typescript">export type { Static, TSchema } from &quot;typebox&quot;;
+export { Type } from &quot;typebox&quot;;
+// ...
+export type { AnthropicEffort, AnthropicOptions, AnthropicThinkingDisplay } from &quot;./api/anthropic-messages.ts&quot;;
+export type { AzureOpenAIResponsesOptions } from &quot;./api/azure-openai-responses.ts&quot;;
+</code></pre>
+<p>对照本节讲的点:第一段是教科书式的 <strong>barrel</strong> —— <code>packages/agent/src/index.ts</code> 通篇 <code>export * from &quot;./子模块.ts&quot;</code>,把 agent、loop、harness、types 等散在多个文件里的符号收拢到一个入口,并且每条路径都<strong>带 <code>.ts</code> 后缀</strong>。第二段展示 <strong><code>export type</code> 与 <code>export</code>的对比</strong>:<code>Static</code>、<code>TSchema</code> 是纯类型(用 <code>export type</code>,编译后擦除),<code>Type</code> 是运行时真实存在的值(普通 <code>export</code>,保留)。同一个来源包 <code>typebox</code> 分两行导出,精确区分了「类型」和「值」两个世界 —— 这正是 pi 用 typebox 做运行时 schema、又从中派生静态类型的写法基础,后续<a href="../typescript-2-shapes/index.html">interface 与 type</a>会展开。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li>读 pi 任何一个包,先打开它的 <code>src/index.ts</code>(barrel):那是这个包对外暴露的完整符号清单,等于一份目录。</li>
+<li><code>export type { ... }</code> / <code>import type { ... }</code> 是「这行没有运行时效果」的显式声明;看到它就知道该符号纯属类型层,擦除后不留痕迹 —— 也不会造成循环依赖。</li>
+<li>import 路径带 <code>.ts</code> 是 pi 的特有配置(<code>allowImportingTsExtensions</code>),别在没开这个开关的项目里照抄,默认 ESM 里你得写 <code>.js</code> 或省略后缀。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

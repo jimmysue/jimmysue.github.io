@@ -498,6 +498,87 @@
       "url": "tutorials/step-distillation-2022/index.html"
     },
     {
+      "id": "tutorials/typescript-0-setup",
+      "type": "tutorial",
+      "slug": "typescript-0-setup",
+      "title": "TS·00 入门与心智模型:TS = JS + 会被擦除的类型层",
+      "date": "2026-07-14",
+      "tldr": "系列开篇。给 Python 背景的读者建立 TypeScript 心智模型:类型只在编译期存在、运行时被完全擦除;\n用 pi 这个真实 AI coding-agent 框架的 tsconfig、npm workspaces、ESM barrel 讲清\"怎么把仓库跑起来读代码\"。\n",
+      "url": "tutorials/typescript-0-setup/index.html"
+    },
+    {
+      "id": "tutorials/typescript-1-values",
+      "type": "tutorial",
+      "slug": "typescript-1-values",
+      "title": "TS·01 值、类型、函数:声明、标注与推断",
+      "date": "2026-07-13",
+      "tldr": "TypeScript 的地基:const/let、基本类型标注与类型推断、函数参数/返回标注、可选参数与默认参数、\n数组与对象字面量类型。全部用 pi 里的真实小函数(calculate、getCurrentTime)做示例。\n",
+      "url": "tutorials/typescript-1-values/index.html"
+    },
+    {
+      "id": "tutorials/typescript-2-shapes",
+      "type": "tutorial",
+      "slug": "typescript-2-shapes",
+      "title": "TS·02 数据的形状:interface 与 type",
+      "date": "2026-07-12",
+      "tldr": "用 interface 和 type 别名描述对象的\"形状\":可选属性 ?、readonly、extends、Record、以及结构化类型\n(被编译器检查的鸭子类型)。素材来自 pi 的内容块类型、options 配置对象与 FileSystem 契约。\n",
+      "url": "tutorials/typescript-2-shapes/index.html"
+    },
+    {
+      "id": "tutorials/typescript-3-unions",
+      "type": "tutorial",
+      "slug": "typescript-3-unions",
+      "title": "TS·03 联合类型与可辨识联合:pi 为什么不用 enum",
+      "date": "2026-07-11",
+      "tldr": "TypeScript 最有特色、也是 pi 用得最狠的一招:字符串字面量联合取代 enum,再用带 tag 字段的\n可辨识联合(discriminated union)+ switch 窄化,建模 LLM 的流式事件与消息。这是读懂 pi 事件系统的钥匙。\n",
+      "url": "tutorials/typescript-3-unions/index.html"
+    },
+    {
+      "id": "tutorials/typescript-4-narrowing",
+      "type": "tutorial",
+      "slug": "typescript-4-narrowing",
+      "title": "TS·04 窄化与类型守卫:安全地处理不可信的数据",
+      "date": "2026-07-10",
+      "tldr": "编译器如何在 if/switch 里自动收窄类型(typeof/in/instanceof),如何用 `x is T` 谓词函数写自定义\n类型守卫,以及如何用 unknown + 守卫安全地消化来自 LLM/外部世界的不可信数据。素材取自 pi 的错误处理与工具参数校验。\n",
+      "url": "tutorials/typescript-4-narrowing/index.html"
+    },
+    {
+      "id": "tutorials/typescript-5-generics",
+      "type": "tutorial",
+      "slug": "typescript-5-generics",
+      "title": "TS·05 泛型:参数化的类型、约束、与工具类型",
+      "date": "2026-07-09",
+      "tldr": "泛型函数/接口/类、约束 extends、默认类型参数 = T,以及 pi 大量使用的工具类型\n(Partial/Pick/Omit/Record/Extract/ReturnType)。用 pi 的 Tool<TParameters>、EventStream<T,R> 讲透\"类型也能当参数\"。\n",
+      "url": "tutorials/typescript-5-generics/index.html"
+    },
+    {
+      "id": "tutorials/typescript-6-classes-modules",
+      "type": "tutorial",
+      "slug": "typescript-6-classes-modules",
+      "title": "TS·06 类与模块:封装、契约、与 import/export",
+      "date": "2026-07-08",
+      "tldr": "类的字段/构造器/访问修饰符(private/public/readonly)、implements 契约、extends 继承(含 class extends Error),\n以及 ESM 模块的具名导出、import type/export type、barrel 与 declare module。用 pi 的 Agent、FileError、EventStream 讲。\n",
+      "url": "tutorials/typescript-6-classes-modules/index.html"
+    },
+    {
+      "id": "tutorials/typescript-7-async",
+      "type": "tutorial",
+      "slug": "typescript-7-async",
+      "title": "TS·07 异步与流式:Promise、async/await、与 async generator",
+      "date": "2026-07-07",
+      "tldr": "从 Promise 与 async/await(对照 Python asyncio)到 Promise.all 并发、AbortSignal 取消,最后讲清\npi 流式返回 LLM 输出的核心:async generator(async function*)+ for await...of。读懂这章就读懂了 pi 的事件流。\n",
+      "url": "tutorials/typescript-7-async/index.html"
+    },
+    {
+      "id": "tutorials/typescript-8-capstone",
+      "type": "tutorial",
+      "slug": "typescript-8-capstone",
+      "title": "TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环",
+      "date": "2026-07-06",
+      "tldr": "把前八篇学的语法拼起来,逐行读懂 pi 的一个真实内置工具(typebox schema → Static 派生类型 → execute\n处理器 → AgentTool 契约)与 agent 主循环(流式消费模型事件 → 分派工具调用 → 校验参数 → 回填结果)。读完你能自己读 pi。\n",
+      "url": "tutorials/typescript-8-capstone/index.html"
+    },
+    {
       "id": "tutorials/vlm-benchmarks-2024",
       "type": "tutorial",
       "slug": "vlm-benchmarks-2024",
@@ -2551,6 +2632,166 @@
       "name": "SiD"
     },
     {
+      "id": "concepts/typescript",
+      "type": "concept",
+      "slug": "typescript",
+      "name": "typescript",
+      "has_file": false,
+      "url": "concepts/typescript.html"
+    },
+    {
+      "id": "concepts/tooling",
+      "type": "concept",
+      "slug": "tooling",
+      "name": "tooling",
+      "has_file": false,
+      "url": "concepts/tooling.html"
+    },
+    {
+      "id": "concepts/esm",
+      "type": "concept",
+      "slug": "esm",
+      "name": "esm",
+      "has_file": false,
+      "url": "concepts/esm.html"
+    },
+    {
+      "id": "repos/earendil-works/pi",
+      "type": "repo",
+      "url": "https://github.com/earendil-works/pi",
+      "host": "github.com",
+      "owner": "earendil-works",
+      "name": "pi"
+    },
+    {
+      "id": "concepts/types",
+      "type": "concept",
+      "slug": "types",
+      "name": "types",
+      "has_file": false,
+      "url": "concepts/types.html"
+    },
+    {
+      "id": "concepts/functions",
+      "type": "concept",
+      "slug": "functions",
+      "name": "functions",
+      "has_file": false,
+      "url": "concepts/functions.html"
+    },
+    {
+      "id": "concepts/interface",
+      "type": "concept",
+      "slug": "interface",
+      "name": "interface",
+      "has_file": false,
+      "url": "concepts/interface.html"
+    },
+    {
+      "id": "concepts/type-alias",
+      "type": "concept",
+      "slug": "type-alias",
+      "name": "type-alias",
+      "has_file": false,
+      "url": "concepts/type-alias.html"
+    },
+    {
+      "id": "concepts/union-types",
+      "type": "concept",
+      "slug": "union-types",
+      "name": "union-types",
+      "has_file": false,
+      "url": "concepts/union-types.html"
+    },
+    {
+      "id": "concepts/discriminated-union",
+      "type": "concept",
+      "slug": "discriminated-union",
+      "name": "discriminated-union",
+      "has_file": false,
+      "url": "concepts/discriminated-union.html"
+    },
+    {
+      "id": "concepts/type-guards",
+      "type": "concept",
+      "slug": "type-guards",
+      "name": "type-guards",
+      "has_file": false,
+      "url": "concepts/type-guards.html"
+    },
+    {
+      "id": "concepts/unknown",
+      "type": "concept",
+      "slug": "unknown",
+      "name": "unknown",
+      "has_file": false,
+      "url": "concepts/unknown.html"
+    },
+    {
+      "id": "concepts/generics",
+      "type": "concept",
+      "slug": "generics",
+      "name": "generics",
+      "has_file": false,
+      "url": "concepts/generics.html"
+    },
+    {
+      "id": "concepts/utility-types",
+      "type": "concept",
+      "slug": "utility-types",
+      "name": "utility-types",
+      "has_file": false,
+      "url": "concepts/utility-types.html"
+    },
+    {
+      "id": "concepts/classes",
+      "type": "concept",
+      "slug": "classes",
+      "name": "classes",
+      "has_file": false,
+      "url": "concepts/classes.html"
+    },
+    {
+      "id": "concepts/modules",
+      "type": "concept",
+      "slug": "modules",
+      "name": "modules",
+      "has_file": false,
+      "url": "concepts/modules.html"
+    },
+    {
+      "id": "concepts/async",
+      "type": "concept",
+      "slug": "async",
+      "name": "async",
+      "has_file": false,
+      "url": "concepts/async.html"
+    },
+    {
+      "id": "concepts/async-generators",
+      "type": "concept",
+      "slug": "async-generators",
+      "name": "async-generators",
+      "has_file": false,
+      "url": "concepts/async-generators.html"
+    },
+    {
+      "id": "concepts/agent-harness",
+      "type": "concept",
+      "slug": "agent-harness",
+      "name": "agent-harness",
+      "has_file": false,
+      "url": "concepts/agent-harness.html"
+    },
+    {
+      "id": "concepts/typebox",
+      "type": "concept",
+      "slug": "typebox",
+      "name": "typebox",
+      "has_file": false,
+      "url": "concepts/typebox.html"
+    },
+    {
       "id": "concepts/evaluation",
       "type": "concept",
       "slug": "evaluation",
@@ -2898,12 +3139,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3123,12 +3364,12 @@
     },
     {
       "from": "papers/dataevolver-2026",
-      "to": "papers/ggt-100k-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/dataevolver-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -3193,17 +3434,17 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/awm-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -3308,17 +3549,17 @@
     },
     {
       "from": "papers/ferret-v2-2024",
+      "to": "tutorials/vlm-grounding-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
       "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
       "to": "papers/lisa-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-v2-2024",
-      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -3398,12 +3639,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3488,22 +3729,22 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/sefi-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
       "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -3558,17 +3799,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -3578,7 +3809,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -3698,12 +3939,12 @@
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/sefi-image-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -3798,17 +4039,17 @@
     },
     {
       "from": "papers/la-sr-2026",
-      "to": "papers/op4ksr-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/la-sr-2026",
       "to": "surveys/diffusion-sr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/la-sr-2026",
       "to": "papers/omgsr-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/la-sr-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
@@ -3938,17 +4179,12 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/worldforge-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/lingbot-video-2026",
       "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -3958,7 +4194,12 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/lingbot-video-2026",
+      "to": "papers/worldforge-2026",
       "kind": "cites"
     },
     {
@@ -4053,12 +4294,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4148,12 +4389,12 @@
     },
     {
       "from": "papers/mfd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mfd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4163,7 +4404,7 @@
     },
     {
       "from": "papers/mfd-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -4213,22 +4454,22 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
       "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
       "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4278,12 +4519,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4498,17 +4739,17 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/ferret-v2-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
       "to": "papers/lisa-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -4558,12 +4799,12 @@
     },
     {
       "from": "papers/physeditworld-2026",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/starchild-1-2026",
       "kind": "cites"
     },
     {
       "from": "papers/physeditworld-2026",
-      "to": "papers/starchild-1-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
@@ -4693,27 +4934,7 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/self-forcing-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/mambo-g-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/self-flow-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4723,7 +4944,27 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/mambo-g-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/self-forcing-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
@@ -4793,12 +5034,7 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/qwen-image-flash-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/rdm-2026",
-      "to": "papers/self-flow-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -4808,12 +5044,17 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/qwen-image-flash-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
@@ -5103,11 +5344,6 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
@@ -5119,6 +5355,11 @@
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -5268,12 +5509,12 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/omgsr-2025",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -5368,17 +5609,17 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/diffusion-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
       "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
       "to": "papers/d-opsd-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
@@ -5493,17 +5734,17 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
+      "to": "papers/krea-2-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
       "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
       "to": "tutorials/opd-diffusion-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/step-distillation-2022",
-      "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
@@ -5539,6 +5780,186 @@
     {
       "from": "tutorials/step-distillation-2022",
       "to": "repos/mingyuanzhou/SiD",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-0-setup",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-0-setup",
+      "to": "concepts/tooling",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-0-setup",
+      "to": "concepts/esm",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-0-setup",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-1-values",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-1-values",
+      "to": "concepts/types",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-1-values",
+      "to": "concepts/functions",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-1-values",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-2-shapes",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-2-shapes",
+      "to": "concepts/interface",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-2-shapes",
+      "to": "concepts/type-alias",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-2-shapes",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-3-unions",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-3-unions",
+      "to": "concepts/union-types",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-3-unions",
+      "to": "concepts/discriminated-union",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-3-unions",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-4-narrowing",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-4-narrowing",
+      "to": "concepts/type-guards",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-4-narrowing",
+      "to": "concepts/unknown",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-4-narrowing",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-5-generics",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-5-generics",
+      "to": "concepts/generics",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-5-generics",
+      "to": "concepts/utility-types",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-5-generics",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-6-classes-modules",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-6-classes-modules",
+      "to": "concepts/classes",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-6-classes-modules",
+      "to": "concepts/modules",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-6-classes-modules",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-7-async",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-7-async",
+      "to": "concepts/async",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-7-async",
+      "to": "concepts/async-generators",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-7-async",
+      "to": "repos/earendil-works/pi",
+      "kind": "implements"
+    },
+    {
+      "from": "tutorials/typescript-8-capstone",
+      "to": "concepts/typescript",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-8-capstone",
+      "to": "concepts/agent-harness",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-8-capstone",
+      "to": "concepts/typebox",
+      "kind": "mentions"
+    },
+    {
+      "from": "tutorials/typescript-8-capstone",
+      "to": "repos/earendil-works/pi",
       "kind": "implements"
     },
     {
@@ -5593,12 +6014,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
@@ -5778,12 +6199,12 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -5888,7 +6309,7 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/asymflow-2026",
       "kind": "covers"
     },
     {
@@ -5898,12 +6319,12 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {

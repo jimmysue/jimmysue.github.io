@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·01 值、类型、函数:声明、标注与推断</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 变量与基本类型:标注 vs 推断</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 函数:参数与返回标注、可选/默认参数、箭头函数</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 数组、对象字面量与内联类型、void</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·01 值、类型、函数:声明、标注与推断</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-13</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-13</span> · <span class="post-meta__extra">3-5k 字</span> · <span class="post-meta__extra">15–20 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/types.html">types</a> <a class="concept-chip" href="../../concepts/functions.html">functions</a></div>
+</aside>
+
+<p>这是「读懂 pi 的 TypeScript」系列的第 1 篇正文。上一篇（<a href="../typescript-0-setup/index.html">入门与心智模型</a>）解释了 TS = JS + 编译期类型检查;这一篇打地基:如何声明变量、给它们贴类型、写带类型的函数。这三样是你读 pi 任何一行代码都绕不开的基础。</p>
+<p>我们不空讲语法。三章分别对应 pi 仓库里三个真实的小文件:一个计算器工具 <code>calculate</code>、一个报时工具 <code>getCurrentTime</code>、一个事件流类 <code>EventStream</code> 的 <code>push</code> 方法。读完这篇,你就能逐字读懂这三个函数的签名——它们恰好覆盖了变量、参数、返回值、可选参数、数组、对象字面量这些最核心的形状。后面几篇讲的接口、联合、泛型,都建在这一篇之上。</p>
+<h2 id="sec-1">1. 变量与基本类型:标注 vs 推断</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>Python 里变量一律 <code>x = 1</code>,重新赋值、改类型都随意。TS 有两个声明关键字:<code>const</code>(常量,不可重新绑定)和 <code>let</code>(变量,可重新赋值)。这个区分 Python 没有——最接近的是 <code>Final</code> 标注,但那只是提示,而 TS 的 <code>const</code> 是编译器强制的。</p>
+<p>类型方面,TS 有 <code>string</code>、<code>number</code>(不分 int/float,统一一个)、<code>boolean</code> 等基本类型。你可以<strong>显式标注</strong> <code>const n: number = 1</code>,也可以<strong>不写</strong>、让编译器从右侧的值<strong>自动推断</strong>。两者产生的类型完全一样。什么时候写、什么时候省,是本章的重点。这里要建立的一个关键认知是:TS 里「变量有没有写类型」不影响它「有没有类型」——不写只是把活儿交给编译器,变量始终是静态类型的。这跟 Python「不写类型就是动态」的直觉正好相反,是从 Python 迁移过来最需要扭转的一点。</p>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+const name: string = "pi";      // 显式标注为 string
+let count = 0;                   // 推断为 number,因为右侧是 0
+count = count + 1;              // let 可以重新赋值,OK
+// name = "other";             // 报错:const 不可重新绑定
+
+const enabled = true;           // 推断为 boolean
+const nothing = null;           // 推断为 null
+
+// 函数返回值也能推断:add 的返回类型是 number
+function add(a: number, b: number) {
+  return a + b;
+}
+const sum = add(1, 2);          // sum 被推断为 number
+</code></pre>
+<p>注意 <code>count</code> 和 <code>enabled</code> 没写类型,但它们<strong>不是</strong> Python 那种动态变量——编译器已经把它们钉死成 <code>number</code> 和 <code>boolean</code> 了。给 <code>count</code> 赋一个字符串会立刻报错。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p>声明的通用形式是:<code>const | let 名字 [: 类型] = 值</code>。</p>
+<ul>
+<li><strong><code>const</code></strong>:声明后不能再用 <code>=</code> 重新绑定。注意它管的是「绑定」不是「内容」——<code>const arr = []; arr.push(1)</code> 完全合法,因为你没有重新绑定 <code>arr</code>。这跟 Python 里 <code>Final</code> 的语义几乎一致。</li>
+<li><strong><code>let</code></strong>:可重新赋值,但类型固定。<code>let x = 0; x = &quot;a&quot;</code> 报错。</li>
+<li>还有个 <code>var</code>,是 JS 的历史遗留,作用域规则怪异,<strong>pi 全仓库不用,你也不要用</strong>。</li>
+</ul>
+<p><strong>标注 vs 推断的取舍</strong>:局部变量、有初始值时,<strong>省略标注</strong>,让推断来做——写 <code>const n = 0</code> 而不是 <code>const n: number = 0</code>,更简洁且不会撒谎。<strong>需要显式标注</strong>的场景主要是:函数参数(推断不了,必须写)、想约束一个比推断结果更窄或更宽的类型、以及导出的 API 边界(下一章的返回值标注)。</p>
+<p>基本类型名都是小写:<code>string</code>、<code>number</code>、<code>boolean</code>、<code>null</code>、<code>undefined</code>。写成大写的 <code>String</code>、<code>Number</code> 是另一回事(包装对象),几乎永远不要用。</p>
+<p>顺带说一下 <code>null</code> 和 <code>undefined</code> 这对——Python 只有一个 <code>None</code>,TS 却有两个「空」。粗略地说,<code>undefined</code> 是「没赋值 / 没这个东西」(变量声明了没给值、可选参数没传、对象没这个字段),<code>null</code> 是「主动置空」。pi 的代码里两者都用,但更偏好 <code>undefined</code>;你现在只要知道它们都表示「空」、且各自是独立的类型即可,细节留到<a href="../typescript-4-narrowing/index.html">窄化与类型守卫</a>那篇处理「值可能为空」的判断。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>看 pi 里一个真实的工具函数——把数学表达式求值的计算器:</p>
+<p class="code-source">pi/packages/agent/test/utils/calculate.ts:L9-L16 — calculate 工具:string 参数 + 具名返回类型 + catch 里的类型标注</p>
+<pre><code class="language-typescript">export function calculate(expression: string): CalculateResult {
+	try {
+		const result = new Function(`return ${expression}`)();
+		return { content: [{ type: &quot;text&quot;, text: `${expression} = ${result}` }], details: undefined };
+	} catch (e: any) {
+		throw new Error(e.message || String(e));
+	}
+}
+</code></pre>
+<p>对照本章讲的点:</p>
+<ul>
+<li><code>expression: string</code> —— 参数<strong>必须</strong>显式标注,推断在这里无能为力(见下一章)。</li>
+<li><code>const result = new Function(...)()</code> —— 局部变量<strong>没写</strong>类型,靠推断。<code>new Function(...)()</code> 的返回是 <code>any</code>,所以 <code>result</code> 是 <code>any</code>。</li>
+<li><code>catch (e: any)</code> —— TS 里 catch 到的错误默认类型是 <code>unknown</code>,这里显式标注成 <code>any</code> 才能直接访问 <code>e.message</code>。这是一个非常常见的写法(严格模式下 <code>unknown</code> 更安全,但 <code>any</code> 图省事)。</li>
+<li>反引号字符串 <code>`return ${expression}`</code> 是<strong>模板字符串</strong>,相当于 Python 的 f-string:<code>`...${变量}...`</code> ↔ <code>f&quot;...{变量}...&quot;</code>。</li>
+</ul>
+<p><code>: CalculateResult</code> 是返回类型标注,属于下一章的内容,这里先放着。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>默认用推断,别到处写 <code>: number</code></strong>。TS 惯例是「参数写类型、局部变量靠推断」;满屏冗余标注反而是新手味。</li>
+<li><code>const</code> 是你的默认选择,只有确实要重新赋值时才换 <code>let</code>——pi 里绝大多数声明都是 <code>const</code>。</li>
+<li><code>number</code> 不分整数和浮点,<code>1</code> 和 <code>1.5</code> 同类型;没有 Python 那种 <code>int</code> / <code>float</code> 之分,也没有大整数(除非用 <code>bigint</code>)。做数组索引、位运算时要留意这点,因为编译器不会帮你区分「这应该是整数」。</li>
+<li><strong><code>const</code> 管绑定不管内容</strong>这一点值得再强调一次:<code>const obj = { n: 1 }; obj.n = 2</code> 是合法的,你改的是对象内部,没有重新绑定 <code>obj</code>。想连内容也锁死,得靠 <code>readonly</code> 或 <code>as const</code>(后续篇章),<code>const</code> 本身做不到。</li>
+</ul>
+<h2 id="sec-2">2. 函数:参数与返回标注、可选/默认参数、箭头函数</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>函数是 pi 的主体。TS 函数和 Python 的 <code>def f(x: int) -&gt; str:</code> 心智几乎一一对应:参数可标类型,返回值可标类型。差别在语法细节和两种写法:传统的<strong>具名函数</strong> <code>function f() {}</code>,以及<strong>箭头函数</strong> <code>const f = () =&gt; {}</code>(类似 Python 的 lambda,但可以有完整函数体)。</p>
+<p>可选参数用 <code>param?:</code> 表示「可以不传」,对应 Python 的 <code>x=None</code> 或 <code>Optional</code>;默认参数 <code>param = 值</code> 对应 Python 的默认值。两者是不同的东西,本章讲清楚。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:Python 里 <code>def f(x: int = 0)</code> 用「有默认值」同时表达了「可以不传」;TS 把这两件事拆成了两个语法——<code>x?: number</code>(可不传,不传就是 <code>undefined</code>)和 <code>x = 0</code>(不传就用 <code>0</code>)。迁移时别把 <code>?</code> 和 <code>= 0</code> 当同义词。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 具名函数:参数标类型,返回标 string
+function greet(who: string): string {
+  return `hello, ${who}`;
+}
+
+// 箭头函数:同样的签名,存进 const
+const greet2 = (who: string): string =&gt; `hello, ${who}`;
+
+// 可选参数 suffix?:调用时可省略,类型是 string | undefined
+function label(name: string, suffix?: string): string {
+  return suffix ? `${name}.${suffix}` : name;
+}
+label("pi");              // OK,suffix 为 undefined
+label("pi", "ts");       // OK
+
+// 默认参数:不传时用默认值,count 类型仍是 number
+function repeat(text: string, count = 2): string {
+  return text.repeat(count);
+}
+repeat("ab");             // "abab"
+</code></pre>
+<p><code>greet</code> 和 <code>greet2</code> 完全等价,只是写法不同。箭头函数省掉了 <code>function</code> 关键字,<code>=&gt;</code> 右边如果是单个表达式还能省掉 <code>{ return ... }</code>——上面 <code>greet2</code> 就直接返回模板字符串。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<ul>
+<li><strong>参数标注是强制的</strong>(在 pi 的严格配置下):<code>function f(x)</code> 会报错「x 隐式为 any」,必须写 <code>f(x: string)</code>。这跟 Python 的可选类型提示不同——这里不写就编译不过。</li>
+<li><strong>返回类型标注是可选的</strong>:<code>function add(a: number, b: number)</code> 不写返回类型,编译器推断为 <code>number</code>。但<strong>导出的公开函数建议显式写返回类型</strong>,当作契约,也让错误在函数内部就暴露而不是传导到调用处。</li>
+<li><strong>可选参数 <code>param?:</code></strong>:等价于类型 <code>param: T | undefined</code>,且<strong>必须排在必填参数后面</strong>。调用时可以整个省略。</li>
+<li><strong>默认参数 <code>param = 值</code></strong>:不传时用默认值。有默认值时通常不用再写 <code>?</code>,类型从默认值推断(如上 <code>count = 2</code> 推断为 <code>number</code>)。</li>
+<li><strong>箭头函数</strong> <code>(args) =&gt; body</code>:body 是表达式时直接当返回值;是语句块 <code>{ ... }</code> 时要显式 <code>return</code>。它还有个和 <code>this</code> 绑定相关的重要区别,留到<a href="../typescript-6-classes-modules/index.html">类与模块</a>那篇。</li>
+</ul>
+<p>一个坑:可选参数 <code>suffix?: string</code> 和「参数类型为 <code>string | undefined</code>」不完全一样——前者调用时<strong>可以不写</strong>,后者<strong>必须传</strong>(哪怕传 <code>undefined</code>)。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 里的报时工具用到了可选参数:</p>
+<p class="code-source">pi/packages/agent/test/utils/get-current-time.ts:L6-L22 — getCurrentTime:可选参数 timezone? + async 返回</p>
+<pre><code class="language-typescript">export async function getCurrentTime(timezone?: string): Promise&lt;GetCurrentTimeResult&gt; {
+	const date = new Date();
+	if (timezone) {
+		try {
+			const timeStr = date.toLocaleString(&quot;en-US&quot;, {
+				timeZone: timezone,
+				dateStyle: &quot;full&quot;,
+				timeStyle: &quot;long&quot;,
+			});
+			return {
+				content: [{ type: &quot;text&quot;, text: timeStr }],
+				details: { utcTimestamp: date.getTime() },
+			};
+		} catch (_e) {
+			throw new Error(`Invalid timezone: ${timezone}. Current UTC time: ${date.toISOString()}`);
+		}
+	}
+	// ...
+}
+</code></pre>
+<p>对照本章讲的点:</p>
+<ul>
+<li><code>timezone?: string</code> —— 可选参数。调用方可以 <code>getCurrentTime()</code> 也可以 <code>getCurrentTime(&quot;Asia/Shanghai&quot;)</code>。函数体里 <code>if (timezone)</code> 就是在处理「没传」的情况:没传时 <code>timezone</code> 是 <code>undefined</code>,<code>if</code> 判为假,走后面的默认分支。</li>
+<li><code>const date = new Date()</code> —— 又一个靠推断的局部变量,类型是 <code>Date</code>。</li>
+<li><code>catch (_e)</code> —— 这次没标类型,变量名前缀 <code>_</code> 是 pi 的约定,表示「这个参数我不用」(避免 unused 警告)。</li>
+<li><code>async</code> 和 <code>Promise&lt;...&gt;</code> 是异步的标记:<code>async</code> 函数总是返回 <code>Promise</code>。这里只需知道它是异步函数,细节全部留给<a href="../typescript-7-async/index.html">异步与流式</a>那一篇。</li>
+</ul>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong>参数必须标类型,返回值可省</strong>——记住这个不对称:pi 里几乎每个函数参数都有类型,但很多内部函数省略返回类型靠推断。</li>
+<li><strong>可选 <code>?</code> 只能放末尾</strong>,且不能和默认值语义混淆:<code>?</code> 是「可以不传→可能 undefined」,<code>= 值</code> 是「不传→用这个值,不会 undefined」。</li>
+<li>箭头函数和具名函数在「是什么值」上等价,但 pi 里模块顶层的工具函数多用 <code>function</code>(可提升、便于导出),回调和短函数多用箭头。</li>
+</ul>
+<h2 id="sec-3">3. 数组、对象字面量与内联类型、<code>void</code></h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>前两章的值都是标量。真实代码里数据是<strong>数组</strong>和<strong>对象</strong>。TS 的数组类型写作 <code>T[]</code>(如 <code>string[]</code> 是字符串数组),对应 Python 的 <code>list[str]</code>。对象的类型可以<strong>内联</strong>写在原地:<code>{ type: string; text: string }</code> 描述「有 type 和 text 两个字符串字段的对象」,类似 Python 的 <code>TypedDict</code>,但可以匿名、就地使用。</p>
+<p>还有个特殊返回类型 <code>void</code>:表示「这个函数不返回有意义的值」,对应 Python 里返回 <code>None</code>(或标注 <code>-&gt; None</code>)的函数。真实代码里大量函数属于这一类——它们做的是副作用:打印日志、把数据推进队列、触发一个事件,而不是算一个值返回给你。给这类函数标 <code>void</code>,是在告诉调用方「别指望我的返回值」。</p>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 数组类型:T[]
+const names: string[] = ["a", "b"];
+const nums = [1, 2, 3];          // 推断为 number[]
+
+// 内联对象类型:字段就地声明
+const point: { x: number; y: number } = { x: 1, y: 2 };
+
+// 数组套对象:每个元素形如 { type, text }
+const items: { type: string; text: string }[] = [
+  { type: "text", text: "hello" },
+];
+
+// 返回 void 的函数:只做事,不产出值
+function log(msg: string): void {
+  console.log(msg);
+  // 没有 return,或 return; 都行
+}
+</code></pre>
+<p><code>nums</code> 没写类型,推断成 <code>number[]</code>。<code>items</code> 的类型 <code>{ type: string; text: string }[]</code> 读法是「一个数组,元素都是有 type 和 text 字段的对象」——注意 <code>[]</code> 贴在整个对象类型后面。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<ul>
+<li><strong>数组类型 <code>T[]</code></strong>:<code>string[]</code>、<code>number[]</code>,甚至 <code>{ ... }[]</code>。还有个等价写法 <code>Array&lt;string&gt;</code>(泛型形式,见<a href="../typescript-5-generics/index.html">泛型</a>),pi 两种都用,<code>T[]</code> 更常见、更短。</li>
+<li><strong>内联对象类型</strong>:<code>{ 字段: 类型; 字段: 类型 }</code>,字段间用 <code>;</code> 或 <code>,</code> 分隔。就地写、不起名,适合一次性的形状;要复用就该抽成 <code>interface</code> 或 <code>type</code>(下一篇 <a href="../typescript-2-shapes/index.html">interface 与 type</a>)。</li>
+<li><strong>对象字面量</strong>:<code>{ type: &quot;text&quot;, text: &quot;...&quot; }</code> 是<strong>值</strong>(用 <code>,</code> 分隔),别和上面的<strong>类型</strong>混淆——同样的花括号,一个描述形状、一个是具体数据。TS 会检查字面量是否匹配声明的类型,多写一个字段都会报「对象字面量只能指定已知属性」。</li>
+<li><strong><code>void</code></strong>:函数返回类型,表示无有意义返回。函数体可以完全不写 <code>return</code>,或写空的 <code>return;</code>。它和 <code>undefined</code> 相关但不完全相同——<code>void</code> 表达「别用我的返回值」的意图。</li>
+</ul>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>pi 的 <code>ai</code> 包里有个事件流类 <code>EventStream</code>,它的 <code>push</code> 方法就是典型的 <code>: void</code>:</p>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L21-L36 — push 方法:返回 void 的副作用函数</p>
+<pre><code class="language-typescript">push(event: T): void {
+	if (this.done) return;
+
+	if (this.isComplete(event)) {
+		this.done = true;
+		this.resolveFinalResult(this.extractResult(event));
+	}
+
+	// Deliver to waiting consumer or queue it
+	const waiter = this.waiting.shift();
+	if (waiter) {
+		waiter({ value: event, done: false });
+	} else {
+		this.queue.push(event);
+	}
+}
+</code></pre>
+<p>对照本章讲的点:</p>
+<ul>
+<li><code>push(event: T): void</code> —— 返回类型 <code>void</code>:<code>push</code> 只把事件塞进队列或交给等待者,不产出值。函数体里的 <code>return</code>(第一行 <code>if (this.done) return;</code>)是提前退出,不带值,正是 <code>void</code> 的用法。</li>
+<li>这里的 <code>T</code> 是<strong>泛型</strong>类型参数(类定义是 <code>class EventStream&lt;T, R = T&gt;</code>),意思是「元素类型待定,用的时候再填」。本篇不展开,只需知道 <code>T</code> 是个占位类型,详见<a href="../typescript-5-generics/index.html">泛型</a>。</li>
+</ul>
+<p>再回头看第一章 <code>calculate</code> 的返回值,那里有数组套对象字面量的真实例子:</p>
+<p class="code-source">pi/packages/agent/test/utils/calculate.ts:L4-L6 — CalculateResult:数组 + 内联对象类型</p>
+<pre><code class="language-typescript">export interface CalculateResult extends AgentToolResult&lt;undefined&gt; {
+	content: Array&lt;{ type: &quot;text&quot;; text: string }&gt;;
+	details: undefined;
+}
+</code></pre>
+<p><code>content: Array&lt;{ type: &quot;text&quot;; text: string }&gt;</code> —— 一个数组,元素是 <code>{ type: &quot;text&quot;; text: string }</code>。注意 <code>type: &quot;text&quot;</code> 不是 <code>type: string</code>,而是<strong>字符串字面量类型</strong>「只能是 <code>&quot;text&quot;</code> 这个值」(见<a href="../typescript-3-unions/index.html">联合与可辨识联合</a>)。它对应的运行时数据,就是 <code>calculate</code> 里返回的 <code>content: [{ type: &quot;text&quot;, text: ... }]</code>——类型和值花括号长得一样,一个在 <code>interface</code> 里、一个在 <code>return</code> 里。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong><code>T[]</code> 和 <code>Array&lt;T&gt;</code> 等价</strong>,选短的 <code>T[]</code>;但元素类型复杂时(如上面的对象),<code>Array&lt;{...}&gt;</code> 有时读起来更清楚,pi 里两种都能见到。</li>
+<li><strong>类型的花括号和值的花括号是两码事</strong>:<code>: { x: number }</code> 是类型,<code>= { x: 1 }</code> 是值。看到 <code>:</code> 后面就是类型,<code>=</code> 后面就是数据。</li>
+<li><strong><code>void</code> 是「别用返回值」的信号</strong>,不是「返回 undefined」——用在只做副作用(打印、入队、发事件)的函数上;pi 里事件推送、注册回调这类方法大量用它。</li>
+<li><strong>内联对象类型适合一次性形状,复用就抽出来</strong>:同一个 <code>{ type: string; text: string }</code> 在 pi 里出现了很多次,所以它被抽成了带名字的类型(下一篇讲的 <code>interface</code> / <code>type</code>)。看到内联类型开始重复,就是该起名的信号。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

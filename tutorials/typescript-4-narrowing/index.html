@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·04 窄化与类型守卫:安全地处理不可信的数据</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 内置窄化:typeof / instanceof / truthiness</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 自定义类型守卫:x is T 谓词函数</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. unknown 与消化不可信的 LLM 数据</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·04 窄化与类型守卫:安全地处理不可信的数据</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-10</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-10</span> · <span class="post-meta__extra">3-6k 字</span> · <span class="post-meta__extra">18–22 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/type-guards.html">type-guards</a> <a class="concept-chip" href="../../concepts/unknown.html">unknown</a></div>
+</aside>
+
+<p>上一篇(<a href="../typescript-3-unions/index.html">联合与可辨识联合</a>)里,我们学会了用联合类型 <code>A | B | C</code> 描述&quot;这个值可能是好几种形状之一&quot;。但联合只是<strong>声明</strong>了可能性——真正要用一个 <code>string | number</code> 的值时,你得先知道<strong>此刻</strong>它到底是哪一种。把宽泛的联合类型,在某个分支里<strong>收窄</strong>成更具体的单一类型,这个过程就叫<strong>窄化(narrowing)</strong>。</p>
+<p>窄化是 TS 类型系统里最像&quot;魔法&quot;、也最实用的部分:编译器会<strong>读你的控制流</strong>,在 <code>if</code>、<code>switch</code>、<code>&amp;&amp;</code> 的不同分支里,自动把变量的静态类型改窄。这件事之所以重要,是因为静态类型和运行时的真实数据之间总有一道缝——类型标注是你在编译期的<strong>承诺</strong>,而外部世界(用户输入、网络响应、LLM 输出)从不遵守你的承诺。窄化就是把&quot;运行时的判断&quot;和&quot;编译期的类型收缩&quot;绑在一起的机制,让你每做一次运行时检查,都换来一次编译器认可的类型收窄。</p>
+<p>本篇讲三件事:编译器内置的窄化手段(<code>typeof</code> / <code>instanceof</code> / truthiness),如何用 <code>x is T</code> 谓词函数写<strong>自定义</strong>窄化器,以及最实战的一招——用 <code>unknown</code> 加类型守卫,安全地消化来自 LLM 和外部世界的不可信数据。这正是 pi 处理模型返回的工具参数、以及归一化各种异常时反复用到的模式,读完本篇你能读懂 pi 的错误处理层和工具校验层。</p>
+<h2 id="sec-1">1. 内置窄化:typeof / instanceof / truthiness</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>窄化的核心洞察是:<strong>类型检查不是一次性的,它跟着控制流走</strong>。当你写 <code>if (typeof x === &quot;string&quot;)</code>,编译器不只是运行时判断了一下,它还<strong>记住</strong>了——在这个 <code>if</code> 块内部,<code>x</code> 的静态类型就是 <code>string</code>,你可以直接调用 <code>.toUpperCase()</code>,编译器不再报错。TS 内置认识三类&quot;窄化信号&quot;:<code>typeof x === &quot;...&quot;</code>(判原始类型)、<code>x instanceof C</code>(判类实例)、以及直接 <code>if (x)</code> 的真值判断(把 <code>null</code>/<code>undefined</code> 排除掉)。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:这相当于 Python 的 <code>isinstance(x, str)</code>。但关键差异是——Python 里 <code>isinstance</code> 只影响<strong>运行时</strong>行为,类型标注(如果你用 mypy)是另一回事;TS 里 <code>typeof</code>/<code>instanceof</code> 会<strong>改变后续代码的静态类型</strong>,编译器据此放行或拦截你对 <code>x</code> 的调用。</p>
+</blockquote>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+function describe(x: string | number | null): string {
+  if (x === null) {
+    return "空值";           // 这里 x: null
+  }
+  if (typeof x === "string") {
+    return x.toUpperCase();  // 这里 x: string,能调字符串方法
+  }
+  // 走到这里,string 和 null 都被排除了
+  return (x + 1).toString(); // 这里 x: number,能做算术
+}
+
+class HttpError extends Error {
+  constructor(public status: number) { super(); }
+}
+function report(e: Error) {
+  if (e instanceof HttpError) {
+    console.log(e.status);   // 这里 e: HttpError,能读 .status
+  }
+  console.log(e.message);    // 这里 e 又变回 Error
+}
+</code></pre>
+<p>注意 <code>describe</code> 走到最后一行时,编译器已经通过前两个 <code>return</code> <strong>推断</strong>出剩下的唯一可能是 <code>number</code>——这叫&quot;排除法窄化&quot;,不需要你显式写 <code>typeof x === &quot;number&quot;</code>。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<ul>
+<li><strong><code>typeof x</code> 窄化</strong>:<code>typeof</code> 是 JS 运算符,返回一个字符串,取值只有固定几个:<code>&quot;string&quot;</code>、<code>&quot;number&quot;</code>、<code>&quot;boolean&quot;</code>、<code>&quot;bigint&quot;</code>、<code>&quot;symbol&quot;</code>、<code>&quot;undefined&quot;</code>、<code>&quot;object&quot;</code>、<code>&quot;function&quot;</code>。编译器只认这几个字面量的相等判断。注意 <code>typeof null === &quot;object&quot;</code>(JS 的历史遗留坑),所以判 <code>null</code> 要用 <code>x === null</code> 而不是 <code>typeof</code>。</li>
+<li><strong><code>instanceof C</code> 窄化</strong>:判断对象是否是类 <code>C</code>(或其子类)的实例,原理是查原型链。它只对<strong>类</strong>有效,对 <code>interface</code>/<code>type</code> 这种编译期形状无效(它们运行时不存在,见<a href="../typescript-2-shapes/index.html">interface 与 type</a>)。</li>
+<li><strong>truthiness 窄化</strong>:<code>if (x)</code> 会把 falsy 值(<code>null</code>、<code>undefined</code>、<code>0</code>、<code>&quot;&quot;</code>、<code>false</code>、<code>NaN</code>)排除。所以 <code>if (x)</code> 能把 <code>string | undefined</code> 窄成 <code>string</code>——但小心,它也会把合法的 <code>0</code> 或 <code>&quot;&quot;</code> 一起排除,需要精确判 <code>null</code>/<code>undefined</code> 时应写 <code>if (x != null)</code>。</li>
+<li>窄化在 <code>if</code>、<code>switch</code>、三元 <code>?:</code>、以及 <code>&amp;&amp;</code>/<code>||</code> 短路里都生效。</li>
+</ul>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>pi 在把内部消息转成模型可读格式时,<code>custom</code> 类型消息的 <code>content</code> 字段被声明成&quot;要么是纯字符串,要么已经是结构化的内容块数组&quot;,一行 <code>typeof</code> 三元就地窄化:</p>
+<p class="code-source">pi/packages/agent/src/harness/messages.ts:L133-L139 — typeof 三元窄化:字符串就包成内容块,否则原样透传</p>
+<pre><code class="language-typescript">case &quot;custom&quot;: {
+	const content = typeof m.content === &quot;string&quot; ? [{ type: &quot;text&quot; as const, text: m.content }] : m.content;
+	return {
+		role: &quot;user&quot;,
+		content,
+		timestamp: m.timestamp,
+	};
+}
+</code></pre>
+<p>第二个例子更能体现&quot;逐步窄化&quot;:pi 把任意抛出来的东西(<code>unknown</code>)归一化成一个 <code>Error</code> 实例。JS 里 <code>throw</code> 可以扔任何值——字符串、数字、甚至对象,所以捕获时你面对的是 <code>unknown</code>,必须一层层排除:</p>
+<p class="code-source">pi/packages/agent/src/harness/types.ts:L30-L38 — toError:先 instanceof 再 typeof,逐步把 unknown 归一化成 Error</p>
+<pre><code class="language-typescript">export function toError(error: unknown): Error {
+	if (error instanceof Error) return error;
+	if (typeof error === &quot;string&quot;) return new Error(error);
+	try {
+		return new Error(JSON.stringify(error));
+	} catch {
+		return new Error(String(error));
+	}
+}
+</code></pre>
+<p><strong>对照</strong>:<code>typeof m.content === &quot;string&quot; ? ... : ...</code> 里,三元的真分支中 <code>m.content</code> 被窄成 <code>string</code>(所以能安全放进 <code>text</code> 字段),假分支里它是内容块数组,原样透传——这就是 1.3 里说的 <code>typeof</code> 窄化。<code>toError</code> 则是排除法的教科书:<code>error instanceof Error</code> 先把 <code>Error</code> 分支拦掉并提前 <code>return</code>,<code>typeof error === &quot;string&quot;</code> 再把字符串拦掉,能走到最后 <code>try</code> 块的,是既非 <code>Error</code> 也非字符串的其它类型。每个 <code>return</code> 都在替后面的代码收窄剩余可能。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><code>typeof null === &quot;object&quot;</code> 是 JS 最著名的坑之一:想判空要用 <code>=== null</code>/<code>== null</code>,别指望 <code>typeof</code>。</li>
+<li><code>instanceof</code> 只认<strong>类</strong>;想判一个满足某 <code>interface</code> 的普通对象是不是&quot;某种形状&quot;,<code>instanceof</code> 无能为力,得用下一章的自定义守卫或 <code>in</code> 运算符。</li>
+<li>truthiness 窄化很方便但会误伤 <code>0</code> 和 <code>&quot;&quot;</code>:处理数字/字符串字段时,<code>if (x != null)</code> 比 <code>if (x)</code> 更安全。</li>
+</ul>
+<h2 id="sec-2">2. 自定义类型守卫:<code>x is T</code> 谓词函数</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>内置的 <code>typeof</code>/<code>instanceof</code> 只能判原始类型和类。但很多时候你要判的是&quot;这个对象是不是符合某个<strong>形状</strong>&quot;,或者&quot;这个联合里的成员是不是某个特定子类型&quot;——这时需要<strong>自定义类型守卫</strong>:写一个返回 <code>boolean</code> 的函数,但把它的返回类型标成 <code>arg is T</code>(读作&quot;arg 是 T&quot;)。编译器看到这个特殊返回类型,就把这个函数当成一个<strong>窄化器</strong>:凡是它返回 <code>true</code> 的分支,实参就被窄成 <code>T</code>。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:这相当于 Python 3.10+ 的 <code>TypeGuard[T]</code>(<code>def is_str_list(x) -&gt; TypeGuard[list[str]]</code>)。思路一模一样:一个运行时的布尔检查,同时携带&quot;检查通过后类型是什么&quot;的静态信息。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+interface Cat { meow(): void; }
+interface Dog { bark(): void; }
+
+// 返回类型写成 `a is Cat`,而不是 boolean
+function isCat(a: Cat | Dog): a is Cat {
+  return "meow" in a;   // in 运算符:判对象有没有某个属性
+}
+
+function speak(a: Cat | Dog) {
+  if (isCat(a)) {
+    a.meow();   // 这里 a 被窄成 Cat
+  } else {
+    a.bark();   // 排除 Cat 后,a 被窄成 Dog
+  }
+}
+
+// 守卫也能在 filter 里去掉 undefined:
+const raw: (string | undefined)[] = ["a", undefined, "b"];
+const clean: string[] = raw.filter((s): s is string =&gt; s !== undefined);
+</code></pre>
+<p>如果 <code>isCat</code> 的返回类型写成普通的 <code>boolean</code>,<code>if (isCat(a))</code> 里 <code>a</code> <strong>不会</strong>被窄化——编译器不知道这个布尔值和 <code>a</code> 的类型有任何关系。是 <code>a is Cat</code> 这个签名建立了联系。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<ul>
+<li><strong>谓词签名</strong>:形如 <code>function f(x: Wide): x is Narrow</code>,其中 <code>Narrow</code> 必须是 <code>Wide</code> 的子类型。函数体必须返回 <code>boolean</code>;返回 <code>true</code> 时编译器<strong>信任</strong>你——它不验证函数体逻辑真的和 <code>Narrow</code> 一致,写错了它也照单全收(这是&quot;你对编译器的承诺&quot;)。</li>
+<li><strong>参数位置</strong>:谓词里被窄化的必须是一个<strong>具名参数</strong>(<code>x is T</code> 里的 <code>x</code>)。也可以窄化 <code>this</code>:<code>this is T</code>(2.4 会看到 pi 用交叉类型 <code>Component &amp; Focusable</code> 的例子)。</li>
+<li><strong><code>in</code> 运算符</strong>:<code>&quot;prop&quot; in obj</code> 判对象有没有某属性,本身也是一种内置窄化信号,常用来实现谓词函数体。</li>
+<li><strong>在 <code>.filter()</code> 里的妙用</strong>:<code>arr.filter((x): x is T =&gt; ...)</code> 的返回类型是 <code>T[]</code>——普通 <code>filter</code> 无法改变元素类型(过滤 <code>undefined</code> 后类型还是 <code>(string|undefined)[]</code>),但带谓词的 filter 能把 <code>undefined</code> 从元素类型里真正去掉。</li>
+</ul>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 的 Node 文件系统层要把 Node 抛出的错误映射成自己的 <code>FileError</code>。Node 的错误对象带一个 <code>.code</code> 字段(如 <code>&quot;ENOENT&quot;</code>),但 TS 的 <code>Error</code> 类型里没有这个字段,直接读会报错。于是 pi 写了个守卫,把 <code>unknown</code> 窄成带 <code>code</code> 的 <code>NodeJS.ErrnoException</code>:</p>
+<p class="code-source">pi/packages/agent/src/harness/env/nodejs.ts:L77-L86 — isNodeError:谓词把 unknown 窄成带 .code 的 Node 错误</p>
+<pre><code class="language-typescript">function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+	return error instanceof Error &amp;&amp; &quot;code&quot; in error;
+}
+
+function toFileError(error: unknown, path?: string): FileError {
+	if (error instanceof FileError) return error;
+	const cause = toError(error);
+	if (isNodeError(error)) {
+		const message = error.message;
+		switch (error.code) {
+</code></pre>
+<p>TUI 包里也有一个典型:组件系统里只有一部分组件是&quot;可聚焦的&quot;(实现了 <code>Focusable</code> 接口),守卫用 <code>in</code> 判断并窄成交叉类型:</p>
+<p class="code-source">pi/packages/tui/src/tui.ts:L109-L112 — isFocusable:in 运算符 + 交叉类型的谓词守卫</p>
+<pre><code class="language-typescript">/** Type guard to check if a component implements Focusable */
+export function isFocusable(component: Component | null): component is Component &amp; Focusable {
+	return component !== null &amp;&amp; &quot;focused&quot; in component;
+}
+</code></pre>
+<p>第三个例子回到上一章那个消息转换函数的收尾——<code>switch</code> 的 <code>default</code> 分支返回了 <code>undefined</code>,所以整个 <code>.map(...)</code> 的结果里混着 <code>undefined</code>,pi 用带谓词的 <code>filter</code> 一次性把它们剔除,并让结果类型变成干净的 <code>Message[]</code>:</p>
+<p class="code-source">pi/packages/agent/src/harness/messages.ts:L163 — filter 里用谓词把 undefined 从元素类型里去掉</p>
+<pre><code class="language-typescript">		.filter((m): m is Message =&gt; m !== undefined);
+</code></pre>
+<p><strong>对照</strong>:三段都在实践 2.3 的规则。<code>isNodeError</code> 返回 <code>error is NodeJS.ErrnoException</code>,所以 <code>if (isNodeError(error))</code> 块里能安全地 <code>switch (error.code)</code>——没有守卫,<code>error</code> 还是 <code>unknown</code>,读 <code>.code</code> 会被编译器拦下。<code>isFocusable</code> 用 <code>&quot;focused&quot; in component</code> 这个 <code>in</code> 窄化写函数体,返回类型是交叉类型 <code>Component &amp; Focusable</code>(既是组件又满足可聚焦),这正是<a href="../typescript-3-unions/index.html">联合与可辨识联合</a>里交叉 <code>&amp;</code> 的用法。最后 <code>.filter((m): m is Message =&gt; ...)</code> 把 <code>(Message | undefined)[]</code> 收窄成 <code>Message[]</code>,正是 2.3 说的&quot;带谓词的 filter 能改元素类型&quot;。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li>谓词函数是&quot;你对编译器的承诺&quot;:函数体写错了(比如判反了),编译器<strong>不会</strong>帮你抓,后续代码会带着错误的类型假设跑。守卫函数体要写得简单可靠。</li>
+<li>优先用内置窄化(<code>typeof</code>/<code>instanceof</code>/<code>in</code>);只有当&quot;判断逻辑要复用&quot;或&quot;要判复杂形状&quot;时,才封装成 <code>x is T</code> 谓词。</li>
+<li><code>.filter(Boolean)</code> 在 TS 里<strong>不能</strong>去掉 <code>undefined</code> 类型(结果类型不变),要去类型得用 <code>.filter((x): x is T =&gt; x != null)</code>——这是新手常踩的坑。</li>
+</ul>
+<h2 id="sec-3">3. <code>unknown</code> 与消化不可信的 LLM 数据</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>TS 有两个&quot;任意类型&quot;:<code>any</code> 和 <code>unknown</code>。<code>any</code> 是<strong>逃生舱</strong>——把它赋给谁都行、对它做任何操作编译器都不管,等于关掉了类型检查。<code>unknown</code> 是它<strong>类型安全的孪生兄弟</strong>:任何值都能赋给 <code>unknown</code>(和 <code>any</code> 一样宽进),但反过来,你<strong>不先窄化就什么都不能用它做</strong>(严出)——不能调方法、不能读属性、不能赋给别的具体类型。这逼着你在用之前先证明它是什么。处理来自外部世界的数据——尤其是 LLM 吐回来的工具参数、JSON.parse 的结果、网络响应——<code>unknown</code> 是唯一正确的入口类型。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>unknown</code> vs <code>Any</code> 的区别,约等于&quot;强制先 <code>isinstance</code> 判过再用&quot; vs &quot;<code>typing.Any</code> 直接放行&quot;。而&quot;拿 schema 校验外部数据、失败就抛错&quot;这套,近似 Pydantic 的 <code>Model.model_validate(data)</code>——pi 用的是 typebox(见系列开篇提到的:pi 用 typebox 做运行时 schema,类似 Pydantic)。</p>
+</blockquote>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+function parseConfig(raw: unknown): { retries: number } {
+  // raw 是 unknown:下面这些直接用都会被编译器拦下
+  // raw.retries          // ✗ 报错:unknown 上没有属性
+  // raw.toUpperCase()    // ✗ 报错
+
+  // 必须先窄化,一层层证明形状
+  if (typeof raw !== "object" || raw === null) {
+    throw new Error("config 必须是对象");
+  }
+  if (!("retries" in raw) || typeof raw.retries !== "number") {
+    throw new Error("retries 必须是数字");
+  }
+  return { retries: raw.retries };   // 到这里 raw.retries 已被窄成 number
+}
+
+// 对比 any:关掉所有检查,埋雷
+function bad(raw: any): number {
+  return raw.retries.whatever.deeply.nested;  // 编译器一声不吭,运行时炸
+}
+</code></pre>
+<p><code>unknown</code> 版本啰嗦,但每一步都被编译器盯着;<code>any</code> 版本一行搞定,代价是把运行时错误的责任全推给了未来的你。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<ul>
+<li><strong>赋值方向</strong>:<code>unknown</code> 宽进严出——<code>const u: unknown = anything</code>(任何值都能进);但 <code>const s: string = u</code> <strong>报错</strong>,必须先窄化。<code>any</code> 则双向都放行,是类型系统里的&quot;黑洞&quot;。</li>
+<li><strong>能对 <code>unknown</code> 做什么(不窄化)</strong>:只有极少数与类型无关的操作——<code>===</code>/<code>!==</code> 比较、<code>typeof</code>、放进模板字符串(会调 <code>String()</code>)。读属性、调方法、算术,一律要先窄化。</li>
+<li><strong>窄化手段</strong>:第 1、2 章那套全都适用——<code>typeof</code>、<code>instanceof</code>、<code>in</code>、自定义 <code>x is T</code> 谓词。工程上处理复杂形状时,更常见的是交给一个<strong>运行时 schema 校验器</strong>(typebox / zod / Pydantic 之流),校验通过后把 <code>unknown</code> 断言成静态类型。</li>
+<li><strong><code>unknown</code> 是 top type</strong>:所有类型都是它的子类型,所以任何值都能赋给它;它自己只能赋给 <code>unknown</code> 和 <code>any</code>。这与 <code>never</code>(bottom type,没有任何值)正好是类型格的两个极点——<code>unknown</code> 装得下一切但用不了,<code>never</code> 用得了但装不下任何东西。</li>
+<li><strong><code>unknown</code> 联合会被吸收</strong>:<code>unknown | string</code> 化简成 <code>unknown</code>(既然什么都能是,再多说一种也没意义);这也提醒你——一旦某个字段是 <code>unknown</code>,别指望编译器还能替你从旁边的字段推断出什么,窄化只能靠你自己动手。</li>
+</ul>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>pi 最典型的&quot;消化不可信数据&quot;场景:LLM 返回一个工具调用,参数是模型自由生成的 JSON,完全不可信。pi 不直接信,而是拿每个工具自带的 typebox schema 去<strong>校验并强制</strong>,校验失败就抛出带详细错误的异常:</p>
+<p class="code-source">pi/packages/ai/src/utils/validation.ts:L278-L310 — validateToolArguments:用 typebox schema 校验 LLM 给的参数,失败即抛错</p>
+<pre><code class="language-typescript">export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
+	const args = structuredClone(toolCall.arguments);
+	Value.Convert(tool.parameters, args);
+
+	const validator = getValidator(tool.parameters);
+	// ... (省略:非 typebox schema 的 JSON-Schema 强制转换分支)
+
+	if (validator.Check(args)) {
+		return args;
+	}
+
+	const errors =
+		validator
+			.Errors(args)
+			.map((error) =&gt; `  - ${formatValidationPath(error)}: ${error.message}`)
+			.join(&quot;\n&quot;) || &quot;Unknown validation error&quot;;
+
+	const errorMessage = `Validation failed for tool &quot;${toolCall.name}&quot;:\n${errors}\n\nReceived arguments:\n${JSON.stringify(toolCall.arguments, null, 2)}`;
+
+	throw new Error(errorMessage);
+}
+</code></pre>
+<p><strong>对照</strong>:<code>toolCall.arguments</code> 就是 3.1 说的&quot;来自外部世界的不可信数据&quot;——模型生成的参数,形状没有任何编译期保证。pi 没有对它直接 <code>as</code> 断言(那等于自欺),而是走 typebox 的运行时校验:<code>validator.Check(args)</code> 返回 <code>true</code> 才 <code>return args</code>,否则把每条校验错误格式化后 <code>throw</code>。这就是 3.3 里&quot;交给运行时 schema 校验器&quot;的工程化落地——静态类型系统管不到运行时来的数据,唯一可靠的办法是运行时真刀真枪校验一遍。返回类型标成 <code>any</code> 是刻意的:校验通过后,调用方再按工具各自的静态参数类型去用它(这块的 schema→静态类型派生,见<a href="../typescript-5-generics/index.html">泛型</a>里 typebox <code>Static&lt;typeof schema&gt;</code> 的用法)。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li>铁律:<strong>所有跨越信任边界进来的数据入口类型都应该是 <code>unknown</code></strong>——<code>JSON.parse</code> 的结果、<code>catch (e)</code> 捕获的异常、网络/LLM 响应。用 <code>any</code> 接等于把检查关掉,把炸弹留给运行时。</li>
+<li>简单形状用手写窄化(<code>typeof</code>/<code>in</code>),复杂或高频形状用 schema 校验器(pi 用 typebox)——别用一堆嵌套 <code>if</code> 去手校验一个几十字段的对象。</li>
+<li><code>catch (e)</code> 里的 <code>e</code> 在 strict 模式下就是 <code>unknown</code>(旧版本是 <code>any</code>);想用它先 <code>toError(e)</code> 归一化,别直接读 <code>e.message</code>。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

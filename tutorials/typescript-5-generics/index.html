@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·05 泛型:参数化的类型、约束、与工具类型</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 泛型函数与泛型接口:类型当参数</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 泛型类,以及泛型继承泛型</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 工具类型:Partial / Pick / Omit / Record / Extract / ReturnType</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·05 泛型:参数化的类型、约束、与工具类型</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-09</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-09</span> · <span class="post-meta__extra">4-6k 字</span> · <span class="post-meta__extra">20–25 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/generics.html">generics</a> <a class="concept-chip" href="../../concepts/utility-types.html">utility-types</a></div>
+</aside>
+
+<p>到目前为止,我们写的类型都是&quot;具体&quot;的:<code>string</code>、<code>number</code>、某个 <code>interface</code>。但真实代码里,大量结构对&quot;装什么&quot;是<strong>无所谓</strong>的——一个数组容器不关心元素是数字还是字符串,一个&quot;工具&quot;抽象不关心它的参数 schema 长什么样。这就是<strong>泛型(generics)</strong>:让类型本身成为<strong>参数</strong>,在使用时才填入具体类型。</p>
+<p>如果你写过 Python 的 <code>list[int]</code>、<code>dict[str, User]</code>,或者用过 <code>typing.TypeVar</code> / <code>Generic[T]</code>,那你已经见过泛型的思想了。泛型解决的是同一个矛盾:<strong>逻辑要复用,类型不能丢</strong>。不用泛型,你要么给每种元素类型复制一份代码,要么退回 <code>any</code> 关掉检查——前者啰嗦、后者危险。泛型让&quot;装什么&quot;成为一个可推断、可约束、可给默认值的参数,一份代码守住所有类型。TS 还把这套思想推得更远:不仅函数和类能泛型化,连&quot;从一个类型算出另一个类型&quot;都能做——这就是本篇最后要讲的<strong>工具类型(utility types)</strong>,是 TS 类型系统相对 Python 的一件独门武器。读完这篇,你就能读懂 pi 里最核心的几个抽象:统一所有 provider 的 <code>Tool&lt;TParameters&gt;</code>、驱动流式响应的 <code>EventStream&lt;T, R&gt;</code>,以及 agent 状态管理里那些 <code>Partial&lt;Omit&lt;...&gt;&gt;</code> 的类型手术。本篇是<a href="../typescript-1-values/index.html">值与函数</a>、<a href="../typescript-2-shapes/index.html">interface 与 type</a>之后的第五站。</p>
+<h2 id="sec-1">1. 泛型函数与泛型接口:类型当参数</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>假设你要写一个&quot;取数组第一个元素&quot;的函数。如果写死 <code>function first(xs: number[]): number</code>,那它只能用于数字数组;换成字符串就得再写一个。你也许想用&quot;逃生舱&quot; <code>any</code>——<code>function first(xs: any[]): any</code>——但那等于<strong>关掉了类型检查</strong>:返回值成了 <code>any</code>,后续拿它做什么都不报错,类型联系彻底断了。泛型是&quot;既复用逻辑、又不丢类型&quot;的正解:在函数名后面加一对尖括号 <code>&lt;T&gt;</code>,声明一个<strong>类型参数</strong> <code>T</code>——它是一个&quot;占位类型&quot;,在调用时由 TS 根据实参<strong>自动推断</strong>填入。这样一个 <code>first&lt;T&gt;</code> 就同时服务于所有元素类型,且<strong>保持类型联系</strong>:传数字数组,返回值就是 <code>number | undefined</code>;传字符串数组,返回值就是 <code>string | undefined</code>。类型信息从入参一路流到出参,而不是在 <code>any</code> 那里断掉。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>&lt;T&gt;</code> 相当于 <code>TypeVar(&quot;T&quot;)</code>,泛型函数/类相当于继承 <code>Generic[T]</code>。后面会讲的约束 <code>T extends X</code>,则对应 <code>TypeVar(&quot;T&quot;, bound=X)</code>。区别是 TS 的类型参数在<strong>编译期</strong>就完成推断和检查,运行时完全不存在。</p>
+</blockquote>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+
+// 泛型函数:T 由实参推断
+function first&lt;T&gt;(xs: T[]): T | undefined {
+  return xs[0];
+}
+const n: number | undefined = first([1, 2, 3]);      // T 推断为 number
+const s: string | undefined = first(["a", "b"]);     // T 推断为 string
+
+// 泛型接口:容器不关心装什么
+interface Box&lt;T&gt; {
+  value: T;
+}
+const b: Box&lt;string&gt; = { value: "hi" };
+
+// 约束:T 必须至少有 length 字段
+function len&lt;T extends { length: number }&gt;(x: T): number {
+  return x.length;
+}
+len("hello");      // ok,string 有 length
+len([1, 2, 3]);    // ok,数组有 length
+// len(42);        // ✗ number 没有 length,编译报错
+
+// 默认类型参数:不传就用 string
+interface Wrapper&lt;T = string&gt; {
+  data: T;
+}
+const w: Wrapper = { data: "default is string" };    // 等价于 Wrapper&lt;string&gt;
+</code></pre>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<ul>
+<li><strong>声明</strong>:在函数名或接口/类型名后加 <code>&lt;T&gt;</code>。名字随意,惯例单个用 <code>T</code>,多个用 <code>T, U</code> 或语义化的 <code>TParameters</code>、<code>TDetails</code>(pi 的风格)。</li>
+<li><strong>推断优先</strong>:调用泛型函数时通常<strong>不用</strong>手写类型实参,TS 从参数推断。<code>first([1,2,3])</code> 里 <code>T</code> 自动是 <code>number</code>。需要时也可显式写 <code>first&lt;number&gt;([1,2,3])</code>。</li>
+<li><strong>约束 <code>T extends U</code></strong>:限制类型参数的上界——<code>T</code> 必须能赋给 <code>U</code>。约束后,函数体内就能安全访问 <code>U</code> 上的属性(如上例的 <code>.length</code>)。注意这里的 <code>extends</code> 不是&quot;继承&quot;,而是&quot;满足…的形状&quot;。</li>
+<li><strong>默认 <code>T = X</code></strong>:调用方未提供、且无法推断出类型实参时,回退到默认类型。可与约束同写:<code>&lt;T extends U = U&gt;</code>——<strong>既限定上界,又给缺省值</strong>,这正是 pi 里最常见的一行写法。默认类型本身必须满足约束(<code>X</code> 得能赋给 <code>U</code>),否则报错。</li>
+<li><strong>多个类型参数与索引取元素类型</strong>:一个签名可声明多个类型参数,如 <code>Map&lt;K, V&gt;</code>。约束里还能引用<strong>其它</strong>类型参数,写出参数之间的依赖,例如 <code>function pluck&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K]</code>——<code>keyof T</code> 是&quot;<code>T</code> 所有键名组成的联合&quot;,<code>T[K]</code> 是&quot;用键 <code>K</code> 索引到的属性类型&quot;。这套 <code>keyof</code> / <code>T[K]</code> 的写法在下一节和第 3 节还会反复出现。</li>
+</ul>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>pi 的 <code>ai</code> 包要把 ~30 家 LLM provider 统一成一套接口。每家的&quot;工具调用(tool call)&quot;参数 schema 各不相同,于是&quot;工具&quot;这个抽象天生就是泛型的:</p>
+<p class="code-source">pi/packages/ai/src/types.ts:L440-L444 — Tool 接口:一行同时写约束 + 默认值</p>
+<pre><code class="language-typescript">export interface Tool&lt;TParameters extends TSchema = TSchema&gt; {
+	name: string;
+	description: string;
+	parameters: TParameters;
+}
+</code></pre>
+<p>再看一个泛型<strong>函数</strong>,带约束但用途完全不同——它把一个字符串数组变成运行时 schema:</p>
+<p class="code-source">pi/packages/ai/src/utils/typebox-helpers.ts:L14-L24 — StringEnum:约束 T 为只读字符串数组</p>
+<pre><code class="language-typescript">export function StringEnum&lt;T extends readonly string[]&gt;(
+	values: T,
+	options?: { description?: string; default?: T[number] },
+): TUnsafe&lt;T[number]&gt; {
+	return Type.Unsafe&lt;T[number]&gt;({
+		type: &quot;string&quot;,
+		enum: values as any,
+		...(options?.description &amp;&amp; { description: options.description }),
+		...(options?.default &amp;&amp; { default: options.default }),
+	});
+}
+</code></pre>
+<p><strong>对照</strong>:<code>Tool&lt;TParameters extends TSchema = TSchema&gt;</code> 就是 1.3 讲的&quot;约束 + 默认&quot;一行写法——<code>TParameters</code> 必须是一个 typebox schema(<code>TSchema</code> 是上界),而调用方懒得指定时就退回 <code>TSchema</code> 本身。<code>parameters: TParameters</code> 让每个具体工具都携带自己<strong>精确</strong>的参数类型,而不是笼统的 <code>TSchema</code>。<code>StringEnum</code> 则是泛型函数:约束 <code>T extends readonly string[]</code> 保证传入的是字符串数组,而返回类型里的 <code>T[number]</code>(数组的&quot;元素类型&quot;)让产出的 schema 精确到 <code>&quot;add&quot; | &quot;subtract&quot; | ...</code> 这种字面量联合——类型信息从入参一路<strong>流</strong>到了出参。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li>约束 <code>T extends U</code> 里的 <code>extends</code> 读作&quot;满足 U 的形状/是 U 的子类型&quot;,与类继承的 <code>extends</code> 是同一个关键字、不同语境;别被它误导成&quot;必须是某个类的子类&quot;。例如 <code>T extends { length: number }</code> 接受一切有 <code>length</code> 的类型——<code>string</code>、数组、甚至自定义对象——这是结构化(鸭子)子类型,不看名字只看形状。</li>
+<li>能让 TS 推断就别手写类型实参——显式 <code>f&lt;number&gt;(...)</code> 通常是坏味道,说明你在和推断器较劲。真正需要显式的场景很少(如空数组无从推断)。</li>
+<li>约束 + 默认(<code>&lt;T extends U = U&gt;</code>)是库作者的惯用签名:对外提供&quot;填得越具体、类型越精确&quot;的能力,同时保留&quot;什么都不填也能用&quot;的便利。pi 全仓都是这个套路。</li>
+<li>泛型和 <code>any</code> 的区别是全篇最该记住的一点:<code>any[]</code> 只是&quot;放弃检查&quot;,拿出的元素类型信息全丢;<code>T[]</code> 是&quot;把类型作为参数记住&quot;,元素类型一路守到出口。见到别人用 <code>any</code> 做容器/透传,先想想能不能换成一个类型参数。</li>
+</ul>
+<h2 id="sec-2">2. 泛型类,以及泛型继承泛型</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>类也能泛型化:<code>class C&lt;T&gt;</code> 让同一份类逻辑服务于任意元素类型,内部字段、构造函数和方法都能引用 <code>T</code>,实例化时把 <code>T</code> 固定下来(如 <code>new C&lt;number&gt;()</code>),此后这个实例就&quot;专营&quot;数字。类型参数可以有<strong>多个</strong>,且各自带默认值:<code>class C&lt;T, R = T&gt;</code> 表示&quot;两个类型参数,第二个不传就等于第一个&quot;——当两个概念<strong>通常</strong>相同、偶尔不同时,这个默认能省掉绝大多数调用点的第二个实参。而当一个泛型接口 <code>extends</code> 另一个泛型接口时,子接口要给父接口<strong>填入类型实参</strong>——这就是&quot;泛型继承泛型&quot;,让抽象可以分层:底层接口定义通用形状,上层接口在同一个类型参数上追加更具体的字段。这一节的两个 pi 例子——异步事件流、agent 工具——正好覆盖这两种形态。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>class EventStream(Generic[T, R])</code> 是等价写法,但 Python 的 <code>TypeVar</code> 不能像 TS 那样直接给&quot;第二个参数默认等于第一个&quot;;TS 的 <code>&lt;T, R = T&gt;</code> 把这种依赖关系写进了签名。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+
+// 双类型参数的泛型类,R 默认等于 T
+class Channel&lt;T, R = T&gt; {
+  private buffer: T[] = [];
+  constructor(private finalize: (last: T) =&gt; R) {}
+
+  push(x: T): void {
+    this.buffer.push(x);
+  }
+  // 用 finalize 把最后一个 T 变成结果 R
+  result(): R {
+    return this.finalize(this.buffer[this.buffer.length - 1]);
+  }
+}
+
+// 不传 R:R = T = number,result() 返回 number
+const c1 = new Channel&lt;number&gt;((last) =&gt; last);
+c1.push(1); c1.push(2);
+const r1: number = c1.result();
+
+// 传 R:T=number,R=string,两者不同
+const c2 = new Channel&lt;number, string&gt;((last) =&gt; `last=${last}`);
+c2.push(9);
+const r2: string = c2.result();
+
+// 泛型接口继承泛型接口:子接口给父接口填实参
+interface Sized&lt;T&gt; {
+  size: number;
+  sample: T;
+}
+interface Labeled&lt;T&gt; extends Sized&lt;T&gt; {
+  label: string;         // 在父接口 Sized&lt;T&gt; 基础上加字段
+}
+const box: Labeled&lt;string&gt; = { size: 3, sample: "x", label: "words" };
+</code></pre>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<ul>
+<li><strong>泛型类</strong>:<code>class C&lt;T&gt; { field: T; method(x: T): T {...} }</code>。类型参数在整个类体内可见,包括字段、构造函数、方法。实例化时 <code>new C&lt;number&gt;(...)</code>,或让 TS 从构造参数推断。</li>
+<li><strong>多参数与默认</strong>:<code>&lt;T, R = T&gt;</code>。默认值只对<strong>末尾</strong>连续的参数有意义(和函数默认参数一样)——<code>&lt;T = string, R&gt;</code> 不合法,因为若省略 <code>T</code> 就没法给 <code>R</code> 定位。</li>
+<li><strong><code>implements</code></strong>:类可声明它实现某个接口,<code>class C&lt;T&gt; implements SomeInterface&lt;T&gt;</code>,编译器据此检查形状。这与继承类的 <code>extends</code> 不同——<code>implements</code> 只做形状约束,不带来任何实现。</li>
+<li><strong>接口继承接口</strong>:<code>interface Child&lt;T&gt; extends Parent&lt;T&gt;</code>。子接口必须为父接口的每个类型参数提供实参(可以是自己的类型参数 <code>T</code>,也可以是具体类型 <code>Parent&lt;string&gt;</code>)。子接口继承父接口全部成员,并可新增。可一次 <code>extends</code> 多个父接口(<code>extends A&lt;T&gt;, B</code> 逗号分隔),这是接口相对类的一个便利——类只能 <code>extends</code> 单个父类。</li>
+<li><strong>推断也适用于类</strong>:<code>new Channel((last) =&gt; last)</code> 时,若构造参数足以定位类型参数,可省略显式 <code>&lt;...&gt;</code>;但当类型参数<strong>不出现</strong>在任何构造参数里(如上例 <code>R</code> 只出现在 <code>finalize</code> 的返回)、或数组为空等无从推断时,就得显式写 <code>new Channel&lt;number, string&gt;(...)</code>。</li>
+</ul>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 用一个泛型类把&quot;流式事件的异步迭代&quot;封装起来。注意它有<strong>两个</strong>类型参数,第二个带默认:</p>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L4-L19 — EventStream:双类型参数 + implements 泛型接口</p>
+<pre><code class="language-typescript">export class EventStream&lt;T, R = T&gt; implements AsyncIterable&lt;T&gt; {
+	private queue: T[] = [];
+	private waiting: ((value: IteratorResult&lt;T&gt;) =&gt; void)[] = [];
+	private done = false;
+	private finalResultPromise: Promise&lt;R&gt;;
+	private resolveFinalResult!: (result: R) =&gt; void;
+	private isComplete: (event: T) =&gt; boolean;
+	private extractResult: (event: T) =&gt; R;
+
+	constructor(isComplete: (event: T) =&gt; boolean, extractResult: (event: T) =&gt; R) {
+		this.isComplete = isComplete;
+		this.extractResult = extractResult;
+		this.finalResultPromise = new Promise((resolve) =&gt; {
+			this.resolveFinalResult = resolve;
+		});
+	}
+</code></pre>
+<p>再看&quot;泛型接口继承泛型接口&quot;:agent 层的 <code>AgentTool</code> 在第一节的 <code>Tool</code> 基础上扩展:</p>
+<p class="code-source">pi/packages/agent/src/types.ts:L373-L387 — AgentTool 继承 Tool 并新增字段,用 Static&lt;TParameters&gt; 派生参数类型</p>
+<pre><code class="language-typescript">export interface AgentTool&lt;TParameters extends TSchema = TSchema, TDetails = any&gt; extends Tool&lt;TParameters&gt; {
+	/** Human-readable label for UI display. */
+	label: string;
+	/**
+	 * Optional compatibility shim for raw tool-call arguments before schema validation.
+	 * Must return an object that matches `TParameters`.
+	 */
+	prepareArguments?: (args: unknown) =&gt; Static&lt;TParameters&gt;;
+	/** Execute the tool call. Throw on failure instead of encoding errors in `content`. */
+	execute: (
+		toolCallId: string,
+		params: Static&lt;TParameters&gt;,
+		signal?: AbortSignal,
+		onUpdate?: AgentToolUpdateCallback&lt;TDetails&gt;,
+	) =&gt; Promise&lt;AgentToolResult&lt;TDetails&gt;&gt;;
+}
+</code></pre>
+<p><strong>对照</strong>:<code>EventStream&lt;T, R = T&gt;</code> 正是 2.3 的&quot;多参数 + 末尾默认&quot;——流里逐个吐出的事件类型是 <code>T</code>,而整条流跑完提取出的最终结果类型是 <code>R</code>;很多流的&quot;最终结果&quot;就是&quot;最后一个事件&quot;,所以 <code>R = T</code> 是合理缺省。<code>implements AsyncIterable&lt;T&gt;</code> 是&quot;实现泛型接口&quot;,承诺这个类可被 <code>for await...of</code> 迭代(见<a href="../typescript-7-async/index.html">异步与流式</a>)。而 <code>AgentTool&lt;TParameters, TDetails&gt; extends Tool&lt;TParameters&gt;</code> 是&quot;泛型接口继承泛型接口&quot;:它把自己的 <code>TParameters</code> <strong>透传</strong>给父接口 <code>Tool&lt;TParameters&gt;</code>,继承 <code>name</code>/<code>description</code>/<code>parameters</code>,再加上 <code>label</code>、<code>execute</code> 等 agent 专属字段。<code>execute</code> 的参数类型写成 <code>Static&lt;TParameters&gt;</code>——这是 pi 的核心手法:把运行时 typebox schema <code>TParameters</code> 通过 <code>Static&lt;...&gt;</code> <strong>反算出</strong>对应的静态 TS 类型,于是 schema 一处定义,静态类型自动同步。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li>默认类型参数必须放在参数列表<strong>末尾</strong>,和函数默认参数同理;<code>&lt;T, R = T&gt;</code> 合法,<code>&lt;T = A, R&gt;</code> 不合法。</li>
+<li><code>implements Interface&lt;T&gt;</code> 只检查&quot;类的形状是否符合接口&quot;,不注入任何代码;真正复用实现要靠类继承(<code>extends</code>,下一篇<a href="../typescript-6-classes-modules/index.html">类与模块</a>细讲)。</li>
+<li><code>Static&lt;TParameters&gt;</code> 体现了 pi 的&quot;schema 为源、类型为派生&quot;哲学:因为开了 <code>erasableSyntaxOnly</code>(全仓无 enum/decorator),运行时校验交给 typebox,静态类型用 <code>Static&lt;typeof schema&gt;</code> 从同一个 schema 导出,杜绝&quot;类型和校验逻辑各写一遍、然后不一致&quot;的经典 bug。这与 Python 里 Pydantic 模型&quot;一处定义、既做校验又是类型&quot;是同一思路,只是 TS 把&quot;派生类型&quot;这一步显式地交给了 <code>Static&lt;...&gt;</code> 这个泛型。</li>
+<li>泛型类里的 <code>private resolveFinalResult!: (result: R) =&gt; void</code> 用了 <code>!</code>(明确赋值断言),告诉编译器&quot;这个字段虽然没在构造函数体的字面顺序里初始化,但我保证它会被赋值&quot;;这是泛型之外的一个小语法点,遇到别慌。</li>
+<li><code>T</code> 与 <code>R</code> 之间可以毫无关系,也可以像 <code>EventStream</code> 那样通过构造参数 <code>extractResult: (event: T) =&gt; R</code> 建立&quot;从 T 得到 R&quot;的联系;类型参数的价值就在于把这种关系写进签名,让调用方一眼看清&quot;喂进去什么、拿出来什么&quot;。</li>
+</ul>
+<h2 id="sec-3">3. 工具类型:Partial / Pick / Omit / Record / Extract / ReturnType</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>前两节是&quot;用类型参数造泛型的东西&quot;。这一节反过来:TS 内置了一批<strong>工具类型(utility types)</strong>,它们像&quot;作用在类型上的函数&quot;——<strong>输入一个已有类型,输出一个新类型</strong>。你想&quot;把某接口所有字段变可选&quot;&quot;只挑其中几个字段&quot;&quot;从联合里筛出某一支&quot;&quot;拿到某函数的返回类型&quot;——都不用手抄一遍原类型,一个工具类型搞定,而且<strong>原类型改了,派生类型自动跟着变</strong>。它们本质上就是官方预定义好的泛型别名(<code>type Partial&lt;T&gt; = { [K in keyof T]?: T[K] }</code> 之类),用到了 <code>keyof</code>、索引访问、映射与条件类型这些&quot;类型层的运算符&quot;;你现在不必会自己写,但要能<strong>读懂并使用</strong>它们,因为 pi 的类型定义里到处是这种&quot;从旧类型算新类型&quot;。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:这类&quot;从类型算出类型&quot;的能力,Python 的类型系统<strong>基本没有</strong>。<code>typing</code> 里有 <code>Optional</code>、<code>Union</code>,3.11+ 也补了 <code>Required</code>/<code>NotRequired</code>(限于 <code>TypedDict</code>),但没有 <code>Pick</code>/<code>Omit</code>/<code>ReturnType</code> 这种在任意类型上做映射/筛选/反射的通用运算符。原因在于 Python 类型只是给静态检查器(mypy/pyright)看的注解、运行时几乎不参与;而 TS 编译器把类型本身做成了一门可求值的小语言。这是 TS 类型系统的独门武器,也是读 pi 代码绕不开的一关——不懂工具类型,很多 <code>type X = ...&lt;...&gt;</code> 定义就会卡住。</p>
+</blockquote>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  age: number;
+}
+
+// Partial&lt;T&gt;:所有字段变可选(常用于"部分更新")
+type UserPatch = Partial&lt;User&gt;;
+const patch: UserPatch = { name: "new name" };   // 只给一个字段也 ok
+
+// Pick&lt;T, K&gt;:只保留指定字段
+type UserPublic = Pick&lt;User, "id" | "name"&gt;;
+const pub: UserPublic = { id: "u1", name: "Ann" };
+
+// Omit&lt;T, K&gt;:去掉指定字段(Pick 的反面)
+type UserNoEmail = Omit&lt;User, "email"&gt;;   // { id; name; age }
+
+// Record&lt;K, V&gt;:构造键值映射类型
+type Scores = Record&lt;string, number&gt;;
+const s: Scores = { math: 90, cs: 100 };
+
+// Extract&lt;U, M&gt;:从联合 U 里筛出可赋给 M 的那些支
+type Shape =
+  | { kind: "circle"; r: number }
+  | { kind: "square"; side: number };
+type Circle = Extract&lt;Shape, { kind: "circle" }&gt;;   // 只剩 circle 那支
+
+// ReturnType&lt;F&gt;:反射出函数的返回类型
+function makeUser() {
+  return { id: "x", name: "y" };
+}
+type MadeUser = ReturnType&lt;typeof makeUser&gt;;   // { id: string; name: string }
+</code></pre>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p>这些工具类型都接受一个或多个<strong>类型实参</strong>(注意是类型,不是值):</p>
+<ul>
+<li><strong><code>Partial&lt;T&gt;</code></strong>:把 <code>T</code> 的每个属性变可选(加 <code>?</code>)。反义词 <code>Required&lt;T&gt;</code> 去掉所有 <code>?</code>。</li>
+<li><strong><code>Pick&lt;T, K&gt;</code></strong>:<code>K</code> 是 <code>T</code> 的属性名(键)组成的字符串联合;结果只保留这些键。</li>
+<li><strong><code>Omit&lt;T, K&gt;</code></strong>:与 <code>Pick</code> 相反,从 <code>T</code> 里<strong>删掉</strong> <code>K</code> 指定的键,其余保留。<code>K</code> 不必是 <code>T</code> 已有的键也不报错。</li>
+<li><strong><code>Record&lt;K, V&gt;</code></strong>:构造一个&quot;键类型为 <code>K</code>、值类型为 <code>V</code>&quot;的对象类型,如 <code>Record&lt;string, number&gt;</code>。相当于 Python 的 <code>dict[K, V]</code> 在类型层的写法。</li>
+<li><strong><code>Extract&lt;U, M&gt;</code></strong>:从联合类型 <code>U</code> 中,保留能赋给 <code>M</code> 的成员;反义 <code>Exclude&lt;U, M&gt;</code> 保留<strong>不</strong>能赋给 <code>M</code> 的。常配合<a href="../typescript-3-unions/index.html">可辨识联合</a>按 <code>kind</code>/<code>type</code> 标签筛支。</li>
+<li><strong><code>ReturnType&lt;F&gt;</code></strong>:取函数类型 <code>F</code> 的返回类型。配套的 <code>Parameters&lt;F&gt;</code> 取参数元组。注意 <code>F</code> 要是<strong>类型</strong>,所以常写 <code>ReturnType&lt;typeof fn&gt;</code>——<code>typeof fn</code> 把值 <code>fn</code> 变成它的函数类型。</li>
+</ul>
+<p>工具类型可<strong>嵌套组合</strong>,从内往外读:<code>Partial&lt;Omit&lt;T, K&gt;&gt;</code> = 先 <code>Omit&lt;T, K&gt;</code> 删掉 <code>K</code>、再 <code>Partial&lt;...&gt;</code> 把剩下的全变可选。它们还常和索引访问类型搭配:<code>T[&quot;prop&quot;]</code> 取属性 <code>prop</code> 的类型,<code>T[&quot;items&quot;][number]</code> 取数组元素类型——第 4 节的 <code>AssistantMessage[&quot;content&quot;][number]</code> 就是这个组合。这些写法叠起来看着吓人,但每一步都是&quot;输入类型 → 输出类型&quot;的纯函数,拆开逐层读就不难。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>先看 <code>Extract</code> 从可辨识联合里精确挑一支。<code>AssistantMessage[&quot;content&quot;]</code> 是一个内容块数组,<code>[number]</code> 取其元素类型(是个联合),再用 <code>Extract</code> 筛出 <code>type: &quot;toolCall&quot;</code> 那一支:</p>
+<p class="code-source">pi/packages/agent/src/types.ts:L51-L52 — Extract:从内容块联合里挑出 toolCall 那支</p>
+<pre><code class="language-typescript">/** A single tool call content block emitted by an assistant message. */
+export type AgentToolCall = Extract&lt;AssistantMessage[&quot;content&quot;][number], { type: &quot;toolCall&quot; }&gt;;
+</code></pre>
+<p>再看 <code>Omit</code> 与 <code>Partial&lt;Omit&lt;...&gt;&gt;</code> 的组合。agent 的完整状态 <code>AgentState</code> 里有几个&quot;运行时才有、不该由外部初始化&quot;的字段;<code>MutableAgentState</code> 用 <code>Omit</code> 去掉它们再重新定义,而对外的初始状态参数用 <code>Partial&lt;Omit&lt;...&gt;&gt;</code>——既去掉那几个字段,又让剩下的全可选:</p>
+<p class="code-source">pi/packages/agent/src/agent.ts:L60-L68 — Omit 去字段、Partial&lt;Omit&lt;...&gt;&gt; 组合</p>
+<pre><code class="language-typescript">type MutableAgentState = Omit&lt;AgentState, &quot;isStreaming&quot; | &quot;streamingMessage&quot; | &quot;pendingToolCalls&quot; | &quot;errorMessage&quot;&gt; &amp; {
+	isStreaming: boolean;
+	streamingMessage?: AgentMessage;
+	pendingToolCalls: Set&lt;string&gt;;
+	errorMessage?: string;
+};
+
+function createMutableAgentState(
+	initialState?: Partial&lt;Omit&lt;AgentState, &quot;pendingToolCalls&quot; | &quot;isStreaming&quot; | &quot;streamingMessage&quot; | &quot;errorMessage&quot;&gt;&gt;,
+): MutableAgentState {
+</code></pre>
+<p>最后是 <code>ReturnType&lt;typeof ...&gt;</code>,给一个第三方库函数的返回值起类型别名——<code>ignore</code> 是导入的库函数,<code>ignore()</code> 返回一个匹配器对象,pi 不想手抄它的类型,直接反射:</p>
+<p class="code-source">pi/packages/agent/src/harness/skills.ts:L9 — ReturnType&lt;typeof ignore&gt;:反射库函数返回类型</p>
+<pre><code class="language-typescript">type IgnoreMatcher = ReturnType&lt;typeof ignore&gt;;
+</code></pre>
+<p><strong>对照</strong>:<code>Extract&lt;AssistantMessage[&quot;content&quot;][number], { type: &quot;toolCall&quot; }&gt;</code> 一行做了三件事——<code>[&quot;content&quot;]</code> 是<strong>索引访问类型</strong>(取属性的类型)、<code>[number]</code> 取数组元素类型、<code>Extract&lt;..., { type: &quot;toolCall&quot; }&gt;</code> 从这个内容块联合里筛出工具调用那支;结果 <code>AgentToolCall</code> 会随 <code>AssistantMessage</code> 定义变化自动更新。<code>Omit&lt;AgentState, &quot;isStreaming&quot; | ...&gt;</code> 把四个运行时字段摘掉,<code>&amp;</code> 再拼回可变版本(这是<a href="../typescript-2-shapes/index.html">交叉类型</a>),是典型的&quot;以现有类型为底做手术&quot;;<code>Partial&lt;Omit&lt;AgentState, ...&gt;&gt;</code> 则叠加一层&quot;全部可选&quot;,精确表达&quot;初始化时这些字段都可以不给&quot;。<code>ReturnType&lt;typeof ignore&gt;</code> 把值 <code>ignore</code> 先经 <code>typeof</code> 变成函数类型,再取其返回类型——一处引用,库升级后类型自动跟随,不必手工同步。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><code>typeof</code> 在类型位置是&quot;取某个<strong>值</strong>的类型&quot;,和运行时的 <code>typeof x === &quot;string&quot;</code> 是两码事;<code>ReturnType&lt;typeof fn&gt;</code> / <code>Pick&lt;typeof config, ...&gt;</code> 里的 <code>typeof</code> 都是前者。</li>
+<li><code>Omit</code> 的第二个参数(要删的键)<strong>不校验是否真实存在</strong>于源类型,写错键名不报错、静默无效;<code>Pick</code> 的键则必须存在。改字段名后记得回头核对 <code>Omit</code>。</li>
+<li>工具类型让&quot;派生类型&quot;始终追随&quot;源类型&quot;——源接口加一个字段,<code>Partial&lt;T&gt;</code>/<code>Omit&lt;T, K&gt;</code> 自动包含它。这正是不该手抄类型、而该用工具类型的根本理由:<strong>单一事实来源</strong>。Python 里想要这种效果通常只能靠运行时的 dataclass 反射,拿不到编译期的静态保证。</li>
+<li>工具类型可以自由组合、嵌套,但别为炫技把五六层套在一起——超过两三层就该考虑抽一个具名 <code>type</code> 别名(像 pi 把 <code>Omit&lt;...&gt;</code> 的结果命名为 <code>MutableAgentState</code>),既可读又可复用。</li>
+<li>这些工具类型只是 TS 内置的一小撮常用款;它们背后的 <code>keyof</code>、映射类型 <code>{ [K in ...]: ... }</code>、条件类型 <code>T extends U ? X : Y</code> 才是&quot;类型编程&quot;的完整语法。日常读 pi 用不到自己写这些,认得工具类型的名字与含义足矣。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

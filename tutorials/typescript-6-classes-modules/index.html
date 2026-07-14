@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·06 类与模块:封装、契约、与 import/export</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 类:字段、构造器、访问修饰符</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. implements 与 extends(含 class extends Error)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 模块:具名导出、import type/export type、barrel、declare module</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·06 类与模块:封装、契约、与 import/export</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-08</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-08</span> · <span class="post-meta__extra">4-6k 字</span> · <span class="post-meta__extra">20–25 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/classes.html">classes</a> <a class="concept-chip" href="../../concepts/modules.html">modules</a></div>
+</aside>
+
+<p>前几篇我们把 TypeScript 的<strong>类型系统</strong>拆开讲透了:值与函数、interface 与 type(<a href="../typescript-2-shapes/index.html">形状</a>)、<a href="../typescript-3-unions/index.html">联合</a>、<a href="../typescript-4-narrowing/index.html">窄化</a>、<a href="../typescript-5-generics/index.html">泛型</a>。这一篇转向<strong>代码的组织单位</strong>:用 <code>class</code> 把状态与行为封装在一起,用 <code>implements</code>/<code>extends</code> 表达契约与继承,再用 ESM 的 <code>import</code>/<code>export</code> 把这些拼成模块。</p>
+<p>作为 Python 程序员,<code>class</code> 这个词你早就熟。这里的重点是 TS 特有的三样东西:<strong>访问修饰符是编译期的</strong>(<code>private</code> 不像 Python 的 <code>_name</code> 只是约定,编译器会真的拦你)、<strong><code>implements</code> 让类去满足一个接口契约</strong>、以及 <strong><code>import type</code> 这种&quot;只搬类型、运行时零成本&quot;的导入</strong>——它在 Python 里没有直接对应物。读完你就能看懂 pi 里 <code>Agent</code> 类怎么管理内部状态、<code>FileError</code> 怎么继承 <code>Error</code>、以及一个包的 <code>index.ts</code> 是怎么把几十个文件汇总成一个入口的。</p>
+<h2 id="sec-1">1. 类:字段、构造器、访问修饰符</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>TS 的 <code>class</code> 和 Python 的 <code>class</code> 概念一致:把<strong>数据(字段)<strong>和</strong>操作数据的方法</strong>打包成一个自带状态的对象。差别在语法细节上。Python 里字段是在 <code>__init__</code> 里通过 <code>self.x = ...</code> 隐式产生的,类体里根本看不到有哪些字段;TS 要求你<strong>先在类体里声明字段</strong>(<code>private messages: AgentMessage[] = []</code>),再在 <code>constructor</code> 里赋值。这多出来的声明不是啰嗦——它让类型检查器和读代码的人一眼看清这个对象有哪些字段、各是什么类型,等于把 Python 里散落在 <code>__init__</code> 各处的 <code>self.x=</code> 集中成一张&quot;字段清单&quot;。此外 TS 给字段加了<strong>访问修饰符</strong>:<code>private</code>/<code>public</code>/<code>readonly</code>,用来表达封装意图,而且——这是和 Python 最大的不同——是编译期强制的。</p>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+class Counter {
+  private count: number;            // 私有字段:外部读不到
+  public readonly step: number;     // 公开但只读:构造后不能改
+
+  constructor(start: number, step = 1) {
+    this.count = start;             // 用 this.x 赋值,和 Python 的 self.x 一样
+    this.step = step;               // step 有默认值 1(参数默认值)
+  }
+
+  tick(): number {
+    this.count += this.step;
+    return this.count;
+  }
+}
+
+const c = new Counter(10);          // new 关键字创建实例
+c.tick();                           // 11
+// c.count;    // ✗ 编译错误:count 是 private
+// c.step = 2; // ✗ 编译错误:step 是 readonly
+</code></pre>
+<blockquote>
+<p><strong>Python 对照</strong>:Python 的 <code>self._count</code> 私有只是<strong>命名约定</strong>,运行时照样能访问;TS 的 <code>private</code> 是<strong>编译期</strong>强制,<code>tsc</code> 会直接报错(但注意:编译成 JS 后运行时并不拦——见 1.5)。</p>
+</blockquote>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p><strong>字段声明</strong>:写在类体顶部,<code>名字: 类型</code>,可选 <code>= 默认值</code>。没有默认值又没在构造器里赋值、且开了 <code>strictPropertyInitialization</code> 时,编译器会报&quot;字段未初始化&quot;。</p>
+<p><strong>构造器</strong>:方法名固定为 <code>constructor</code>,<code>new C(...)</code> 时自动调用。参数可以有默认值(<code>step = 1</code>,等价于 Python 的 <code>def __init__(self, step=1)</code>)。</p>
+<p><strong>访问修饰符</strong>(写在字段/方法名前):</p>
+<ul>
+<li><code>public</code>(默认)——处处可访问,写不写都一样。</li>
+<li><code>private</code>——只有类内部能访问,子类都不行。</li>
+<li><code>protected</code>——类内部 + 子类可访问。</li>
+<li><code>readonly</code>——可与上面组合(<code>private readonly x</code>),只允许在声明处或构造器里赋值一次,之后只读。</li>
+</ul>
+<p><strong><code>??</code>(空值合并)</strong>:<code>a ?? b</code> 表示&quot;<code>a</code> 若为 <code>null</code>/<code>undefined</code> 就取 <code>b</code>,否则取 <code>a</code>&quot;。它和 <code>||</code> 的区别是:<code>??</code> 只在 <code>null</code>/<code>undefined</code> 时回退,而 <code>0</code>、<code>&quot;&quot;</code>、<code>false</code> 这些&quot;假值&quot;会被保留。给可选构造参数配默认值时,<code>options.mode ?? &quot;default&quot;</code> 是标准写法。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>pi 的 agent 包里有个小而完整的例子:<code>PendingMessageQueue</code>——一个私有数组 + 构造器注入的 <code>mode</code> + 几个公开方法。它是 <code>Agent</code> 用来缓存&quot;用户中途插入的消息&quot;的队列。</p>
+<p class="code-source">pi/packages/agent/src/agent.ts:L123-L138 — 私有字段 + 构造器注入 + 公开方法</p>
+<pre><code class="language-typescript">class PendingMessageQueue {
+	private messages: AgentMessage[] = [];
+	public mode: QueueMode;
+
+	constructor(mode: QueueMode) {
+		this.mode = mode;
+	}
+
+	enqueue(message: AgentMessage): void {
+		this.messages.push(message);
+	}
+
+	hasItems(): boolean {
+		return this.messages.length &gt; 0;
+	}
+</code></pre>
+<p><code>private messages</code> 是内部状态,外界只能通过 <code>enqueue</code>/<code>hasItems</code>(公开方法,<code>public</code> 是默认所以省略)去操作它——这就是封装。<code>mode: QueueMode</code> 由构造器注入,<code>QueueMode</code> 其实是个字符串字面量联合 <code>&quot;all&quot; | &quot;one-at-a-time&quot;</code>(pi 全仓禁用 enum,用<a href="../typescript-3-unions/index.html">联合</a>代替)。</p>
+<p>再看真正的 <code>Agent</code> 类头部——它把 <code>readonly</code> 和 <code>??</code> 默认值都用上了:</p>
+<p class="code-source">pi/packages/agent/src/agent.ts:L171-L174, L210-L223 — Agent 的私有只读字段与构造器默认值(中间省略大量公开字段)</p>
+<pre><code class="language-typescript">export class Agent {
+	private _state: MutableAgentState;
+	private readonly listeners = new Set&lt;(event: AgentEvent, signal: AbortSignal) =&gt; Promise&lt;void&gt; | void&gt;();
+	private readonly steeringQueue: PendingMessageQueue;
+	// ... 省略大量 public 回调字段 ...
+	constructor(options: AgentOptions = {}) {
+		this._state = createMutableAgentState(options.initialState);
+		// ...
+		this.steeringQueue = new PendingMessageQueue(options.steeringMode ?? &quot;one-at-a-time&quot;);
+		this.followUpQueue = new PendingMessageQueue(options.followUpMode ?? &quot;one-at-a-time&quot;);
+		this.transport = options.transport ?? &quot;auto&quot;;
+	}
+</code></pre>
+<p><strong>对照</strong>:<code>private _state</code> 是 agent 的内部可变状态,外部拿不到;<code>private readonly listeners</code> 表明&quot;这个 Set 引用建好后不再替换&quot;(但 Set 内容仍可增删——<code>readonly</code> 锁的是<strong>字段绑定</strong>,不是对象内部)。<code>constructor(options: AgentOptions = {})</code> 给整个参数对象一个默认空对象,于是 <code>new Agent()</code> 无参也能调;里面每个 <code>options.X ?? 默认值</code> 就是 1.3 说的空值合并回退。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong><code>private</code>/<code>readonly</code> 是编译期擦除的</strong>:<code>tsc</code> 会拦住越权访问,但编译成 JS 后这些修饰符消失,运行时并不阻止。要<strong>运行时</strong>真私有,用 JS 原生的 <code>#field</code> 语法(井号私有字段)。pi 选择编译期 <code>private</code>,因为它对读代码的人已经足够表达意图。</li>
+<li><strong>字段必须先声明</strong>:从 Python 迁移过来最容易忘。TS 不允许在构造器里凭空 <code>this.newField = 1</code> 而类体没声明 <code>newField</code>——会报错。</li>
+<li><strong><code>??</code> vs <code>||</code></strong>:配置默认值一律用 <code>??</code>。若某选项合法值包含 <code>0</code> 或 <code>&quot;&quot;</code>,用 <code>||</code> 会把它们错误地当成&quot;没传&quot;而回退,这是常见 bug。</li>
+<li><strong>构造器参数带默认值 = 可选</strong>:<code>constructor(options: AgentOptions = {})</code> 让 <code>new Agent()</code> 无参可调;等价于 Python 的 <code>def __init__(self, options=None)</code> 再 <code>options = options or {}</code>,但 TS 直接写在签名里,类型也据此推断为可选。</li>
+</ul>
+<h2 id="sec-2">2. implements 与 extends(含 <code>class extends Error</code>)</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>有了类之后,两种复用/约束关系登场。<code>implements</code> 是&quot;<strong>我承诺满足某个接口契约</strong>&quot;——类必须提供接口列出的所有成员,否则编译报错;它不带来任何实现,只做检查,像一份必须逐项打钩的清单。<code>extends</code> 是&quot;<strong>我继承一个父类</strong>&quot;——拿到父类的字段和方法,可覆写,可用 <code>super(...)</code> 调父类构造器。Python 里两者都靠 <code>class Child(Parent)</code>(以及 <code>Protocol</code> 的隐式满足);TS 特意把&quot;契约&quot;(<code>implements</code>,显式声明满足某接口、但零实现)和&quot;继承&quot;(<code>extends</code>,拿父类的真实实现)在语法上分成两个关键字,读代码时一眼能分清&quot;这是形状约束&quot;还是&quot;这是代码复用&quot;。一个特别常见的 <code>extends</code> 用法是<strong>自定义错误类</strong>:<code>class FileError extends Error</code>,让你能 <code>throw</code> 一个既是标准 <code>Error</code>、又带结构化字段(错误码、路径)的对象。</p>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+interface Named {          // 一个契约:必须有 name
+  name: string;
+  greet(): string;
+}
+
+// implements:类承诺满足 Named 契约
+class Person implements Named {
+  constructor(public name: string) {}   // 参数属性:等价于声明+赋值 this.name
+  greet(): string {
+    return `Hi, I'm ${this.name}`;
+  }
+}
+
+// extends:自定义错误继承内置 Error
+class NotFoundError extends Error {
+  constructor(public path: string) {     // 额外携带一个结构化字段
+    super(`not found: ${path}`);         // 必须先调 super 才能用 this
+    this.name = "NotFoundError";
+  }
+}
+
+throw new NotFoundError("/tmp/x");       // err.path 可读,err instanceof Error 为 true
+</code></pre>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>class Person implements Named</code> 像 Python 显式写 <code>class Person(Named)</code> 且 <code>Named</code> 是个 <code>Protocol</code>——但 TS 的 <code>implements</code> <strong>不继承任何实现</strong>,纯粹是编译期&quot;你没漏实现吧&quot;的核对。<code>super(...)</code> 与 Python 的 <code>super().__init__(...)</code> 对应。</p>
+</blockquote>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p><strong><code>implements I</code></strong>:放在类名后,<code>class C implements I</code>。可同时满足多个:<code>implements A, B</code>。编译器逐一核对 <code>I</code> 的每个成员在 <code>C</code> 里都有且类型兼容,缺一个就报错。<code>implements</code> <strong>只检查、不注入</strong>——接口里就算写了方法签名,类里也得自己实现。</p>
+<p><strong><code>extends P</code></strong>:单继承(TS 类只能 <code>extends</code> 一个父类)。子类构造器<strong>若访问 <code>this</code> 之前</strong>必须先调 <code>super(...)</code>,把父类构造器跑完。可用 <code>override</code> 关键字(开启 <code>noImplicitOverride</code> 时推荐)标注覆写的方法。</p>
+<p><strong>参数属性</strong>(demo 里 <code>constructor(public name: string)</code>):在构造器参数前加 <code>public</code>/<code>private</code>/<code>readonly</code>,TS 会自动声明同名字段并赋值,省掉&quot;声明 + <code>this.x = x</code>&quot;的样板。这是 TS 独有的语法糖。</p>
+<p><strong><code>class X extends Error</code></strong>:JS 内置 <code>Error</code> 有 <code>message</code>、<code>name</code>、可选 <code>cause</code>。继承它并在 <code>super(message, options?)</code> 里传消息,再挂自己的字段(如错误码 <code>code</code>、路径 <code>path</code>),就得到既能 <code>throw</code>/<code>catch</code>、又携带结构化信息的错误类型。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 的 harness 层把所有文件系统错误统一成一个 <code>FileError</code>,继承自 <code>Error</code> 并带一个稳定的错误码:</p>
+<p class="code-source">pi/packages/agent/src/harness/types.ts:L121-L133 — class extends Error:结构化字段 + super 调用</p>
+<pre><code class="language-typescript">export class FileError extends Error {
+	/** Backend-independent error code. */
+	public code: FileErrorCode;
+	/** Absolute addressed path associated with the failure, when available. */
+	public path?: string;
+
+	constructor(code: FileErrorCode, message: string, path?: string, cause?: Error) {
+		super(message, cause === undefined ? undefined : { cause });
+		this.name = &quot;FileError&quot;;
+		this.code = code;
+		this.path = path;
+	}
+}
+</code></pre>
+<p><strong>对照</strong>:<code>extends Error</code> 让 <code>FileError</code> 实例既是 <code>Error</code>(<code>instanceof Error</code> 成立、能被通用 <code>catch</code> 捕获),又多出 <code>public code</code>(错误码,类型是字面量联合 <code>FileErrorCode</code>)和 <code>public path?</code>(可选路径——注意 <code>?</code> 表示这个字段可能是 <code>undefined</code>)。构造器<strong>第一行 <code>super(...)</code></strong> 把 <code>message</code>/<code>cause</code> 交给父类,之后才允许 <code>this.code = code</code>。</p>
+<p>再看 <code>implements</code> 与 <code>extends</code> 一起出现的例子。pi 的 <code>ai</code> 包有个泛型事件流类,它<strong>实现</strong>了 JS 的 <code>AsyncIterable</code> 契约,又被一个具体子类<strong>继承</strong>:</p>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L4-L18 — 泛型类 implements AsyncIterable 契约</p>
+<pre><code class="language-typescript">export class EventStream&lt;T, R = T&gt; implements AsyncIterable&lt;T&gt; {
+	private queue: T[] = [];
+	private waiting: ((value: IteratorResult&lt;T&gt;) =&gt; void)[] = [];
+	private done = false;
+	private isComplete: (event: T) =&gt; boolean;
+	private extractResult: (event: T) =&gt; R;
+
+	constructor(isComplete: (event: T) =&gt; boolean, extractResult: (event: T) =&gt; R) {
+		this.isComplete = isComplete;
+		this.extractResult = extractResult;
+	}
+</code></pre>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L69-L82 — 子类 extends 泛型父类,构造器调 super 填死泛型参数</p>
+<pre><code class="language-typescript">export class AssistantMessageEventStream extends EventStream&lt;AssistantMessageEvent, AssistantMessage&gt; {
+	constructor() {
+		super(
+			(event) =&gt; event.type === &quot;done&quot; || event.type === &quot;error&quot;,
+			(event) =&gt; {
+				if (event.type === &quot;done&quot;) {
+					return event.message;
+				} else if (event.type === &quot;error&quot;) {
+					return event.error;
+				}
+				throw new Error(&quot;Unexpected event type for final result&quot;);
+			},
+		);
+	}
+}
+</code></pre>
+<p><strong>对照</strong>:<code>EventStream&lt;T, R = T&gt;</code> 是个<a href="../typescript-5-generics/index.html">泛型类</a>(<code>R = T</code> 是泛型默认值);<code>implements AsyncIterable&lt;T&gt;</code> 承诺它可被 <code>for await...of</code> 迭代——编译器会核对它有 <code>[Symbol.asyncIterator]</code> 方法(在省略的下文里)。子类 <code>AssistantMessageEventStream extends EventStream&lt;AssistantMessageEvent, AssistantMessage&gt;</code> 把两个泛型参数<strong>填成具体类型</strong>,再在 <code>constructor</code> 里用 <code>super(...)</code> 把父类需要的两个回调传上去。这正是 2.3 说的&quot;<code>super</code> 跑完父类构造器&quot;。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong><code>implements</code> 不给实现,<code>extends</code> 给</strong>:想复用父类代码用 <code>extends</code>;只想&quot;保证形状对上&quot;、类各写各的,用 <code>implements</code>。二者可叠加(如 <code>class C extends B implements I</code>)。</li>
+<li><strong>自定义错误一定 <code>super(message)</code> 打头,并设 <code>this.name</code></strong>:不设 <code>name</code>,打印栈时会显示成通用的 &quot;Error&quot;;pi 每个错误类都手动 <code>this.name = &quot;FileError&quot;</code>。</li>
+<li><strong>参数属性省样板但别滥用</strong>:<code>constructor(public name: string)</code> 很方便,但字段多、有默认值或需要文档注释时,分开声明更清晰——pi 的 <code>FileError</code> 就选择显式声明 <code>public code</code> 并加 JSDoc。</li>
+</ul>
+<h2 id="sec-3">3. 模块:具名导出、import type/export type、barrel、declare module</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>一个 <code>.ts</code> 文件就是一个<strong>模块</strong>。默认里面的东西都是文件私有的,想让别的文件用,得 <code>export</code>;想用别人的,得 <code>import</code>。这就是 ESM(ECMAScript Modules),和 Python 的 <code>from x import y</code> 心智一致。但 TS 多一层:因为它严格区分&quot;<strong>类型</strong>&quot;(只在编译期存在)和&quot;<strong>运行时的值</strong>&quot;(编译后真的会执行),于是有 <code>import type</code>——<strong>只搬类型注解,编译成 JS 时整行被擦掉,运行时零成本、连模块副作用都不触发</strong>。这层区分在 Python 里不存在,是 TS 学习者最容易忽略的一点。此外还有两个常见的组织手法:<strong>barrel</strong>(一个 <code>index.ts</code> 把整个目录 <code>export *</code> 汇总成单一入口,相当于 Python 的 <code>__init__.py</code> 做 re-export,让使用者不必关心内部文件怎么拆)和 <strong><code>declare module</code></strong>(往一个已有模块里&quot;补充声明&quot;,做类型层面的合并,常用于给第三方库补类型或给框架留扩展点)。</p>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+
+// ---- file: shapes.ts ----
+export interface Point { x: number; y: number }   // 具名导出一个类型
+export function origin(): Point {                  // 具名导出一个函数(值)
+  return { x: 0, y: 0 };
+}
+
+// ---- file: main.ts ----
+import { origin } from "./shapes.ts";              // 导入值:运行时真的会执行
+import type { Point } from "./shapes.ts";          // 导入类型:编译后此行消失
+// 也可合并:import { type Point, origin } from "./shapes.ts";
+
+const p: Point = origin();
+
+// ---- file: index.ts(barrel)----
+export * from "./shapes.ts";                       // 把 shapes 的导出原样再导出
+</code></pre>
+<blockquote>
+<p><strong>Python 对照</strong>:barrel 的 <code>export * from &quot;./shapes.ts&quot;</code> ≈ 在 <code>__init__.py</code> 里 <code>from .shapes import *</code>,让外部写 <code>from pkg import Point</code> 而非 <code>from pkg.shapes import Point</code>。而 <code>import type</code> <strong>在 Python 里没有直接对应</strong>——Python 的 import 总是运行时真执行;TS 的 <code>import type</code> 保证被编译器擦除,连模块副作用都不触发。</p>
+</blockquote>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p><strong>具名导出/导入</strong>:<code>export</code> 放在声明前(<code>export function f...</code>),或集中写 <code>export { a, b }</code>。导入用 <code>import { a, b } from &quot;路径&quot;</code>。注意 pi 的导入路径带<strong>显式 <code>.ts</code> 后缀</strong>(如 <code>&quot;./shapes.ts&quot;</code>),这是它的模块解析设置要求,和很多省略后缀的项目不同。</p>
+<p><strong><code>import type</code> / <code>export type</code></strong>:在 <code>import</code>/<code>export</code> 后加 <code>type</code>,表示这一项<strong>只在类型层面存在</strong>,编译产物里被完全擦除。两种粒度:整行 <code>import type { X } from &quot;...&quot;</code>,或行内 <code>import { type X, fn }</code>(只把 <code>X</code> 标成类型、<code>fn</code> 仍是值)。好处有二:一是<strong>运行时零成本</strong>、不引入无谓的模块加载;二是配合 pi 开的 <code>erasableSyntaxOnly</code>/<code>verbatimModuleSyntax</code>,明确区分&quot;类型&quot;和&quot;值&quot;能避免打包器把纯类型误当成运行时依赖。</p>
+<p><strong>barrel</strong>:一个只做转发的 <code>index.ts</code>,用 <code>export * from &quot;./a.ts&quot;</code> 批量转发,或 <code>export { X } from &quot;./a.ts&quot;</code> 精选转发。它给整个包一个<strong>单一公开入口</strong>,内部文件怎么拆分对使用者透明。</p>
+<p><strong><code>declare module &quot;...&quot;</code></strong>:声明合并的一种。用来给一个<strong>已存在的模块</strong>追加类型声明——常见于给第三方库补类型,或(如 pi)用&quot;接口在别处被扩充&quot;的模式做插件化的类型注册。它是纯类型构造,不产生运行时代码。这里点到为止,知道读到它时它在&quot;往别的模块里加声明&quot;即可。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>先看 pi <code>agent</code> 包的 barrel 入口——大量 <code>export *</code> 汇总子模块,并夹杂&quot;类型 + 值混合&quot;的精选导出:</p>
+<p class="code-source">pi/packages/agent/src/index.ts:L1-L13 — barrel:export * 批量转发 + 混合 type/值的精选导出</p>
+<pre><code class="language-typescript">// Core Agent
+export * from &quot;./agent.ts&quot;;
+// Loop functions
+export * from &quot;./agent-loop.ts&quot;;
+export * from &quot;./harness/agent-harness.ts&quot;;
+export {
+	type BranchPreparation,
+	type BranchSummaryDetails,
+	type CollectEntriesResult,
+	collectEntriesForBranchSummary,
+	generateBranchSummary,
+	prepareBranchEntries,
+} from &quot;./harness/compaction/branch-summarization.ts&quot;;
+</code></pre>
+<p><strong>对照</strong>:<code>export * from &quot;./agent.ts&quot;</code> 把 <code>agent.ts</code> 里所有导出(<code>Agent</code> 类等)原样再导出,于是外部只需 <code>import { Agent } from &quot;@earendil-works/pi-agent-core&quot;</code>,不必知道它藏在 <code>agent.ts</code>。下面那个 <code>export { ... }</code> 块里,<code>type BranchPreparation</code> 前缀 <code>type</code> 表明它是<strong>纯类型</strong>、编译后擦除,而 <code>collectEntriesForBranchSummary</code> 等是<strong>运行时函数</strong>——同一个 <code>export {}</code> 里两类混排,靠 <code>type</code> 前缀区分。</p>
+<p><code>ai</code> 包的入口开头则从第三方库 typebox re-export,<code>export type</code> 与 <code>export</code> 各司其职:</p>
+<p class="code-source">pi/packages/ai/src/index.ts:L1-L2 — export type 搬类型 / export 搬值,泾渭分明</p>
+<pre><code class="language-typescript">export type { Static, TSchema } from &quot;typebox&quot;;
+export { Type } from &quot;typebox&quot;;
+</code></pre>
+<p><strong>对照</strong>:<code>Static</code>、<code>TSchema</code> 是 typebox 的<strong>类型</strong>(编译期用于从 schema 派生静态类型),用 <code>export type</code> 转发、运行时不留痕;<code>Type</code> 是 typebox 的<strong>运行时对象</strong>(用来构造 schema),用普通 <code>export</code> 转发。pi 把二者拆成两行,正是 <code>verbatimModuleSyntax</code> 下的规范写法。</p>
+<p>在消费端,行内混合形式最常见——测试工具里同一行既拿类型又拿值:</p>
+<p class="code-source">pi/packages/agent/test/utils/calculate.ts:L1 — 行内 import:type Static 是类型、Type 是值,同一条 import</p>
+<pre><code class="language-typescript">import { type Static, Type } from &quot;typebox&quot;;
+</code></pre>
+<p><strong>对照</strong>:一条 <code>import</code> 里,<code>type Static</code> 标为类型(编译后从这条导入里消失),<code>Type</code> 是运行时值(保留)。若这行只剩 <code>type Static</code>,编译器会把整条 import 擦掉;因为还有 <code>Type</code> 这个值,导入才在运行时保留。</p>
+<p>最后是 <code>declare module</code> 的真实用法。pi 用它给核心的 <code>types.ts</code> <strong>补充</strong>消息类型,做插件化的声明合并:</p>
+<p class="code-source">pi/packages/agent/src/harness/messages.ts:L54-L61 — declare module:往已有模块的接口里合并新成员</p>
+<pre><code class="language-typescript">declare module &quot;../types.ts&quot; {
+	interface CustomAgentMessages {
+		bashExecution: BashExecutionMessage;
+		custom: CustomMessage;
+		branchSummary: BranchSummaryMessage;
+		compactionSummary: CompactionSummaryMessage;
+	}
+}
+</code></pre>
+<p><strong>对照</strong>:<code>types.ts</code> 里原本定义了一个空的 <code>CustomAgentMessages</code> 接口做扩展点;这里 <code>declare module &quot;../types.ts&quot;</code> 打开那个模块,往同名接口里<strong>追加</strong>四个成员。接口的这种&quot;同名合并&quot;就是声明合并——纯类型操作,不生成任何运行时代码,却让核心类型&quot;认识&quot;了 harness 层新增的消息种类。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>能用 <code>import type</code> 就用</strong>:纯类型的导入标 <code>type</code>,既表意清晰又保证运行时零开销;pi 开了 <code>verbatimModuleSyntax</code>,漏标会直接报错。判断标准:这个名字只出现在类型位置(注解、泛型参数、<code>implements</code>)就是类型,被 <code>new</code>/调用/取值就是值。</li>
+<li><strong>barrel 的代价</strong>:<code>export *</code> 方便,但会让&quot;某文件到底导出了啥&quot;变得不透明,也可能拖累打包器的 tree-shaking。pi 的取舍是入口用 barrel、但对有歧义的项改用精选 <code>export { ... }</code>。</li>
+<li><strong><code>declare module</code> 是进阶工具</strong>:日常写业务基本用不到,主要出现在&quot;给第三方库补类型&quot;或&quot;框架留扩展点&quot;两处。读 pi 时认得它在做类型合并即可,不必急着自己写。</li>
+<li><strong>导入路径带 <code>.ts</code> 后缀是 pi 的选择</strong>:多数教程里 <code>import ... from &quot;./shapes&quot;</code> 省略后缀;pi 的模块解析要求写全 <code>&quot;./shapes.ts&quot;</code>。照抄 pi 代码时保留后缀,自己起项目时按各自 <code>tsconfig</code> 约定即可。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

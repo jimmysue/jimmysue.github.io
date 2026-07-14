@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 一个工具是怎么定义的:schema → 类型 → 处理器</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. AgentTool 契约与 execute 的类型</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 主循环:流式消费事件 + 分派工具 + 校验参数</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+    <li class="h2"><a href="#sec-4">4. 收尾:你现在能读 pi 了</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 直觉</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 正式化</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-06</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-06</span> · <span class="post-meta__extra">4-6k 字</span> · <span class="post-meta__extra">22–28 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/agent-harness.html">agent-harness</a> <a class="concept-chip" href="../../concepts/typebox.html">typebox</a></div>
+</aside>
+
+<p>前八篇是<strong>零件</strong>。我们一个一个地拆过:值与函数、interface 与 type、联合与可辨识联合、窄化与类型守卫、泛型、类与模块、异步与流式。每一篇都在一个孤立的语法点上打转,你可能会想:这些零件拼起来到底长什么样?</p>
+<p>这篇是<strong>整机</strong>。我们不再介绍新语法——而是把零件拼成一台能跑的机器,然后用它去读 pi 的真实代码。目标很具体:读完这篇,你能<strong>独立打开 pi 的仓库,读懂它的一个内置工具是怎么定义的、agent 主循环是怎么把&quot;模型吐出的 token&quot;变成&quot;真正执行的工具调用&quot;的</strong>。我们会走两条主线:第一条是「一个工具从 schema 到处理器」的静态骨架(第 1、2 章),第二条是「主循环把一切串起来」的动态流程(第 3 章),最后第 4 章给你一张自学地图,让你合上这篇之后能自己继续读下去。</p>
+<p>一句话预告全篇的主角:<strong>一份 schema,活两遍</strong>。它编译期被 <code>Static&lt;typeof schema&gt;</code> 投影成静态类型(给你的代码看),运行时又被 <code>validateToolArguments</code> 当校验器(给模型的输出把关)。你会在第 1 章看它派生类型,在第 3 章看它校验数据——同一个值,两个世界。抓住这条线,pi 的工具体系就不再是黑箱。</p>
+<p>每一章仍走 5 步螺旋。但这次 Step 4 引用的都是 pi 里<strong>你真的会读到</strong>的代码,Step 2 的手写 demo 只是那段真实代码的最小骨架。读的时候不妨对照着 clone 里的文件一起看。</p>
+<h2 id="sec-1">1. 一个工具是怎么定义的:schema → 类型 → 处理器</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>pi 里的&quot;工具&quot;(tool)就是模型能调用的一个函数——读文件、跑 bash、算数。但模型是通过 JSON 调用它的,所以工具必须回答两个问题:<strong>参数长什么样</strong>(给模型看的运行时 schema),以及<strong>参数在 TS 里是什么类型</strong>(给你的代码看的静态类型)。pi 的做法是:先用 typebox 写一份<strong>运行时 schema</strong>(相当于 Python 的 Pydantic model),再用 <code>Static&lt;typeof schema&gt;</code> <strong>从这份 schema 派生</strong>出静态类型(见<a href="../typescript-5-generics/index.html">泛型</a>),最后把 schema 和一个 <code>execute</code> 函数(见<a href="../typescript-1-values/index.html">值与函数</a>)装进一个对象(见<a href="../typescript-2-shapes/index.html">对象形状</a>)。一份 schema,两个用途——这是 pi 全仓库的定式。</p>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+import { type Static, Type } from "typebox";
+
+// 1) 运行时 schema:像 Pydantic,一个真实存在的对象
+const greetSchema = Type.Object({
+  name: Type.String({ description: "谁要被问候" }),
+});
+
+// 2) 从 schema 派生静态类型 —— 不用手写 { name: string }
+type GreetParams = Static&lt;typeof greetSchema&gt;;
+
+// 3) schema + 处理器 装进一个工具对象
+const greetTool = {
+  name: "greet",
+  parameters: greetSchema,
+  execute: async (args: GreetParams) =&gt; {
+    return `Hello, ${args.name}!`; // args.name 是 string,编译器知道
+  },
+};
+</code></pre>
+<p>注意第 2 步:<code>GreetParams</code> 不是手写的,它是编译器<strong>从</strong> <code>greetSchema</code> <strong>算出来</strong>的 <code>{ name: string }</code>。你改 schema,类型自动跟着变——这就是&quot;单一真理来源&quot;。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p>拆开 demo 里的三个新写法:</p>
+<ul>
+<li><strong><code>Type.Object({...})</code></strong> 是 typebox 的构造器,返回一个<strong>运行时值</strong>(一个带特殊符号标记的普通对象)。它跟 <code>interface</code> 不同:interface 编译后<strong>消失</strong>,而 <code>Type.Object(...)</code> 是真实存在的数据,运行时可以拿它去校验 JSON。</li>
+<li><strong><code>Static&lt;typeof schema&gt;</code></strong> 是关键咒语。<code>typeof schema</code> 取的是&quot;schema 这个<strong>值</strong>的类型&quot;,<code>Static&lt;...&gt;</code> 是 typebox 提供的泛型,把 schema 的类型<strong>投影</strong>成对应的普通 TS 类型。<code>Type.String()</code> 投影成 <code>string</code>,<code>Type.Object({ name: ... })</code> 投影成 <code>{ name: string }</code>。</li>
+<li><strong><code>type X = ...</code></strong> 是<a href="../typescript-2-shapes/index.html">类型别名</a>:给一个类型起名字,纯编译期,运行时不存在。</li>
+</ul>
+<blockquote>
+<p><strong>Python 对照</strong>:typebox 之于 TS,约等于 Pydantic 之于 Python——都是&quot;运行时能校验的数据模型&quot;。差别是:Pydantic 里 <code>class M(BaseModel)</code> 同时给你运行时校验<strong>和</strong>静态类型;typebox 把两者拆开,schema 管运行时,<code>Static&lt;typeof schema&gt;</code> 单独派生静态类型。</p>
+</blockquote>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>这是 pi 里最干净的一个端到端例子——一个计算器工具,schema、派生类型、工具对象三件套齐全:</p>
+<p class="code-source">pi/packages/agent/test/utils/calculate.ts:L18-L32 — schema → Static 派生类型 → 工具对象 三件套</p>
+<pre><code class="language-typescript">const calculateSchema = Type.Object({
+	expression: Type.String({ description: &quot;The mathematical expression to evaluate&quot; }),
+});
+
+type CalculateParams = Static&lt;typeof calculateSchema&gt;;
+
+export const calculateTool: AgentTool&lt;typeof calculateSchema, undefined&gt; = {
+	label: &quot;Calculator&quot;,
+	name: &quot;calculate&quot;,
+	description: &quot;Evaluate mathematical expressions&quot;,
+	parameters: calculateSchema,
+	execute: async (_toolCallId: string, args: CalculateParams) =&gt; {
+		return calculate(args.expression);
+	},
+};
+</code></pre>
+<p>对照本节:<code>calculateSchema</code> 就是 demo 的第 1 步(<code>Type.Object</code>);<code>type CalculateParams = Static&lt;typeof calculateSchema&gt;</code> 就是第 2 步(派生类型,而非手写 <code>{ expression: string }</code>);<code>calculateTool</code> 就是第 3 步(schema 装进 <code>parameters</code>,处理器装进 <code>execute</code>)。<code>execute</code> 里的 <code>args: CalculateParams</code> 让 <code>args.expression</code> 被编译器认作 <code>string</code>——所以 <code>calculate(args.expression)</code> 这行不会报类型错。第一个参数 <code>_toolCallId</code> 前面的下划线是 pi 的惯例:表示&quot;这个参数签名要求有,但本函数用不上&quot;,下划线让 linter 闭嘴,也给读者一个信号。</p>
+<p>真实的内置工具会更花哨一点,但骨架一模一样。看 read 工具的 schema,它用 <code>Type.Optional(...)</code> 标出可选参数:</p>
+<p class="code-source">pi/packages/coding-agent/src/core/tools/read.ts:L20-L26 — 带 Type.Optional 的 schema 与派生类型</p>
+<pre><code class="language-typescript">const readSchema = Type.Object({
+	path: Type.String({ description: &quot;Path to the file to read (relative or absolute)&quot; }),
+	offset: Type.Optional(Type.Number({ description: &quot;Line number to start reading from (1-indexed)&quot; })),
+	limit: Type.Optional(Type.Number({ description: &quot;Maximum number of lines to read&quot; })),
+});
+
+export type ReadToolInput = Static&lt;typeof readSchema&gt;;
+</code></pre>
+<p><code>Type.Optional(Type.Number(...))</code> 派生出的类型是 <code>offset?: number</code>——即<a href="../typescript-2-shapes/index.html">对象形状</a>里讲过的可选属性。同一套 <code>Static&lt;typeof ...&gt;</code> 定式,<code>Type.Optional</code> 自动变成 <code>?:</code>。你不需要在别处再声明一遍&quot;offset 可以不传&quot;:schema 里写了 <code>Type.Optional</code>,静态类型、运行时校验、给模型的 JSON schema 三处<strong>同时</strong>知道它可选。这就是&quot;单一真理来源&quot;落到实处的样子——改一处,三处同步,没有第二个地方能和它不一致。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong><code>Static&lt;typeof schema&gt;</code> 而不是手写类型</strong>:永远从 schema 派生。手写 <code>{ expression: string }</code> 会和 schema 悄悄漂移,派生则保证两者永远一致。这是 pi 里出现频率最高的一个模式,认它。</li>
+<li><strong>schema 是值,type 是幻影</strong>:<code>calculateSchema</code> 运行时真实存在(所以能拿去校验模型给的 JSON);<code>CalculateParams</code> 编译后被擦除。搞混&quot;哪个运行时存在&quot;会让你读不懂校验逻辑。</li>
+<li><strong>为什么不用 Pydantic 式的 class?</strong> pi 开了 <code>erasableSyntaxOnly</code>,全仓库没有 decorator/enum,所以走&quot;schema 值 + 派生类型&quot;这条纯擦除路线,而不是 class 装饰器路线。这也解释了为什么你在 pi 里几乎见不到 class 定义工具——都是普通对象字面量加 typebox schema。</li>
+</ul>
+<h2 id="sec-2">2. AgentTool 契约与 execute 的类型</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>第 1 章的 <code>calculateTool</code> 标了个类型注解:<code>AgentTool&lt;typeof calculateSchema, undefined&gt;</code>。这个 <code>AgentTool</code> 就是 pi 给<strong>所有工具</strong>定的<strong>契约</strong>(见<a href="../typescript-6-classes-modules/index.html">接口契约</a>):任何工具都必须有 <code>name</code>、<code>description</code>、<code>parameters</code>,还必须有一个 <code>execute</code> 函数。它是个<strong>泛型接口</strong>(见<a href="../typescript-5-generics/index.html">泛型</a>),两个类型参数分别是&quot;参数 schema 的类型&quot;和&quot;结果里 details 的类型&quot;。它还<strong>继承</strong>了一个更基础的 <code>Tool</code> 接口。读懂这个契约,你就读懂了 pi 里每一个工具的&quot;外形&quot;——read、bash、edit、calculate,外形全都一样,只是 schema 和 <code>execute</code> 的内容不同。契约的价值就在这:主循环不需要认识任何具体工具,只要对方满足 <code>AgentTool</code>,它就能被查找、校验、执行。</p>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+import { type Static, type TSchema } from "typebox";
+
+// 基础契约:任何工具都有 name 和 parameters
+interface Tool&lt;TParameters extends TSchema = TSchema&gt; {
+  name: string;
+  parameters: TParameters;
+}
+
+// 扩展契约:再加一个 execute;两个泛型参数
+interface MyTool&lt;TParams extends TSchema, TDetails&gt; extends Tool&lt;TParams&gt; {
+  execute: (
+    toolCallId: string,
+    params: Static&lt;TParams&gt;,        // 参数类型从 schema 派生
+    signal?: AbortSignal,            // 可选:用于取消
+  ) =&gt; Promise&lt;{ details: TDetails }&gt;;
+}
+</code></pre>
+<p><code>extends Tool&lt;TParams&gt;</code> 表示 <code>MyTool</code> <strong>在 <code>Tool</code> 的基础上追加</strong>字段——继承接口。<code>execute</code> 的第二个参数 <code>Static&lt;TParams&gt;</code> 又用了第 1 章的派生定式,只是这次 schema 的类型是泛型参数 <code>TParams</code>。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p>逐个拆解契约里的类型机制:</p>
+<ul>
+<li><strong><code>interface B&lt;T&gt; extends A&lt;T&gt;</code></strong>:接口继承。<code>B</code> 拥有 <code>A</code> 的所有字段,再加自己的。跟<a href="../typescript-6-classes-modules/index.html">类的继承</a>不同,这是纯&quot;形状&quot;层面的组合,运行时无痕。</li>
+<li><strong><code>&lt;TParameters extends TSchema = TSchema&gt;</code></strong>:一个带<strong>约束</strong>加<strong>默认值</strong>的泛型参数。<code>extends TSchema</code> 是约束(见<a href="../typescript-5-generics/index.html">泛型</a>),意思是&quot;这个类型参数必须是个 typebox schema 类型&quot;;<code>= TSchema</code> 是默认值,不写时退化成 <code>TSchema</code>。</li>
+<li><strong><code>signal?: AbortSignal</code></strong>:可选参数 + 取消信号(见<a href="../typescript-7-async/index.html">异步与流式</a>)。<code>AbortSignal</code> 是标准 Web API,用于中途取消一个正在跑的异步操作。</li>
+<li><strong><code>Promise&lt;AgentToolResult&lt;...&gt;&gt;</code></strong>:<code>execute</code> 是 async 的,所以返回 <code>Promise</code>(见<a href="../typescript-7-async/index.html">异步</a>);<code>AgentToolResult&lt;T&gt;</code> 又是个泛型,<code>T</code> 就是那份结构化的 <code>details</code>。</li>
+</ul>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>先看基础契约 <code>Tool</code>——极简,只三个字段,是所有工具的最小公分母:</p>
+<p class="code-source">pi/packages/ai/src/types.ts:L440-L444 — Tool 基础接口:带约束+默认值的泛型接口</p>
+<pre><code class="language-typescript">export interface Tool&lt;TParameters extends TSchema = TSchema&gt; {
+	name: string;
+	description: string;
+	parameters: TParameters;
+}
+</code></pre>
+<p>再看 <code>AgentTool</code> 如何在它之上追加 <code>label</code>、<code>execute</code> 等,构成 agent 运行时用的完整契约:</p>
+<p class="code-source">pi/packages/agent/src/types.ts:L373-L396 — AgentTool 继承 Tool,execute 的完整签名</p>
+<pre><code class="language-typescript">export interface AgentTool&lt;TParameters extends TSchema = TSchema, TDetails = any&gt; extends Tool&lt;TParameters&gt; {
+	/** Human-readable label for UI display. */
+	label: string;
+	/**
+	 * Optional compatibility shim for raw tool-call arguments before schema validation.
+	 * Must return an object that matches `TParameters`.
+	 */
+	prepareArguments?: (args: unknown) =&gt; Static&lt;TParameters&gt;;
+	/** Execute the tool call. Throw on failure instead of encoding errors in `content`. */
+	execute: (
+		toolCallId: string,
+		params: Static&lt;TParameters&gt;,
+		signal?: AbortSignal,
+		onUpdate?: AgentToolUpdateCallback&lt;TDetails&gt;,
+	) =&gt; Promise&lt;AgentToolResult&lt;TDetails&gt;&gt;;
+	// ... executionMode?: ToolExecutionMode
+}
+</code></pre>
+<p>对照本节:<code>extends Tool&lt;TParameters&gt;</code> 就是 demo 里的接口继承;两个泛型参数 <code>TParameters</code>(约束到 <code>TSchema</code>)和 <code>TDetails</code> 对应 demo 的 <code>TParams</code>/<code>TDetails</code>;<code>execute</code> 的 <code>params: Static&lt;TParameters&gt;</code> 正是第 1 章派生定式的复用——工具作者写 schema,<code>execute</code> 的参数类型就自动对上。<code>signal?: AbortSignal</code> 是可选的取消钩子。还有个 <code>prepareArguments?</code>,参数类型是 <code>unknown</code>(见<a href="../typescript-4-narrowing/index.html">窄化</a>)——因为它拿的是模型吐出的、<strong>还没校验</strong>的原始参数,只能是 <code>unknown</code>,得先校验/收窄才能用。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong>一个泛型接口串起两个用途</strong>:同一个 <code>TParameters</code> 既约束 <code>parameters</code> 字段(运行时 schema),又通过 <code>Static&lt;TParameters&gt;</code> 决定 <code>execute</code> 参数(静态类型)。改 schema,两处同时变——这就是把第 1 章的派生模式提升成了契约。</li>
+<li><strong><code>unknown</code> 出现在边界</strong>:凡是&quot;外部/模型给的、还没校验的数据&quot;,pi 一律标 <code>unknown</code>(如 <code>prepareArguments</code> 的入参),逼你先窄化。看到 <code>unknown</code> 就知道&quot;这里是信任边界&quot;。</li>
+<li><strong><code>execute</code> 靠 throw 报错</strong>,而不是把错误塞进返回值——注释写得很清楚(<code>Throw on failure</code>)。读工具实现时别找&quot;错误码&quot;,找 <code>throw</code>。</li>
+</ul>
+<h2 id="sec-3">3. 主循环:流式消费事件 + 分派工具 + 校验参数</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>工具是零件,主循环是发动机。一轮 agent 交互的链条是:<strong>模型吐 token → 变成类型化事件流 → 攒成工具调用 → 校验参数 → 执行工具 → 把结果回填进对话 → 再问模型</strong>。这条链上,前八篇的语法几乎全用上了:<code>for await</code> 消费<a href="../typescript-7-async/index.html">异步流</a>、<code>switch(event.type)</code> 对<a href="../typescript-3-unions/index.html">可辨识联合</a>窄化、schema <a href="../typescript-4-narrowing/index.html">校验</a>模型给的参数、<code>Promise.all</code> <a href="../typescript-7-async/index.html">并行</a>执行工具。这一章我们把这条链走通,你会看到零件是怎么咬合的。可以把它当成&quot;总复习&quot;:每读到一处,回想它对应前面哪一篇,你会发现主循环没有一处是新东西,全是拼装。</p>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+type ModelEvent =
+  | { type: "text_delta"; text: string }
+  | { type: "toolcall_end"; name: string; args: unknown }
+  | { type: "done" };
+
+async function runTurn(stream: AsyncIterable&lt;ModelEvent&gt;) {
+  const calls: { name: string; args: unknown }[] = [];
+  // 1) 流式消费事件,按 type 窄化
+  for await (const event of stream) {
+    switch (event.type) {
+      case "text_delta":
+        process.stdout.write(event.text); // 这里 event 被窄化成有 text
+        break;
+      case "toolcall_end":
+        calls.push({ name: event.name, args: event.args });
+        break;
+      case "done":
+        break;
+    }
+  }
+  // 2) 并行执行攒下来的工具调用
+  const results = await Promise.all(calls.map((c) =&gt; runTool(c.name, c.args)));
+  return results; // 回填给下一轮
+}
+</code></pre>
+<p>这台&quot;玩具发动机&quot;就是 pi 主循环的骨架:<code>for await</code> + <code>switch</code> 把无类型的 token 流整理成有类型的事件,<code>toolcall_end</code> 攒进 <code>calls</code>,最后 <code>Promise.all</code> 并行跑。真实的 pi 只是每一步都更严谨。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<ul>
+<li><strong><code>for await (const x of stream)</code></strong>:消费一个<a href="../typescript-7-async/index.html">异步可迭代</a>对象,每次 <code>await</code> 出一个事件。模型是逐 token 流式返回的,所以这里是异步迭代,不是普通 <code>for...of</code>。</li>
+<li><strong><code>switch (event.type)</code> 做窄化</strong>:因为 <code>ModelEvent</code> 是<a href="../typescript-3-unions/index.html">可辨识联合</a>(每个成员有唯一的 <code>type</code> 字面量),<code>case &quot;text_delta&quot;</code> 分支里编译器<strong>自动把 <code>event</code> 窄化</strong>成那个成员,<code>event.text</code> 才合法。这是联合 + 窄化的经典配合。</li>
+<li><strong><code>Promise.all(xs.map(...))</code></strong>:把一批 promise <strong>并行</strong>跑,全部完成后得到结果数组,顺序与输入一致(见<a href="../typescript-7-async/index.html">异步</a>)。</li>
+<li><strong><code>unknown</code> 的参数</strong>:注意 <code>args: unknown</code>——模型给的参数在校验前就是 <code>unknown</code>,必须过 schema 才能当结构化数据用。这正是下面 <code>validateToolArguments</code> 干的事。</li>
+</ul>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p><strong>第一段:流式消费。</strong> pi 主循环里,<code>response</code> 是模型返回的事件流,<code>for await</code> + <code>switch</code> 把它整理成生命周期事件:</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L319-L346 — for await 消费事件流,switch 按 type 窄化并转发</p>
+<pre><code class="language-typescript">	for await (const event of response) {
+		switch (event.type) {
+			case &quot;start&quot;:
+				partialMessage = event.partial;
+				context.messages.push(partialMessage);
+				addedPartial = true;
+				await emit({ type: &quot;message_start&quot;, message: { ...partialMessage } });
+				break;
+
+			case &quot;text_start&quot;:
+			case &quot;text_delta&quot;:
+			case &quot;text_end&quot;:
+			case &quot;thinking_start&quot;:
+			case &quot;thinking_delta&quot;:
+			case &quot;thinking_end&quot;:
+			case &quot;toolcall_start&quot;:
+			case &quot;toolcall_delta&quot;:
+			case &quot;toolcall_end&quot;:
+				if (partialMessage) {
+					partialMessage = event.partial;
+					context.messages[context.messages.length - 1] = partialMessage;
+					await emit({
+						type: &quot;message_update&quot;,
+						assistantMessageEvent: event,
+						message: { ...partialMessage },
+					});
+				}
+				break;
+</code></pre>
+<p>对照本节:<code>for await (const event of response)</code> 就是 demo 的流式消费;<code>switch (event.type)</code> 对 <code>AssistantMessageEvent</code> 这个可辨识联合窄化。注意多个 <code>case</code> 叠在一起(fall-through)——<code>text_*</code>/<code>thinking_*</code>/<code>toolcall_*</code> 走同一段处理,把 <code>event.partial</code> 更新进消息,再 <code>emit</code> 出去给上层订阅。<code>start</code> 单独一个 case,因为它要<strong>新建</strong>消息而非更新。</p>
+<p><strong>第二段:校验参数。</strong> 模型攒出一个工具调用后,主循环先按名字找到工具,再用 schema 校验模型给的参数:</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L619-L620 — 找到工具后,用 schema 校验模型给的原始参数</p>
+<pre><code class="language-typescript">		const preparedToolCall = prepareToolCallArguments(tool, toolCall);
+		const validatedArgs = validateToolArguments(tool, preparedToolCall);
+</code></pre>
+<p><code>validateToolArguments</code> 就是那道信任边界的关卡,它拿工具的 typebox schema 去校验/强转模型给的 JSON:</p>
+<p class="code-source">pi/packages/ai/src/utils/validation.ts:L278-L310 — 用 typebox schema 校验模型参数,失败即 throw</p>
+<pre><code class="language-typescript">export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
+	const args = structuredClone(toolCall.arguments);
+	Value.Convert(tool.parameters, args);
+
+	const validator = getValidator(tool.parameters);
+	// ...
+	if (validator.Check(args)) {
+		return args;
+	}
+
+	const errors =
+		validator
+			.Errors(args)
+			.map((error) =&gt; `  - ${formatValidationPath(error)}: ${error.message}`)
+			.join(&quot;\n&quot;) || &quot;Unknown validation error&quot;;
+
+	const errorMessage = `Validation failed for tool &quot;${toolCall.name}&quot;:\n${errors}\n\nReceived arguments:\n${JSON.stringify(toolCall.arguments, null, 2)}`;
+
+	throw new Error(errorMessage);
+}
+</code></pre>
+<p>对照本节:<code>tool.parameters</code> 就是第 1 章那份运行时 schema(现在派上用场了——它运行时真实存在,才能拿来校验);<code>validator.Check(args)</code> 通过就返回窄化后的参数,不通过就攒出可读的错误信息并 <code>throw</code>(呼应第 2 章&quot;靠 throw 报错&quot;)。<code>toolCall.arguments</code> 进来时是模型给的原始 JSON(<code>unknown</code> 级别的信任),出去时才是结构合法、可当 <code>Static&lt;TParameters&gt;</code> 用的数据。</p>
+<p><strong>第三段:并行执行。</strong> 校验通过的工具调用被攒成一批,<code>Promise.all</code> 并行跑:</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L542-L544 — 一批工具调用并行执行,结果按原顺序返回</p>
+<pre><code class="language-typescript">	const orderedFinalizedCalls = await Promise.all(
+		finalizedCalls.map((entry) =&gt; (typeof entry === &quot;function&quot; ? entry() : Promise.resolve(entry))),
+	);
+</code></pre>
+<p>对照本节:这正是 demo 里的 <code>Promise.all(calls.map(...))</code>。区别是 pi 里 <code>finalizedCalls</code> 混着两种成员——已经算好的直接结果、和&quot;还没跑的函数&quot;(用 <code>typeof entry === &quot;function&quot;</code> 窄化后调用 <code>entry()</code> 才产生 promise)。全部完成后得到有序结果,再转成 <code>ToolResultMessage</code> <strong>回填</strong>进对话,循环进入下一轮向模型提问。整条链就此闭合。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>窄化贯穿全链</strong>:<code>switch(event.type)</code> 窄化事件,<code>typeof entry === &quot;function&quot;</code> 窄化 union,<code>validator.Check</code> 把 <code>unknown</code> 参数窄化成合法结构。pi 主循环几乎就是&quot;一连串窄化&quot;——这也是为什么<a href="../typescript-4-narrowing/index.html">窄化</a>那篇是理解 pi 的钥匙。</li>
+<li><strong>schema 的两次亮相</strong>:第 1 章它用来<strong>派生类型</strong>(编译期),这里它用来<strong>校验数据</strong>(运行时)。同一个 <code>tool.parameters</code> 值,两种活法——这是&quot;schema 是单一真理来源&quot;最有说服力的证据。</li>
+<li><strong><code>Promise.all</code> 里可以混同步值和 promise</strong>:<code>Promise.resolve(entry)</code> 把已算好的结果包成 promise,和真正的异步任务一起并行。读到&quot;typeof 是不是函数&quot;的三元判断别慌,它只是在统一两类成员的形状。</li>
+</ul>
+<h2 id="sec-4">4. 收尾:你现在能读 pi 了</h2>
+<h3 id="sec-4-1">4.1 直觉</h3>
+<p>读一个陌生的大仓库,最忌讳从第一个文件线性往下读。正确姿势是<strong>由已知锚点顺藤摸瓜</strong>:你现在有两个锚点——「工具三件套」和「主循环链条」。接下来的自学法就是:选一个你好奇的工具(比如 <code>bash</code> 或 <code>edit</code>),用 grep 定位它的 schema,顺着 <code>execute</code> 读它干了什么,再回到主循环看它何时被调用。这一节不教新语法,教你<strong>怎么继续自己读</strong>。</p>
+<h3 id="sec-4-2">4.2 最小 demo</h3>
+<p>在 clone 里定位任意一个工具,三条命令就够:</p>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 这是 shell 命令,不是 TS;演示如何在 clone 里定位一个工具
+// 1) 找所有工具的 schema 定义(它们都叫 xxxSchema = Type.Object)
+//    grep -rn "Schema = Type.Object" packages/coding-agent/src/core/tools/
+//
+// 2) 锁定某个工具后,看它的工具对象长啥样(名字、execute)
+//    grep -n "name:\|execute" packages/coding-agent/src/core/tools/bash.ts
+//
+// 3) 看主循环在哪调用工具、怎么校验
+//    grep -rn "validateToolArguments\|Promise.all" packages/agent/src/agent-loop.ts
+</code></pre>
+<p>第 1 条把你带到&quot;参数长什么样&quot;,第 2 条带到&quot;它干什么&quot;,第 3 条带回&quot;主循环怎么用它&quot;。三步覆盖一个工具的完整生命。</p>
+<h3 id="sec-4-3">4.3 正式化</h3>
+<p>pi 五个包各管一段,速查如下(读代码前先定位到对的包,能省一半力气):</p>
+<ul>
+<li><strong><code>packages/ai</code></strong> — 统一的 LLM 客户端:把 ~30 家 provider 收敛成一套流式事件协议。<code>Tool</code>、<code>AssistantMessageEvent</code>、<code>validateToolArguments</code> 都住这。<strong>&quot;事件和 provider 相关的东西在这里找。&quot;</strong></li>
+<li><strong><code>packages/agent</code></strong> — agent 运行时:主循环(<code>agent-loop.ts</code>)、<code>AgentTool</code> 契约(<code>types.ts</code>)、harness(文件系统/会话/技能)。<strong>&quot;循环和工具契约在这里找。&quot;</strong></li>
+<li><strong><code>packages/coding-agent</code></strong> — 真正的 <code>pi</code> CLI:内置编码工具(read/bash/edit…)、扩展系统。<strong>&quot;具体某个工具的实现在这里找。&quot;</strong></li>
+<li><strong><code>packages/orchestrator</code></strong> — 多 agent 进程监督器。</li>
+<li><strong><code>packages/tui</code></strong> — 零依赖自研终端 UI(差分渲染)。</li>
+</ul>
+<p>规律:<strong>契约在 <code>ai</code>/<code>agent</code>,实现在 <code>coding-agent</code>。</strong> 想读&quot;工具怎么定义&quot;去 <code>agent/types.ts</code>;想读&quot;read 工具具体怎么读文件&quot;去 <code>coding-agent/.../tools/read.ts</code>。这个分层不是偶然:<code>agent</code> 包不该知道任何具体工具的存在,它只认 <code>AgentTool</code> 契约;具体工具住在 <code>coding-agent</code> 里,启动时被&quot;注入&quot;进 agent 上下文的 <code>tools</code> 数组。所以你会看到主循环用 <code>tools?.find((t) =&gt; t.name === toolCall.name)</code> 按名字查找工具——它从不 import 任何一个具体工具。</p>
+<h3 id="sec-4-4">4.4 代码引用</h3>
+<p>每个包的 <code>src/index.ts</code> 是它的<strong>入口地图</strong>——barrel 文件,一眼看清这个包对外导出什么。agent 包的入口开头就把主循环和 harness 摊在你面前:</p>
+<p class="code-source">pi/packages/agent/src/index.ts:L1-L13 — agent 包的 barrel:一眼看清导出了什么</p>
+<pre><code class="language-typescript">// Core Agent
+export * from &quot;./agent.ts&quot;;
+// Loop functions
+export * from &quot;./agent-loop.ts&quot;;
+export * from &quot;./harness/agent-harness.ts&quot;;
+export {
+	type BranchPreparation,
+	type BranchSummaryDetails,
+	type CollectEntriesResult,
+	collectEntriesForBranchSummary,
+	generateBranchSummary,
+	prepareBranchEntries,
+} from &quot;./harness/compaction/branch-summarization.ts&quot;;
+</code></pre>
+<p>对照本节:<code>export * from &quot;./agent-loop.ts&quot;</code> 告诉你&quot;主循环从这里对外暴露&quot;——第 3 章那段代码就住在这个文件里(见<a href="../typescript-6-classes-modules/index.html">模块</a>的 barrel 惯用法)。读一个陌生包,先读它的 <code>index.ts</code>:<code>export *</code> 是&quot;整份文件都导出&quot;,具名 <code>export { ... }</code> 是&quot;只挑这几个&quot;,注释(<code>// Core Agent</code>、<code>// Loop functions</code>)就是作者亲手画的分区地图。顺着地图点开对应文件,比从头硬读高效得多。</p>
+<h3 id="sec-4-5">4.5 洞察</h3>
+<ul>
+<li><strong>先读 <code>index.ts</code>,再读实现</strong>:barrel 是作者给的目录。任何陌生包,<code>src/index.ts</code> 都是最省力的入口。</li>
+<li><strong>顺着 <code>Static&lt;typeof schema&gt;</code> 和 <code>for await</code> 找主干</strong>:这两个 pattern 在 pi 里出现即&quot;要害&quot;——前者标记一个工具的类型骨架,后者标记一处流式主循环。grep 它们比通读快。</li>
+<li><strong>给自己派活读</strong>:挑一个工具(建议 <code>edit</code>,它 schema 复杂、<code>execute</code> 有真实逻辑),照 4.2 的三步走一遍,再回到 <code>agent-loop.ts</code> 看它被校验、被 <code>Promise.all</code> 执行。走通一个,你就走得通全部——因为 pi 里每个工具、每轮循环,都是你这八篇拼出来的同一套零件。</li>
+<li><strong>卡住时回到类型</strong>:读不懂一段逻辑时,把光标停在变量上看编译器推断出的类型(编辑器的 hover),类型往往比实现更快告诉你&quot;这里流的是什么数据&quot;。这是 TS 相对 Python 最实在的红利——静态类型本身就是最新、最准的文档。</li>
+<li><strong>别指望一次读懂</strong>:pi 是真实生产代码,有大量为边界情况、取消、压缩上下文而生的分支。第一遍只追主干(schema → 校验 → execute → 回填),把 harness、compaction、扩展系统当黑箱跳过,读第二遍再深入。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

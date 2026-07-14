@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>TS·07 异步与流式:Promise、async/await、与 async generator</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. Promise 与 async/await</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 并发与取消:Promise.all、AbortSignal</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. async generator + for await...of:pi 如何流式吐 LLM</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>TS·07 异步与流式:Promise、async/await、与 async generator</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-07</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-07-07</span> · <span class="post-meta__extra">4-6k 字</span> · <span class="post-meta__extra">20–25 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/earendil-works/pi">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/typescript.html">typescript</a> <a class="concept-chip" href="../../concepts/async.html">async</a> <a class="concept-chip" href="../../concepts/async-generators.html">async-generators</a></div>
+</aside>
+
+<p>这是系列里最&quot;pi&quot;的一章,也是理解整个 agent 框架数据流的钥匙。pi 是一个 AI coding-agent:它向 LLM 发一个请求,模型不是一次性把答案吐回来,而是<strong>一个 token 一个 token 地流式返回</strong>;pi 要一边接收、一边解析、一边把它变成一串类型化的事件(<code>text_delta</code>、<code>toolcall_start</code>……)往上层推。承载这整套机制的语言特性,就是本章的三块拼图:<code>Promise</code>(将来才有的值)、<code>async/await</code>(取那个值)、以及 <code>async generator</code>(边算边一个个吐值)。前两块是异步编程的地基,第三块是把地基垒成&quot;流&quot;的那道拱。</p>
+<p>如果你写过 Python 的 <code>asyncio</code>,这三块都有直接对照:<code>Promise</code> ≈ <code>awaitable</code>/<code>coroutine</code>,<code>async/await</code> 就是 <code>async def</code>/<code>await</code>,<code>async function*</code> + <code>for await...of</code> 就是<strong>异步生成器</strong> <code>async def</code> + <code>yield</code> 配 <code>async for</code>。差异在细节里,我们逐个拆。读完你会看懂 pi 是怎么把一条网络 SSE 流,变成 agent 主循环里那个 <code>for await (const event of response)</code> 的。</p>
+<p>有一点值得先建立心智:JS/TS 是<strong>单线程</strong>的,并发靠事件循环而非多线程。所谓&quot;异步&quot;不是真的并行计算,而是&quot;遇到 IO 就让出控制权,别的任务先跑,IO 好了再回来&quot;。这一点和 Python <code>asyncio</code> 完全一致——它们的并发模型是同一套(协作式、单事件循环),所以你在 Python 里对 <code>await</code> 的所有直觉都能平移过来。真正需要重新学的只是 JS 特有的写法:Promise 这个对象、<code>.then</code> 链、以及取消要手动接 <code>AbortSignal</code>。三章走完,这些就都补齐了。</p>
+<h2 id="sec-1">1. Promise 与 async/await</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p><code>Promise&lt;T&gt;</code> 是&quot;<strong>将来会有一个 <code>T</code> 类型的值</strong>&quot;的占位符——一个可能还没兑现的凭证。异步函数不能立刻给你结果(结果要等 IO、等网络),于是先给你一个 Promise,值到了再兑现。</p>
+<p>关键要分清<strong>两件独立的事</strong>:一个函数<strong>是不是 <code>async</code></strong>,和它<strong>返不返回 Promise</strong>。<code>async</code> 只是语法糖——它让你能在函数体里用 <code>await</code>,并自动把返回值包进 Promise。但一个普通(非 async)函数完全可以直接 <code>return</code> 一个已经存在的 Promise。对调用方来说,两者拿到的都是 <code>Promise&lt;T&gt;</code>,<code>await</code> 起来没区别。</p>
+<p>和 Python 协程还有一处微妙区别:Python 里 <code>foo()</code>(<code>foo</code> 是 <code>async def</code>)返回一个协程对象但<strong>不会开始执行</strong>,直到你 <code>await</code> 它或交给事件循环;而 JS 里 <code>foo()</code>(<code>foo</code> 是 <code>async</code>)会<strong>立即开始执行</strong>函数体,一路跑到第一个 <code>await</code> 才让出——返回的 Promise 代表&quot;已经在跑、将来会有结果&quot;。这个&quot;急切启动&quot;的差异,决定了下面的写法为什么合理。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>async</code> 函数 ≈ <code>async def</code>;<code>await expr</code> 就是 Python 的 <code>await expr</code>;<code>Promise&lt;T&gt;</code> ≈ 一个 awaitable(协程/Future)。区别是 JS 只有一个内置事件循环、且<strong>自动运行</strong>——你不用像 Python 那样 <code>asyncio.run(...)</code> 手动启动。</p>
+</blockquote>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// 情形 A:async 函数,自动返回 Promise&lt;string&gt;
+async function fetchName(id: number): Promise&lt;string&gt; {
+  // await 会"暂停"本函数直到 Promise 兑现,拿到里面的值
+  const res = await fakeDb(id);   // res: string
+  return res.toUpperCase();       // 返回值被自动包成 Promise&lt;string&gt;
+}
+
+// 情形 B:普通函数,不是 async,却直接返回一个 Promise
+function fetchNameEager(id: number): Promise&lt;string&gt; {
+  return fakeDb(id);              // 直接把已有的 Promise 透传出去
+}
+
+// 两者调用方写法完全一样:
+async function main() {
+  const a = await fetchName(1);       // a: string
+  const b = await fetchNameEager(2);  // b: string
+  console.log(a, b);
+}
+
+function fakeDb(id: number): Promise&lt;string&gt; {
+  return Promise.resolve("row-" + id);
+}
+</code></pre>
+<p><code>fetchName</code> 用了 <code>async</code>/<code>await</code>,<code>fetchNameEager</code> 没有——但它们的返回类型都是 <code>Promise&lt;string&gt;</code>,<code>main</code> 里 <code>await</code> 的用法一模一样。这就是&quot;是 async&quot;与&quot;返回 Promise&quot;两回事的直观演示。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<ul>
+<li><strong>声明</strong>:<code>async function f(): Promise&lt;T&gt;</code> 或箭头 <code>const f = async (): Promise&lt;T&gt; =&gt; {...}</code>;类方法写 <code>async method(): Promise&lt;T&gt;</code>。</li>
+<li><strong>返回类型</strong>:<code>async</code> 函数的返回类型<strong>总是</strong> <code>Promise&lt;某&gt;</code>。写 <code>Promise&lt;string&gt;</code>;若不返回值,写 <code>Promise&lt;void&gt;</code>。你 <code>return x</code>(x 是 <code>T</code>),TS 自动认成 <code>Promise&lt;T&gt;</code>;你 <code>return</code> 一个 <code>Promise&lt;T&gt;</code>,TS <strong>不会</strong>嵌套成 <code>Promise&lt;Promise&lt;T&gt;&gt;</code>,会自动摊平。</li>
+<li><strong><code>await</code></strong>:只能出现在 <code>async</code> 函数体内(或模块顶层)。<code>await p</code> 中,若 <code>p</code> 是 <code>Promise&lt;T&gt;</code>,表达式的值就是 <code>T</code>;若 <code>p</code> 不是 Promise,<code>await</code> 原样返回它。<code>await</code> 会让出事件循环,让别的任务先跑。</li>
+<li><strong>不 await 的后果</strong>:调用一个 <code>async</code> 函数但不 <code>await</code>,你拿到的是<strong>没兑现的 Promise 本身</strong>,不是里面的值——常见 bug 来源(相当于 Python 里忘了 <code>await</code> 一个协程)。</li>
+<li><strong>错误</strong>:Promise 兑现失败会&quot;reject&quot;;<code>await</code> 一个 rejected 的 Promise 会<strong>抛异常</strong>,用普通 <code>try/catch</code> 捕获即可(对照 Python:被 await 的协程抛异常同样在 await 处抛出)。</li>
+<li><strong>不用 async 也能消费 Promise</strong>:除了 <code>await</code>,还有更老的写法 <code>p.then(v =&gt; ...)</code> 注册&quot;兑现后回调&quot;、<code>p.catch(e =&gt; ...)</code> 注册&quot;失败回调&quot;。<code>async/await</code> 只是这套回调的语法糖,让异步代码读起来像同步代码。pi 里绝大多数地方用 <code>await</code>,但理解 <code>.then</code> 有助于读懂库代码。</li>
+<li><strong>顶层 await</strong>:在 ES 模块(见<a href="../typescript-6-classes-modules/index.html">类与模块</a>)的最外层可以直接写 <code>await</code>,不必包一层 <code>async</code> 函数;但在普通函数体内 <code>await</code> 仍要求该函数是 <code>async</code>。</li>
+</ul>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>先看 pi 里一个&quot;标准 async 函数返回 Promise&quot;的例子——一个查询当前时间的工具:</p>
+<p class="code-source">pi/packages/agent/test/utils/get-current-time.ts:L6-L18 — async 函数,返回类型显式标注 Promise&lt;...&gt;,函数体内 return 一个普通对象,被自动包成 Promise</p>
+<pre><code class="language-typescript">export async function getCurrentTime(timezone?: string): Promise&lt;GetCurrentTimeResult&gt; {
+	const date = new Date();
+	if (timezone) {
+		try {
+			const timeStr = date.toLocaleString(&quot;en-US&quot;, {
+				timeZone: timezone,
+				dateStyle: &quot;full&quot;,
+				timeStyle: &quot;long&quot;,
+			});
+			return {
+				content: [{ type: &quot;text&quot;, text: timeStr }],
+				details: { utcTimestamp: date.getTime() },
+			};
+		} catch (_e) {
+			throw new Error(`Invalid timezone: ${timezone}. Current UTC time: ${date.toISOString()}`);
+		}
+	}
+</code></pre>
+<p>再看<strong>返回 Promise 但不是 async</strong> 的对照——<code>EventStream</code> 的 <code>result()</code>:</p>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L8-L18,L64-L66 — 构造时先造好一个 Promise 存起来;result() 是普通方法(无 async),直接把这个 Promise 透传出去</p>
+<pre><code class="language-typescript">	private finalResultPromise: Promise&lt;R&gt;;
+	private resolveFinalResult!: (result: R) =&gt; void;
+	// ...
+	constructor(isComplete: (event: T) =&gt; boolean, extractResult: (event: T) =&gt; R) {
+		this.isComplete = isComplete;
+		this.extractResult = extractResult;
+		this.finalResultPromise = new Promise((resolve) =&gt; {
+			this.resolveFinalResult = resolve;
+		});
+	}
+	// ...
+	result(): Promise&lt;R&gt; {
+		return this.finalResultPromise;
+	}
+</code></pre>
+<p>对照本节语法点:<code>getCurrentTime</code> 有 <code>async</code>,函数体里 <code>return</code> 一个对象字面量,返回类型标注成 <code>Promise&lt;GetCurrentTimeResult&gt;</code>——<code>async</code> 帮你把对象包进 Promise。而 <code>result()</code> <strong>没有</strong> <code>async</code> 关键字,却也返回 <code>Promise&lt;R&gt;</code>:它在构造函数里用 <code>new Promise((resolve) =&gt; {...})</code> 手工造了一个 Promise 存进 <code>finalResultPromise</code>,<code>result()</code> 只是把这个&quot;将来才会 resolve 的凭证&quot;原样递出去——谁 <code>await stream.result()</code>,谁就会一直挂到别处调用 <code>resolveFinalResult(...)</code> 那一刻。这正是&quot;是 async&quot;和&quot;返回 Promise&quot;两件事的真实对比。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong><code>async</code> 是给函数体的糖,不是给调用方的契约</strong>:调用方只看返回类型 <code>Promise&lt;T&gt;</code>,不关心里面有没有 <code>async</code>。手工构造并透传 Promise(如 <code>result()</code>)是完全合法且常见的写法,用于&quot;值稍后由别的代码 resolve&quot;的场景。</li>
+<li><strong>忘了 <code>await</code> 不会报类型错</strong>:<code>const x = getCurrentTime()</code> 里 <code>x</code> 是 <code>Promise&lt;...&gt;</code> 而不是结果本身,后续当普通对象用就会出错。养成&quot;调 async 函数必 await(或显式 <code>.then</code>/存 Promise)&quot;的习惯。一个特别隐蔽的坑:在 <code>if (getCurrentTime())</code> 这类布尔上下文里,Promise 对象<strong>恒为真</strong>,判断永远成立——Python 里 await 一个协程的返回同样需要显式,但 JS 这里连运行时都不报错,尤其要警惕。</li>
+<li><strong><code>new Promise((resolve) =&gt; ...)</code> 里的 <code>resolve</code> 可以存起来晚点再调</strong>——这就是 pi 把&quot;事件流结束时才有最终结果&quot;接到一个 Promise 上的手法,下一章的 AbortSignal 也用同一招。</li>
+<li><strong><code>!</code> 断言的用意</strong>:上面 <code>resolveFinalResult!</code> 的感叹号是&quot;确定赋值断言&quot;,告诉 TS&quot;这个字段虽然构造函数体里没直接赋值,但我保证它会被赋值(在 <code>new Promise</code> 的回调里)&quot;,绕过严格初始化检查。这是把 resolve 存成字段时的常见配套写法。</li>
+</ul>
+<h2 id="sec-2">2. 并发与取消:Promise.all、AbortSignal</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>有了单个 Promise,自然要问两件事:怎么<strong>同时等一堆</strong>、怎么<strong>中途喊停</strong>。</p>
+<p><code>Promise.all([p1, p2, ...])</code> 接一个 Promise 数组,返回一个新 Promise,在<strong>全部</strong>兑现后一次性给你结果数组——这些 Promise 是<strong>并发</strong>跑的,总耗时约等于最慢那个,而不是逐个相加。这里的&quot;并发&quot;仍是单线程事件循环下的交错执行:三个网络请求可以同时在途,谁的响应先回来先处理,但没有多线程。<code>AbortSignal</code> 则是取消的标准协议:一个 <code>AbortController</code> 持有 <code>signal</code>,调用 <code>controller.abort()</code> 时,所有拿到这个 <code>signal</code> 的异步操作都能收到&quot;该停了&quot;的通知,提前退出。对 agent 尤其重要——用户按 Ctrl-C 时,正在途中的 LLM 请求和工具调用都要能被同一个 signal 一起叫停。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>Promise.all(...)</code> ≈ <code>asyncio.gather(*coros)</code>;<code>AbortSignal</code>/<code>AbortController</code> ≈ 取消一个 task 后协程收到的 <code>asyncio.CancelledError</code>。差别是 JS 的取消<strong>不是异常自动传播</strong>,而是你要主动监听 <code>signal</code> 的 <code>&quot;abort&quot;</code> 事件、自己决定怎么中止。</p>
+</blockquote>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// Promise.all:并发等三个,拿到有序结果数组
+async function loadAll(): Promise&lt;string[]&gt; {
+  const results = await Promise.all([
+    fakeDb(1),
+    fakeDb(2),
+    fakeDb(3),
+  ]);
+  return results;  // results: string[],顺序与入参一致
+}
+
+// AbortSignal:把"取消"接到一个 Promise 上
+function wait(ms: number, signal?: AbortSignal): Promise&lt;void&gt; {
+  return new Promise((resolve, reject) =&gt; {
+    if (signal?.aborted) return reject(new Error("aborted"));
+    const id = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () =&gt; {
+      clearTimeout(id);         // 清理副作用
+      reject(new Error("aborted"));
+    }, { once: true });
+  });
+}
+
+async function demo() {
+  const c = new AbortController();
+  setTimeout(() =&gt; c.abort(), 50);   // 50ms 后喊停
+  await wait(1000, c.signal);         // 会在 50ms 时 reject
+}
+
+function fakeDb(id: number): Promise&lt;string&gt; {
+  return Promise.resolve("row-" + id);
+}
+</code></pre>
+<p><code>loadAll</code> 三个查询并发跑;<code>wait</code> 演示了取消的惯用法:在 <code>new Promise</code> 里同时挂一个 <code>setTimeout</code> 和一个 <code>signal</code> 的 <code>&quot;abort&quot;</code> 监听,谁先到谁决定这个 Promise 是 resolve 还是 reject。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<ul>
+<li><strong><code>Promise.all(iterable)</code></strong>:入参是 Promise(或普通值)的数组,返回 <code>Promise&lt;T[]&gt;</code>。<strong>任一</strong> reject 会让整体立刻 reject(短路)。要&quot;全部跑完不管成败&quot;用 <code>Promise.allSettled</code>。结果数组<strong>顺序对应入参顺序</strong>,与谁先兑现无关。</li>
+<li><strong><code>.map(...)</code> 造数组</strong>:常见搭配是 <code>Promise.all(items.map(x =&gt; asyncFn(x)))</code>——把一组输入映射成一组 Promise 再一起等。<code>.map</code> 见<a href="../typescript-6-classes-modules/index.html">类与模块</a>一章的数组方法。</li>
+<li><strong><code>AbortController</code> / <code>AbortSignal</code></strong>:<code>const c = new AbortController()</code> 后 <code>c.signal</code> 是只读信号,<code>c.abort()</code> 触发。检查用 <code>signal.aborted</code>(布尔);监听用 <code>signal.addEventListener(&quot;abort&quot;, handler, { once: true })</code>——<code>{ once: true }</code> 表示触发一次后自动移除监听,省得手动清理。</li>
+<li><strong><code>signal?.</code></strong>:<code>?.</code> 是可选链(见<a href="../typescript-4-narrowing/index.html">窄化</a>),<code>signal</code> 可能是 <code>undefined</code>(没传取消能力),<code>signal?.addEventListener(...)</code> 在 <code>signal</code> 为空时整体求值为 <code>undefined</code> 而不报错。这让&quot;可选的取消能力&quot;写起来很干净:传了 signal 就接上取消,没传就当无事发生。</li>
+<li><strong>相关工具</strong>:<code>Promise.race([...])</code> 返回<strong>最先</strong>兑现/失败的那个,常用来做超时(&quot;请求 vs 定时器,谁先到&quot;);<code>Promise.any([...])</code> 返回最先<strong>成功</strong>的一个。它们和 <code>Promise.all</code> 组成一套并发原语,对照 Python 的 <code>asyncio.wait(..., return_when=FIRST_COMPLETED)</code>。</li>
+</ul>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>pi 的 agent 主循环里,一批工具调用是<strong>并行</strong>执行的——用 <code>Promise.all</code> + <code>.map</code>:</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L542-L544 — Promise.all 并发跑完一批工具调用;每个 entry 可能是函数(要调用)或已算好的结果</p>
+<pre><code class="language-typescript">	const orderedFinalizedCalls = await Promise.all(
+		finalizedCalls.map((entry) =&gt; (typeof entry === &quot;function&quot; ? entry() : Promise.resolve(entry))),
+	);
+</code></pre>
+<p>而 <code>read</code> 工具演示了&quot;把取消接到一个 Promise 上&quot;的标准写法:</p>
+<p class="code-source">pi/packages/coding-agent/src/core/tools/read.ts:L223-L234 — new Promise 里先查 signal.aborted,再挂一个 abort 监听,取消时 reject 整个 Promise</p>
+<pre><code class="language-typescript">			return new Promise&lt;{ content: (TextContent | ImageContent)[]; details: ReadToolDetails | undefined }&gt;(
+				(resolve, reject) =&gt; {
+					if (signal?.aborted) {
+						reject(new Error(&quot;Operation aborted&quot;));
+						return;
+					}
+					let aborted = false;
+					const onAbort = () =&gt; {
+						aborted = true;
+						reject(new Error(&quot;Operation aborted&quot;));
+					};
+					signal?.addEventListener(&quot;abort&quot;, onAbort, { once: true });
+</code></pre>
+<p>对照本节语法点:<code>Promise.all(finalizedCalls.map(...))</code> 正是&quot;一组输入 → 一组 Promise → 一起等&quot;的惯用式,<code>await</code> 后 <code>orderedFinalizedCalls</code> 是<strong>保持原顺序</strong>的结果数组(变量名里的 <code>ordered</code> 就是在强调这点)。<code>read</code> 里则把上一章 <code>result()</code> 的手法用在取消上:进入 <code>new Promise</code> 先用 <code>signal?.aborted</code> 挡掉&quot;已经取消了&quot;的情形,再 <code>addEventListener(&quot;abort&quot;, onAbort, { once: true })</code> 把未来的取消翻译成对这个 Promise 的 <code>reject</code>——于是外层 <code>await</code> 这个 Promise 的代码会以抛异常的形式感知到取消。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong><code>Promise.all</code> 是短路的</strong>:一个失败就整体 reject,其余 Promise 仍在后台跑完(不会自动取消)。要真正停掉它们,得配合把同一个 <code>signal</code> 传给每个操作。</li>
+<li><strong>取消在 JS 里是&quot;协作式&quot;的</strong>:<code>abort()</code> 不会强行杀死正在跑的代码,只是发信号;每个异步操作必须<strong>自己</strong>监听 <code>signal</code> 并主动退出——这和 Python <code>CancelledError</code> 会在 await 点自动抛出略有不同,JS 要你手写监听。</li>
+<li><strong><code>{ once: true }</code> 省心</strong>:一次性监听触发后自动解绑,避免内存泄漏;若不用它,记得在操作正常结束时 <code>removeEventListener</code> 手动清理(pi 的 <code>read</code> 工具在正常路径结束时确实调了 <code>removeEventListener</code>,双保险)。</li>
+<li><strong>一个 signal 贯穿全链</strong>:pi 把同一个 <code>AbortSignal</code> 从 CLI 顶层一路透传给 LLM 请求、每个工具调用、乃至上一章的 SSE 解析生成器,于是一次 <code>abort()</code> 能同时叫停所有在途异步操作——这是 agent 能&quot;干净地被 Ctrl-C 打断&quot;的工程前提。</li>
+</ul>
+<h2 id="sec-3">3. async generator + for await...of:pi 如何流式吐 LLM</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>前两章的 Promise 是&quot;<strong>一个</strong>将来的值&quot;。但 LLM 流式输出是&quot;<strong>一连串</strong>陆续到来的值&quot;:token 一片片来,工具调用一段段来。承载它的是<strong>异步生成器</strong> <code>async function*</code>:函数体里每 <code>yield</code> 一次就&quot;吐&quot;出一个值给消费方,吐完再继续算下一个;消费方用 <code>for await (const x of stream)</code> 一个个接,<code>await</code> 保证&quot;没有新值就挂起等待&quot;(即背压——生产快了消费方自然等,消费慢了生产方也不会淹没它)。</p>
+<p>一个类还可以 <code>implements AsyncIterable&lt;T&gt;</code>,声明&quot;我能被 <code>for await...of</code> 消费&quot;,只要提供一个 <code>[Symbol.asyncIterator]()</code> 方法。pi 正是用这套机制,把一条底层网络 SSE 流,层层包成&quot;一串类型化事件&quot;,最后在 agent 主循环里 <code>for await</code> + <code>switch</code> 消费——和 T3 的<a href="../typescript-3-unions/index.html">可辨识联合</a> switch 无缝接上。</p>
+<p>为什么非用生成器不可?因为 LLM 流式响应的本质是&quot;值的时间维度&quot;:你<strong>事先不知道</strong>总共会有多少个 token、多少段工具调用,它们随时间陆续到达。用一个普通的 <code>Promise&lt;全部结果&gt;</code> 就得等全部结束才能拿到第一个字,交互体验很差;而异步生成器让你&quot;来一个处理一个&quot;,UI 能实时上屏。这正是 agent 类应用把生成器当一等公民的原因。</p>
+<blockquote>
+<p><strong>Python 对照</strong>:<code>async function*</code> ≈ Python 里 <code>async def</code> 函数体内用 <code>yield</code>(异步生成器);<code>yield x</code> 就是 Python 的 <code>yield x</code>;<code>for await (const x of it)</code> ≈ <code>async for x in it</code>;<code>implements AsyncIterable&lt;T&gt;</code> ≈ 实现 <code>__aiter__</code>/<code>__anext__</code> 协议。</p>
+</blockquote>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-typescript">// 教学示例 — 非生产代码
+// async function*:边算边 yield 一串值(注意 function 后的星号 *)
+async function* countUp(n: number): AsyncGenerator&lt;number&gt; {
+  for (let i = 0; i &lt; n; i++) {
+    await tick();      // 模拟等待下一片数据(IO/网络)
+    yield i;           // 吐出一个值,函数在此暂停,直到消费方要下一个
+  }
+}
+
+// 消费端:for await...of 一个个接
+async function consume() {
+  for await (const x of countUp(3)) {
+    console.log(x);    // 依次打印 0, 1, 2
+  }
+}
+
+// 一个类也能被 for await...of 消费:实现 AsyncIterable
+class Ticker implements AsyncIterable&lt;number&gt; {
+  async *[Symbol.asyncIterator](): AsyncIterator&lt;number&gt; {
+    yield 1;
+    yield 2;
+  }
+}
+// for await (const t of new Ticker()) { ... }
+
+function tick(): Promise&lt;void&gt; {
+  return new Promise((r) =&gt; setTimeout(r, 10));
+}
+</code></pre>
+<p><code>countUp</code> 是异步生成器:<code>function*</code> 的星号标记&quot;这是生成器&quot;,<code>async</code> 让它能在 <code>yield</code> 之间 <code>await</code>。<code>consume</code> 用 <code>for await...of</code> 逐个取。<code>Ticker</code> 展示了另一条路:类通过实现 <code>[Symbol.asyncIterator]()</code> 让自己可被 <code>for await...of</code> 迭代——这正是 pi 的 <code>EventStream</code> 用的形态。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<ul>
+<li><strong>声明异步生成器</strong>:<code>async function* g(): AsyncGenerator&lt;T&gt; {...}</code> 或方法形式 <code>async *methodName(): AsyncIterator&lt;T&gt; {...}</code>。星号 <code>*</code> 紧跟 <code>function</code>(或方法名前),缺了它就是普通 async 函数。</li>
+<li><strong><code>yield</code></strong>:每 <code>yield v</code> 产出一个 <code>T</code>,函数暂停;下次被要值时从暂停处继续。生成器体内可自由混用 <code>await</code>(等 IO)和 <code>yield</code>(产值)。</li>
+<li><strong>返回类型</strong>:<code>AsyncGenerator&lt;T&gt;</code> 或更宽的 <code>AsyncIterable&lt;T&gt;</code> / <code>AsyncIterator&lt;T&gt;</code>。三者关系:<code>AsyncIterable&lt;T&gt;</code> 是&quot;有 <code>[Symbol.asyncIterator]()</code> 方法&quot;的东西;<code>AsyncGenerator&lt;T&gt;</code> 是它的一个具体实现。</li>
+<li><strong><code>for await...of</code></strong>:<code>for await (const x of src)</code> 中 <code>src</code> 只需是 <code>AsyncIterable&lt;T&gt;</code>(生成器、或实现了该协议的类实例都行),<code>x</code> 的类型是 <code>T</code>。循环体每轮隐式 <code>await</code> 下一个值;<code>src</code> 迭代结束(生成器 <code>return</code> 或耗尽)时循环退出。只能在 <code>async</code> 函数内使用。</li>
+<li><strong><code>[Symbol.asyncIterator]</code></strong>:一个&quot;计算属性名&quot;——用内置符号 <code>Symbol.asyncIterator</code> 作方法名,是&quot;我可被异步迭代&quot;的协议约定。类里写 <code>async *[Symbol.asyncIterator]() {...}</code> 即同时满足 <code>implements AsyncIterable&lt;T&gt;</code>。方括号 <code>[...]</code> 表示&quot;用括号里表达式的值当键名&quot;,因为 <code>Symbol.asyncIterator</code> 不是普通字符串而是一个唯一符号,必须这么写。对照 Python:这相当于给类实现 <code>__aiter__</code>/<code>__anext__</code> 双下方法。</li>
+<li><strong>提前结束</strong>:<code>for await...of</code> 循环里 <code>break</code> 或抛异常会让底层生成器收到&quot;提前终止&quot;信号,触发它的 <code>finally</code> 块做清理(如关闭网络 reader)。这也是 pi 能在取消时干净收尾的原因之一。</li>
+<li><strong>同步版对照</strong>:去掉 <code>async</code>/<code>await</code> 就是同步生成器 <code>function*</code> + <code>for...of</code>,产出的是<strong>立刻可得</strong>的一串值(如遍历一棵树)。异步版的唯一区别是每次取值可能要等 IO。</li>
+</ul>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>先看 pi 的 <code>EventStream</code>——它 <code>implements AsyncIterable&lt;T&gt;</code>,手写异步迭代器,内建<strong>背压</strong>:</p>
+<p class="code-source">pi/packages/ai/src/utils/event-stream.ts:L4,L50-L62 — 类声明 implements AsyncIterable&lt;T&gt;;async * 方法既 yield 已排队的值,队列空又没结束时 await 一个 Promise 挂起等待(背压)</p>
+<pre><code class="language-typescript">export class EventStream&lt;T, R = T&gt; implements AsyncIterable&lt;T&gt; {
+	// ...
+	async *[Symbol.asyncIterator](): AsyncIterator&lt;T&gt; {
+		while (true) {
+			if (this.queue.length &gt; 0) {
+				yield this.queue.shift()!;
+			} else if (this.done) {
+				return;
+			} else {
+				const result = await new Promise&lt;IteratorResult&lt;T&gt;&gt;((resolve) =&gt; this.waiting.push(resolve));
+				if (result.done) return;
+				yield result.value;
+			}
+		}
+	}
+</code></pre>
+<p>再看数据的源头:pi 解析底层网络流(<code>ReadableStream</code>),用 <code>async function*</code> 边解析边 <code>yield</code> 事件:</p>
+<p class="code-source">pi/packages/ai/src/api/anthropic-messages.ts:L384-L412 — async function* 读取 ReadableStream,逐块 decode、逐行解析,每解析出一个 SSE 事件就 yield</p>
+<pre><code class="language-typescript">async function* iterateSseMessages(
+	body: ReadableStream&lt;Uint8Array&gt;,
+	signal?: AbortSignal,
+): AsyncGenerator&lt;ServerSentEvent&gt; {
+	const reader = body.getReader();
+	const decoder = new TextDecoder();
+	const state: SseDecoderState = { event: null, data: [], raw: [] };
+	let buffer = &quot;&quot;;
+
+	try {
+		while (true) {
+			if (signal?.aborted) {
+				throw new Error(&quot;Request was aborted&quot;);
+			}
+
+			const { value, done } = await reader.read();
+			if (done) {
+				break;
+			}
+
+			buffer += decoder.decode(value, { stream: true });
+			let consumed = consumeLine(buffer);
+			while (consumed) {
+				buffer = consumed.rest;
+				const event = decodeSseLine(consumed.line, state);
+				if (event) {
+					yield event;
+				}
+			}
+</code></pre>
+<p>最后,这串事件在 agent 主循环里被 <code>for await</code> + <code>switch</code> 消费——和 T3 的可辨识联合收口:</p>
+<p class="code-source">pi/packages/agent/src/agent-loop.ts:L319-L327 — for await 逐个取事件,switch (event.type) 按可辨识联合的判别字段分派</p>
+<pre><code class="language-typescript">	for await (const event of response) {
+		switch (event.type) {
+			case &quot;start&quot;:
+				partialMessage = event.partial;
+				context.messages.push(partialMessage);
+				addedPartial = true;
+				await emit({ type: &quot;message_start&quot;, message: { ...partialMessage } });
+				break;
+</code></pre>
+<p>对照本节语法点:三段拼成一条完整数据流。<code>iterateSseMessages</code> 是<strong>源头生成器</strong>——<code>async function*</code> 里 <code>await reader.read()</code> 等下一块网络数据(前两章的 Promise/await),<code>yield event</code> 把解析出的事件一个个吐出;它同时把 <code>signal?.aborted</code> 检查嵌进循环,顺手接上了第 2 章的取消。<code>EventStream</code> 则展示了<strong>类形态</strong>的同一能力:<code>implements AsyncIterable&lt;T&gt;</code> + <code>async *[Symbol.asyncIterator]()</code>,并在队列空且未结束时 <code>await new Promise(...)</code> 挂起——把第 1 章&quot;存起 resolve 晚点再调&quot;的手法用作背压,消费方要值而暂时没有,就静静等着 <code>push</code> 触发。到了 <code>agent-loop</code>,<code>for await (const event of response)</code> 只管逐个接,<code>switch (event.type)</code> 按判别字段 <code>type</code> 分派(见<a href="../typescript-3-unions/index.html">可辨识联合</a>)。至此:网络流 → 生成器 yield 事件 → for await 消费 → switch 分派,整条链闭合。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>星号别漏</strong>:<code>async function*</code>(有 <code>*</code>)是异步生成器,<code>yield</code> 一串值;<code>async function</code>(无 <code>*</code>)是普通异步函数,<code>return</code> 一个值。漏了 <code>*</code>,<code>yield</code> 会直接语法报错。</li>
+<li><strong><code>for await...of</code> 天然带背压与顺序</strong>:每轮隐式 <code>await</code> 下一个值,生产方快了消费方自然按自己节奏取,不用手写缓冲队列——这是把&quot;流式 + 反压&quot;写得像普通 <code>for</code> 一样简单的关键。</li>
+<li><strong>生成器 vs 类实现二选一</strong>:能用 <code>async function*</code> 就用它(最简);当你需要额外方法(如 <code>EventStream.result()</code> 那样&quot;流之外还要一个最终值&quot;)或要被 <code>implements AsyncIterable&lt;T&gt;</code> 约束时,才落到&quot;手写 <code>[Symbol.asyncIterator]()</code> 类&quot;这一层。pi 两种都用:底层解析用 <code>async function*</code>,需要&quot;边流边留最终结果&quot;的中间层用类——按需求选形态,别一律套类。</li>
+<li><strong>对照 Python 迁移</strong>:整套机制心智模型等同 <code>async for x in agen</code>,几乎一一对应;主要新概念只是 <code>[Symbol.asyncIterator]</code> 这个&quot;用符号当方法名&quot;的协议写法,以及取消要手动接 <code>signal</code>。</li>
+<li><strong>这就是读懂 pi 事件流的钥匙</strong>:从 <code>iterateSseMessages</code> 解析网络字节,到 <code>EventStream</code> 带背压地转发,到 <code>agent-loop</code> 的 <code>for await</code> + <code>switch</code> 分派——三层都是同一套&quot;异步可迭代&quot;抽象。抓住&quot;生成器 yield 一串类型化事件、消费方 for await 逐个 switch&quot;这条主线,pi 里几乎所有流式代码都是它的变体。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

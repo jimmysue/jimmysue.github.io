@@ -47,131 +47,150 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>教程</h1>
-<p class="page__intro">共 8 篇深度教程。</p>
+<p class="page__intro">共 17 篇深度教程。</p>
 <div class="post-grid">
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">3-5k 字</span> · <span class="post-card__extra">15–20 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/diffusion-sr-2021/index.html">扩散超分全景：从多步先验到一步前向，再到视频流式</a></h3>
-  <p class="post-card__tldr">8 节螺旋系统讲透扩散超分（Diffusion Super-Resolution）的演化主线：把&quot;多步随机采样的强生成先验&quot;逐步压成&quot;一步确定性前向&quot;，再从图像扩展到视频的时序一致性与流式实时。地基是 SR3/StableSR 的&quot;冻结 SD 当先验、只学条件&quot;（§1–§2）；其上是三条一步化路线——分数蒸馏（OSEDiff/VSD，§3）、中间时刻注入+GAN 一步（OMGSR/OP4KSR，§4）；再转入视频：SeedVR 的 shifted-window 时空 DiT（§5）、视频一步化与时序一致（DLoRAL 双 LoRA / DOVE / DUO-VSR，§6）、流式/长视频/实时（FlashVSR 稀疏注意力 / InfVSR 因果 KV-cache / Stream-DiffVSR，§7），最后收敛到统一视角与选型白地（§8）。代码均 verbatim 引自 StableSR、OSEDiff、OMGSR、SeedVR、DLoRAL、FlashVSR 真实仓库（行号经 sed 核对）。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-0-setup/index.html">TS·00 入门与心智模型:TS = JS + 会被擦除的类型层</a></h3>
+  <p class="post-card__tldr">系列开篇。给 Python 背景的读者建立 TypeScript 心智模型:类型只在编译期存在、运行时被完全擦除;
+用 pi 这个真实 AI coding-agent 框架的 tsconfig、npm workspaces、ESM barrel 讲清&quot;怎么把仓库跑起来读代码&quot;。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/video-super-resolution.html">video-super-resolution</a>
-      <span class="tag-chip tag-chip--more">+9 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/tooling.html">tooling</a>
+      <a class="tag-chip" href="concepts/esm.html">esm</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span> · <span class="post-card__extra">19k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-13</span> · <span class="post-card__extra">3-5k 字</span> · <span class="post-card__extra">15–20 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-benchmarks-2024/index.html">VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</a></h3>
-  <p class="post-card__tldr">业界常见 VLM(视觉语言模型)评测 benchmark 的速查目录,按三层组织:通用能力(MMMU/MMBench/MME/SEED-Bench)、会读图会算(DocVQA/ChartQA/TextVQA/AI2D/MathVista)、幻觉与诚实(POPE/HallusionBench/MMStar)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。每个 benchmark 做成卡片:测什么能力、测试方法、一个样题(题型示意)、模型如何被喂入+生成+提取+打分、用什么指标。§1 先讲清「任何 VLM 被测试的通用流水线」;§8 补一节 2025 发布会评分卡(推理 / agentic / 新多模态:GPQA·HMMT·MMMLU·IFBench·BFCL·BrowseComp·SWE-bench·Terminal-Bench·MMMU-Pro·ERQA·OmniDocBench·Video-MME),并对照「判分从对答案到跑环境」的代际差异。真实评分代码 verbatim 引自 open-compass/VLMEvalKit、openvinotoolkit/anomalib 与 princeton-nlp/SWE-bench。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-1-values/index.html">TS·01 值、类型、函数:声明、标注与推断</a></h3>
+  <p class="post-card__tldr">TypeScript 的地基:const/let、基本类型标注与类型推断、函数参数/返回标注、可选参数与默认参数、
+数组与对象字面量类型。全部用 pi 里的真实小函数(calculate、getCurrentTime)做示例。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/evaluation.html">evaluation</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/types.html">types</a>
+      <a class="tag-chip" href="concepts/functions.html">functions</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-11</span> · <span class="post-card__extra">15k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-12</span> · <span class="post-card__extra">3-6k 字</span> · <span class="post-card__extra">18–22 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/step-distillation-2022/index.html">Diffusion / Flow Matching 步数蒸馏:四大家族与可实践指南(PD → LCM-LoRA → DMD2 → MeanFlow/rCM)</a></h3>
-  <p class="post-card__tldr">8 节螺旋系统讲透&quot;把 1000 步扩散/flow matching teacher 压到 1–4 步&quot;的四大家族:轨迹蒸馏(Progressive
-Distillation 逐次砍半 + ReFlow 拉直轨迹)、一致性家族(CM → 可直接复跑的 LCM-LoRA → 连续时间 sCM)、
-分布匹配(DMD/DMD2,real/fake score 差 = reverse-KL 梯度)、对抗蒸馏(官方未开源,用 DMD2 的 GAN
-分支佐证可实践)。覆盖 2025–2026 前沿(sCM/TrigFlow、MeanFlow 的 JVP 恒等式、NVIDIA rCM 视频蒸馏),
-每个主讲方法都配经 diff 逐行验证的开源训练代码(diffusers / openai CM / DMD2 / RectifiedFlow /
-MeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑清单。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-2-shapes/index.html">TS·02 数据的形状:interface 与 type</a></h3>
+  <p class="post-card__tldr">用 interface 和 type 别名描述对象的&quot;形状&quot;:可选属性 ?、readonly、extends、Record、以及结构化类型
+(被编译器检查的鸭子类型)。素材来自 pi 的内容块类型、options 配置对象与 FileSystem 契约。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <a class="tag-chip" href="concepts/step-distillation.html">step-distillation</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/interface.html">interface</a>
+      <a class="tag-chip" href="concepts/type-alias.html">type-alias</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-09</span> · <span class="post-card__extra">15k 字</span> · <span class="post-card__extra">100–130 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-11</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/opd-diffusion-2026/index.html">OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角</a></h3>
-  <p class="post-card__tldr">7 节螺旋系统讲透 On-Policy Distillation(OPD)如何从 LLM 的 GKD 搬到扩散/flow matching。地基是一个折叠:SDE 同协方差让 reverse-KL 解析坍缩成速度场 L2(ODE 极限退化成纯 L2)。在此之上讲&quot;三兄弟&quot;:Flow-OPD(留住 RL:PPO+task reward+MAR,能反超 teacher)、DiffusionOPD(砍掉 RL:closed-form 直接 loss,§3.3 论证 PPO 是纯方差)、D-OPSD(teacher=EMA 自己,reward-free 自蒸馏,少步模型边用边学);再讲近亲 DMD/SiD 分布匹配蒸馏(为提速),最后收敛到一个统一模板&quot;在 student 自采轨迹上匹配 teacher 的 per-state 目标&quot;+ 四个选择轴。代码 verbatim 引自 CostaliyA/Flow-OPD、DiffusionOPD、vvvvvjdy/D-OPSD、tianweiy/DMD2 真实训练脚本(均经 diff 验证)。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-3-unions/index.html">TS·03 联合类型与可辨识联合:pi 为什么不用 enum</a></h3>
+  <p class="post-card__tldr">TypeScript 最有特色、也是 pi 用得最狠的一招:字符串字面量联合取代 enum,再用带 tag 字段的
+可辨识联合(discriminated union)+ switch 窄化,建模 LLM 的流式事件与消息。这是读懂 pi 事件系统的钥匙。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/on-policy-distillation.html">on-policy-distillation</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/union-types.html">union-types</a>
+      <a class="tag-chip" href="concepts/discriminated-union.html">discriminated-union</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span> · <span class="post-card__extra">18k 字</span> · <span class="post-card__extra">110–140 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-10</span> · <span class="post-card__extra">3-6k 字</span> · <span class="post-card__extra">18–22 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-grounding-2025/index.html">VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</a></h3>
-  <p class="post-card__tldr">9 节螺旋结构系统综述 2025–2026 视觉语言模型(VLM)的 grounding(视觉定位)浪潮:从「坐标如何变成 token」(三大编码流派)到「框作为输出」(检测/referring/Pointing/GUI/并行框解码)再到「框作为思维」(grounded reasoning)。覆盖 Kosmos-2/Shikra/Ferret/Grounding-DINO/Florence-2/PaliGemma/Qwen2.5-VL/Molmo/Rex-Omni/LocateAnything/Thinking-with-Visual-Primitives 等模型与技术报告,以及 RefCOCO/LVIS/ScreenSpot-Pro/PixMo-Points 等 18+ benchmark 的大盘点。代码 verbatim 引自 IDEA-Research/Rex-Omni 与 QwenLM/Qwen2.5-VL。两篇 anchor:Thinking with Visual Primitives 与 LocateAnything。文末附分类参考文献与技术报告全集。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-4-narrowing/index.html">TS·04 窄化与类型守卫:安全地处理不可信的数据</a></h3>
+  <p class="post-card__tldr">编译器如何在 if/switch 里自动收窄类型(typeof/in/instanceof),如何用 `x is T` 谓词函数写自定义
+类型守卫,以及如何用 unknown + 守卫安全地消化来自 LLM/外部世界的不可信数据。素材取自 pi 的错误处理与工具参数校验。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/grounding.html">grounding</a>
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/detection.html">detection</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/type-guards.html">type-guards</a>
+      <a class="tag-chip" href="concepts/unknown.html">unknown</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10k+ 字</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-09</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-industrial-2024/index.html">VLM 在工业检测领域: 看清细节 · 数据制作 · 泛化能力</a></h3>
-  <p class="post-card__tldr">把 VLM-based 工业缺陷检测 (Industrial Anomaly Detection) 这条线拆透。8 节螺旋结构覆盖 SOTA 演进 (2023-2026): vanilla CLIP 基线失败 → WinCLIP 多尺度窗口 → AnomalyCLIP object-agnostic prompt + DPAM 注意力修正 → AnomalyGPT LVLM + 合成数据 + 轻量 decoder + PEFT。三大主题各有专章:数据制作 (CutPaste → Perlin → Poisson 融合 → IMDD-1M 1M 图文对)、看清细节 (多尺度 + DPAM + 多层 decoder 三层栈)、泛化能力 (zero-shot → few-shot reference bank → cross-domain 17 数据集)。代码 verbatim 引自 zqhang/AnomalyCLIP、CASIA-IVA-Lab/AnomalyGPT、caoyunkang/WinClip、openvinotoolkit/anomalib 四个 repo。最后给出 timeline + decision tree 落地建议。</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-5-generics/index.html">TS·05 泛型:参数化的类型、约束、与工具类型</a></h3>
+  <p class="post-card__tldr">泛型函数/接口/类、约束 extends、默认类型参数 = T,以及 pi 大量使用的工具类型
+(Partial/Pick/Omit/Record/Extract/ReturnType)。用 pi 的 Tool&lt;TParameters&gt;、EventStream&lt;T,R&gt; 讲透&quot;类型也能当参数&quot;。
+</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
-      <a class="tag-chip" href="concepts/anomaly-detection.html">anomaly-detection</a>
-      <a class="tag-chip" href="concepts/industrial.html">industrial</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/generics.html">generics</a>
+      <a class="tag-chip" href="concepts/utility-types.html">utility-types</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">12k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-08</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/rlhf-evolution-2024/index.html">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</a></h3>
-  <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-6-classes-modules/index.html">TS·06 类与模块:封装、契约、与 import/export</a></h3>
+  <p class="post-card__tldr">类的字段/构造器/访问修饰符(private/public/readonly)、implements 契约、extends 继承(含 class extends Error),
+以及 ESM 模块的具名导出、import type/export type、barrel 与 declare module。用 pi 的 Agent、FileError、EventStream 讲。
+</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
-      <a class="tag-chip" href="concepts/ppo.html">ppo</a>
-      <span class="tag-chip tag-chip--more">+3 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/classes.html">classes</a>
+      <a class="tag-chip" href="concepts/modules.html">modules</a>
   </div>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span> · <span class="post-card__extra">10.8k 字</span> · <span class="post-card__extra">80–110 分钟</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-07</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/rl-for-diffusion-2023/index.html">扩散模型强化学习: 从 DDPO 到 AWM 的方法演进与代码实现</a></h3>
-  <p class="post-card__tldr">8 节螺旋结构系统讲透扩散模型 RL fine-tuning 的完整发展脉络 (2023.05 - 2025.09)。覆盖 RWR/ReFL → DDPO → DPOK → GRPO → Flow-GRPO → Dance-GRPO → AWM,每个方法的&quot;修了什么/为什么修/代码怎么落&quot;全部讲清。代码 verbatim 引自 kvablack/ddpo-pytorch、yifan123/flow_grpo、XueZeyue/DanceGRPO、scxue/AWM 四个 repo。AWM 那章包含 Theorem 1+2 的完整推导和 paper-vs-code gap 警告。</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-7-async/index.html">TS·07 异步与流式:Promise、async/await、与 async generator</a></h3>
+  <p class="post-card__tldr">从 Promise 与 async/await(对照 Python asyncio)到 Promise.all 并发、AbortSignal 取消,最后讲清
+pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await...of。读懂这章就读懂了 pi 的事件流。
+</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/ddpo.html">ddpo</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/async.html">async</a>
+      <a class="tag-chip" href="concepts/async-generators.html">async-generators</a>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-06</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">22–28 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-8-capstone/index.html">TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环</a></h3>
+  <p class="post-card__tldr">把前八篇学的语法拼起来,逐行读懂 pi 的一个真实内置工具(typebox schema → Static 派生类型 → execute
+处理器 → AgentTool 契约)与 agent 主循环(流式消费模型事件 → 分派工具调用 → 校验参数 → 回填结果)。读完你能自己读 pi。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/agent-harness.html">agent-harness</a>
+      <a class="tag-chip" href="concepts/typebox.html">typebox</a>
   </div>
 </div>
 </div>
+<nav class="pager" aria-label="分页">
+  <span class="pager__nav pager__item--disabled" aria-disabled="true">上一页</span>
+  <span class="pager__item pager__item--current" aria-current="page">1</span>
+  <a class="pager__item" href="tutorials-2.html">2</a>
+  <a class="pager__nav" href="tutorials-2.html">下一页</a>
+</nav>
 </main>
 </body>
 </html>
