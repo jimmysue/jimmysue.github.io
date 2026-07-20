@@ -49,34 +49,34 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
-<div class="post-card post-card--tutorial">
+<div class="post-card post-card--paper">
   <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-07</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-13</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-7-async/index.html">TS·07 异步与流式:Promise、async/await、与 async generator</a></h3>
-  <p class="post-card__tldr">从 Promise 与 async/await(对照 Python asyncio)到 Promise.all 并发、AbortSignal 取消,最后讲清
-pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await...of。读懂这章就读懂了 pi 的事件流。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/dataevolver-2026/index.html">DataEvolver:把「被拒样本」变成数据构造策略的梯度</a></h3>
+  <p class="post-card__tldr">中南大学 + 港科大。文字图生成的数据管线一直是 crawl→filter→freeze:采集、过滤一次、冻结,被拒样本直接丢掉。DataEvolver 把数据构造重写成一个「策略演化」闭环——不训练任何模型参数,只在自然语言策略空间里迭代:Retriever 拉候选、Verifier 打分并归因拒绝原因、Critic 把这一轮的拒绝统计蒸馏成一段自然语言反馈去改写下一轮的检索 query / 生成 prompt / 经验库、Generator 针对覆盖空洞做定向合成。核心主张是「拒绝样本里含有可复用的失败信号」。PixArt-α 0.75M 预算下 OCR-F1 相对最强基线涨 85.3% (TextScenesHQ) / 35.3% (LongTextBench),换到 Show-o2 依然涨。但要看清:绝对 OCR-F1 只有 8.45%——图里连 &quot;Ours&quot; 的文字也仍是乱码,涨的是相对量,任务本身远未解决。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/async.html">async</a>
-      <a class="tag-chip" href="concepts/async-generators.html">async-generators</a>
+      <a class="tag-chip" href="concepts/text-rich-image-generation.html">text-rich-image-generation</a>
+      <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
+      <a class="tag-chip" href="concepts/multi-agent.html">multi-agent</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
-<div class="post-card post-card--tutorial">
+<div class="post-card post-card--paper">
   <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-06</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">22–28 分钟</span></span>
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-10</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-8-capstone/index.html">TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环</a></h3>
-  <p class="post-card__tldr">把前八篇学的语法拼起来,逐行读懂 pi 的一个真实内置工具(typebox schema → Static 派生类型 → execute
-处理器 → AgentTool 契约)与 agent 主循环(流式消费模型事件 → 分派工具调用 → 校验参数 → 回填结果)。读完你能自己读 pi。
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/lingbot-video-2026/index.html">LingBot-Video: 把 MoE 搬进视频扩散——为具身智能从零 scale 的稀疏 DiT 世界模型</a></h3>
+  <p class="post-card__tldr">Robbyant 团队。第一个大规模开源 MoE 视频基础模型,专为具身智能设计。三条主线:①架构上把稠密 DiT 的 FFN 换成 DeepSeekMoE 式稀疏专家(共享专家+top-K 路由),用「容量-算力解耦」把 30B 总参数压到 3B 激活,1M token 序列下比 Dense-30B 快 3.18×;②数据上用 Data Profiling Engine + 世界知识拓扑图把 7 万小时具身视频(机械臂/导航/第一视角)灌进语料,五阶段课程从 192p 图像涨到 1080p;③训练上六路奖励(视觉/对齐/动态/连贯/人体/物理合理性)+ 单步探索 GRPO(Flash-GRPO/CPS)+ 用真实视频当负样本的 DiffusionNFT 微调防 reward hacking。RBench 0.620(开源第一,超闭源 Wan2.6 的 0.607)、Physics-IQ Verified 40.4(开源第一)。开源权重(Dense-1.3B / MoE-30B-A3B)+ 推理代码 + rewriter。
 </p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/agent-harness.html">agent-harness</a>
-      <a class="tag-chip" href="concepts/typebox.html">typebox</a>
+      <a class="tag-chip" href="concepts/mixture-of-experts.html">mixture-of-experts</a>
+      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
+      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
+      <span class="tag-chip tag-chip--more">+12 more</span>
   </div>
 </div>
 <div class="post-card post-card--paper">

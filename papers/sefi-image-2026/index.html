@@ -87,6 +87,7 @@
     <li class="h3"><a href="#sec-2-3">2.3 核心机关：让语义时间步「领先」纹理一个固定偏移 Δt</a></li>
     <li class="h3"><a href="#sec-2-4">2.4 双时间步 DiT 与训练目标</a></li>
     <li class="h3"><a href="#sec-2-5">2.5 推理：三阶段异步去噪（论文用二值 mask，代码用 sigma 钳位）</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 Semantic VAE (SemVAE) 的设计——以及它为什么在推理期「消失」</a></li>
     <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
     <li class="h3"><a href="#sec-3-1">3.1 算力账：5B 只用 125K A800 GPU·时</a></li>
     <li class="h3"><a href="#sec-3-2">3.2 多基准全面对标（数字说话）</a></li>
@@ -97,6 +98,11 @@
     <li class="h3"><a href="#sec-4-3">4.3 网络入口：时间步在喂进 DiT 前先 ÷1000 再 ×1000</a></li>
     <li class="h3"><a href="#sec-4-4">4.4 推理默认 Δt = 训练上界，且可被覆盖</a></li>
     <li class="h3"><a href="#sec-4-5">4.5 架构与训练栈（散点）</a></li>
+    <li class="h3"><a href="#sec-4-6">4.6 完整推理流程：generate_batch 全景</a></li>
+    <li class="h3"><a href="#sec-4-7">4.7 SemVAE 在推理期完全缺席（承 §2.6）</a></li>
+    <li class="h3"><a href="#sec-4-8">4.8 三种 guidance 模式：CFG / AutoGuidance / 区间 guidance</a></li>
+    <li class="h3"><a href="#sec-4-9">4.9 timestep_shift_alpha 与调度构造的先后顺序</a></li>
+    <li class="h3"><a href="#sec-4-10">4.10 TextureLatentCodec 的归一化：FLUX.2 走 BatchNorm 统计白化</a></li>
     <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
     <li class="h3"><a href="#sec-5-1">优点 (Strengths)</a></li>
     <li class="h3"><a href="#sec-5-2">局限 / 开放问题 (Limitations / open questions)</a></li>
@@ -110,7 +116,7 @@
   <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-06-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-06-24</span></div>
   <div class="post-meta__row"><span class="post-meta__authors">SeFi Team</span> · <span class="post-meta__venue">arXiv preprint (2026-06)</span></div>
   <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2606.22568">arXiv:2606.22568</a> · <a class="post-meta__link" href="https://jmliu206.github.io/sefi-web/">项目页</a> · <a class="post-meta__link" href="https://github.com/jmliu206/SeFi-Image">代码</a> · <a class="post-meta__link" href="https://huggingface.co/SeFi-Image">权重</a></div>
-  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/semantic-first-diffusion.html">semantic-first-diffusion</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/repa.html">repa</a> <a class="concept-chip" href="../../concepts/dinov2.html">dinov2</a> <a class="concept-chip" href="../../concepts/asynchronous-denoising.html">asynchronous-denoising</a> <a class="concept-chip" href="../../concepts/reconstruction-generation-tradeoff.html">reconstruction-generation-tradeoff</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/text-rendering.html">text-rendering</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/semantic-first-diffusion.html">semantic-first-diffusion</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/repa.html">repa</a> <a class="concept-chip" href="../../concepts/dinov2.html">dinov2</a> <a class="concept-chip" href="../../concepts/semantic-vae.html">semantic-vae</a> <a class="concept-chip" href="../../concepts/asynchronous-denoising.html">asynchronous-denoising</a> <a class="concept-chip" href="../../concepts/reconstruction-generation-tradeoff.html">reconstruction-generation-tradeoff</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/text-rendering.html">text-rendering</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a> <a class="concept-chip" href="../../concepts/autoguidance.html">autoguidance</a></div>
 </aside>
 
 <figure>
@@ -256,6 +262,31 @@ hidden_states = hidden_states[:, num_txt_tokens:, ...]   # 只解码图像段去
 <blockquote>
 <p><strong>⚠️ 论文-代码差异（等价但更巧）</strong>：仓库 <code>runner.py</code> 的实现里<strong>根本没有显式的二值 mask 张量</strong>。它用「sigma 钳位让步长 dt 自动变 0」达到同样效果——见 §4.1。这是本文交叉精读最值得记的一处。</p>
 </blockquote>
+<h3 id="sec-2-6">2.6 Semantic VAE (SemVAE) 的设计——以及它为什么在推理期「消失」</h3>
+<p>前面一直把 SemVAE 当黑盒（<span class="math inline">\(s_1 = E_s(f_s)\)</span>）。但它的设计有几处非常克制、非常关键的决定，值得单独展开——尤其是这一条反直觉的事实：<strong>训练时不可或缺的 SemVAE，在推理期完全不参与，仓库里甚至没有它的权重</strong>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig8-semvae.png" alt="Semantic VAE 架构">
+  <figcaption>
+    <strong>Fig. 5</strong>（论文 Fig. 8）— SemVAE 架构。<strong>Encoder</strong>（左侧灰框，重复 ×N）：Linear Proj → Transformer blocks → LayerNorm → Linear Proj，把 DINOv2 特征 f<sub>s</sub> 压成语义 latent s₁；<strong>Decoder</strong> 镜像 encoder，从 s₁ 重建 f̂<sub>s</sub>。损失是 <strong>MSE + 余弦相似</strong>，几乎不加 KL。
+  </figcaption>
+</figure>
+<p>SemVAE 是一个<strong>纯 Transformer 的 VAE</strong>，输入是冻结 DINOv2-Large 抽出的 patch 级特征 <span class="math inline">\(f_s \in \mathbb{R}^{L\times C_{\text{in}}}\)</span>（<span class="math inline">\(L\)</span> 是 patch token 数，<span class="math inline">\(C_{\text{in}}\)</span> 是 DINOv2 的特征维，ViT-L 为 1024）。编码器把它投到隐藏维、过 4 个 Transformer block、LayerNorm，再线性投影出 <span class="math inline">\(h_s\in\mathbb{R}^{L\times 2C_s}\)</span>，通道对半劈成对角高斯后验的均值与方差，重参数采样得到语义 latent：</p>
+<div class="math block">
+\[h_s = E_s(f_s), \quad [\mu_s, \sigma_s^2] = \operatorname{split}(h_s), \quad s_1 = \mu_s + \sigma_s \odot \epsilon,\ \ \epsilon\sim\mathcal N(0,I)\]
+</div>
+<p class="math-translation">—— 翻译: 编码器输出的通道数是语义维 C_s 的两倍，前一半当均值、后一半当方差，按标准 VAE 重参数化采样出 s₁。解码器 D_s 镜像编码器，从 s₁ 重建回 DINOv2 特征 f̂_s = D_s(s₁)。</p>
+<div class="math block">
+\[\mathcal L_{\text{SemVAE}} = \underbrace{\lVert \hat f_s - f_s\rVert_2^2}_{\mathcal L_{\text{MSE}}} + \underbrace{\Big(1 - \tfrac{\hat f_s \cdot f_s}{\lVert \hat f_s\rVert_2\,\lVert f_s\rVert_2}\Big)}_{\mathcal L_{\cos}} + \lambda_{\text{KL}}\,\mathcal L_{\text{KL}},\qquad \lambda_{\text{KL}}=10^{-7}\]
+</div>
+<p class="math-translation">—— 翻译: 重建用「MSE + 余弦相似」双损失——MSE 管幅度、cos 管方向；而 KL 权重压到 10⁻⁷，几乎为 0，意味着 SemVAE 是一个「重建优先、几乎不正则」的自编码器，s₁ 基本等于 μ_s。</p>
+<p>四个设计决定值得记：</p>
+<ol>
+<li><strong>只压通道、不压空间。</strong> <span class="math inline">\(f_s\in\mathbb R^{L\times C_{\text{in}}}\to s_1\in\mathbb R^{L\times C_s}\)</span>：token 数 <span class="math inline">\(L\)</span>（即 patch 空间布局）<strong>原样保留</strong>，只把每个 patch 的通道维从 1024 压到紧凑的 <span class="math inline">\(C_s\)</span>。这是刻意的——保留空间布局，语义 token 才能和纹理 token 在 DiT 里逐位置对齐（两路在 DiT 入口按<strong>通道维</strong>拼接，见 §4.2，必须共享同一空间网格）。</li>
+<li><strong>几乎零 KL（<span class="math inline">\(\lambda_{\text{KL}}=10^{-7}\)</span>）。</strong> 和纹理 VAE 的「无 GAN、<span class="math inline">\(\lambda_{\text{KL}}=10^{-12}\)</span>」是同一套哲学：把 latent 空间当作近乎无损的压缩码，而不是一个平滑的生成先验。后果是重参数噪声可忽略、<span class="math inline">\(s_1\approx\mu_s\)</span>，扩散模型要拟合的语义目标 <span class="math inline">\(s_1\)</span> 因此<strong>确定且稳定</strong>。</li>
+<li><strong>MSE + 余弦双损失。</strong> 光有 MSE 不够——DINOv2 特征的<strong>方向</strong>才编码语义（下游都用 cosine 相似度比对），所以额外加一项 <span class="math inline">\(\mathcal L_{\cos}\)</span> 显式保方向。幅度（MSE）+ 方向（cos）分工明确。</li>
+<li><strong>完全独立预训练、之后全程冻结。</strong> SemVAE 在扩散训练<strong>之前</strong>单独训好（和纹理 VAE 同数据，batch 64、lr 5e-5、1M 步、8×A800 约 48 小时），期间 <span class="math inline">\(\Phi\)</span> 冻结、只优化 <span class="math inline">\(E_s/D_s\)</span>；扩散阶段 SemVAE 也冻结。它扮演的是一个<strong>固定的目标编码器</strong>——正因为它固定，速度目标 <span class="math inline">\(s_1-s_0\)</span> 才不会漂移。</li>
+</ol>
+<p><strong>关键反直觉点——推理期 SemVAE 整个消失。</strong> 论文原文写得很直白：训练后「SemVAE 编码器冻结、用来为 SFD 产生语义 latent；<strong>最终图像仅从纹理 latent 解码</strong>」，而「生成出的语义 latent <span class="math inline">\(s_1\)</span> 被丢弃」。这不是实现偷懒，而是设计使然：语义流的唯一职责是<strong>在去噪过程中给纹理当更干净的结构锚点</strong>；一旦纹理 latent 干净了，语义 latent 的使命就结束了，没人需要把它「解码」成什么。于是推理时：<span class="math inline">\(E_s\)</span> 不跑（没有真实图像可编码）、<span class="math inline">\(D_s\)</span> 也不跑（<span class="math inline">\(s_1\)</span> 直接丢弃），<strong>SemVAE 的编码器和解码器都不出现在推理图里</strong>。这就解释了为什么仓库的推理包里只有 <code>TextureLatentCodec</code>、根本找不到任何 semantic VAE 代码——SemVAE 留给推理期的唯一遗产，是一个整数超参 <span class="math inline">\(C_s\)</span>（<code>semantic_channels</code>），用来决定复合 latent 里前多少个通道属于语义。详见 §4.7。</p>
 <h2 id="sec-3">3. 结论 (Key findings)</h2>
 <h3 id="sec-3-1">3.1 算力账：5B 只用 125K A800 GPU·时</h3>
 <p>最硬的卖点：<strong>5B 模型只用了 125K A800 GPU·时</strong>，约为 Z-Image（314K H800·时）训练算力的 <strong>10–20%</strong>[§Abstract/§1]。换来的是在一票基准上追平甚至反超 Qwen-Image / Z-Image。</p>
@@ -339,7 +370,7 @@ hidden_states = hidden_states[:, num_txt_tokens:, ...]   # 只解码图像段去
 <figure>
   <img class="zoomable" src="figures/fig1-performance.png" alt="SeFi-Image 与基线的综合性能对比">
   <figcaption>
-    <strong>Fig. 5</strong> — 综合性能概览（来自仓库 <code>assets/performance_overview.png</code>）：在显著更低的训练算力下，SeFi-Image 在多个评测轴上达到竞争性或 SOTA 水平。
+    <strong>Fig. 6</strong> — 综合性能概览（来自仓库 <code>assets/performance_overview.png</code>）：在显著更低的训练算力下，SeFi-Image 在多个评测轴上达到竞争性或 SOTA 水平。
   </figcaption>
 </figure>
 <h3 id="sec-3-3">3.3 为什么省：重建-生成权衡 + 收敛加速 + 更好的 scaling</h3>
@@ -375,18 +406,18 @@ hidden_states = hidden_states[:, num_txt_tokens:, ...]   # 只解码图像段去
 </tr>
 </tbody>
 </table>
-<p><strong>(b) 收敛更快。</strong> 在 50M 样本、256² 的受控对比里，「微调 VAE + SFD」相比「微调 VAE 无 SFD」「原版 VAE 无 SFD」两个基线，在 GenEval/DPG 上从头到尾保持领先、收敛明显更快（Fig. 6）。</p>
-<p><strong>(c) scaling 更好。</strong> 在 0.5B / 2B / 4B 三档上，SFD 的优势全程保持；<strong>带 SFD 的 2B 甚至大幅超过不带 SFD 的 4B</strong>（Fig. 7）——语义先行显著提升了参数效率。</p>
+<p><strong>(b) 收敛更快。</strong> 在 50M 样本、256² 的受控对比里，「微调 VAE + SFD」相比「微调 VAE 无 SFD」「原版 VAE 无 SFD」两个基线，在 GenEval/DPG 上从头到尾保持领先、收敛明显更快（Fig. 7）。</p>
+<p><strong>(c) scaling 更好。</strong> 在 0.5B / 2B / 4B 三档上，SFD 的优势全程保持；<strong>带 SFD 的 2B 甚至大幅超过不带 SFD 的 4B</strong>（Fig. 8）——语义先行显著提升了参数效率。</p>
 <figure>
   <img class="zoomable" src="figures/fig9-convergence.png" alt="SFD 收敛加速对比">
   <figcaption>
-    <strong>Fig. 6</strong>（论文 Fig. 9）— 收敛对比。蓝（finetuned VAE + SFD）全程领先绿（finetuned VAE 无 SFD）和橙（vanilla VAE 无 SFD），且收敛更快。
+    <strong>Fig. 7</strong>（论文 Fig. 9）— 收敛对比。蓝（finetuned VAE + SFD）全程领先绿（finetuned VAE 无 SFD）和橙（vanilla VAE 无 SFD），且收敛更快。
   </figcaption>
 </figure>
 <figure>
   <img class="zoomable" src="figures/fig10-scaling.png" alt="SFD 随模型规模的 scaling 对比">
   <figcaption>
-    <strong>Fig. 7</strong>（论文 Fig. 10）— scaling 对比。在 0.5B/2B/4B 上「带 SFD（绿）」都优于「不带 SFD（灰）」，2B+SFD 反超 4B 无 SFD。
+    <strong>Fig. 8</strong>（论文 Fig. 10）— scaling 对比。在 0.5B/2B/4B 上「带 SFD（绿）」都优于「不带 SFD（灰）」，2B+SFD 反超 4B 无 SFD。
   </figcaption>
 </figure>
 <h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
@@ -449,6 +480,72 @@ self.texture_channels = int(self.latent_channels * 4)
 <li><strong>Turbo 蒸馏</strong>：用 <strong>DMD2</strong> 蒸到 4 步，关键是<strong>蒸馏时保持同样的 Δt=0.1 语义领先规则</strong>，否则 4 步会抹掉「语义先行」的偏移结构。</li>
 <li><strong>RL 后训练</strong>：用 <strong>DiffusionNFT</strong>，把目标改成复合 latent <code>concat(z_semantic, z_texture)</code>，异步去噪表保持不变；每轮对 K=400 组 prompt 各生成 M=12 张共 4800 张，按 reward 方差过滤掉信号弱的组，再 top-bottom 选正负样本。</li>
 </ul>
+<h3 id="sec-4-6">4.6 完整推理流程：<code>generate_batch</code> 全景</h3>
+<p>把 §4.1–4.3 的碎片拼成一条完整的推理链，看 <code>runner.py:generate_batch</code>（L599-793）从 prompt 到图片一共几步：</p>
+<ol>
+<li><strong>文本编码。</strong> <code>text_encoder.encode(prompts)</code> → Qwen3-VL 语言塔取<strong>多层</strong>隐藏态拼接（默认层 9/18/27，见 <code>qwen3vl_text_encoder.py:L140-144</code>）当条件；输出维度 = <code>hidden_size × 层数</code>，必须等于 DiT 的 <code>joint_attention_dim</code>（<code>builder.py:L227-233</code> 做严格校验）。文本的视觉塔被删掉省显存（<code>del self.model.model.visual</code>）。</li>
+<li><strong>准备复合噪声 latent。</strong> <code>_prepare_latents</code>（L557-575）直接 <code>torch.randn((B, total_channels, H//2, W//2))</code>——<strong>语义流和纹理流都从纯高斯噪声起步</strong>，<code>total_channels = semantic_channels + texture_channels</code>。这里没有任何 encoder：SemVAE 不编码、纹理 VAE 也不编码（是纯文生图，没有输入图）。</li>
+<li><strong>构造调度（顺序很关键，见 §4.9）。</strong> 先在 <span class="math inline">\([0,1]\)</span> 上均匀取 <code>num_steps+1</code> 个点 → 施加 <code>timestep_shift_alpha</code> 分辨率位移 → <strong>再</strong>乘 <span class="math inline">\((1+\Delta t)\)</span> 得到「加长版」语义进度表 <code>u_sem_raw_schedule</code>（终点 <span class="math inline">\(1+\Delta t\)</span>）。</li>
+<li><strong>去噪循环（L680-786）。</strong> 每步用钳位从 <code>u_sem_raw</code> 派生四个进度（<code>u_sem_cur/next</code>、<code>u_tex_cur/next</code>），查表换成 timestep 与 sigma；预测速度、按 guidance 合成（§4.8）；把速度和 latent 都按 <code>semantic_channels</code> 切成两半，<strong>各用各的 <code>dt = sigma_next − sigma_cur</code> 做 Euler 更新</strong>（§4.1 的钳位让被冻结那路 dt=0）。</li>
+<li><strong>只解码纹理。</strong> 循环结束后 <code>texture_latents = latents[:, self.semantic_channels:]</code>——<strong>语义那半直接被切片丢弃</strong>（对应 §2.6 的「<span class="math inline">\(s_1\)</span> discarded」），只把纹理 latent 送 <code>texture_codec.decode_texture</code> 出图。</li>
+</ol>
+<p>一个容易忽略的正确性保险：<code>--debug_assert_schedule</code> 打开后，<code>_assert_dual_time_invariants</code>（L529-555）会<strong>逐步断言</strong> <span class="math inline">\(u_{\text{sem}}\ge u_{\text{tex}}\)</span> 且 <span class="math inline">\(\sigma_{\text{sem}}\le\sigma_{\text{tex}}\)</span>——即「语义进度不落后、语义噪声不更高」。这把 §2.3 的核心不变量（语义始终更干净）在 sigma 空间显式校验了一遍。</p>
+<h3 id="sec-4-7">4.7 SemVAE 在推理期完全缺席（承 §2.6）</h3>
+<p>对着代码坐实 §2.6 的反直觉结论：推理包 <code>sefi/modeling/</code> 下只有 <code>texture_latent_codec.py</code>（<code>TextureLatentCodec</code>），<strong>没有任何 semantic VAE 模块</strong>。<code>semantic_channels</code> 完全来自 config 里的一个整数（<code>builder.py:L136-140</code>，<code>_derive_semantic_channels</code> 直接读 <code>model.semantic_channels</code>，读不到就报错），而不是从某个 SemVAE 权重推出来的：</p>
+<p class="code-source">repo/sefi/builder.py:L273-275 — 复合通道数：语义(纯 config 整数) + 纹理(VAE 推导)</p>
+<pre><code class="language-python">semantic_channels = _derive_semantic_channels(config)   # 纯读 config.model.semantic_channels
+texture_channels  = int(texture_codec.texture_channels) # 由纹理 VAE 的 latent_channels×4 推导
+total_channels    = int(semantic_channels + texture_channels)
+</code></pre>
+<p>于是 DiT 被建成 <code>in_channels = out_channels = total_channels</code>（<code>builder.py:L235-236</code>），入口 <code>x_embedder</code> 把「语义+纹理」拼起来的通道一次性投影进 <code>inner_dim</code>，出口 <code>proj_out</code> 再吐回 <code>total_channels</code>——<strong>语义与纹理只在通道维融合/分离，不占额外 token</strong>。SemVAE 训练时定义了「语义 latent 应该长什么样、有几维」，推理时 DiT 直接在这个约定好的 <span class="math inline">\(C_s\)</span> 维空间里从噪声生成语义 latent，用完即弃。<strong>换句话说：SemVAE 是「训练期的目标定义者」，不是「推理期的组件」。</strong></p>
+<h3 id="sec-4-8">4.8 三种 guidance 模式：CFG / AutoGuidance / 区间 guidance</h3>
+<p>推理支持<strong>三条并列的引导路径</strong>，都套同一个线性外推公式 <code>base + scale·(cond − base)</code>（<code>_combine_guided_velocity</code>），区别只在「<code>base</code>（基准速度）从哪来」和「哪些步开启」：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th><code>base</code> 来源</th>
+<th>触发条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>标准 CFG</strong></td>
+<td>同一个大模型跑<strong>空 prompt</strong> <code>&quot;&quot;</code> 的无条件预测</td>
+<td><code>guidance_scale &gt; 1</code>，无 autoguidance</td>
+</tr>
+<tr>
+<td><strong>AutoGuidance</strong></td>
+<td>一个<strong>独立的小/弱模型</strong>（<code>--autoguidance_config/checkpoint</code>）跑<strong>同样的 prompt</strong></td>
+<td>提供了 autoguidance 权重；强制 <code>guidance_scale &gt; 1</code></td>
+</tr>
+<tr>
+<td><strong>区间 guidance</strong></td>
+<td>上面两者之一</td>
+<td>仅当 base sigma ∈ (lo, hi] 时才做外推，否则该步直接用 <code>pred_cond</code></td>
+</tr>
+</tbody>
+</table>
+<p>几个设计决定：</p>
+<ul>
+<li><strong>AutoGuidance</strong>（<code>_load_autoguidance_model</code>, L403-466）用「弱模型」而非「无条件」当负方向——思路是「用一个能力更差的同构模型指出该往哪个方向增强」，比空 prompt 的 CFG 更精细。它会严格校验小模型的语义/纹理通道数、文本维与主模型一致（L409-418），并在文本编码器配置相同时<strong>复用主模型的 prompt embedding</strong> 省一次前向（L438-442）。</li>
+<li><strong>区间 guidance</strong>（<code>_guidance_interval_is_active</code>, L91-102）只在指定 sigma 区间施加引导——这是近来「limited-interval guidance」的经验：在极高噪声和极低噪声两端关掉 CFG 往往更稳、更省。判据用的是 §4.9 里那条<strong>未加 <span class="math inline">\(\Delta t\)</span> 拉伸的</strong> base sigma 表。</li>
+<li><strong>guidance 作用在整条复合速度上</strong>（切分通道发生在 guidance 之后，L776-777），所以语义流和纹理流被同一个 guidance scale 一起放大。</li>
+</ul>
+<h3 id="sec-4-9">4.9 <code>timestep_shift_alpha</code> 与调度构造的先后顺序</h3>
+<p>SFD 的 <span class="math inline">\(\Delta t\)</span> 拉伸并不是唯一的时间轴变换。推理还叠了一层 FLUX/SD3 风格的<strong>分辨率相关时间步位移</strong> <span class="math inline">\(t' = \dfrac{\alpha t}{1+(\alpha-1)t}\)</span>（<code>_apply_timestep_shift_unit_interval</code>, L52-60），高分辨率下把采样点往高噪声端搬。关键是三者的<strong>施加顺序</strong>（L657-673）不能错：</p>
+<div class="math block">
+\[u_{\text{base}}\ \xrightarrow{\ t'=\alpha t/(1+(\alpha-1)t)\ }\ u_{\text{shift}}\ \xrightarrow{\ \times(1+\Delta t)\ }\ u_{\text{sem\_raw}}\]
+</div>
+<p class="math-translation">—— 翻译: 先在 [0,1] 均匀取点、再做 α 位移、最后才乘 (1+Δt) 拉长成语义进度表。base sigma 表在「位移后、拉伸前」这一步就地存下（用于 §4.8 的区间 guidance 判据），所以区间判据看的是「不含 SFD 偏移」的原始噪声水平。</p>
+<p>顺序反了（先拉伸再位移）会让语义/纹理的相对偏移被 α 非线性地扭曲，破坏 §2.3 的固定 <span class="math inline">\(\Delta t\)</span> 语义。另外 sigma 不是解析算出来的，而是把连续进度 <code>u</code> 量化成整数索引去查 <code>noise_scheduler</code> 预存的 <code>timesteps/sigmas</code> 数组（<code>_timesteps_and_sigmas</code>, L468-485）——所以两路时间步最终都落在训练用过的离散噪声档位上。</p>
+<h3 id="sec-4-10">4.10 <code>TextureLatentCodec</code> 的归一化：FLUX.2 走 BatchNorm 统计白化</h3>
+<p>纹理 latent 进扩散模型前要先归一化，<code>TextureLatentCodec</code> 对 FLUX.2 和其它 VAE 用了<strong>两套不同的归一化</strong>，这是个容易被忽略但很讲究的设计：</p>
+<ul>
+<li><strong>非 FLUX.2</strong>（sd1.5 / flux1）：老套路，<code>(latent − shift) × scaling</code>，用 config 里的标量 <code>scaling_factor/shift_factor</code>，且在 <strong>patchify 之前</strong>做（<code>texture_latent_codec.py:L84-86</code>）。</li>
+<li><strong>FLUX.2</strong>：不用标量，而是用 VAE 自带的 <strong>BatchNorm running 统计</strong>（<code>bn.running_mean/var</code>）做<strong>逐通道白化</strong> <code>(x − mean)/std</code>，且在 <strong>patchify 之后</strong>、对 packing 过的通道做（L68-71, L81-83）。</li>
+</ul>
+<p>为什么 FLUX.2 特殊？论文（§3.2 Texture VAE 段）指出原版 FLUX.2 VAE 后验方差偏大（KL 正则较强），SeFi 微调时几乎去掉了 KL、把它推向高保真重建，代价是 latent 各通道的尺度/均值不再规整——于是改用一组标定好的 BN 统计把它<strong>白化成零均值单位方差</strong>再喂扩散模型，让 DiT 面对一个标准化的纹理 latent 空间。出图时 <code>decode_texture</code> 严格逆序：先反白化 <code>x·std + mean</code>、再 unpatchify、再过 VAE 解码器（L96-103）。</p>
 <h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
 <h3 id="sec-5-1">优点 (Strengths)</h3>
 <ul>
