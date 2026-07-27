@@ -81,7 +81,7 @@
   <div class="toc-title">目录 / TOC</div>
   <ul>
     <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
-    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要：通用图像去模糊</a></li>
     <li class="h3"><a href="#sec-2-1">2.1 DeblurDiff —— 用 LKPN 预测隐空间空变卷积核，驯服 SD 先验</a></li>
     <li class="h3"><a href="#sec-2-2">2.2 OSDD —— 一步 SD 去模糊，用 eVAE 补回结构保真</a></li>
     <li class="h3"><a href="#sec-2-3">2.3 FideDiff —— 把模糊本身当扩散轨迹，一致性模型一步高保真</a></li>
@@ -90,29 +90,34 @@
     <li class="h3"><a href="#sec-2-6">2.6 DeblurFlow —— 流匹配残差重参数化，把噪声端点换成模糊观测</a></li>
     <li class="h3"><a href="#sec-2-7">2.7 DeblurSDI —— 零样本自扩散，联合估清晰图与模糊核，无需任何预训练</a></li>
     <li class="h3"><a href="#sec-2-8">2.8 相邻工作（收录但非核心）</a></li>
-    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
-    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
-    <li class="h3"><a href="#sec-4-1">一致（独立工作的收敛信号）</a></li>
-    <li class="h3"><a href="#sec-4-2">矛盾（需要指名点出的冲突）</a></li>
-    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
-    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
-    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+    <li class="h2"><a href="#sec-3">3. 人脸去模糊 / 盲人脸复原</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 FaceMe —— 身份编码器把参考人脸变成扩散提示，免微调换身份</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 HonestFace —— 一步扩散 + 反幻觉，让复原&quot;诚实&quot;不编脸</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 AuthFace —— 面向人脸微调 T2I 先验 + 8K 高质数据，两阶段做真实复原</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 LAFR 与流匹配路线（ELIR）</a></li>
+    <li class="h2"><a href="#sec-4">4. 平行对比</a></li>
+    <li class="h2"><a href="#sec-5">5. 一致与矛盾</a></li>
+    <li class="h3"><a href="#sec-5-1">一致（独立工作的收敛信号）</a></li>
+    <li class="h3"><a href="#sec-5-2">矛盾（需要指名点出的冲突）</a></li>
+    <li class="h2"><a href="#sec-6">6. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-7">7. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-8">8. 参考文献</a></li>
   </ul>
 </nav>
 <main data-pagefind-body>
 <h1>扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</h1>
 <aside class="post-meta">
   <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-27</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-07-27</span></div>
-  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/kkkls/DeblurDiff">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/OSDD">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/FideDiff">代码</a> · <a class="post-meta__link" href="https://github.com/Jin-Ting-He/BlurDM">代码</a> · <a class="post-meta__link" href="https://github.com/ChengxuLiu/TP-Diff">代码</a> · <a class="post-meta__link" href="https://github.com/ggluo/Self-Diffusion">代码</a></div>
-  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/image-deblurring.html">image-deblurring</a> <a class="concept-chip" href="../../concepts/motion-deblurring.html">motion-deblurring</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/consistency-model.html">consistency-model</a> <a class="concept-chip" href="../../concepts/blind-deconvolution.html">blind-deconvolution</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/score-distillation.html">score-distillation</a> <a class="concept-chip" href="../../concepts/zero-shot.html">zero-shot</a></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/kkkls/DeblurDiff">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/OSDD">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/FideDiff">代码</a> · <a class="post-meta__link" href="https://github.com/Jin-Ting-He/BlurDM">代码</a> · <a class="post-meta__link" href="https://github.com/ChengxuLiu/TP-Diff">代码</a> · <a class="post-meta__link" href="https://github.com/ggluo/Self-Diffusion">代码</a> · <a class="post-meta__link" href="https://github.com/modyu-liu/FaceMe">代码</a> · <a class="post-meta__link" href="https://github.com/EthanLiang99/AuthFace">代码</a> · <a class="post-meta__link" href="https://github.com/jkwang28/HonestFace">代码</a> · <a class="post-meta__link" href="https://github.com/eladc-git/ELIR">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/image-deblurring.html">image-deblurring</a> <a class="concept-chip" href="../../concepts/motion-deblurring.html">motion-deblurring</a> <a class="concept-chip" href="../../concepts/blind-face-restoration.html">blind-face-restoration</a> <a class="concept-chip" href="../../concepts/identity-preservation.html">identity-preservation</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/consistency-model.html">consistency-model</a> <a class="concept-chip" href="../../concepts/blind-deconvolution.html">blind-deconvolution</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/score-distillation.html">score-distillation</a> <a class="concept-chip" href="../../concepts/zero-shot.html">zero-shot</a></div>
 </aside>
 
 <h2 id="sec-1">1. 概述与范围</h2>
-<p><strong>时间窗</strong>：2025-01 至 2026-07。<strong>任务</strong>：单图像去模糊（运动模糊为主，兼顾散焦/盲复原）。<strong>范围口径</strong>：只收「用扩散或流匹配作为生成核心」的方法，不含纯回归 Transformer（Restormer / FFTformer / LoFormer 等只作为被对比或被增强的基线出现）。<strong>优先级</strong>：有模型、有代码的优先——每条会在卡片和对比矩阵里标注代码真实状态（已放权重 / 只放脚本 / 占位仓库）。</p>
+<p><strong>时间窗</strong>：2025-01 至 2026-07。<strong>任务</strong>：单图像去模糊，分两块——(A) 通用图像去模糊（运动模糊为主，兼顾散焦/盲复原，§2）；(B) 人脸去模糊 / 盲人脸复原（§3，扩散时代人脸去模糊被 BFR 吸收，见 §3 开头口径说明）。<strong>范围口径</strong>：只收「用扩散或流匹配作为生成核心」的方法，不含纯回归 Transformer（Restormer / FFTformer / LoFormer 等只作为被对比或被增强的基线出现）。<strong>优先级</strong>：有模型、有代码的优先——每条会在卡片和对比矩阵里标注代码真实状态（已放权重 / 只放脚本 / 占位仓库），每篇核心工作配从原论文裁剪的架构主图。</p>
 <p><strong>这个领域 2025 年在争什么</strong>。去模糊长期是回归任务的天下（PSNR 导向），扩散进来带的是<strong>感知真实感</strong>（纹理、细节幻觉），代价是两条：一是<strong>多步采样太慢</strong>（去模糊要落地到相机 ISP，20~50 步不可接受），二是<strong>保真度塌陷</strong>（SD 的隐空间 VAE 把 PSNR 打到 24 dB 级，比回归方法低 8~9 dB）。2025→2026 的工作几乎都在回应这两条：<strong>一步化</strong>（OSDD、FideDiff、DeblurFlow 的 r-space、ELIR 的 consistency）和<strong>把扩散的端点重构成&quot;模糊&quot;而非&quot;噪声&quot;</strong>（FideDiff 的模糊轨迹、BlurDM 的双扩散、DeblurFlow 的残差场），让生成过程天然对齐复原目标而非从纯噪声幻觉。</p>
-<p><strong>验证声明</strong>：下列每个 arxiv 号、发表年份、会议、代码库状态均在本次调研中联网核实（arxiv 前缀年月已逐一确认，如 <code>2502</code>=2025-02、<code>2605</code>=2026-05）。代码交叉验证见 §5——凡说某函数&quot;实现了 X&quot;，均已打开该文件确认，未打开的明确标注。仓库内本无去模糊分析，本篇为新建；相邻的<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>（扩散超分一步化）与<a class="wiki-link" data-slug="opd-diffusion-2026" href="../opd-diffusion-2026/index.html">opd-diffusion-2026</a>（一步扩散）可交叉参照，一步化的方法论在超分与去模糊之间高度共享。</p>
-<p><strong>一句话地图</strong>：把预训练 SD 当先验（DeblurDiff、OSDD）→ 把扩散过程本身改造成去模糊（FideDiff、BlurDM）→ 摆脱配对/预训练（TP-Diff 非配对、DeblurSDI 零样本）→ 用流匹配的残差重参数化（DeblurFlow）。</p>
-<h2 id="sec-2">2. 逐篇精要</h2>
+<p><strong>验证声明</strong>：下列每个 arxiv 号、发表年份、会议、代码库状态均在本次调研中联网核实（arxiv 前缀年月已逐一确认，如 <code>2502</code>=2025-02、<code>2605</code>=2026-05）。代码交叉验证见 §6——凡说某函数&quot;实现了 X&quot;，均已打开该文件确认，未打开的明确标注。仓库内本无去模糊分析，本篇为新建；相邻的<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>（扩散超分一步化）与<a class="wiki-link" data-slug="opd-diffusion-2026" href="../opd-diffusion-2026/index.html">opd-diffusion-2026</a>（一步扩散）可交叉参照，一步化的方法论在超分与去模糊之间高度共享。</p>
+<p><strong>一句话地图</strong>：〔通用去模糊〕把预训练 SD 当先验（DeblurDiff、OSDD）→ 把扩散过程本身改造成去模糊（FideDiff、BlurDM）→ 摆脱配对/预训练（TP-Diff 非配对、DeblurSDI 零样本）→ 用流匹配的残差重参数化（DeblurFlow）；〔人脸去模糊/BFR〕主战场从&quot;去糊&quot;转向&quot;保身份 + 反幻觉&quot;——身份即提示（FaceMe）→ 一步 + 反幻觉（HonestFace）→ 高质人脸先验（AuthFace）→ 高效码本对齐（LAFR）+ 流匹配（ELIR）。</p>
+<h2 id="sec-2">2. 逐篇精要：通用图像去模糊</h2>
 <h3 id="sec-2-1">2.1 DeblurDiff —— 用 LKPN 预测隐空间空变卷积核，驯服 SD 先验</h3>
 <p><strong>DeblurDiff (NeurIPS 2025, arxiv:2502.03810)</strong> — ✅ verified</p>
 <ul>
@@ -121,6 +126,10 @@
 <li>关键结果：真实域感知指标领先——GoPro 上 LPIPS 0.2191（DiffBIR 0.2772 / PASD 0.2984）；真实模糊图 NIQE 3.66（PASD 4.45）。<strong>但 PSNR 明显低</strong>（GoPro ~24.32，回归法 HI-Diff 33.33），是 SD 隐空间保真的固有代价。</li>
 <li>代码：<a href="https://github.com/kkkls/DeblurDiff">github.com/kkkls/DeblurDiff</a>（MIT，~65★，train.py/inference.py + Google Drive 权重齐全，基于 DiffBIR）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/deblurdiff-arch.png" alt="DeblurDiff 整体架构图">
+  <figcaption><strong>图 1</strong> — DeblurDiff 整体架构：模糊图经 VAE 编码得 <code>z_lq</code>；LKPN 以噪声隐码 + <code>z_lq</code> 预测<strong>逐像素空变卷积核</strong> <code>k_T</code>，经 EAC（⊛）卷积得对齐隐码，作为 ControlNet 条件注入冻结的 SD UNet；左下插图为 EAC 把核 reshape 成 <code>ck²</code> 后与 <code>z_lq</code> 卷积的细节。这张图让"用预测核对齐特征、而非直接喂模糊图"的核心设计一目了然。（论文 Fig. 3）</figcaption>
+</figure>
 <p>怎么做的：把一张模糊图先过 VAE 编码进 SD 隐空间，LKPN 以模糊隐码为输入，<strong>为每个空间位置预测一组卷积核权重</strong>（张量形状 <code>(B, groups, kH, kW, H, W)</code>——注意核随 (H,W) 而变，这正是&quot;空变&quot;），EAC 用这些核去卷输入特征，得到的对齐特征作为 ControlNet 式条件注入冻结的 SD UNet。关键设计取舍：为什么不直接把模糊图/预去模糊图喂给 ControlNet？作者的论点是——喂原始模糊图，控制网提不出干净结构；喂预去模糊图，网络会过度信赖那个可能已经出错的中间结果。LKPN 与扩散<strong>联合训练</strong>、且<strong>每个扩散步都用当前去噪结果反过来精化核</strong>，让核估计和生成互相纠偏，这是它比&quot;一次性预去模糊 + 扩散精修&quot;两段式管线更鲁棒的原因。代价写在数字里：它把宝押在感知真实感（no-reference 指标全面领先），放弃了 PSNR——这也是下面 FideDiff 要正面反驳的点。</p>
 <h3 id="sec-2-2">2.2 OSDD —— 一步 SD 去模糊，用 eVAE 补回结构保真</h3>
 <p><strong>OSDD / One-Step Diffusion for Motion-Deblurring (arxiv:2503.06537, 2025-03)</strong> — ✅ verified</p>
@@ -130,6 +139,10 @@
 <li>关键结果：GoPro LPIPS 0.1211 / DISTS 0.0606；RealBlur-J LPIPS 0.1178；单步推理 0.88 s/图（GoPro）。<strong>只报感知指标（LPIPS/DISTS/无参考），不报 PSNR/SSIM</strong>——延续 DeblurDiff 的&quot;感知优先&quot;立场。</li>
 <li>代码：<a href="https://github.com/xyLiu339/OSDD">github.com/xyLiu339/OSDD</a>（⚠️ <strong>占位仓库，代码/权重 TODO 未放</strong>，~21★）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/osdd-arch.png" alt="OSDD 管线图">
+  <figcaption><strong>图 2</strong> — OSDD 管线：左为<strong>动态双适配器 DDA</strong>，两条 LoRA 分支分别在去模糊数据与合成数据上训练、按 <code>γ</code> 与 <code>1−γ</code> 加权融合；右为单步扩散生成器（Encoder→单步 DM→Decoder）+ 边缘检测的 EA-DISTS 损失 + 判别器 GAN 分支。图右半清楚说明"一步生成"如何靠 eVAE 与判别器补回保真。（论文 Fig. 4）</figcaption>
+</figure>
 <p>怎么做的：思路是 SD-先验路线（同 DeblurDiff）叠加超分领域已经跑通的一步蒸馏（参见<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>里的 OSEDiff 系）。难点在于一步化会同时伤保真：VAE 的编解码本就有信息损失，再叠单步生成，结构会飘。OSDD 的两个抓手——eVAE 针对性重训解码端补结构、DDA 在感知分支与保真分支间动态加权——都是冲着&quot;一步但别塌&quot;去的。它和 DeblurDiff 是同一作者群（Yulun Zhang 组）的连续工作，可看作 DeblurDiff 的加速版。<strong>代码尚未释放</strong>，落地需等；这也是把它排在有完整代码的 DeblurDiff/BlurDM 之后的原因。</p>
 <h3 id="sec-2-3">2.3 FideDiff —— 把模糊本身当扩散轨迹，一致性模型一步高保真</h3>
 <p><strong>FideDiff (ICLR 2026, arxiv:2510.01641)</strong> — ✅ verified</p>
@@ -139,6 +152,10 @@
 <li>关键结果：GoPro 单步 PSNR <strong>28.79</strong> / SSIM 0.9148 / LPIPS 0.0831；RealBlur-J PSNR 28.96。相对扩散基线大幅领先：DiffBIR +2.64 dB（26.15→28.79）、OSEDiff +4.45 dB、Diff-Plugin +5.91 dB。<strong>首次让扩散去模糊在全参考指标上追平 SOTA</strong>。</li>
 <li>代码：<a href="https://github.com/xyLiu339/FideDiff">github.com/xyLiu339/FideDiff</a>（⚠️ <strong>占位仓库，2026-06 放了可视化结果，代码/数据尚未释放</strong>，~20★，CC BY 4.0）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/fidediff-arch.png" alt="FideDiff 训练管线图">
+  <figcaption><strong>图 3</strong> — FideDiff 训练管线：(1) Forward Data Generation 用相邻帧平均构造"<strong>模糊即扩散轨迹</strong>"、在 timestep <code>t</code> 生成 <code>I_LQ</code>；(2) Kernel ControlNet 估模糊核 <code>k_t</code> 与自适应时间步 <code>t̂</code> 注入 DM UNet；(3) 一致性 Foundation Model 一步重建 HQ；(4) L1 / EA-LPIPS / GAN / reblur 损失。图 (1) 把"沿模糊轨迹反向走"这一与噪声扩散的根本区别画了出来。（论文 Fig. 4）</figcaption>
+</figure>
 <p>怎么做的：这是本调研里概念最漂亮的一篇。标准扩散从纯高斯噪声生成，端点与&quot;去模糊&quot;无关，所以 SD 先验路线才会牺牲 PSNR。FideDiff 把 forward 过程<strong>直接定义在模糊维度上</strong>：t=0 是清晰图，t 增大是越来越糊的图，于是&quot;去模糊&quot;就是沿这条<strong>物理有意义的轨迹</strong>反向走。一致性模型（consistency model）的作用是把轨迹上任意点一步映射回清晰端，天然得到单步推理；Kernel ControlNet 显式估计模糊核作为条件，让轨迹知道&quot;糊成什么样&quot;。设计上最关键的对比是<strong>它与 DeblurDiff/OSDD 的立场对立</strong>——后者接受&quot;扩散=感知强但 PSNR 低&quot;，FideDiff 用&quot;模糊轨迹 + 一致性&quot;论证扩散<strong>也能</strong>做到 28.79 dB 的高保真。同作者群（又是 Yulun Zhang 组，与 OSDD 同一 xyLiu339），可视为该组从&quot;感知优先&quot;转向&quot;保真优先&quot;的路线修正。<strong>遗憾同样是代码未放</strong>，28.79 这个数字目前只能采信论文表格。</p>
 <h3 id="sec-2-4">2.4 BlurDM —— 双扩散：把模糊和噪声一起扩上去，做即插即用先验</h3>
 <p><strong>BlurDM (NeurIPS 2025, arxiv:2512.03979)</strong> — ✅ verified</p>
@@ -148,6 +165,10 @@
 <li>关键结果：作为插件稳定提升四个骨干——MIMO-UNet +0.59 dB、Stripformer +0.75 dB、FFTformer +0.25 dB、LoFormer +0.51 dB（GoPro）；RealBlur-J 上增益更大（+0.78 dB）；LoFormer 某数据集最高 +1.24 dB。</li>
 <li>代码：<a href="https://github.com/Jin-Ting-He/BlurDM">github.com/Jin-Ting-He/BlurDM</a>（MIT，~20★，<strong>train_stage1/2/3.py + deblur_predict.py 脚本齐全，权重 coming soon</strong>）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/blurdm-arch.png" alt="BlurDM 三阶段框架图">
+  <figcaption><strong>图 4</strong> — BlurDM 三阶段框架：阶段 1 预训练 Sharp Encoder + PFM 得清晰先验 <code>Z^S</code>；阶段 2 训练 BlurDM——模糊隐码经"<strong>双噪声+模糊扩散</strong>"前向、再由 Noise Residual 与 Blur Residual 两个估计器反向做"双去噪+去模糊"，监督到 <code>Z^S</code>；阶段 3 联合微调，BlurDM 作为<strong>插件先验</strong>注入去模糊网络。图中双残差分支正是"噪声+模糊同时扩散"的落点。（论文 Fig. 2）</figcaption>
+</figure>
 <p>怎么做的：BlurDM 与 FideDiff 撞了同一个直觉——把模糊纳入扩散过程——但落点不同。FideDiff 用<strong>单一模糊轨迹</strong>取代噪声轨迹；BlurDM 保留噪声、<strong>再叠一路模糊扩散</strong>（双扩散），forward 时清晰图同时被高斯噪声和模糊污染，reverse 时同一个网络既要去噪又要去模糊。更重要的定位差异：BlurDM <strong>不是端到端复原器，而是先验插件</strong>——它在隐空间生成一个&quot;模糊感知先验&quot;，挂到 MIMO-UNet / Stripformer / FFTformer / LoFormer 这些现成回归骨干上去涨点。这解释了它的结果为什么是&quot;+0.x dB 的普涨&quot;而非绝对 SOTA 数字：它的价值主张是<strong>正交增益</strong>（任何骨干都能 +0.25~0.78 dB），而非单独夺榜。设计取舍——插件式意味着它不与骨干争夺&quot;谁是复原器&quot;，落地阻力小；但也意味着它离不开一个好骨干，单独不成篇。仓库有完整三阶段训练脚本，是本调研里<strong>代码可跑性最高的几个之一</strong>（仅缺预训练权重）。</p>
 <h3 id="sec-2-5">2.5 TP-Diff —— 非配对数据上学去模糊纹理先验，扩散首次进非配对复原</h3>
 <p><strong>TP-Diff (ICCV 2025, arxiv:2507.13599)</strong> — ✅ verified</p>
@@ -157,6 +178,10 @@
 <li>关键结果：论文称在常用基准上超越 SOTA（摘要未给具体数字，本调研未能核到逐项表格）。</li>
 <li>代码：<a href="https://github.com/ChengxuLiu/TP-Diff">github.com/ChengxuLiu/TP-Diff</a>（<strong>代码存在：models/ + ldm/ + train_S1.py/train_S2.py/test.py 两阶段脚本</strong>，~11★）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/tpdiff-arch.png" alt="TP-Diff 框架图">
+  <figcaption><strong>图 5</strong> — TP-Diff 框架：去模糊网络 + 再模糊网络构成<strong>非配对循环</strong>；纹理先验编码器 TPE + 扩散去噪网络产出纹理先验 <code>z</code>，经 SAP 注入去模糊网络的 TTformer 层；(c)(d) 为 TTformer 内的 FM-MSA（滤波调制多头自注意力）与 TM-FFN。循环结构正是它摆脱成对监督的关键。（论文 Fig. 2）</figcaption>
+</figure>
 <p>怎么做的：前面几篇都吃<strong>成对</strong>监督（GoPro 这类合成配对或 RealBlur 这类采配对）。TP-Diff 的立场是——真实场景很难拿到严格配对的模糊/清晰图，所以走非配对。核心是用扩散模型<strong>生成纹理先验知识</strong>辅助恢复模糊图的纹理：TPE 用 memory 机制把清晰图的纹理表示存下来监督扩散训练，TTformer 里的 FM-MSA 通过<strong>自适应滤波</strong>处理空变模糊（不同位置模糊核不同，用调制滤波器逐位置对付），小波对抗损失专门盯高频细节别糊掉。设计上它和 DeblurDiff 都要对付&quot;空变模糊&quot;，但手段不同：DeblurDiff 显式预测逐像素卷积核（LKPN/EAC），TP-Diff 用注意力里的滤波调制隐式处理。非配对是它最大的差异化，也是最大的风险点——非配对复原通常保真度不稳，能否在真实模糊上稳定超越配对法，需要代码复现验证。</p>
 <h3 id="sec-2-6">2.6 DeblurFlow —— 流匹配残差重参数化，把噪声端点换成模糊观测</h3>
 <p><strong>DeblurFlow / Restoration-Aligned Generative Flow (arxiv:2605.08854, 2026-05)</strong> — ✅ verified</p>
@@ -166,6 +191,10 @@
 <li>关键结果：双专家——保真专家 PSNR <strong>33.69 dB</strong> 做高保真初始化，DeblurFlow 感知增强后 33.05 dB（仅轻微降保真），远超&quot;直接套生成模型&quot;的 27.60 dB。数据集 GoPro / HIDE / RealBlur / RWBI。</li>
 <li>代码：⚠️ <strong>未找到公开仓库</strong>（截至本次调研）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/deblurflow-arch.png" alt="DeblurFlow 核心概念对比图">
+  <figcaption><strong>图 6</strong> — DeblurFlow 核心概念对比：左（标准生成流，VAE 空间）Noise→清晰图，455 GMACs；右（本文 <strong>r-space</strong> 残差空间）Blur Image→r-Space Encoder→流模型→r-Space Decoder 直接产出残差，仅 51.8 GMACs（约 9× 更省）。一张图讲清"把噪声端点换成模糊观测、向量场=残差"的重参数化及其省算力来源。（论文 Fig. 1）</figcaption>
+</figure>
 <p>怎么做的：这是本调研里<strong>唯一的纯流匹配（flow matching）去模糊</strong>工作，也是最新（2026-05）。标准流匹配从噪声流向数据，端点（噪声）与去模糊任务无关；DeblurFlow 把起点端换成<strong>模糊观测</strong>，于是从模糊流向清晰，向量场 = 残差（模糊−清晰）。这个重参数化有个漂亮副产品：flow matching 的回归 loss 直接变成<strong>残差回归</strong>，语义上就是&quot;预测模糊图要减掉多少&quot;，因此<strong>能用 LoRA 轻量微调</strong>一个预训练流模型（不用从头训）。r-space 是第二个巧思——既然只需解码残差而非重建整图，就设计一个更省的残差隐空间，把 VAE 编解码开销砍到最多 1/9。双专家采样把保真与感知<strong>解耦成两个模型</strong>：一个 33.69 dB 打底，一个在其上做感知增强只掉 0.6 dB——这与 OSDD 的 DDA（单模型内部动态加权）是<strong>同一目标的不同实现</strong>。理念上 DeblurFlow 与 FideDiff 殊途同归（都把生成端点从&quot;噪声&quot;改成&quot;模糊/残差&quot;），区别是 FideDiff 走扩散+一致性、DeblurFlow 走流匹配+残差场。<strong>无代码</strong>是最大短板，33.69 这个数字待验。</p>
 <h3 id="sec-2-7">2.7 DeblurSDI —— 零样本自扩散，联合估清晰图与模糊核，无需任何预训练</h3>
 <p><strong>DeblurSDI / Self-Diffusion Driven Blind Imaging (arxiv:2510.27439, 2025-10)</strong> — ✅ verified</p>
@@ -175,6 +204,10 @@
 <li>关键结果：论文称在盲反卷积上大幅超越现有方法（摘要未给具体基准数字）。</li>
 <li>代码：<a href="https://github.com/ggluo/Self-Diffusion">github.com/ggluo/Self-Diffusion</a>（MIT，<code>sdi.py</code> 为自扩散主实现，含 MRI/通用反问题的 run 脚本）。</li>
 </ul>
+<figure>
+  <img class="zoomable" src="figures/deblursdi-arch.png" alt="DeblurSDI 反向自扩散过程演化图">
+  <figcaption><strong>图 7</strong> — DeblurSDI 反向自扩散演化：上排为估计的模糊核（PSF）与恢复的清晰人脸在噪声步 5/10/15/20/30 的缩略图，<strong>二者随反向扩散联合精化</strong>；下方 SSIM/PSNR 曲线呈由粗到细的先降后升轨迹。（该文无框图、仅 Algorithm 1；此为其对"联合估图像+核"最贴近的可视化，论文 Fig. 3）</figcaption>
+</figure>
 <p>怎么做的：与前六篇<strong>根本不同</strong>——它不训练任何数据集，是一个 per-image 的<strong>测试时优化</strong>框架（精神上接近 Deep Image Prior 的盲复原版）。给一张模糊图，DeblurSDI 从纯噪声起步，用<strong>反向自扩散</strong>逐步精化两样东西：清晰图 x 和模糊核 k，两个随机初始化的网络分别参数化它们，优化目标是数据一致性（<code>blur(x)⊛k ≈ y</code>）加上模糊核的 ℓ1 稀疏（真实运动核确实稀疏）。&quot;自扩散&quot;指的是它借用扩散的从-噪声-精化的迭代结构，但<strong>噪声/退化都来自图像自身</strong>，不需要在外部大数据上学先验。设计取舍很清楚：零样本 = 极强泛化（对光学像差+运动模糊的组合退化尤其有用，这类退化难以合成配对数据），代价是<strong>每张图都要跑一轮优化，慢</strong>，且盲估计的病态性使其对超参和初始化敏感。它填的是与 DeblurDiff/FideDiff 完全不同的生态位：后者要大数据训练、推理快；DeblurSDI 无需数据、推理慢，适合数据稀缺的科学成像。</p>
 <h3 id="sec-2-8">2.8 相邻工作（收录但非核心）</h3>
 <ul>
@@ -182,7 +215,58 @@
 <li><strong>RealVDeblur (arxiv:2607.20628, 2026-07)</strong> ✅ — <strong>视频</strong>去模糊，一步扩散 + 基于 3DGS 的物理模糊合成管线提升真实域泛化；本调研聚焦单图像，故仅提及。</li>
 <li><strong>Restora-Flow (arxiv:2511.20152, 2025-11)</strong> ✅ — 训练无关的掩码引导流匹配复原，覆盖 inpainting/SR/denoise，去模糊为附带任务，非专门去模糊方法。</li>
 </ul>
-<h2 id="sec-3">3. 平行对比</h2>
+<h2 id="sec-3">3. 人脸去模糊 / 盲人脸复原</h2>
+<p><strong>框架说明（先厘清口径）</strong>：扩散时代的&quot;人脸去模糊&quot;几乎不作为独立任务存在，而是被<strong>盲人脸复原（Blind Face Restoration, BFR）<strong>吸收——真实低清人脸同时含模糊、噪声、下采样、JPEG 压缩等混合退化，模糊只是其中一维，单独去模糊没有实用意义。所以下列人脸方法都是 BFR 框架，去模糊是其复原能力的一部分；它们与 §2 通用去模糊的</strong>根本差异</strong>在于：人脸有极强的结构先验（五官布局、身份），因此 BFR 的主战场不是&quot;去多少糊&quot;而是<strong>身份保持（identity preservation）<strong>与</strong>真实感 vs 幻觉</strong>（模型会不会编造出一张不是本人的清晰脸）。这也解释了为什么这些工作几乎都围绕&quot;身份编码器 / 参考人脸 / 反幻觉&quot;设计，而非围绕模糊核。与 §2.8 的 ELIR（潜一致性流匹配 BFR）同属此域。</p>
+<h3 id="sec-3-1">3.1 FaceMe —— 身份编码器把参考人脸变成扩散提示，免微调换身份</h3>
+<p><strong>FaceMe (AAAI 2025, arxiv:2501.05177)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：把<strong>身份特征当作扩散提示</strong>——用身份编码器从一张/几张参考人脸抽身份嵌入，替换文本提示里的 face token，引导扩散复原出<strong>身份一致</strong>的高清脸，且推理期换身份<strong>无需重训</strong>。</li>
+<li>方法：身份编码器（ArcFace + CLIP 图像编码器）抽身份特征 → 替换 CLIP 提示 &quot;a photo of face&quot; 的 face token → 条件化冻结扩散 UNet 的交叉注意力；可训练 ControlNet 注入低清输入做空间控制。</li>
+<li>关键结果：支持任意数量参考图输入；换身份免微调。论文报在合成与真实 BFR 基准上身份一致性优于同类（具体逐项数字本调研未核到表格）。</li>
+<li>代码：<a href="https://github.com/modyu-liu/FaceMe">github.com/modyu-liu/FaceMe</a>（<strong>train/infer/demo 脚本齐全</strong>，权重列 TODO，~55★，Pi-Lab License）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/faceme-arch.png" alt="FaceMe 架构图">
+  <figcaption><strong>图 8</strong> — FaceMe 架构：(a) 身份编码器从参考人脸抽身份特征，<strong>替换 CLIP 文本提示 "a photo of face" 中的 face token</strong>，驱动冻结扩散 UNet 的交叉注意力；可训练 ControlNet 注入低清输入做空间控制，VAE 解码出身份一致的高清人脸。(b) 为模拟姿态/表情的参考图训练池构造。图 (a) 把"身份即提示"这一核心设计画得很直白。（论文 Fig. 2）</figcaption>
+</figure>
+<p>怎么做的：BFR 的老问题是——低清脸信息太少，扩散会&quot;脑补&quot;出一张好看但不是本人的脸。FaceMe 的解法是给扩散一个<strong>身份锚点</strong>：用 ArcFace（人脸识别网络，身份判别性强）+ CLIP（语义丰富）双编码器从参考人脸抽身份嵌入，然后<strong>不是</strong>把它当额外条件塞进去，而是<strong>替换文本提示里 &quot;face&quot; 这个词的 embedding</strong>——相当于告诉 SD&quot;画的不是随便一张脸，是这个身份的脸&quot;，直接作用在交叉注意力上。低清输入的空间结构（姿态、表情、位置）则由一个可训练 ControlNet 注入。关键设计取舍：身份走提示、结构走 ControlNet 的<strong>解耦</strong>，使得推理期换一个人只需换参考图重算身份嵌入，<strong>不用重训模型</strong>（对比早期需要 per-identity 微调的个性化方法，这是实用性的关键）。训练数据侧还构造了一个模拟姿态/表情的参考池，避免模型把&quot;参考图的表情&quot;误当身份。它与 §2 方法的分界很清楚：DeblurDiff 们对付&quot;糊&quot;，FaceMe 对付&quot;这还是不是他&quot;。</p>
+<h3 id="sec-3-2">3.2 HonestFace —— 一步扩散 + 反幻觉，让复原&quot;诚实&quot;不编脸</h3>
+<p><strong>HonestFace (arxiv:2505.18469, 2025-05)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：主打**&quot;诚实&quot;复原**——一步扩散做 BFR，同时用身份嵌入 + 掩码人脸对齐压制&quot;编造五官/合成纹理&quot;的幻觉，让输出忠于低清输入的真实身份与纹理。</li>
+<li>方法：一步扩散 UNet + 身份嵌入器（从 LQ 输入 + 参考人脸抽 <code>p_F</code>/<code>p_I</code>）+ 掩码人脸对齐 <code>L_MFA</code>（增纹理真实感、防合成伪影）+ landmark 评价指标；判别器 + <code>L_ID</code>/<code>L_Per</code> 对抗训练。</li>
+<li>关键结果：论文称视觉质量与量化指标均超 SOTA（具体数字本调研未核到表格）。</li>
+<li>代码：<a href="https://github.com/jkwang28/HonestFace">github.com/jkwang28/HonestFace</a>（⚠️ 声明将公开，本调研核查时以占位/待放为主，CC BY 4.0）。与 OSDD/FideDiff 同属 Yulun Zhang 组。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/honestface-arch.png" alt="HonestFace 一步扩散管线图">
+  <figcaption><strong>图 9</strong> — HonestFace 一步扩散管线：LQ 人脸 <code>x_L</code> 编码为 <code>z_L</code>；<code>x_L</code> + 参考池人脸经身份嵌入器（人脸身份编码器 + 面部特征提取器）与 VRE 编码器得 <code>p_F</code>/<code>p_I</code>/<code>p_L</code>，融合成提示 <code>p</code> 条件化 UNet，<strong>一步</strong>预测 HQ 隐码 <code>ẑ_H</code>；判别器 + <code>L_ID</code>/<code>L_MFA</code>（掩码人脸对齐）/<code>L_Per</code> 驱动"诚实"训练。（论文 Fig. 1）</figcaption>
+</figure>
+<p>怎么做的：HonestFace 与 FaceMe 是同域近邻，但落点在&quot;<strong>别编脸</strong>&quot;。它同样用身份嵌入锚定身份，区别有二：一是<strong>一步扩散</strong>（承接 Yulun Zhang 组在 OSDD/FideDiff 上的一步化路线，把 BFR 也压到单步），二是专门设计**掩码人脸对齐损失 <code>L_MFA</code>**对付幻觉——BFR 的真实感陷阱是模型倾向生成&quot;平均意义上好看&quot;的皮肤/毛发纹理，看着清晰但其实是编的；<code>L_MFA</code> 在人脸区域做掩码对齐，逼输出纹理贴合输入而非凭空合成。它还提出基于 landmark 仿射的评价指标，因为传统 PSNR/LPIPS 抓不住&quot;五官有没有被挪位/篡改&quot;。设计取舍很清晰：一步化换速度、掩码对齐换&quot;诚实&quot;、身份嵌入换身份保持——三者都是冲着 BFR 的&quot;高感知但可能失真失身份&quot;这一软肋。代码尚以占位为主，数字待复现。</p>
+<h3 id="sec-3-3">3.3 AuthFace —— 面向人脸微调 T2I 先验 + 8K 高质数据，两阶段做真实复原</h3>
+<p><strong>AuthFace (ACM MM 2025 Oral, arxiv:2410.09864 [2024-10 arxiv])</strong> — ✅ verified <code>[arxiv 2024-10，会议 2025]</code></p>
+<ul>
+<li>核心贡献：指出直接套 T2I 扩散做 BFR 会生成<strong>错误的非人脸细节</strong>，提出<strong>面向人脸的生成扩散先验</strong>——用一批 8K 超高清专业人像（AuthFace-HQ）+ 面向人脸的 restoration-tuning 管线微调 T2I，再接 ControlNet 做复原。</li>
+<li>方法：两阶段——阶段 I 面向人脸微调 SDXL UNet（人脸掩码加权 L2 + 负向引导）；阶段 II 冻结该 UNet、训 ControlNet 适配低清输入，眼/嘴区域用时间感知判别器监督。</li>
+<li>关键结果：AuthFace-HQ 数据集（约 2100 张 8K+ 专业人像，含 Qwen caption）+ 更真实的五官细节；论文称优于现有 BFR（具体数字本调研未核到表格）。</li>
+<li>代码：<a href="https://github.com/EthanLiang99/AuthFace">github.com/EthanLiang99/AuthFace</a>（✅ <strong>代码 + 权重 + AuthFace-HQ 数据集均已释放</strong>，~18★，Apache-2.0；数据非商用）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/authface-arch.png" alt="AuthFace 两阶段框架图">
+  <figcaption><strong>图 10</strong> — AuthFace 两阶段框架：阶段 I（面向人脸微调）用<strong>人脸掩码加权 L2 + 负向引导</strong>微调 SDXL UNet、注入面向人脸的生成先验；阶段 II 冻结该 UNet、训 ControlNet 适配低清输入，并用<strong>眼/嘴区域的时间感知判别器</strong>监督。(b) 为判别器的时间条件块细节。（论文 Fig. 3）</figcaption>
+</figure>
+<p>怎么做的：AuthFace 诊断的病是——通用 T2I（SD/SDXL）的先验里人脸只是万千概念之一，直接拿来复原会长出&quot;看着像脸但细节是错的&quot;东西（歪的牙齿、糊的虹膜）。它的解法不是改结构而是<strong>改先验来源</strong>：先用一批专业摄影师拍的 8K+ 超高清人像（自建 AuthFace-HQ）把 SDXL 的先验<strong>面向人脸重塑一遍</strong>（阶段 I，人脸掩码加权让损失聚焦五官、负向引导抑制非人脸幻觉），得到一个&quot;更懂人脸&quot;的生成先验；再冻结它、只训 ControlNet 把低清输入接进来（阶段 II），并对<strong>眼睛和嘴</strong>这两个最影响真实感与身份的区域上时间感知判别器精修。设计取舍：数据驱动的先验重塑成本高（要采 8K 数据）但换来五官保真，且<strong>代码+权重+数据全开源</strong>是本节落地性最好的一个。它和 HonestFace 是对&quot;BFR 幻觉&quot;的两种答卷——HonestFace 用损失约束、AuthFace 用高质先验+区域判别。</p>
+<h3 id="sec-3-4">3.4 LAFR 与流匹配路线（ELIR）</h3>
+<p><strong>LAFR (arxiv:2505.23462, 2025-05)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>高效</strong> BFR——用码本式潜空间对齐适配器（latent codebook alignment adapter）把低清图的隐分布对齐到高清分布，无需重训 VAE，即可轻量迁移预训练 SD 先验。</li>
+<li>方法：codebook-based latent space adapter 对齐 LQ↔HQ 隐分布；仅用 <strong>0.9% 的 FFHQ</strong> 轻量微调、<strong>训练时间降 70%</strong>。</li>
+<li>关键结果：以极小训练代价达到与 SOTA 相当的复原质量；解决 SD 的 VAE 只在高清上训、编码低清时语义错位的问题。</li>
+<li>代码：本调研未在检索中确认公开仓库（<a href="https://openreview.net/forum?id=Xj2BUMY66S">OpenReview 页</a> 存在；代码状态标 <code>[未确认]</code>）。</li>
+</ul>
+<p>怎么做的（简）：LAFR 针对的是&quot;SD 的 VAE 只见过高清、一编码低清就语义漂移&quot;这个 BFR 通病。它不动 VAE，而是插一个<strong>码本对齐适配器</strong>把低清隐码&quot;翻译&quot;到高清隐分布邻域，于是下游冻结 SD 能正常吃这个条件。价值主张是<strong>效率</strong>——0.9% FFHQ + 少参数微调、省 70% 训练时间，属于把 BFR 往轻量/可复现方向推。它与 §2 的 DeblurDiff 撞同一个&quot;VAE 编低清会塌&quot;的问题，但 DeblurDiff 用 LKPN 预测核对齐特征，LAFR 用码本对齐隐分布——<strong>同病、异解</strong>，是一组有意思的对照。</p>
+<p><strong>流匹配路线</strong>：本节的流匹配代表是已在 §2.8 列出的 <strong>ELIR</strong>（潜一致性流匹配 LCFM，模型小 4×/快 4×，主打 BFR + 边缘部署，<a href="https://github.com/eladc-git/ELIR">github.com/eladc-git/ELIR</a>）。与通用去模糊侧的 DeblurFlow 呼应——<strong>人脸域的流匹配同样刚起步、且同样押注一步/少步化与轻量部署</strong>，是明确白地。</p>
+<h2 id="sec-4">4. 平行对比</h2>
 <table>
 <thead>
 <tr>
@@ -278,24 +362,87 @@
 </tbody>
 </table>
 <blockquote>
-<p>说明：PSNR 列<strong>不可横向直接比</strong>——DeblurDiff/OSDD 走 SD 隐空间，PSNR 天然低（VAE 损失）；FideDiff/DeblurFlow 在像素/残差域，PSNR 高。且各家 eval 协议不同（OSDD 用 γ=0.7 gamma 校正、DeblurFlow 报&quot;保真专家&quot;而非端到端）。详见 §4 矛盾分析。</p>
+<p>说明：PSNR 列<strong>不可横向直接比</strong>——DeblurDiff/OSDD 走 SD 隐空间，PSNR 天然低（VAE 损失）；FideDiff/DeblurFlow 在像素/残差域，PSNR 高。且各家 eval 协议不同（OSDD 用 γ=0.7 gamma 校正、DeblurFlow 报&quot;保真专家&quot;而非端到端）。详见 §5 矛盾分析。</p>
 </blockquote>
-<h2 id="sec-4">4. 一致与矛盾</h2>
-<h3 id="sec-4-1">一致（独立工作的收敛信号）</h3>
+<p><strong>人脸去模糊 / 盲人脸复原（§3）单列对比</strong>——轴与通用去模糊不同，判别维度是身份保持与反幻觉手段，而非模糊核处理：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>年份/会议</th>
+<th>生成范式</th>
+<th>身份保持机制</th>
+<th>反幻觉/真实感手段</th>
+<th>步数</th>
+<th>代码状态</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>FaceMe</strong></td>
+<td>2025 AAAI</td>
+<td>冻结 SD + ControlNet</td>
+<td>身份嵌入替换 face token（ArcFace+CLIP）</td>
+<td>参考图训练池</td>
+<td>多步</td>
+<td>✅ 脚本（缺权重）</td>
+</tr>
+<tr>
+<td><strong>HonestFace</strong></td>
+<td>2025-05</td>
+<td>一步扩散</td>
+<td>身份嵌入器（LQ+参考）</td>
+<td>掩码人脸对齐 L_MFA + landmark 度量</td>
+<td><strong>1 步</strong></td>
+<td>⚠️ 占位/待放</td>
+</tr>
+<tr>
+<td><strong>AuthFace</strong></td>
+<td>2025 ACM MM Oral</td>
+<td>面向人脸微调 SDXL + ControlNet</td>
+<td>8K 高质人脸先验</td>
+<td>眼/嘴时间感知判别器</td>
+<td>多步</td>
+<td>✅ 代码+权重+数据</td>
+</tr>
+<tr>
+<td><strong>LAFR</strong></td>
+<td>2025-05</td>
+<td>冻结 SD + 码本适配器</td>
+<td>码本对齐 LQ↔HQ 隐分布</td>
+<td>—（主打效率）</td>
+<td>多步</td>
+<td><code>[未确认]</code></td>
+</tr>
+<tr>
+<td><strong>ELIR</strong></td>
+<td>2025-02</td>
+<td><strong>潜一致性流匹配</strong></td>
+<td>—（通用 BFR）</td>
+<td>轻量/边缘部署</td>
+<td>少步</td>
+<td>✅ 代码</td>
+</tr>
+</tbody>
+</table>
+<h2 id="sec-5">5. 一致与矛盾</h2>
+<h3 id="sec-5-1">一致（独立工作的收敛信号）</h3>
 <ol>
 <li><strong>端点重构是 2025→2026 的共识转向</strong>。三个独立团队——FideDiff（模糊轨迹）、BlurDM（噪声+模糊双扩散）、DeblurFlow（残差场换掉噪声端点）——不约而同地<strong>把扩散/流的端点从&quot;纯噪声&quot;改成&quot;模糊/残差&quot;</strong>。这是强信号：领域已认定&quot;从与任务无关的噪声幻觉出发&quot;是 SD-先验路线保真度低的病根，正确做法是让生成轨迹物理对齐去模糊。</li>
 <li><strong>一步/少步化是硬需求</strong>。OSDD、FideDiff（consistency）、DeblurFlow（r-space+双专家）、ELIR（LCFM）都在压步数。多步扩散去模糊在 2026 已被普遍视为不可落地，与<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>里超分的一步化浪潮完全同步。</li>
 <li><strong>隐空间操作近乎标配</strong>。DeblurDiff、OSDD、BlurDM、FideDiff、DeblurFlow（r-space）都在隐空间跑，为算力；纯像素域只剩零样本的 DeblurSDI（它本就不追求速度）。</li>
 <li><strong>空变模糊被认真对待</strong>。DeblurDiff（逐像素核 EAC）、TP-Diff（FM-MSA 滤波调制）、DeblurSDI（联合估 PSF）都显式处理&quot;模糊核随位置变&quot;，而非假设均匀模糊。</li>
+<li><strong>人脸域的共识是&quot;身份 + 反幻觉&quot;，而非模糊核</strong>（§3）。FaceMe（身份嵌入替 token）、HonestFace（身份嵌入器 + 掩码对齐）、AuthFace（高质人脸先验 + 区域判别）三家独立工作都把火力集中在<strong>身份保持与抑制幻觉</strong>上，几乎不谈模糊核——印证了&quot;人脸去模糊在扩散时代被 BFR 吸收、主要矛盾从去糊转成保身份&quot;。且一步化/轻量化的浪潮（HonestFace 一步、LAFR 省 70% 训练、ELIR 小 4×）与通用去模糊侧完全同频。</li>
 </ol>
-<h3 id="sec-4-2">矛盾（需要指名点出的冲突）</h3>
+<h3 id="sec-5-2">矛盾（需要指名点出的冲突）</h3>
 <ol>
 <li><strong>保真 vs 感知，扩散去模糊到底能不能高 PSNR？</strong> DeblurDiff 明确接受&quot;扩散=感知强、PSNR 低&quot;（GoPro PSNR ~24.32，还在论文里承认 HI-Diff 的 33.33 更高），只报无参考指标；OSDD 干脆<strong>不报 PSNR/SSIM</strong>。而 FideDiff <strong>正面反驳</strong>——用&quot;模糊轨迹+一致性&quot;打出 GoPro 单步 PSNR 28.79，主张扩散<strong>也能</strong>高保真。这是本领域最实质的立场冲突：同一作者群（Yulun Zhang 组）在 OSDD→FideDiff 间自我路线修正，从感知优先转向保真优先。</li>
 <li><strong>PSNR 数字不可比，暗藏测量口径分歧</strong>。FideDiff 报 GoPro 28.79、DeblurFlow 报 33.69、回归法 HI-Diff 33.33、DeblurDiff ~24。这些<strong>不在同一测量协议下</strong>：DeblurDiff/OSDD 走 SD 隐空间（VAE 天花板压低 PSNR），FideDiff 在像素域一致性，DeblurFlow 的 33.69 是&quot;<strong>保真专家</strong>&quot;而非其感知模型端到端结果（感知模型 33.05）。把它们并列成排行榜会误导——<strong>同为&quot;扩散去模糊 SOTA&quot;的宣称，度量的根本不是同一件事</strong>。</li>
 <li><strong>基线数字各家报得不一致</strong>。FideDiff 表里 OSEDiff 在 RealBlur 只有 PSNR 24.34、DiffBIR 26.15；但这些方法原本为超分/通用复原设计，被搬到去模糊 benchmark 上重测，跨论文引用同一基线常出现不同数字（不同 retrain、不同测试子集）。引用这些对比数时需回到各自论文的测量条件。</li>
 <li><strong>配对 vs 非配对 vs 零样本，监督假设不兼容</strong>。DeblurDiff/OSDD/FideDiff/BlurDM 吃成对监督；TP-Diff 走非配对；DeblurSDI 零样本无训练。三者的&quot;SOTA&quot;宣称建立在<strong>不同数据可得性假设</strong>上，不能直接比高低——非配对/零样本牺牲绝对指标换泛化与免数据，属不同生态位。</li>
+<li><strong>人脸&quot;真实感&quot;本身就是双刃，且各家未对齐评价</strong>（§3）。BFR 追求真实清晰的脸，但&quot;清晰&quot;可能以<strong>篡改身份/编造五官</strong>为代价——HonestFace 专门指出传统 PSNR/LPIPS 抓不住五官被挪位，另提 landmark 度量；AuthFace 指出直接套 T2I 会长出错误非人脸细节。这与通用去模糊的&quot;保真 vs 感知&quot;之争同构，但人脸多一层<strong>身份真伪</strong>维度，且各家用的身份/真实感指标互不相同，横向比&quot;谁更真&quot;目前无统一标尺——与 §7 呼吁的统一 benchmark 是同一个洞。</li>
 </ol>
-<h2 id="sec-5">5. 代码交叉验证</h2>
+<h2 id="sec-6">6. 代码交叉验证</h2>
 <p>对有真实仓库的方法，逐一打开核心函数确认与论文主张一致（未打开的明确标注）：</p>
 <ul>
 <li>✅ <strong>DeblurDiff 的 EAC 确为空变卷积</strong>。<a href="https://github.com/kkkls/DeblurDiff/blob/main/model/lkpn.py"><code>model/lkpn.py</code></a> 里 <code>IDynamicConv</code> 模块 + <code>_idynamic_cuda</code> CUDA 核实现逐像素卷积：权重张量 reshape 成 <code>(B, C//(kH·kW), kH, kW, H, W)</code>——<strong>核维度带 (H,W)，即每个空间位置一套独立核</strong>；CUDA 前向 <code>value += weight_data[offset_weight] * bottom_data[offset]</code> 用位置相关的 <code>offset_weight</code> 取权重。与论文&quot;element-wise adaptive convolution 施加空变核&quot;完全对应。<strong>主张属实</strong>。</li>
@@ -305,16 +452,23 @@
 <li>⚠️ <strong>OSDD、FideDiff 为占位仓库</strong>：<a href="https://github.com/xyLiu339/OSDD">OSDD</a> README 明写 &quot;Release code and pretrained models&quot; 为 TODO，仅有 assets 图；<a href="https://github.com/xyLiu339/FideDiff">FideDiff</a> 2026-06 只放了可视化结果，无 .py 实现。<strong>其论文数字（OSDD LPIPS 0.121、FideDiff PSNR 28.79）目前无法代码复现，只能采信论文表格</strong>——这是引用时必须带的 caveat。</li>
 <li>❌ <strong>DeblurFlow 无公开仓库</strong>：33.69 dB 待代码释放后验证。</li>
 </ul>
-<p><strong>代码可跑性排序</strong>（有权重/可复现优先）：DeblurDiff（脚本+权重）&gt; BlurDM ≈ TP-Diff ≈ DeblurSDI（脚本，缺权重或需 per-image 优化）&gt; OSDD ≈ FideDiff（占位）&gt; DeblurFlow（无）。</p>
-<h2 id="sec-6">6. 启发与白地</h2>
+<p>人脸域（§3）：</p>
+<ul>
+<li>✅ <strong>AuthFace 全开源</strong>：<a href="https://github.com/EthanLiang99/AuthFace">github.com/EthanLiang99/AuthFace</a> 含 <code>test_face_xl.py</code> + <code>models/</code>+<code>pipelines/</code> + 已释放权重与 <strong>AuthFace-HQ 数据集</strong>，与&quot;两阶段面向人脸微调 + ControlNet&quot;定位一致（2026-01 放码、2025-10 放数据）。⚠️ 未逐行打开阶段 I 的人脸掩码加权损失函数，为<strong>仓库级验证</strong>。</li>
+<li>✅ <strong>FaceMe 脚本齐全</strong>：<a href="https://github.com/modyu-liu/FaceMe">github.com/modyu-liu/FaceMe</a> 有 <code>train.py</code>/<code>infer.py</code>/<code>demo.py</code>，<code>utils/preprocess.py</code> 提取 ArcFace+CLIP 身份嵌入——与&quot;身份编码器抽嵌入当提示&quot;一致；⚠️ 权重列 TODO，未逐行确认 token 替换实现。</li>
+<li>⚠️ <strong>HonestFace 以占位/待放为主</strong>、<strong>LAFR 未确认公开仓库</strong>：二者头部数字目前无法代码复现，引用需带 caveat。</li>
+</ul>
+<p><strong>代码可跑性排序</strong>（有权重/可复现优先）：DeblurDiff（脚本+权重）≈ <strong>AuthFace（脚本+权重+数据，人脸域最完整）</strong> &gt; BlurDM ≈ TP-Diff ≈ DeblurSDI ≈ FaceMe（脚本，缺权重或需 per-image 优化）&gt; OSDD ≈ FideDiff ≈ HonestFace（占位）&gt; DeblurFlow ≈ LAFR（无/未确认）。</p>
+<h2 id="sec-7">7. 启发与白地</h2>
 <ol>
 <li><strong>&quot;改端点&quot;已被证明有效，但流匹配路线几乎空白</strong>。把生成端点从噪声改成模糊/残差，FideDiff（扩散+一致性）和 DeblurFlow（流匹配+残差）都验证了其价值，但<strong>流匹配去模糊全领域只有 DeblurFlow 一篇、且无代码</strong>。相比超分领域流匹配已相当拥挤（参见<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>），去模糊的流匹配是明确白地——残差重参数化 + LoRA 的低成本适配尤其值得复现推广。</li>
 <li><strong>&quot;论文很强但代码是占位&quot;是本领域的系统性风险</strong>。两篇立场最鲜明的高保真工作（OSDD、FideDiff）都是占位仓库，头部数字（尤其 FideDiff 的 28.79 dB &quot;扩散追平回归&quot;）<strong>无第三方复现</strong>。想在这条线上做实验，当前唯一有权重可跑的是 DeblurDiff；BlurDM/TP-Diff/DeblurSDI 有脚本但需自训。<strong>选型建议：要立刻能跑→DeblurDiff；要插件涨点→BlurDM；要免数据/科学成像→DeblurSDI。</strong></li>
 <li><strong>保真-感知之争尚未收敛，度量口径亟需统一</strong>。同称 SOTA 的方法度量的根本不是一回事（隐空间 vs 像素域、保真专家 vs 端到端、γ 校正与否）。领域缺一个<strong>统一协议的扩散去模糊 benchmark</strong>——这本身是高价值的工程贡献白地。</li>
 <li><strong>散焦去模糊被扩散冷落</strong>。运动去模糊拥挤，散焦（defocus）扩散去模糊 2025 仅零星（一篇 Nature Sci. Rep. score-based、一篇 ICASSP 效率网络），空间大。</li>
 <li><strong>零样本盲估计 + 学习先验的融合</strong>。DeblurSDI（零样本联合估 PSF）与 FideDiff（学习式 Kernel ControlNet）代表两极；把&quot;per-image 自扩散优化核&quot;与&quot;预训练核先验&quot;结合（用学习先验初始化零样本优化）是一条尚未有人走通的路。</li>
+<li><strong>人脸域：流匹配几乎空白，身份-真实感缺统一标尺</strong>（§3）。人脸 BFR 的流匹配代表只有 ELIR 一篇（潜一致性流匹配），与通用侧 DeblurFlow 一样刚起步——<strong>人脸域的残差流/一步流匹配是明确白地</strong>。另一处白地是评价：各家自定义身份/真实感指标（HonestFace 的 landmark 度量、AuthFace 的区域判别），缺一个同时量化&quot;去糊程度 + 身份保真 + 反幻觉&quot;的统一 BFR benchmark。此外，通用去模糊的&quot;改端点&quot;思想（把噪声端点换成模糊/残差，见 §2 的 FideDiff/BlurDM/DeblurFlow）<strong>尚未被搬到人脸域</strong>——人脸 BFR 目前仍以&quot;冻结 SD + 身份条件&quot;为主，若把端点重构进 BFR 或许能同时缓解保真与幻觉，是一条可迁移的路。</li>
 </ol>
-<h2 id="sec-7">7. 参考文献</h2>
+<h2 id="sec-8">8. 参考文献</h2>
 <ul>
 <li>DeblurDiff: Real-World Image Deblurring with Generative Diffusion Models — arxiv <a href="https://arxiv.org/abs/2502.03810">2502.03810</a>（NeurIPS 2025）· 代码 <a href="https://github.com/kkkls/DeblurDiff">github.com/kkkls/DeblurDiff</a></li>
 <li>One-Step Diffusion Model for Image Motion-Deblurring (OSDD) — arxiv <a href="https://arxiv.org/abs/2503.06537">2503.06537</a>（2025-03）· 代码（占位）<a href="https://github.com/xyLiu339/OSDD">github.com/xyLiu339/OSDD</a></li>
@@ -323,7 +477,14 @@
 <li>Learning Deblurring Texture Prior from Unpaired Data with Diffusion Model (TP-Diff) — arxiv <a href="https://arxiv.org/abs/2507.13599">2507.13599</a>（ICCV 2025）· 代码 <a href="https://github.com/ChengxuLiu/TP-Diff">github.com/ChengxuLiu/TP-Diff</a></li>
 <li>Restoration-Aligned Generative Flow Models for Blind Motion Deblurring (DeblurFlow) — arxiv <a href="https://arxiv.org/abs/2605.08854">2605.08854</a>（2026-05）· 暂无公开代码</li>
 <li>Self-Diffusion Driven Blind Imaging (DeblurSDI) — arxiv <a href="https://arxiv.org/abs/2510.27439">2510.27439</a>（2025-10）· 代码 <a href="https://github.com/ggluo/Self-Diffusion">github.com/ggluo/Self-Diffusion</a></li>
-<li>ELIR: Efficient Image Restoration via Latent Consistency Flow Matching — arxiv <a href="https://arxiv.org/abs/2502.03500">2502.03500</a>（2025-02，相邻/人脸）· 代码 <a href="https://github.com/eladc-git/ELIR">github.com/eladc-git/ELIR</a></li>
+</ul>
+<p>人脸去模糊 / 盲人脸复原（§3）：</p>
+<ul>
+<li>FaceMe: Robust Blind Face Restoration with Personal Identification — arxiv <a href="https://arxiv.org/abs/2501.05177">2501.05177</a>（AAAI 2025）· 代码 <a href="https://github.com/modyu-liu/FaceMe">github.com/modyu-liu/FaceMe</a></li>
+<li>HonestFace: Towards Honest Face Restoration with One-Step Diffusion Model — arxiv <a href="https://arxiv.org/abs/2505.18469">2505.18469</a>（2025-05）· 代码（待放）<a href="https://github.com/jkwang28/HonestFace">github.com/jkwang28/HonestFace</a></li>
+<li>AuthFace: Towards Authentic Blind Face Restoration with Face-oriented Generative Diffusion Prior — arxiv <a href="https://arxiv.org/abs/2410.09864">2410.09864</a>（arxiv 2024-10，ACM MM 2025 Oral）· 代码+数据 <a href="https://github.com/EthanLiang99/AuthFace">github.com/EthanLiang99/AuthFace</a></li>
+<li>LAFR: Efficient Diffusion-based Blind Face Restoration via Latent Codebook Alignment Adapter — arxiv <a href="https://arxiv.org/abs/2505.23462">2505.23462</a>（2025-05）· <a href="https://openreview.net/forum?id=Xj2BUMY66S">OpenReview</a></li>
+<li>ELIR: Efficient Image Restoration via Latent Consistency Flow Matching — arxiv <a href="https://arxiv.org/abs/2502.03500">2502.03500</a>（2025-02，人脸 BFR / 流匹配）· 代码 <a href="https://github.com/eladc-git/ELIR">github.com/eladc-git/ELIR</a></li>
 <li>RealVDeblur: One-Step Diffusion for Generalizable Real-World Video Deblurring — arxiv <a href="https://arxiv.org/abs/2607.20628">2607.20628</a>（2026-07，视频）</li>
 <li>Restora-Flow: Mask-Guided Image Restoration with Flow Matching — arxiv <a href="https://arxiv.org/abs/2511.20152">2511.20152</a>（2025-11，通用复原）</li>
 </ul>
