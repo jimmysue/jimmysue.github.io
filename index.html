@@ -49,6 +49,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-27</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/deblur-diffusion-2026/index.html">扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</a></h3>
+  <p class="post-card__tldr">对 2025 年以来用扩散（diffusion）与流匹配（flow matching）做图像去模糊（image deblurring）的工作做的调研，优先收录有模型与代码的方法。逐篇厘清核心贡献 / 方法 / 关键结果（带数字）/ 代码位置，再平行对比、找一致与矛盾、并对有仓库的方法做代码交叉验证。覆盖：把预训练 SD 当先验的真实去模糊（DeblurDiff、OSDD）、把去模糊重构成扩散过程本身的一步/少步方法（FideDiff、BlurDM）、非配对/自监督路线（TP-Diff、DeblurSDI），以及新兴的流匹配残差路线（DeblurFlow）。所有 arxiv 号、年份、代码状态均联网核实；DeblurDiff 的 EAC、DeblurSDI 的自扩散、BlurDM 的插件式先验对照真实仓库交叉验证。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-deblurring.html">image-deblurring</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
@@ -167,21 +182,6 @@ pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await.
       <a class="tag-chip" href="concepts/typescript.html">typescript</a>
       <a class="tag-chip" href="concepts/types.html">types</a>
       <a class="tag-chip" href="concepts/functions.html">functions</a>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">3-5k 字</span> · <span class="post-card__extra">15–20 分钟</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-0-setup/index.html">TS·00 入门与心智模型:TS = JS + 会被擦除的类型层</a></h3>
-  <p class="post-card__tldr">系列开篇。给 Python 背景的读者建立 TypeScript 心智模型:类型只在编译期存在、运行时被完全擦除;
-用 pi 这个真实 AI coding-agent 框架的 tsconfig、npm workspaces、ESM barrel 讲清&quot;怎么把仓库跑起来读代码&quot;。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/tooling.html">tooling</a>
-      <a class="tag-chip" href="concepts/esm.html">esm</a>
   </div>
 </div>
 </div>

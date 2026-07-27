@@ -47,8 +47,23 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>调研</h1>
-<p class="page__intro">共 2 篇研究调研报告。</p>
+<p class="page__intro">共 3 篇研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-27</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/deblur-diffusion-2026/index.html">扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</a></h3>
+  <p class="post-card__tldr">对 2025 年以来用扩散（diffusion）与流匹配（flow matching）做图像去模糊（image deblurring）的工作做的调研，优先收录有模型与代码的方法。逐篇厘清核心贡献 / 方法 / 关键结果（带数字）/ 代码位置，再平行对比、找一致与矛盾、并对有仓库的方法做代码交叉验证。覆盖：把预训练 SD 当先验的真实去模糊（DeblurDiff、OSDD）、把去模糊重构成扩散过程本身的一步/少步方法（FideDiff、BlurDM）、非配对/自监督路线（TP-Diff、DeblurSDI），以及新兴的流匹配残差路线（DeblurFlow）。所有 arxiv 号、年份、代码状态均联网核实；DeblurDiff 的 EAC、DeblurSDI 的自扩散、BlurDM 的插件式先验对照真实仓库交叉验证。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/image-deblurring.html">image-deblurring</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>

@@ -54,6 +54,21 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/physeditworld-2026/index.html">PhysEditWorld：把「重力」从隐式相关性拽成可编辑的设计变量</a></h3>
+  <p class="post-card__tldr">清华深圳 + 北航 + 港科大等。一个数据集论文：现有 game world model 把物理当成数据分布里的隐式规律学，能模仿「世界通常怎么演化」，但答不出游戏作者真正关心的问题——「同一个场景，如果改一条物理规则，应该怎么演化？」。PhysEditWorld 用 UE5 的 replay-and-rendering 管线，固定场景 / 初始态 / 动作序列 / 角色控制器 / 相机策略，只改重力配置重放同一段交互，得到 matched counterfactual replay group：12 个电影级 UE5 场景、100+ 小时交互、60M+ 渲染帧、8 路同步相机、RGB/深度/法线/音频/动作/相机/引擎态/重力标签。配套验证：在 Wan2.2-5B / LingBot-World 上 LoRA 微调后重力对齐从 33% → 100%、$R^2$ 0.066 → 0.570；Qwen3-VL 重力分类 24.7% → 95.3%。代码（UE5 插件）尚未释出，仓库目前只有数据契约 + 配置 + CLI 文档。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
+      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
+      <a class="tag-chip" href="concepts/physics-editing.html">physics-editing</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/op4ksr-2026/index.html">OP4KSR：一步、无分块的 4K 超分，外加把 Flux「周期格子伪影」连根拔起</a></h3>
   <p class="post-card__tldr">OP4KSR 是第一个「一步 + 无分块」的真实世界 4K 超分框架：靠 UltraFlux 的 F16 极压缩 VAE 把 4096×4096 的显存压到单卡可跑，再借 [[omgsr-2025]] 的中间时刻对齐把 Flux 微调成一步前向（注意：是 GAN 式一步微调，**不是师生蒸馏**），5.75 秒出一张 4K 图。
 但一步化会触发周期 32 像素的格子伪影。作者把病因拆成两层——RoPE 相位坍缩让相邻 token 不可分（θ=10000 太大）、以及 2×2 打包后 unpack 把通道当空间用——并对症下两味药：RoPE 基频从 10000 降到 100（RFR）+ 一个基于自相关的周期性损失（L_AP）。
@@ -177,22 +192,6 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
       <a class="tag-chip" href="concepts/semantic-first-diffusion.html">semantic-first-diffusion</a>
       <a class="tag-chip" href="concepts/latent-diffusion.html">latent-diffusion</a>
       <span class="tag-chip tag-chip--more">+11 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-22</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/argus-2026/index.html">ARGUS：把「身份」从一张参考图变成扩散同步的动态记忆</a></h3>
-  <p class="post-card__tldr">主体保持的视频生成（让生成视频里的人「还是同一个人」）长期被「点参考」范式卡住——一张参考图把&quot;这个人是谁&quot;和&quot;他这一帧恰好长这样（姿态/配饰/光照/背景）&quot;纠缠在一起，模型要么照抄噪声细节、要么身份漂移。
-ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出多视角身份证据，拼成 3×3 马赛克，**和目标视频走同一条 Flow Matching 加噪路径**，再以&quot;负时间、只读记忆&quot;的方式注入 Wan 的原生 token 空间。配合无配对反事实训练 + TIA + ASLG，在 OpenS2V-Eval 拿到 64.38 总分、71.86 FaceSim 的 SOTA，大偏航/首帧遮挡鲁棒性分别再涨 12.6 / 15.1 分。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/subject-preserving-video.html">subject-preserving-video</a>
-      <a class="tag-chip" href="concepts/identity-preservation.html">identity-preservation</a>
-      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>

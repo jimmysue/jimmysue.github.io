@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 DeblurDiff —— 用 LKPN 预测隐空间空变卷积核，驯服 SD 先验</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 OSDD —— 一步 SD 去模糊，用 eVAE 补回结构保真</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 FideDiff —— 把模糊本身当扩散轨迹，一致性模型一步高保真</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 BlurDM —— 双扩散：把模糊和噪声一起扩上去，做即插即用先验</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 TP-Diff —— 非配对数据上学去模糊纹理先验，扩散首次进非配对复原</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 DeblurFlow —— 流匹配残差重参数化，把噪声端点换成模糊观测</a></li>
+    <li class="h3"><a href="#sec-2-7">2.7 DeblurSDI —— 零样本自扩散，联合估清晰图与模糊核，无需任何预训练</a></li>
+    <li class="h3"><a href="#sec-2-8">2.8 相邻工作（收录但非核心）</a></li>
+    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
+    <li class="h3"><a href="#sec-4-1">一致（独立工作的收敛信号）</a></li>
+    <li class="h3"><a href="#sec-4-2">矛盾（需要指名点出的冲突）</a></li>
+    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-27</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-07-27</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/kkkls/DeblurDiff">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/OSDD">代码</a> · <a class="post-meta__link" href="https://github.com/xyLiu339/FideDiff">代码</a> · <a class="post-meta__link" href="https://github.com/Jin-Ting-He/BlurDM">代码</a> · <a class="post-meta__link" href="https://github.com/ChengxuLiu/TP-Diff">代码</a> · <a class="post-meta__link" href="https://github.com/ggluo/Self-Diffusion">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/image-deblurring.html">image-deblurring</a> <a class="concept-chip" href="../../concepts/motion-deblurring.html">motion-deblurring</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/consistency-model.html">consistency-model</a> <a class="concept-chip" href="../../concepts/blind-deconvolution.html">blind-deconvolution</a> <a class="concept-chip" href="../../concepts/latent-diffusion.html">latent-diffusion</a> <a class="concept-chip" href="../../concepts/score-distillation.html">score-distillation</a> <a class="concept-chip" href="../../concepts/zero-shot.html">zero-shot</a></div>
+</aside>
+
+<h2 id="sec-1">1. 概述与范围</h2>
+<p><strong>时间窗</strong>：2025-01 至 2026-07。<strong>任务</strong>：单图像去模糊（运动模糊为主，兼顾散焦/盲复原）。<strong>范围口径</strong>：只收「用扩散或流匹配作为生成核心」的方法，不含纯回归 Transformer（Restormer / FFTformer / LoFormer 等只作为被对比或被增强的基线出现）。<strong>优先级</strong>：有模型、有代码的优先——每条会在卡片和对比矩阵里标注代码真实状态（已放权重 / 只放脚本 / 占位仓库）。</p>
+<p><strong>这个领域 2025 年在争什么</strong>。去模糊长期是回归任务的天下（PSNR 导向），扩散进来带的是<strong>感知真实感</strong>（纹理、细节幻觉），代价是两条：一是<strong>多步采样太慢</strong>（去模糊要落地到相机 ISP，20~50 步不可接受），二是<strong>保真度塌陷</strong>（SD 的隐空间 VAE 把 PSNR 打到 24 dB 级，比回归方法低 8~9 dB）。2025→2026 的工作几乎都在回应这两条：<strong>一步化</strong>（OSDD、FideDiff、DeblurFlow 的 r-space、ELIR 的 consistency）和<strong>把扩散的端点重构成&quot;模糊&quot;而非&quot;噪声&quot;</strong>（FideDiff 的模糊轨迹、BlurDM 的双扩散、DeblurFlow 的残差场），让生成过程天然对齐复原目标而非从纯噪声幻觉。</p>
+<p><strong>验证声明</strong>：下列每个 arxiv 号、发表年份、会议、代码库状态均在本次调研中联网核实（arxiv 前缀年月已逐一确认，如 <code>2502</code>=2025-02、<code>2605</code>=2026-05）。代码交叉验证见 §5——凡说某函数&quot;实现了 X&quot;，均已打开该文件确认，未打开的明确标注。仓库内本无去模糊分析，本篇为新建；相邻的<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>（扩散超分一步化）与<a class="wiki-link" data-slug="opd-diffusion-2026" href="../opd-diffusion-2026/index.html">opd-diffusion-2026</a>（一步扩散）可交叉参照，一步化的方法论在超分与去模糊之间高度共享。</p>
+<p><strong>一句话地图</strong>：把预训练 SD 当先验（DeblurDiff、OSDD）→ 把扩散过程本身改造成去模糊（FideDiff、BlurDM）→ 摆脱配对/预训练（TP-Diff 非配对、DeblurSDI 零样本）→ 用流匹配的残差重参数化（DeblurFlow）。</p>
+<h2 id="sec-2">2. 逐篇精要</h2>
+<h3 id="sec-2-1">2.1 DeblurDiff —— 用 LKPN 预测隐空间空变卷积核，驯服 SD 先验</h3>
+<p><strong>DeblurDiff (NeurIPS 2025, arxiv:2502.03810)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：在 SD 隐空间里<strong>同训一个隐核预测网络 LKPN</strong>，用它预测的<strong>逐像素空变卷积核</strong>去自适应处理输入特征，从而在保结构的前提下引导 SD 生成——解决&quot;直接拿模糊图/预去模糊图当条件&quot;要么结构提不准、要么过度依赖控制网的两难。</li>
+<li>方法：LKPN（Latent Kernel Prediction Network）+ 逐元素自适应卷积 EAC（element-wise adaptive convolution），随扩散步迭代精化核估计。</li>
+<li>关键结果：真实域感知指标领先——GoPro 上 LPIPS 0.2191（DiffBIR 0.2772 / PASD 0.2984）；真实模糊图 NIQE 3.66（PASD 4.45）。<strong>但 PSNR 明显低</strong>（GoPro ~24.32，回归法 HI-Diff 33.33），是 SD 隐空间保真的固有代价。</li>
+<li>代码：<a href="https://github.com/kkkls/DeblurDiff">github.com/kkkls/DeblurDiff</a>（MIT，~65★，train.py/inference.py + Google Drive 权重齐全，基于 DiffBIR）。</li>
+</ul>
+<p>怎么做的：把一张模糊图先过 VAE 编码进 SD 隐空间，LKPN 以模糊隐码为输入，<strong>为每个空间位置预测一组卷积核权重</strong>（张量形状 <code>(B, groups, kH, kW, H, W)</code>——注意核随 (H,W) 而变，这正是&quot;空变&quot;），EAC 用这些核去卷输入特征，得到的对齐特征作为 ControlNet 式条件注入冻结的 SD UNet。关键设计取舍：为什么不直接把模糊图/预去模糊图喂给 ControlNet？作者的论点是——喂原始模糊图，控制网提不出干净结构；喂预去模糊图，网络会过度信赖那个可能已经出错的中间结果。LKPN 与扩散<strong>联合训练</strong>、且<strong>每个扩散步都用当前去噪结果反过来精化核</strong>，让核估计和生成互相纠偏，这是它比&quot;一次性预去模糊 + 扩散精修&quot;两段式管线更鲁棒的原因。代价写在数字里：它把宝押在感知真实感（no-reference 指标全面领先），放弃了 PSNR——这也是下面 FideDiff 要正面反驳的点。</p>
+<h3 id="sec-2-2">2.2 OSDD —— 一步 SD 去模糊，用 eVAE 补回结构保真</h3>
+<p><strong>OSDD / One-Step Diffusion for Motion-Deblurring (arxiv:2503.06537, 2025-03)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：把 SD 去模糊压到<strong>单步</strong>去噪，同时用**增强 VAE（eVAE）**专门补回一步化后丢失的结构保真。</li>
+<li>方法：单步扩散 + eVAE（改善结构重建）+ 动态双适配器 DDA（Dynamic Dual-Adapter，平衡感知质量与保真）+ 一套高质量合成数据缓解感知塌陷。</li>
+<li>关键结果：GoPro LPIPS 0.1211 / DISTS 0.0606；RealBlur-J LPIPS 0.1178；单步推理 0.88 s/图（GoPro）。<strong>只报感知指标（LPIPS/DISTS/无参考），不报 PSNR/SSIM</strong>——延续 DeblurDiff 的&quot;感知优先&quot;立场。</li>
+<li>代码：<a href="https://github.com/xyLiu339/OSDD">github.com/xyLiu339/OSDD</a>（⚠️ <strong>占位仓库，代码/权重 TODO 未放</strong>，~21★）。</li>
+</ul>
+<p>怎么做的：思路是 SD-先验路线（同 DeblurDiff）叠加超分领域已经跑通的一步蒸馏（参见<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>里的 OSEDiff 系）。难点在于一步化会同时伤保真：VAE 的编解码本就有信息损失，再叠单步生成，结构会飘。OSDD 的两个抓手——eVAE 针对性重训解码端补结构、DDA 在感知分支与保真分支间动态加权——都是冲着&quot;一步但别塌&quot;去的。它和 DeblurDiff 是同一作者群（Yulun Zhang 组）的连续工作，可看作 DeblurDiff 的加速版。<strong>代码尚未释放</strong>，落地需等；这也是把它排在有完整代码的 DeblurDiff/BlurDM 之后的原因。</p>
+<h3 id="sec-2-3">2.3 FideDiff —— 把模糊本身当扩散轨迹，一致性模型一步高保真</h3>
+<p><strong>FideDiff (ICLR 2026, arxiv:2510.01641)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>重构扩散过程</strong>——让每个 timestep 对应&quot;逐渐加深的模糊图&quot;而非加噪图，训练<strong>一致性模型</strong>把整条模糊轨迹对齐到清晰输出，实现<strong>一步且高保真</strong>的运动去模糊。</li>
+<li>方法：模糊即扩散轨迹 + consistency model + Kernel ControlNet（估模糊核）+ 自适应 timestep 预测。</li>
+<li>关键结果：GoPro 单步 PSNR <strong>28.79</strong> / SSIM 0.9148 / LPIPS 0.0831；RealBlur-J PSNR 28.96。相对扩散基线大幅领先：DiffBIR +2.64 dB（26.15→28.79）、OSEDiff +4.45 dB、Diff-Plugin +5.91 dB。<strong>首次让扩散去模糊在全参考指标上追平 SOTA</strong>。</li>
+<li>代码：<a href="https://github.com/xyLiu339/FideDiff">github.com/xyLiu339/FideDiff</a>（⚠️ <strong>占位仓库，2026-06 放了可视化结果，代码/数据尚未释放</strong>，~20★，CC BY 4.0）。</li>
+</ul>
+<p>怎么做的：这是本调研里概念最漂亮的一篇。标准扩散从纯高斯噪声生成，端点与&quot;去模糊&quot;无关，所以 SD 先验路线才会牺牲 PSNR。FideDiff 把 forward 过程<strong>直接定义在模糊维度上</strong>：t=0 是清晰图，t 增大是越来越糊的图，于是&quot;去模糊&quot;就是沿这条<strong>物理有意义的轨迹</strong>反向走。一致性模型（consistency model）的作用是把轨迹上任意点一步映射回清晰端，天然得到单步推理；Kernel ControlNet 显式估计模糊核作为条件，让轨迹知道&quot;糊成什么样&quot;。设计上最关键的对比是<strong>它与 DeblurDiff/OSDD 的立场对立</strong>——后者接受&quot;扩散=感知强但 PSNR 低&quot;，FideDiff 用&quot;模糊轨迹 + 一致性&quot;论证扩散<strong>也能</strong>做到 28.79 dB 的高保真。同作者群（又是 Yulun Zhang 组，与 OSDD 同一 xyLiu339），可视为该组从&quot;感知优先&quot;转向&quot;保真优先&quot;的路线修正。<strong>遗憾同样是代码未放</strong>，28.79 这个数字目前只能采信论文表格。</p>
+<h3 id="sec-2-4">2.4 BlurDM —— 双扩散：把模糊和噪声一起扩上去，做即插即用先验</h3>
+<p><strong>BlurDM (NeurIPS 2025, arxiv:2512.03979)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：观察到运动模糊源于<strong>连续曝光</strong>，用<strong>双扩散前向（dual-diffusion）<strong>把噪声与模糊</strong>同时</strong>扩加到清晰图上，反向推导出&quot;边去噪边去模糊&quot;的联合公式；做成隐空间<strong>即插即用先验</strong>，增强现有去模糊网络而非替换。</li>
+<li>方法：dual-diffusion forward（noise + blur 双通道扩散）→ reverse 联合 denoise+deblur；在隐空间作为 prior generation network 挂到骨干上。</li>
+<li>关键结果：作为插件稳定提升四个骨干——MIMO-UNet +0.59 dB、Stripformer +0.75 dB、FFTformer +0.25 dB、LoFormer +0.51 dB（GoPro）；RealBlur-J 上增益更大（+0.78 dB）；LoFormer 某数据集最高 +1.24 dB。</li>
+<li>代码：<a href="https://github.com/Jin-Ting-He/BlurDM">github.com/Jin-Ting-He/BlurDM</a>（MIT，~20★，<strong>train_stage1/2/3.py + deblur_predict.py 脚本齐全，权重 coming soon</strong>）。</li>
+</ul>
+<p>怎么做的：BlurDM 与 FideDiff 撞了同一个直觉——把模糊纳入扩散过程——但落点不同。FideDiff 用<strong>单一模糊轨迹</strong>取代噪声轨迹；BlurDM 保留噪声、<strong>再叠一路模糊扩散</strong>（双扩散），forward 时清晰图同时被高斯噪声和模糊污染，reverse 时同一个网络既要去噪又要去模糊。更重要的定位差异：BlurDM <strong>不是端到端复原器，而是先验插件</strong>——它在隐空间生成一个&quot;模糊感知先验&quot;，挂到 MIMO-UNet / Stripformer / FFTformer / LoFormer 这些现成回归骨干上去涨点。这解释了它的结果为什么是&quot;+0.x dB 的普涨&quot;而非绝对 SOTA 数字：它的价值主张是<strong>正交增益</strong>（任何骨干都能 +0.25~0.78 dB），而非单独夺榜。设计取舍——插件式意味着它不与骨干争夺&quot;谁是复原器&quot;，落地阻力小；但也意味着它离不开一个好骨干，单独不成篇。仓库有完整三阶段训练脚本，是本调研里<strong>代码可跑性最高的几个之一</strong>（仅缺预训练权重）。</p>
+<h3 id="sec-2-5">2.5 TP-Diff —— 非配对数据上学去模糊纹理先验，扩散首次进非配对复原</h3>
+<p><strong>TP-Diff (ICCV 2025, arxiv:2507.13599)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>首个把扩散用于非配对（unpaired）去模糊</strong>的工作——用扩散模型学一个<strong>空变纹理先验</strong>，无需成对的模糊/清晰监督。</li>
+<li>方法：纹理先验编码器 TPE（带 memory 机制，在隐空间编码模糊图纹理先验）+ 纹理迁移 Transformer TTformer（内含滤波调制多头自注意力 FM-MSA，自适应滤除空变模糊）+ 小波域对抗损失（保高频纹理）。</li>
+<li>关键结果：论文称在常用基准上超越 SOTA（摘要未给具体数字，本调研未能核到逐项表格）。</li>
+<li>代码：<a href="https://github.com/ChengxuLiu/TP-Diff">github.com/ChengxuLiu/TP-Diff</a>（<strong>代码存在：models/ + ldm/ + train_S1.py/train_S2.py/test.py 两阶段脚本</strong>，~11★）。</li>
+</ul>
+<p>怎么做的：前面几篇都吃<strong>成对</strong>监督（GoPro 这类合成配对或 RealBlur 这类采配对）。TP-Diff 的立场是——真实场景很难拿到严格配对的模糊/清晰图，所以走非配对。核心是用扩散模型<strong>生成纹理先验知识</strong>辅助恢复模糊图的纹理：TPE 用 memory 机制把清晰图的纹理表示存下来监督扩散训练，TTformer 里的 FM-MSA 通过<strong>自适应滤波</strong>处理空变模糊（不同位置模糊核不同，用调制滤波器逐位置对付），小波对抗损失专门盯高频细节别糊掉。设计上它和 DeblurDiff 都要对付&quot;空变模糊&quot;，但手段不同：DeblurDiff 显式预测逐像素卷积核（LKPN/EAC），TP-Diff 用注意力里的滤波调制隐式处理。非配对是它最大的差异化，也是最大的风险点——非配对复原通常保真度不稳，能否在真实模糊上稳定超越配对法，需要代码复现验证。</p>
+<h3 id="sec-2-6">2.6 DeblurFlow —— 流匹配残差重参数化，把噪声端点换成模糊观测</h3>
+<p><strong>DeblurFlow / Restoration-Aligned Generative Flow (arxiv:2605.08854, 2026-05)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>流匹配路线</strong>——把 flow 轨迹的<strong>噪声端点直接换成模糊观测</strong>，使向量场恰好等于&quot;模糊图−清晰图&quot;的残差，标准 flow matching loss 自然退化为<strong>残差 loss</strong>，从而能用 <strong>LoRA 微调</strong>预训练流模型来做复原对齐。</li>
+<li>方法：残差流重参数化 + LoRA 适配 + <strong>r-space</strong>（专为残差解码设计的隐空间，比标准 VAE 解码省最多 9×）+ 双专家采样（保真专家 + 感知专家）。</li>
+<li>关键结果：双专家——保真专家 PSNR <strong>33.69 dB</strong> 做高保真初始化，DeblurFlow 感知增强后 33.05 dB（仅轻微降保真），远超&quot;直接套生成模型&quot;的 27.60 dB。数据集 GoPro / HIDE / RealBlur / RWBI。</li>
+<li>代码：⚠️ <strong>未找到公开仓库</strong>（截至本次调研）。</li>
+</ul>
+<p>怎么做的：这是本调研里<strong>唯一的纯流匹配（flow matching）去模糊</strong>工作，也是最新（2026-05）。标准流匹配从噪声流向数据，端点（噪声）与去模糊任务无关；DeblurFlow 把起点端换成<strong>模糊观测</strong>，于是从模糊流向清晰，向量场 = 残差（模糊−清晰）。这个重参数化有个漂亮副产品：flow matching 的回归 loss 直接变成<strong>残差回归</strong>，语义上就是&quot;预测模糊图要减掉多少&quot;，因此<strong>能用 LoRA 轻量微调</strong>一个预训练流模型（不用从头训）。r-space 是第二个巧思——既然只需解码残差而非重建整图，就设计一个更省的残差隐空间，把 VAE 编解码开销砍到最多 1/9。双专家采样把保真与感知<strong>解耦成两个模型</strong>：一个 33.69 dB 打底，一个在其上做感知增强只掉 0.6 dB——这与 OSDD 的 DDA（单模型内部动态加权）是<strong>同一目标的不同实现</strong>。理念上 DeblurFlow 与 FideDiff 殊途同归（都把生成端点从&quot;噪声&quot;改成&quot;模糊/残差&quot;），区别是 FideDiff 走扩散+一致性、DeblurFlow 走流匹配+残差场。<strong>无代码</strong>是最大短板，33.69 这个数字待验。</p>
+<h3 id="sec-2-7">2.7 DeblurSDI —— 零样本自扩散，联合估清晰图与模糊核，无需任何预训练</h3>
+<p><strong>DeblurSDI / Self-Diffusion Driven Blind Imaging (arxiv:2510.27439, 2025-10)</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献：<strong>零样本、自监督</strong>盲复原——用&quot;自扩散（self-diffusion）&quot;从纯噪声出发<strong>迭代反向优化</strong>，联合估计清晰图与模糊核（PSF），<strong>完全不需要外部数据预训练</strong>。</li>
+<li>方法：反向自扩散过程中，两个随机初始化网络分别拟合清晰图与模糊核，目标 = 数据一致性 + 核的 ℓ1 稀疏先验；面向&quot;光学像差 + 运动模糊&quot;的组合退化。</li>
+<li>关键结果：论文称在盲反卷积上大幅超越现有方法（摘要未给具体基准数字）。</li>
+<li>代码：<a href="https://github.com/ggluo/Self-Diffusion">github.com/ggluo/Self-Diffusion</a>（MIT，<code>sdi.py</code> 为自扩散主实现，含 MRI/通用反问题的 run 脚本）。</li>
+</ul>
+<p>怎么做的：与前六篇<strong>根本不同</strong>——它不训练任何数据集，是一个 per-image 的<strong>测试时优化</strong>框架（精神上接近 Deep Image Prior 的盲复原版）。给一张模糊图，DeblurSDI 从纯噪声起步，用<strong>反向自扩散</strong>逐步精化两样东西：清晰图 x 和模糊核 k，两个随机初始化的网络分别参数化它们，优化目标是数据一致性（<code>blur(x)⊛k ≈ y</code>）加上模糊核的 ℓ1 稀疏（真实运动核确实稀疏）。&quot;自扩散&quot;指的是它借用扩散的从-噪声-精化的迭代结构，但<strong>噪声/退化都来自图像自身</strong>，不需要在外部大数据上学先验。设计取舍很清楚：零样本 = 极强泛化（对光学像差+运动模糊的组合退化尤其有用，这类退化难以合成配对数据），代价是<strong>每张图都要跑一轮优化，慢</strong>，且盲估计的病态性使其对超参和初始化敏感。它填的是与 DeblurDiff/FideDiff 完全不同的生态位：后者要大数据训练、推理快；DeblurSDI 无需数据、推理慢，适合数据稀缺的科学成像。</p>
+<h3 id="sec-2-8">2.8 相邻工作（收录但非核心）</h3>
+<ul>
+<li><strong>ELIR (arxiv:2502.03500, 2025-02)</strong> ✅ — 潜一致性流匹配（latent consistency flow matching，LCFM），模型比 SOTA 扩散/流方法小 4×、快 4×，主打<strong>盲人脸复原</strong>与边缘部署；去模糊非其主线，故列为相邻。代码：<a href="https://github.com/eladc-git/ELIR">github.com/eladc-git/ELIR</a>（CC BY 4.0）。</li>
+<li><strong>RealVDeblur (arxiv:2607.20628, 2026-07)</strong> ✅ — <strong>视频</strong>去模糊，一步扩散 + 基于 3DGS 的物理模糊合成管线提升真实域泛化；本调研聚焦单图像，故仅提及。</li>
+<li><strong>Restora-Flow (arxiv:2511.20152, 2025-11)</strong> ✅ — 训练无关的掩码引导流匹配复原，覆盖 inpainting/SR/denoise，去模糊为附带任务，非专门去模糊方法。</li>
+</ul>
+<h2 id="sec-3">3. 平行对比</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>年份/会议</th>
+<th>生成范式</th>
+<th>端点重构</th>
+<th>核/退化处理</th>
+<th>监督</th>
+<th>步数</th>
+<th>代码状态</th>
+<th>头部结果（数据集）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DeblurDiff</strong></td>
+<td>2025 NeurIPS</td>
+<td>微调预训练 SD（先验）</td>
+<td>否（标准噪声）</td>
+<td>LKPN 预测逐像素空变核 + EAC</td>
+<td>配对</td>
+<td>多步</td>
+<td>✅ 脚本+权重</td>
+<td>LPIPS 0.219 (GoPro)，PSNR 低</td>
+</tr>
+<tr>
+<td><strong>OSDD</strong></td>
+<td>2025-03</td>
+<td>微调预训练 SD（一步蒸馏）</td>
+<td>否</td>
+<td>eVAE 补保真 + DDA</td>
+<td>配对</td>
+<td><strong>1 步</strong></td>
+<td>⚠️ 占位/未放</td>
+<td>LPIPS 0.121 / 0.88s (GoPro)</td>
+</tr>
+<tr>
+<td><strong>FideDiff</strong></td>
+<td>2026 ICLR</td>
+<td>从头/一致性模型</td>
+<td>✅ <strong>模糊即轨迹</strong></td>
+<td>Kernel ControlNet 估核</td>
+<td>配对</td>
+<td><strong>1 步</strong></td>
+<td>⚠️ 占位/未放</td>
+<td><strong>PSNR 28.79</strong> (GoPro)</td>
+</tr>
+<tr>
+<td><strong>BlurDM</strong></td>
+<td>2025 NeurIPS</td>
+<td>从头双扩散（插件先验）</td>
+<td>✅ <strong>噪声+模糊双扩散</strong></td>
+<td>隐式建模模糊形成</td>
+<td>配对</td>
+<td>多步</td>
+<td>✅ 脚本（缺权重）</td>
+<td>插件普涨 +0.25~0.78 dB</td>
+</tr>
+<tr>
+<td><strong>TP-Diff</strong></td>
+<td>2025 ICCV</td>
+<td>扩散先验（非配对）</td>
+<td>否</td>
+<td>FM-MSA 滤波调制</td>
+<td><strong>非配对</strong></td>
+<td>多步</td>
+<td>✅ 脚本</td>
+<td>称超 SOTA（数字未核到）</td>
+</tr>
+<tr>
+<td><strong>DeblurFlow</strong></td>
+<td>2026-05</td>
+<td><strong>流匹配</strong> + LoRA</td>
+<td>✅ <strong>残差场（换成模糊观测）</strong></td>
+<td>隐式（r-space 残差解码）</td>
+<td>配对</td>
+<td>少步（双专家）</td>
+<td>❌ 无</td>
+<td><strong>PSNR 33.69</strong>（保真专家）</td>
+</tr>
+<tr>
+<td><strong>DeblurSDI</strong></td>
+<td>2025-10</td>
+<td>零样本自扩散</td>
+<td>—（测试时优化）</td>
+<td><strong>联合估 PSF + ℓ1 稀疏</strong></td>
+<td><strong>零样本/自监督</strong></td>
+<td>迭代优化</td>
+<td>✅ 脚本</td>
+<td>称大幅超盲反卷积</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>说明：PSNR 列<strong>不可横向直接比</strong>——DeblurDiff/OSDD 走 SD 隐空间，PSNR 天然低（VAE 损失）；FideDiff/DeblurFlow 在像素/残差域，PSNR 高。且各家 eval 协议不同（OSDD 用 γ=0.7 gamma 校正、DeblurFlow 报&quot;保真专家&quot;而非端到端）。详见 §4 矛盾分析。</p>
+</blockquote>
+<h2 id="sec-4">4. 一致与矛盾</h2>
+<h3 id="sec-4-1">一致（独立工作的收敛信号）</h3>
+<ol>
+<li><strong>端点重构是 2025→2026 的共识转向</strong>。三个独立团队——FideDiff（模糊轨迹）、BlurDM（噪声+模糊双扩散）、DeblurFlow（残差场换掉噪声端点）——不约而同地<strong>把扩散/流的端点从&quot;纯噪声&quot;改成&quot;模糊/残差&quot;</strong>。这是强信号：领域已认定&quot;从与任务无关的噪声幻觉出发&quot;是 SD-先验路线保真度低的病根，正确做法是让生成轨迹物理对齐去模糊。</li>
+<li><strong>一步/少步化是硬需求</strong>。OSDD、FideDiff（consistency）、DeblurFlow（r-space+双专家）、ELIR（LCFM）都在压步数。多步扩散去模糊在 2026 已被普遍视为不可落地，与<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>里超分的一步化浪潮完全同步。</li>
+<li><strong>隐空间操作近乎标配</strong>。DeblurDiff、OSDD、BlurDM、FideDiff、DeblurFlow（r-space）都在隐空间跑，为算力；纯像素域只剩零样本的 DeblurSDI（它本就不追求速度）。</li>
+<li><strong>空变模糊被认真对待</strong>。DeblurDiff（逐像素核 EAC）、TP-Diff（FM-MSA 滤波调制）、DeblurSDI（联合估 PSF）都显式处理&quot;模糊核随位置变&quot;，而非假设均匀模糊。</li>
+</ol>
+<h3 id="sec-4-2">矛盾（需要指名点出的冲突）</h3>
+<ol>
+<li><strong>保真 vs 感知，扩散去模糊到底能不能高 PSNR？</strong> DeblurDiff 明确接受&quot;扩散=感知强、PSNR 低&quot;（GoPro PSNR ~24.32，还在论文里承认 HI-Diff 的 33.33 更高），只报无参考指标；OSDD 干脆<strong>不报 PSNR/SSIM</strong>。而 FideDiff <strong>正面反驳</strong>——用&quot;模糊轨迹+一致性&quot;打出 GoPro 单步 PSNR 28.79，主张扩散<strong>也能</strong>高保真。这是本领域最实质的立场冲突：同一作者群（Yulun Zhang 组）在 OSDD→FideDiff 间自我路线修正，从感知优先转向保真优先。</li>
+<li><strong>PSNR 数字不可比，暗藏测量口径分歧</strong>。FideDiff 报 GoPro 28.79、DeblurFlow 报 33.69、回归法 HI-Diff 33.33、DeblurDiff ~24。这些<strong>不在同一测量协议下</strong>：DeblurDiff/OSDD 走 SD 隐空间（VAE 天花板压低 PSNR），FideDiff 在像素域一致性，DeblurFlow 的 33.69 是&quot;<strong>保真专家</strong>&quot;而非其感知模型端到端结果（感知模型 33.05）。把它们并列成排行榜会误导——<strong>同为&quot;扩散去模糊 SOTA&quot;的宣称，度量的根本不是同一件事</strong>。</li>
+<li><strong>基线数字各家报得不一致</strong>。FideDiff 表里 OSEDiff 在 RealBlur 只有 PSNR 24.34、DiffBIR 26.15；但这些方法原本为超分/通用复原设计，被搬到去模糊 benchmark 上重测，跨论文引用同一基线常出现不同数字（不同 retrain、不同测试子集）。引用这些对比数时需回到各自论文的测量条件。</li>
+<li><strong>配对 vs 非配对 vs 零样本，监督假设不兼容</strong>。DeblurDiff/OSDD/FideDiff/BlurDM 吃成对监督；TP-Diff 走非配对；DeblurSDI 零样本无训练。三者的&quot;SOTA&quot;宣称建立在<strong>不同数据可得性假设</strong>上，不能直接比高低——非配对/零样本牺牲绝对指标换泛化与免数据，属不同生态位。</li>
+</ol>
+<h2 id="sec-5">5. 代码交叉验证</h2>
+<p>对有真实仓库的方法，逐一打开核心函数确认与论文主张一致（未打开的明确标注）：</p>
+<ul>
+<li>✅ <strong>DeblurDiff 的 EAC 确为空变卷积</strong>。<a href="https://github.com/kkkls/DeblurDiff/blob/main/model/lkpn.py"><code>model/lkpn.py</code></a> 里 <code>IDynamicConv</code> 模块 + <code>_idynamic_cuda</code> CUDA 核实现逐像素卷积：权重张量 reshape 成 <code>(B, C//(kH·kW), kH, kW, H, W)</code>——<strong>核维度带 (H,W)，即每个空间位置一套独立核</strong>；CUDA 前向 <code>value += weight_data[offset_weight] * bottom_data[offset]</code> 用位置相关的 <code>offset_weight</code> 取权重。与论文&quot;element-wise adaptive convolution 施加空变核&quot;完全对应。<strong>主张属实</strong>。</li>
+<li>✅ <strong>BlurDM 是可跑的插件式训练框架</strong>。<a href="https://github.com/Jin-Ting-He/BlurDM">github.com/Jin-Ting-He/BlurDM</a> 含 <code>train_stage1/2/3.py</code> + <code>deblur_predict.py</code> + <code>eval_metrics.py</code>，<code>src/</code> 下有 <code>MIMO_UNet/</code>、<code>Stripformer/</code> 骨干目录——与论文&quot;作为先验插件增强 MIMO-UNet/Stripformer 等骨干&quot;的定位一致（三阶段=先验预训练→骨干集成→联合微调）。⚠️ 未逐行打开 dual-diffusion 前向函数确认&quot;噪声+模糊双扩散&quot;的加噪公式（<code>src/</code> 下未见单独 diffusion 文件名，核心逻辑分散在骨干目录），此点为<strong>结构级验证，非公式级</strong>。权重 coming soon。</li>
+<li>✅ <strong>DeblurSDI 主实现为 <code>sdi.py</code></strong>。<a href="https://github.com/ggluo/Self-Diffusion">github.com/ggluo/Self-Diffusion</a> 的 <code>sdi.py</code> 是自扩散算法主体，配 <code>run_*.sh</code> 覆盖 MRI 等多种反问题——与&quot;通用自监督反问题框架、去模糊为其一&quot;的定位一致。⚠️ README 偏通用反问题，未单列去模糊的 ℓ1 核稀疏项代码位置，为<strong>仓库级验证</strong>。</li>
+<li>✅ <strong>TP-Diff 代码存在</strong>（非占位）：<code>models/</code> + <code>ldm/</code> + <code>train_S1.py</code>/<code>train_S2.py</code>/<code>test.py</code> 两阶段脚本齐全，与&quot;TPE 纹理先验（阶段1）+ TTformer 去模糊（阶段2）&quot;两段式一致。⚠️ 未逐行确认 FM-MSA 实现。</li>
+<li>⚠️ <strong>OSDD、FideDiff 为占位仓库</strong>：<a href="https://github.com/xyLiu339/OSDD">OSDD</a> README 明写 &quot;Release code and pretrained models&quot; 为 TODO，仅有 assets 图；<a href="https://github.com/xyLiu339/FideDiff">FideDiff</a> 2026-06 只放了可视化结果，无 .py 实现。<strong>其论文数字（OSDD LPIPS 0.121、FideDiff PSNR 28.79）目前无法代码复现，只能采信论文表格</strong>——这是引用时必须带的 caveat。</li>
+<li>❌ <strong>DeblurFlow 无公开仓库</strong>：33.69 dB 待代码释放后验证。</li>
+</ul>
+<p><strong>代码可跑性排序</strong>（有权重/可复现优先）：DeblurDiff（脚本+权重）&gt; BlurDM ≈ TP-Diff ≈ DeblurSDI（脚本，缺权重或需 per-image 优化）&gt; OSDD ≈ FideDiff（占位）&gt; DeblurFlow（无）。</p>
+<h2 id="sec-6">6. 启发与白地</h2>
+<ol>
+<li><strong>&quot;改端点&quot;已被证明有效，但流匹配路线几乎空白</strong>。把生成端点从噪声改成模糊/残差，FideDiff（扩散+一致性）和 DeblurFlow（流匹配+残差）都验证了其价值，但<strong>流匹配去模糊全领域只有 DeblurFlow 一篇、且无代码</strong>。相比超分领域流匹配已相当拥挤（参见<a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>），去模糊的流匹配是明确白地——残差重参数化 + LoRA 的低成本适配尤其值得复现推广。</li>
+<li><strong>&quot;论文很强但代码是占位&quot;是本领域的系统性风险</strong>。两篇立场最鲜明的高保真工作（OSDD、FideDiff）都是占位仓库，头部数字（尤其 FideDiff 的 28.79 dB &quot;扩散追平回归&quot;）<strong>无第三方复现</strong>。想在这条线上做实验，当前唯一有权重可跑的是 DeblurDiff；BlurDM/TP-Diff/DeblurSDI 有脚本但需自训。<strong>选型建议：要立刻能跑→DeblurDiff；要插件涨点→BlurDM；要免数据/科学成像→DeblurSDI。</strong></li>
+<li><strong>保真-感知之争尚未收敛，度量口径亟需统一</strong>。同称 SOTA 的方法度量的根本不是一回事（隐空间 vs 像素域、保真专家 vs 端到端、γ 校正与否）。领域缺一个<strong>统一协议的扩散去模糊 benchmark</strong>——这本身是高价值的工程贡献白地。</li>
+<li><strong>散焦去模糊被扩散冷落</strong>。运动去模糊拥挤，散焦（defocus）扩散去模糊 2025 仅零星（一篇 Nature Sci. Rep. score-based、一篇 ICASSP 效率网络），空间大。</li>
+<li><strong>零样本盲估计 + 学习先验的融合</strong>。DeblurSDI（零样本联合估 PSF）与 FideDiff（学习式 Kernel ControlNet）代表两极；把&quot;per-image 自扩散优化核&quot;与&quot;预训练核先验&quot;结合（用学习先验初始化零样本优化）是一条尚未有人走通的路。</li>
+</ol>
+<h2 id="sec-7">7. 参考文献</h2>
+<ul>
+<li>DeblurDiff: Real-World Image Deblurring with Generative Diffusion Models — arxiv <a href="https://arxiv.org/abs/2502.03810">2502.03810</a>（NeurIPS 2025）· 代码 <a href="https://github.com/kkkls/DeblurDiff">github.com/kkkls/DeblurDiff</a></li>
+<li>One-Step Diffusion Model for Image Motion-Deblurring (OSDD) — arxiv <a href="https://arxiv.org/abs/2503.06537">2503.06537</a>（2025-03）· 代码（占位）<a href="https://github.com/xyLiu339/OSDD">github.com/xyLiu339/OSDD</a></li>
+<li>FideDiff: Efficient Diffusion Model for High-Fidelity Image Motion Deblurring — arxiv <a href="https://arxiv.org/abs/2510.01641">2510.01641</a>（ICLR 2026）· 代码（占位）<a href="https://github.com/xyLiu339/FideDiff">github.com/xyLiu339/FideDiff</a></li>
+<li>BlurDM: A Blur Diffusion Model for Image Deblurring — arxiv <a href="https://arxiv.org/abs/2512.03979">2512.03979</a>（NeurIPS 2025）· 代码 <a href="https://github.com/Jin-Ting-He/BlurDM">github.com/Jin-Ting-He/BlurDM</a></li>
+<li>Learning Deblurring Texture Prior from Unpaired Data with Diffusion Model (TP-Diff) — arxiv <a href="https://arxiv.org/abs/2507.13599">2507.13599</a>（ICCV 2025）· 代码 <a href="https://github.com/ChengxuLiu/TP-Diff">github.com/ChengxuLiu/TP-Diff</a></li>
+<li>Restoration-Aligned Generative Flow Models for Blind Motion Deblurring (DeblurFlow) — arxiv <a href="https://arxiv.org/abs/2605.08854">2605.08854</a>（2026-05）· 暂无公开代码</li>
+<li>Self-Diffusion Driven Blind Imaging (DeblurSDI) — arxiv <a href="https://arxiv.org/abs/2510.27439">2510.27439</a>（2025-10）· 代码 <a href="https://github.com/ggluo/Self-Diffusion">github.com/ggluo/Self-Diffusion</a></li>
+<li>ELIR: Efficient Image Restoration via Latent Consistency Flow Matching — arxiv <a href="https://arxiv.org/abs/2502.03500">2502.03500</a>（2025-02，相邻/人脸）· 代码 <a href="https://github.com/eladc-git/ELIR">github.com/eladc-git/ELIR</a></li>
+<li>RealVDeblur: One-Step Diffusion for Generalizable Real-World Video Deblurring — arxiv <a href="https://arxiv.org/abs/2607.20628">2607.20628</a>（2026-07，视频）</li>
+<li>Restora-Flow: Mask-Guided Image Restoration with Flow Matching — arxiv <a href="https://arxiv.org/abs/2511.20152">2511.20152</a>（2025-11，通用复原）</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
