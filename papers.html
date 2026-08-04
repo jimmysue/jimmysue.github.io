@@ -47,8 +47,23 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 50 篇论文精读。</p>
+<p class="page__intro">共 51 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-31</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/context-scaling-2026/index.html">Scaling Properties of Text Conditioning in Visual Generation（文本条件的缩放律：结构化提示词 GPG/ED）</a></h3>
+  <p class="post-card__tldr">ByteDance Seed 的技术报告。核心发现：文生图扩散模型的收敛 loss 不随提示词 token 数变化，而随提示词里&quot;结构化信息量&quot;变化——用白盒似然指标 GPG 和黑盒属性指标 ED 度量，收敛 MSE 对 GPG 近似线性（r=−0.984）、对 ED 服从幂律（∝ED^−0.207，r=−0.971）。据此把提示词做成带语义+几何标注的 JSON（结构化提示词 SP）来提升 diffusability，再用 SFT→cold-start→验证器门控的 OPSD 训练一个 LLM prompter 来提升 promptability，最后配一个 refine–render–judge 智能体循环。系统在 GenEval2 GM 从 33.8→72.5、CoReBench 从 58.9→85.2，超过所有评测的开源模型。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/structured-prompt.html">structured-prompt</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -167,22 +182,6 @@
       <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
       <a class="tag-chip" href="concepts/physics-editing.html">physics-editing</a>
       <span class="tag-chip tag-chip--more">+5 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/op4ksr-2026/index.html">OP4KSR：一步、无分块的 4K 超分，外加把 Flux「周期格子伪影」连根拔起</a></h3>
-  <p class="post-card__tldr">OP4KSR 是第一个「一步 + 无分块」的真实世界 4K 超分框架：靠 UltraFlux 的 F16 极压缩 VAE 把 4096×4096 的显存压到单卡可跑，再借 [[omgsr-2025]] 的中间时刻对齐把 Flux 微调成一步前向（注意：是 GAN 式一步微调，**不是师生蒸馏**），5.75 秒出一张 4K 图。
-但一步化会触发周期 32 像素的格子伪影。作者把病因拆成两层——RoPE 相位坍缩让相邻 token 不可分（θ=10000 太大）、以及 2×2 打包后 unpack 把通道当空间用——并对症下两味药：RoPE 基频从 10000 降到 100（RFR）+ 一个基于自相关的周期性损失（L_AP）。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/4k-super-resolution.html">4k-super-resolution</a>
-      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 </div>

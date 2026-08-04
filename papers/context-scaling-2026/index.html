@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Scaling Properties of Text Conditioning in Visual Generation（文本条件的缩放律：结构化提示词 GPG/ED）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 结构化提示词 SP：把视觉变量放进具名字段</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 两个信息量指标：GPG（白盒）与 ED（黑盒）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 缩放律：信息量预测收敛 loss</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 把缩放律拆成两个因子：Diffusability × Promptability</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 提升 Diffusability：用领域专家构造结构化监督</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 提升 Promptability：把 LLM prompter 训出来</a></li>
+    <li class="h3"><a href="#sec-2-7">① SFT</a></li>
+    <li class="h3"><a href="#sec-2-8">② Cold-start</a></li>
+    <li class="h3"><a href="#sec-2-9">③ RFT = 验证器门控 OPSD</a></li>
+    <li class="h3"><a href="#sec-2-10">2.7 推理期：refine–render–judge 智能体循环</a></li>
+    <li class="h2"><a href="#sec-3">3. 结果 (Results)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 评述 (Critique)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 强在哪里</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 值得存疑 / 局限（作者部分自陈）</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 延伸阅读与交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">研究启发 (Transferable Takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">把"信息量"做成可筛选的代理指标</a></li>
+    <li class="h3"><a href="#sec-6-2">正交双指标互证因果</a></li>
+    <li class="h3"><a href="#sec-6-3">专家出证据、生成器出文本</a></li>
+    <li class="h3"><a href="#sec-6-4">确定性投影解耦"丰富度 vs 质量"</a></li>
+    <li class="h3"><a href="#sec-6-5">验证器门控 ≠ 验证器当 reward（反直觉点）</a></li>
+    <li class="h3"><a href="#sec-6-6">结构化界面顺便解锁定点编辑</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Scaling Properties of Text Conditioning in Visual Generation</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-07-31</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-07-31</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Zilong Chen, Chaorui Deng, Kunchang Li, Hongyi Yuan, Haoqi Fan (ByteDance Seed)</span> · <span class="post-meta__venue">arXiv Technical Report</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2607.29679">arXiv:2607.29679</a> · <a class="post-meta__link" href="https://heheyas.github.io/context-scaling">项目页</a> · <a class="post-meta__link" href="https://github.com/heheyas/context-scaling">代码</a> · <a class="post-meta__link" href="https://huggingface.co/collections/heheyas/context-scaling">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/structured-prompt.html">structured-prompt</a> <a class="concept-chip" href="../../concepts/prompt-enhancement.html">prompt-enhancement</a> <a class="concept-chip" href="../../concepts/scaling-law.html">scaling-law</a> <a class="concept-chip" href="../../concepts/on-policy-distillation.html">on-policy-distillation</a> <a class="concept-chip" href="../../concepts/mutual-information.html">mutual-information</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/reinforcement-fine-tuning.html">reinforcement-fine-tuning</a> <a class="concept-chip" href="../../concepts/recaptioning.html">recaptioning</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-info-not-tokens.png" alt="加长自然语言提示词会让所有开源模型变差；结构化提示词随长度单调变好，因为它加的是信息不是词">
+  <figcaption>
+    <strong>Fig. 1</strong> — <strong>缩放的是信息量，不是 token 数。</strong>（左）把提示词逐步加长，每个被评测的开源模型（Qwen-Image、HunyuanImage 3.0、BAGEL、FLUX.1 Dev、Emu3）都在早期就见顶、并最终跌到比自己最短提示词还差；即便用同一条"散文阶梯"重训一个扩散模型（natural language 曲线）也只是微涨后饱和。而在作者的结构化提示词（SP）方案下，GSB 净偏好随长度<strong>单调上升</strong>——因为 SP 加的是新的图像信息而不是更多的词。（右）为什么：散文的信息量很快饱和、结构化持续增长（上）；但在同一信息量刻度上二者落在同一条拟合线上（下）。
+  </figcaption>
+</figure>
+<!-- 全局路线图 -->
+<div class="summary-grid">
+  <div class="card"><h3>发现</h3><p>收敛扩散 loss 不看 token 数，看提示词的"图像相关信息量"。用 GPG（白盒似然）与 ED（黑盒属性）度量，loss 对 GPG 线性、对 ED 幂律。</p></div>
+  <div class="card"><h3>表示</h3><p>结构化提示词 SP：把全局场景 / 逐元素属性+bbox+depth / 跨元素关系写进带名字的 JSON 字段。用 VLM+冻结专家（Sapiens/DepthAnything/SAM）标注全图。</p></div>
+  <div class="card"><h3>训练</h3><p>两个能力：diffusability（扩散器学 SP→图）与 promptability（prompter 学 用户请求→SP）。prompter 走 SFT→cold-start→验证器门控 OPSD。</p></div>
+  <div class="card"><h3>推理</h3><p>单次：用户请求→prompter→SP→扩散器→图。可选 refine–render–judge 智能体循环，按失败的字段做定点修改。</p></div>
+</div>
+<!-- 术语速查 -->
+<div class="term-grid">
+  <div class="card"><h4>SP（Structured Prompt）</h4><p>结构化提示词：一段把视觉变量分配到具名字段的 JSON 说明（intent / scene / elements[bbox,depth,...] / relationships）。</p></div>
+  <div class="card"><h4>GPG（Grounded Perplexity Gain）</h4><p>白盒指标：把图给 VLM 看之后，caption 的似然涨了多少（对内容 token 求和）。是 caption–图 互信息的一个操作性估计。</p></div>
+  <div class="card"><h4>ED（Effective Detailness）</h4><p>黑盒指标：把 caption 属性和"从图里独立抽取的属性"对齐，报 F0.5(精确率, 召回率)。不需要 token 概率。</p></div>
+  <div class="card"><h4>diffusability</h4><p>扩散侧能力：一种 caption 表示把图像信息"暴露+组织"得多好，让扩散器好学。固定训练配方下由 GPG/ED 排序。</p></div>
+  <div class="card"><h4>promptability</h4><p>LLM 侧能力：一个 prompter 从用户请求把 SP 界面"填出来"填得多好（用生成图质量衡量，不是 JSON 合法性）。</p></div>
+  <div class="card"><h4>OPSD</h4><p>On-Policy Self-Distillation：在 student 自己采样的轨迹上，用一个能看到参考图的 teacher 的 next-token 分布做 KL 蒸馏；只更新 student。</p></div>
+  <div class="card"><h4>GSB</h4><p>Good/Same/Bad：VLM 对两张图的净偏好，100·(n好−n坏)/N，双序判定、序不一致算 Same。</p></div>
+  <div class="card"><h4>RFT / cold-start</h4><p>RFT=强化微调（此处的 RFT 阶段用验证器门控的 OPSD）；cold-start=用带图 teacher 的推理轨迹教会 prompter"无图也能推理到 SP"。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>作者从一个被大家默认、但其实很别扭的类比讲起：<strong>语言模型和文生图模型的训练信号来源根本不对称。</strong></p>
+<ul>
+<li>语言模型从<strong>文本流本身</strong>拿训练信号——文本既是输入也是标签。</li>
+<li>文生图模型学的是<strong>文本条件下的生成</strong>，信号来自<strong>图–文对</strong>。这里有个漏斗：caption 说得含糊的视觉内容，只能微弱地传给模型当条件监督；caption 干脆没提的内容，即使像素里全都有，也<strong>一点都传不到</strong>模型。</li>
+</ul>
+<p>所以 caption 里&quot;和图像挂钩的信息量&quot;，可能才是决定生成器能从文本学会恢复什么的上限。但这个量长期没被当成一个<strong>可控的训练变量</strong>来研究。</p>
+<p>大家常做的干预是&quot;把提示词写得更长更细&quot;。作者用一个很干净的探针（Fig. 3，固定 Qwen-Image backbone + 固定采样种子，从同一份标注派生出四条越来越长的自然语言 caption 去重建同一张参考图）发现：<strong>caption 越写越长，重建质量几乎纹丝不动</strong>。加的都是对已有内容的铺陈，没给扩散器任何新的可恢复变量。而当他们改用结构化 JSON、逐步把字段组恢复回去时，重建<strong>稳步变好</strong>。</p>
+<p>一句话总结出发点：<strong>缩放文本条件，缩放的应该是&quot;图像相关信息量&quot;这个量，而不是 token 数。</strong> 本文要做的就是：(1) 把这个量量化出来（GPG/ED），(2) 证明它能预测扩散训练 loss，(3) 据此设计一套能真正把它做上去的系统。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 结构化提示词 SP：把视觉变量放进具名字段</h3>
+<figure>
+  <img class="zoomable" src="figures/fig5-sp-schema.png" alt="结构化提示词的三个作用域：全局字段、逐元素字段、跨元素关系">
+  <figcaption>
+    <strong>Fig. 5</strong> — <strong>SP 模式（schema）举例。</strong>左：带 bbox 和元素 ID 的图。中：三个作用域的伪 JSON 视图——<em>GLOBAL</em>（intent/scene/atmosphere/photography/style/lighting）、<em>PER-ELEMENT</em>（每个前景对象的 caption/attributes/action/position=&lt;bbox&gt;/depth/photography）、<em>CROSS-ELEMENT</em>（用 bbox 绑定的关系，如"…is left of…"）。右：逐元素字段细节。要点是把全局场景、逐元素属性+几何、跨元素关系都变成**有名字、可寻址**的条件字段。
+  </figcaption>
+</figure>
+<p>SP 不是简单地&quot;用 JSON 包一层散文&quot;。它的关键在于把<strong>每一个视觉变量分配到一个具名字段</strong>，从而：(a) 内容更全（bbox、depth、关系这些散文里很难自然写清的东西有了专属位置）；(b) 可寻址（推理时能对单个字段做定点编辑，见 Fig. 2 的零样本编辑）。</p>
+<h3 id="sec-2-2">2.2 两个信息量指标：GPG（白盒）与 ED（黑盒）</h3>
+<figure>
+  <img class="zoomable" src="figures/fig6-gpg-ed.png" alt="GPG 用似然增益度量，ED 用属性问答匹配度量；二者随 SP 层级上升、随 NL 加长几乎不动">
+  <figcaption>
+    <strong>Fig. 6</strong> — <strong>两个信息量指标：定义（左）与实测趋势（右）。</strong>上：GPG 把"给 VLM 看图后 caption 的逐 token 似然增益"在内容 token 上求和（Eq. 1）。下：ED 把 caption 属性和图侧参考属性集匹配，报 F0.5(P_A, R_A)（Eq. 2）。右列：两者随自然语言（NL）加长几乎持平，却随嵌套 SP 层级持续上升。
+  </figcaption>
+</figure>
+<p><strong>Grounded Perplexity Gain（GPG，白盒）</strong> 度量&quot;把配对图揭示给一个冻结 VLM 判官 <span class="math inline">\(M\)</span>（这里是 Qwen3.5-397B-A17B）后，caption 的似然涨了多少&quot;：</p>
+<div class="math block">
+\[\mathrm{GPG}(y, I) \triangleq \sum_{t=1}^{T} m_t \left[ \log p_M(y_t \mid I, y_{\lt t}) - \log p_M(y_t \mid \varnothing, y_{\lt t}) \right]\]
+</div>
+<p>—— 翻译：对 caption 的每个&quot;内容 token&quot;<span class="math inline">\(y_t\)</span>（<span class="math inline">\(m_t=1\)</span> 才算，跳过 JSON 的键/括号/逗号），比较&quot;看得到图&quot;与&quot;看不到图（<span class="math inline">\(\varnothing\)</span>）&quot;两种情况下模型对它的对数似然，把差值加起来。看到图后越&quot;惊喜地容易&quot;预测出来的 caption，说明它和图挂钩越紧、信息越多。这是 caption–图<strong>互信息</strong>的一个操作性估计。注意它是<strong>求和</strong>（total）不是<strong>逐 token 均值</strong>（rate），所以会随 caption 变长而增大——这正是 Fig. 6 里 SP 曲线一路往上的原因。</p>
+<p><strong>Effective Detailness（ED，黑盒）</strong> 不需要 token 概率。它让&quot;图侧提取器&quot;（Gemini 3 Pro，只看图）和&quot;文侧提取器&quot;（GPT-5.4，只看 caption）各自抽出 对象–属性–关系–定位 元组，再用一个容忍改写的匹配器判定哪些互相支持，得到 caption 侧属性精确率 <span class="math inline">\(P_A\)</span> 与图侧属性召回率 <span class="math inline">\(R_A\)</span>：</p>
+<div class="math block">
+\[\mathrm{ED}(y, I) \triangleq F_{0.5}\big(P_A, R_A\big)\]
+</div>
+<p>—— 翻译：<span class="math inline">\(F_{0.5}\)</span> 是偏向精确率的 F 值（<span class="math inline">\(\beta{=}0.5\)</span>，精确率权重是召回率的 4 倍）。选它是因为**&quot;caption 编造了图里没有的属性&quot;比&quot;漏掉一些属性&quot;危害更大**——前者会给扩散器灌进错误的条件监督。</p>
+<h3 id="sec-2-3">2.3 缩放律：信息量预测收敛 loss</h3>
+<figure>
+  <img class="zoomable" src="figures/fig7-scaling.png" alt="15 个 caption 配置下，收敛 MSE 对 GPG 线性、对 ED 幂律，两指标 Spearman 0.96 一致">
+  <figcaption>
+    <strong>Fig. 7</strong> — <strong>文本条件的缩放律：loss 跟着信息走。</strong>(a–b) 训练曲线在 SP 各层级之间分得很开，却在 NL 丰富度之间几乎重叠。(c) caption 长度无法把 NL 和 SP 放到同一条 loss 趋势上。(d–e) 15 个配置点上，收敛 MSE 对 GPG 近似线性、对 ED 幂律。(f) 两个指标（一个要 token 概率、一个不要）对配置排序高度一致，Spearman ρ=0.96。
+  </figcaption>
+</figure>
+<p>作者搭了一个<strong>受控 15 格实验</strong>：同一份全图标注派生出 15 种 caption 配置（3 个 NL 长度控制 + 6 个 SP 层级 + 3 个坐标网格变体 + 3 个字段消融），每种配置<strong>从同一个 BAGEL checkpoint 单独训练一个扩散器</strong>到相同预算（<span class="math inline">\(2.84\times10^{10}\)</span> 累计图像 token），除了 caption 配置外<strong>图像/初始化/架构/优化全部固定</strong>。结果：</p>
+<div class="math block">
+\[\mathrm{MSE} = 0.4549 - 8.45\times10^{-5}\cdot\mathrm{GPG}, \qquad r=-0.984\]
+</div>
+<div class="math block">
+\[\mathrm{MSE} = 0.4200\cdot\mathrm{ED}^{-0.2073}, \qquad r=-0.971\]
+</div>
+<p>—— 翻译：收敛的训练 MSE 对 GPG <strong>线性下降</strong>、对 ED <strong>幂律下降</strong>，两条拟合的残差标准差都在 <span class="math inline">\(6\sim8\times10^{-4}\)</span> 量级（很紧）。而 caption 长度（Fig. 7c）完全排不出这条趋势。作者把这两条关系称为**&quot;文本条件的缩放律&quot;<strong>：在标定的架构+配方+测量范围内，caption 信息量能</strong>预测<strong>同预算下的收敛 loss。实用价值是——标定一次后，可以在</strong>不再训练扩散器**的情况下先筛选候选 caption 配置（留出集上 GPG/ED 拟合的平均绝对 MSE 误差只有 <span class="math inline">\(5.0/8.1\times10^{-4}\)</span>）。</p>
+<p>作者很克制地强调了边界：每个配置只训一次，所以图里的误差带是&quot;对采样设置的敏感度&quot;而非训练随机性；这条标定是 <strong>backbone 特定</strong>的（在 BAGEL 上拟合，端到端系统换成 Qwen-Image 时并未重拟合数值关系）；它是&quot;配方特定的经验标定&quot;，不是普适定理。</p>
+<h3 id="sec-2-4">2.4 把缩放律拆成两个因子：Diffusability × Promptability</h3>
+<div class="math block">
+\[\mathrm{Quality}(f, \pi) = \underbrace{\mathrm{Diffusability}(f)}_{\text{扩散侧}} \times \underbrace{\mathrm{Promptability}(f, \pi)}_{\text{LLM 侧}}\]
+</div>
+<p>—— 翻译：<span class="math inline">\(f\)</span> 是 caption 界面（包含它暴露了哪些字段组），<span class="math inline">\(\pi\)</span> 是 LLM prompter。系统最终质量取决于<strong>两件事</strong>：界面本身把信息暴露得好不好（训练时能标注，测试时没有配对图）、以及 prompter 能不能从用户请求把这个界面填好。作者明说这是<strong>示意分解、不是拟合出来的乘法定律</strong>。下面 §2.5 提 diffusability，§2.6 提 promptability。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-method-overview.png" alt="方法总览：(a) 标注并测量 (b) 训练 (c) 生成 三段式">
+  <figcaption>
+    <strong>Fig. 4</strong> — <strong>方法总览：标注并测量 → 训练 → 生成。</strong>(a) VLM+冻结专家把每张训练图映射成 SP；在受控 caption 配置上 GPG/ED 预测收敛 loss（§2.3 的缩放律）。(b) 扩散器学 SP→图（diffusability）；prompter 学 用户请求→SP（promptability），比较时固定 schema 和已训扩散器。(c) 单次推理把两者串起来：用户请求→SP→图。
+  </figcaption>
+</figure>
+<h3 id="sec-2-5">2.5 提升 Diffusability：用领域专家构造结构化监督</h3>
+<figure>
+  <img class="zoomable" src="figures/fig8-annotation.png" alt="图到SP的五阶段标注流水线：Seed-VL 场景/逐元素，Sapiens 姿态，DepthAnything+SAM 几何，VLM 组装，降级采样出 L5-L10">
+  <figcaption>
+    <strong>Fig. 8</strong> — <strong>图到 SP 的领域专家标注流水线。</strong>Stage 1 VLM 读全图出 intent/场景/风格/相机 + 元素清单+bbox；Stage 2 逐 crop 精修属性，人物额外过 <strong>Sapiens</strong>（133 关键点当 overlay 帮 VLM 判别朝向）；Stage 3 <strong>DepthAnything V2</strong> 给深度、<strong>SAM 2.1</strong> 给 mask/遮挡；Stage 4 VLM 把证据和语义调和成一份 L10 SP；Stage 5 <strong>降级采样</strong>——确定性地遮掉字段组，从 L10 派生出 L5–L9 的训练对。
+  </figcaption>
+</figure>
+<p>关键设计有两个：</p>
+<ol>
+<li><strong>冻结专家做&quot;约束&quot;而非&quot;照抄&quot;。</strong> VLM 语义强但对身体朝向、精确几何不可靠——如果直接把它的猜测序列化，这些错误就变成了<strong>显式的条件变量</strong>（模型会当真去学）。所以让 Sapiens/Depth/SAM 出证据，最后由 VLM 把证据&quot;调和&quot;进文本字段（比如姿态用文字写进 element 的 pose 键），原始关键点/mask 只当中间证据不进 SP。</li>
+<li><strong>受控字段梯（field ladder）。</strong> L5–L10 都是<strong>同一份 L10 标注的确定性投影</strong>（逐层遮字段组），这样&quot;schema 丰富度&quot;和&quot;标注质量&quot;就解耦了——层级之间只差暴露的信息/组织，不差重新标注。</li>
+</ol>
+<!-- 消融决策表 -->
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>Tokens</th>
+<th>相对上一级新增字段</th>
+<th>训练侧 GenEval2 GM ↑</th>
+<th>为什么这么排</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L5</td>
+<td>447</td>
+<td>基础字段（intent + 元素 caption）</td>
+<td>46.79</td>
+<td>最裸的 SP，作对照基线</td>
+</tr>
+<tr>
+<td>L6</td>
+<td>542</td>
+<td>+ bounding boxes</td>
+<td>48.65</td>
+<td>空间布局是第二大贡献项（见附录字段消融）</td>
+</tr>
+<tr>
+<td>L7</td>
+<td>647</td>
+<td>+ 场景上下文 scene</td>
+<td>49.72</td>
+<td><strong>全局场景是单项最大贡献</strong>——它给了扩散器全局约束</td>
+</tr>
+<tr>
+<td>L8</td>
+<td>803</td>
+<td>+ 动态属性</td>
+<td>52.94</td>
+<td>动作/状态类属性，绑定&quot;谁在干什么&quot;</td>
+</tr>
+<tr>
+<td>L9</td>
+<td>1062</td>
+<td>+ depth &amp; relationships</td>
+<td>55.16</td>
+<td>深度序+跨元素关系，管遮挡/前后/相对位置</td>
+</tr>
+<tr>
+<td>L10</td>
+<td>1374</td>
+<td>+ photography（相机/镜头/光）</td>
+<td>57.70</td>
+<td>最全 schema，摄影字段收尾</td>
+</tr>
+</tbody>
+</table>
+<p>—— 读法：GenEval2 GM 和对 L5 的 GSB 都随 schema 丰富度<strong>单调上升</strong>，说明&quot;训练 loss 更低&quot;确实转化成了&quot;生成图更好&quot;，不是只在 loss 上好看。</p>
+<h3 id="sec-2-6">2.6 提升 Promptability：把 LLM prompter 训出来</h3>
+<p>测试时没有配对图，SP 界面得靠一个 LLM prompter 从用户请求<strong>推断</strong>出来——它要脑补用户没说的视觉细节，同时不违背用户明确的要求。作者先做了一个<strong>off-the-shelf 缩放实验</strong>：把 Qwen3.5 从 0.8B 到 397B 当零样本 prompter，固定 schema 和扩散器，发现生成质量随 prompter 规模上升（thinking 模式下 GenEval++ 从 46.4%→86.8%），且除了最小的 0.8B（推理容易陷入死循环）外，思维链都有额外增益。<strong>这等于说：通用 LLM 的进步能不经任务训练就通过 SP 界面传导到图像生成。</strong></p>
+<p>但即便 397B 零样本，填出来的 SP 也常常&quot;视觉细节不够&quot;、图偏简单。于是走三阶段后训练：</p>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-2-7">① SFT</h3><p>用（图的原 caption 当"用户请求"，标注流水线产的 SP 当目标）配对，教会 prompter 一个"合理 SP 补全"的条件先验（含对象/属性/几何/深度/关系），不是死记 JSON 语法。</p></div>
+  <div class="card"><h3 id="sec-2-8">② Cold-start</h3><p>让带图 teacher 写"无图 prompter 如何推理到目标 SP"的思维链；用 Gemini 判官<strong>拒掉那些"直接说出图里细节却给不出来源"的轨迹</strong>（防止特权图信息泄漏进 CoT）。</p></div>
+  <div class="card"><h3 id="sec-2-9">③ RFT = 验证器门控 OPSD</h3><p>prompter 采自己的轨迹→扩散器渲染→验证器只看用户请求和图，用<strong>保守高精确率阈值</strong>当接受门；被接受的轨迹上再用 OPSD 从带图 teacher 蒸馏 token 级偏好。</p></div>
+</div>
+<p>OPSD 的损失（只更新 student <span class="math inline">\(\pi_\theta\)</span>）：</p>
+<div class="math block">
+\[\mathcal{L}_{\mathrm{OPSD}}(\theta) = \mathbb{E}_{\tau\sim\pi_\theta,\ \tau\ \text{accepted}}\left[ \frac{1}{|\mathcal{T}_\tau|}\sum_{t\in\mathcal{T}_\tau} D\big(\pi^\star(\cdot\mid\tau_{\lt t}, \text{prompt}, I)\ \|\ \pi_\theta(\cdot\mid\tau_{\lt t}, \text{prompt})\big) \right]\]
+</div>
+<p>—— 翻译：在 student <strong>自己</strong>采样并被验证器<strong>接受</strong>的轨迹 <span class="math inline">\(\tau\)</span> 上，让一个<strong>能看到参考图 <span class="math inline">\(I\)</span></strong> 的冻结 teacher <span class="math inline">\(\pi^\star\)</span> 和<strong>看不到图</strong>的 student <span class="math inline">\(\pi_\theta\)</span> 逐 token 对齐（<span class="math inline">\(D\)</span> 是 KL）。核心不对称性是：teacher 有特权图信息、student 没有——OPSD 把&quot;看图才知道的偏好&quot;蒸给&quot;只能靠推理的 prompter&quot;。验证器决定<strong>哪些轨迹</strong>参与训练（门），OPSD 决定<strong>在这些轨迹上学什么</strong>（密集监督）。这正是本文和 <a class="wiki-link" data-slug="d-opsd-2026" href="../d-opsd-2026/index.html">d-opsd-2026</a>/<a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> 在<strong>同一个 OPSD 原理、不同作用位置</strong>上的呼应（详见 §5）。</p>
+<h3 id="sec-2-10">2.7 推理期：refine–render–judge 智能体循环</h3>
+<p>因为 SP 把视觉决策暴露成<strong>具名字段</strong>，所以判官的批评可以翻译成<strong>定点修改</strong>而不是重写整段 caption。第 <span class="math inline">\(t\)</span> 轮：prompter 用（用户请求 + 累计批评 <span class="math inline">\(c_{t-1}\)</span>）产出 <span class="math inline">\(\mathrm{SP}_t\)</span> → 固定扩散器渲染 <span class="math inline">\(I_t\)</span> → 在线 Gemini 判官<strong>只看用户请求和 <span class="math inline">\(I_t\)</span></strong>（看不到 SP），返回逐轴分数、PASS/FAIL、以及一张 (字段, 观察到, 期望) 的失败清单。FAIL 就把批评拼进上下文进入下一轮；反复失败允许越改越大（局部字段→重组元素→整场景重规划）。PASS 或 <span class="math inline">\(T_{\max}\)</span> 停。注意：<strong>在线控制用 Gemini、最终评测用 GPT-5.4</strong>，控制信号和评测是两个模型，避免自我打分。</p>
+<h2 id="sec-3">3. 结果 (Results)</h2>
+<p><strong>端到端对比（Table 2，单次推理）。</strong> 在同一套 Qwen-Image backbone 上：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>Qwen-Image 官方 PE</th>
+<th>Matched NL 控制</th>
+<th><strong>Ours (SP)</strong></th>
+<th>原始 Qwen-Image (无PE)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GenEval</td>
+<td>0.91</td>
+<td>0.91</td>
+<td><strong>0.94</strong></td>
+<td>0.87</td>
+</tr>
+<tr>
+<td>GenEval2 (AM/GM)</td>
+<td>82.4 / 52.8</td>
+<td>84.5 / 56.2</td>
+<td><strong>90.6 / 72.5</strong></td>
+<td>80.8 / 33.8</td>
+</tr>
+<tr>
+<td>DPG-Bench</td>
+<td>87.20</td>
+<td>87.80</td>
+<td><strong>90.71</strong></td>
+<td>88.32</td>
+</tr>
+<tr>
+<td>TIIF (short/long)</td>
+<td>88.3 / 88.4</td>
+<td>88.5 / 88.0</td>
+<td><strong>89.1 / 89.2</strong></td>
+<td>86.1 / 86.8</td>
+</tr>
+<tr>
+<td>WISE</td>
+<td>0.83</td>
+<td>0.84</td>
+<td><strong>0.89</strong></td>
+<td>0.62</td>
+</tr>
+<tr>
+<td>CoReBench</td>
+<td>74.7</td>
+<td>76.1</td>
+<td><strong>85.2</strong></td>
+<td>58.9</td>
+</tr>
+</tbody>
+</table>
+<p>关键在于<strong>Matched NL 控制</strong>：用<strong>同样的图、同样的阶段、同样的预算</strong>重训 Qwen-Image 扩散器+prompter，但保留自由散文界面——它把 GenEval2 GM/CoReBench 提到 56.2/76.1，<strong>仍显著低于</strong> SP 系统的 72.5/85.2。也就是说：增益不是来自更大 backbone 或更多训练，而是来自<strong>结构化界面本身</strong>。作者报的对比里，Ours 在几乎每一项上领先所有开源模型，并在多数项上追平或超过 Nano Banana、GPT-Image-1 等闭源系统（世界知识 WISE 打平 Nano Banana 的 0.89，构图推理 CoReBench 85.2 超过 Nano Banana 的 75.9）。</p>
+<p><strong>Prompter 缩放（Fig. 9）。</strong> schema 和扩散器固定，只换 prompter：质量随规模+思维链单调上升——把&quot;LLM 通用能力的进步&quot;直接变成&quot;文生图的进步&quot;。</p>
+<p><strong>训练阶段消融（Table 4）。</strong> 分工清晰：SFT 拿下<strong>最大单阶段 structure 增益</strong>（4.860→6.273，学的是 SP 内容分布不是语法）；cold-start 再提 structure/GSB；RFT 里<strong>验证器门控 OPSD</strong> 是最强端点（structure 7.600、GSB 42.0%），明显优于&quot;验证器分数当 reward 的 GRPO&quot;（7.113）和&quot;不门控的 OPSD&quot;（6.993）——门控和密集蒸馏缺一不可。有意思的是全流程里 <strong>DPG-Bench 只变了 1.29 分</strong>，说明 DPG 对这种结构/构图差异不敏感（Fig. 13 里肉眼可见的提升它测不出来）。</p>
+<figure>
+  <img class="zoomable" src="figures/fig13-progression.png" alt="三行提示词，从零样本到SFT到cold-start到RFT，文字保真、构图密度、版式结构逐阶段变好">
+  <figcaption>
+    <strong>Fig. 13</strong> — <strong>prompter 训练各阶段的定性演进。</strong>每行同一个用户请求、同一个 Qwen-Image backbone。在这些多语言、密集文字、海报设计的例子上，<strong>零样本 → prompt2sp SFT → cold-start → RFT</strong> 一路走来，文字保真度、构图密度、版式结构逐阶段变好——尤其海报类（第三行）从"堆几个相机"变成有标题层级和排版的完整海报。
+  </figcaption>
+</figure>
+<p><strong>推理期缩放（§4.3）。</strong> 把 Base 和已训 prompter 放进同一个 refine–render–judge 循环隔离&quot;迭代&quot;和&quot;backend&quot;两个变量，证明多轮迭代确实带来独立于底座的增益（这也解释了 Table 3 里 Claude Code / Codex 这类智能体 backend 为什么强）。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation)</h2>
+<p>仓库 <a href="https://github.com/heheyas/context-scaling">https://github.com/heheyas/context-scaling</a> 开源了 evalkit（GPG/ED 度量）、pe-rsft（prompter 训练数据管线）、training（Qwen-Image 训练）、demo（在线 SP 编辑）。下面把论文主张锚到具体函数。</p>
+<p><strong>① GPG 的核心就是&quot;两遍打分求差&quot;（Eq. 1）。</strong> 同一段 caption 打两遍分：一遍给图（grounded）、一遍不给图（prior），差就是 grounding gain。注意只在<strong>内容 token</strong>（value 而非 JSON 键/括号）上算，去掉跨字段的上下文噪声。</p>
+<!-- code-source: repo/evalkit/detailness/gpg/score.py:L216-L264 — GPG 逐样本打分：caption span 上的 NLL，带内容掩码 -->
+<pre><code class="language-python">@torch.no_grad()
+def score(model, processor, caption, image, system_prompt=None, content_mask=None):
+    &quot;&quot;&quot;Return (sum_nll, n_tokens, mean_nll) over the caption span.
+    image=None ⇒ text-only prior pass.&quot;&quot;&quot;
+    messages = _build_messages(caption, image, system_prompt=system_prompt)
+    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
+    inputs = processor(text=[text], images=([image] if image is not None else None),
+                       return_tensors=&quot;pt&quot;, padding=True).to(model.device)
+    cap_ids = processor.tokenizer(caption, add_special_tokens=False).input_ids
+    start, end = _locate_caption_span(inputs[&quot;input_ids&quot;][0].tolist(), cap_ids)
+    logits = model(**inputs).logits          # (1, T, V)
+    log_probs = F.log_softmax(logits[0, start-1:end-1].float(), dim=-1)
+    nll = -log_probs.gather(-1, inputs[&quot;input_ids&quot;][0, start:end].unsqueeze(-1)).squeeze(-1)
+    if content_mask is not None:             # 只在内容 token 上求和
+        nll = nll[torch.tensor(content_mask, dtype=torch.bool)]
+    s = float(nll.sum().item()); n = nll.numel()
+    return s, n, s / max(n, 1)
+</code></pre>
+<p><strong>②（一处值得说清的实现细节，不是 bug）论文的 GPG 是&quot;求和&quot;，但 <code>score.py</code> 每样本存的是&quot;逐 token 均值差&quot;。</strong> 上面的 <code>score()</code> 返回 <code>mean_nll</code>，逐样本记录里 <code>gpg = mp - mg</code> 是<strong>均值差</strong>（per-token PMI，约 0.2~2 nats）；而论文 Eq. 1 / Fig. 7 里 GPG 是<strong>内容 token 上的求和</strong>（100~225 nats）。二者靠聚合那一步对上——<code>aggregate_gpg</code> 显式地 <code>gpg_mean * n_tokens</code> 还原成总和：</p>
+<!-- code-source: repo/evalkit/detailness/gpg/io.py:L172-L178 — 聚合时把逐 token 均值 × token 数还原成论文的 total GPG -->
+<pre><code class="language-python">def aggregate_gpg(records):
+    &quot;&quot;&quot;Group into per-(kind, level) lists of *total* GPG values
+    (= gpg_mean * n_tokens) for each cell.&quot;&quot;&quot;
+    out = defaultdict(list)
+    for r in records:
+        out[(r[&quot;kind&quot;], r[&quot;level&quot;])].append(r[&quot;gpg&quot;] * r[&quot;n_tokens&quot;])
+    return out
+</code></pre>
+<p>也就是说 Eq. 1 被工程上拆成了&quot;逐样本存 per-token PMI + 聚合时乘 token 数&quot;两步——既方便按内容掩码复用、也解释了为什么 total GPG 会随 caption 变长而增长。读代码时若只看 <code>score.py</code> 会以为 GPG 是 per-token，要连 <code>io.py</code> 一起看才对得上论文。</p>
+<p><strong>③ ED 就是 F0.5(精确率, 召回率)，偏向精确率（Eq. 2）。</strong> 精确率=caption 属性里被图支持的比例，召回率=图属性里被 caption 覆盖的比例；<span class="math inline">\(\beta{=}0.5\)</span> 让&quot;编造&quot;比&quot;漏掉&quot;扣分更狠。</p>
+<!-- code-source: repo/evalkit/detailness/ed/io.py:L89-L95, L181-L194 — F0.5 与逐行 P/R 计算 -->
+<pre><code class="language-python">def f_beta(P, R, beta=0.5):
+    &quot;&quot;&quot;F_β = (1+β²)·P·R / (β²·P + R). Returns 0 when P = R = 0.&quot;&quot;&quot;
+    if P == 0 and R == 0: return 0.0
+    b2 = beta * beta
+    denom = b2 * P + R
+    return (1.0 + b2) * P * R / denom if denom else 0.0
+
+def per_row_F(match_record, category=&quot;A&quot;, beta=0.5):
+    src, sr = match_record[&quot;source&quot;].get(&quot;A&quot;, []), match_record[&quot;source_recall&quot;].get(&quot;A&quot;, [])
+    cap, cp = match_record[&quot;caption&quot;].get(&quot;A&quot;, []), match_record[&quot;caption_precision&quot;].get(&quot;A&quot;, [])
+    R = sum(1 for m in sr if m == &quot;YES&quot;) / len(src) if src else 0.0   # 图侧召回
+    P = sum(1 for m in cp if m == &quot;YES&quot;) / len(cap) if cap else 0.0   # caption 侧精确
+    return f_beta(P, R, beta=beta)
+</code></pre>
+<p>聚合用 Hampel 的 20%-截尾均值（<code>trim20</code>，丢掉最高/最低各 20%）抗提取/匹配偶发失败；幂律拟合 <code>MSE = a·ED^b</code> 在 log-log 上做（<code>aggregate.py:_fit_power_law</code>），对应 Eq. 4。</p>
+<p><strong>④ cold-start 的&quot;防泄漏&quot;验证器落在具体正则上。</strong> 论文说&quot;Gemini 判官拒掉直接说出图里细节却无来源的轨迹&quot;——代码里 <code>check_no_leakage</code> 用一组被动引用模式（&quot;according to the reference/blueprint…&quot;、&quot;as shown in the json…&quot;）来抓&quot;照抄参考答案&quot;的思维链，还额外禁止长 JSON 片段被 verbatim 引用。这保证 student 学的是&quot;如何推理出 SP&quot;，而不是&quot;如何复述特权图信息&quot;。</p>
+<!-- code-source: repo/pe-rsft/src/synth/filter.py:L89-L126 — cold-start 轨迹的防泄漏检查 -->
+<pre><code class="language-python">def check_no_leakage(thinking):
+    &quot;&quot;&quot;Catch PASSIVE DESCRIPTION of the reference answer (copying, not reasoning).&quot;&quot;&quot;
+    passive_patterns = [
+        r&quot;according to the (?:reference|blueprint|given|provided)&quot;,
+        r&quot;as (?:shown|specified|stated|given) in the (?:reference|blueprint|json)&quot;,
+        r&quot;the (?:reference|provided|given) (?:blueprint|json|output) (?:shows|says|states) that&quot;,
+        r&quot;(?:from|per|based on) the (?:reference|given|provided) (?:blueprint|json|answer)&quot;,
+    ]
+    text_lower = thinking.lower()
+    for pattern in passive_patterns:
+        if re.search(pattern, text_lower):
+            return False
+    # 也禁止长 JSON 片段被逐字复制（&gt;200 字符、≥2 段）
+    if len(re.findall(r'\{[^}]{200,}\}', thinking)) &gt;= 2:
+        return False
+    return True
+</code></pre>
+<p><strong>⑤ RFT 的&quot;验证器门控&quot;是一串硬约束的合取。</strong> 论文的&quot;保守高精确率接受门&quot;在开源数据管线里体现为 <code>filter_record</code>：JSON 合法 + bbox 合法 + 与参考 SP 的场景一致（名词袋重叠≥25%）+ 元素数在 ±50% + bbox IoU≥0.15，全过才算被接受的轨迹（缺任一即拒）。这就是&quot;牺牲覆盖率换高精确率&quot;的工程形态。</p>
+<!-- code-source: repo/pe-rsft/src/synth/filter.py:L375-L429 — 逐轨迹的多重验证门（forward 模式） -->
+<pre><code class="language-python">def filter_record(rec, cfg):
+    thinking = strip_boilerplate(rec.get(&quot;thinking&quot;) or &quot;&quot;)
+    failures = []
+    if not check_length(thinking, min_len, max_len):        failures.append(&quot;length&quot;)
+    if rec.get(&quot;mode&quot;) == &quot;backward&quot; and not check_no_leakage(thinking):
+        failures.append(&quot;leakage&quot;)
+    if not check_coherence(thinking, rec.get(&quot;prompt&quot;, &quot;&quot;)): failures.append(&quot;coherence&quot;)
+    if not check_not_templated(thinking):                   failures.append(&quot;templated&quot;)
+    if rec.get(&quot;mode&quot;) == &quot;forward&quot;:
+        gen_sp, ref_sp = rec.get(&quot;generated_sp&quot;), rec.get(&quot;reference_sp&quot;, &quot;&quot;)
+        if not check_forward_json(gen_sp):        failures.append(&quot;invalid_json&quot;)
+        elif not check_bbox_validity(gen_sp):     failures.append(&quot;invalid_bbox&quot;)
+        else:
+            if not check_forward_consistency(gen_sp, ref_sp): failures.append(&quot;scene_mismatch&quot;)
+            if not check_element_count(gen_sp, ref_sp):       failures.append(&quot;element_count&quot;)
+    return len(failures) == 0, failures      # 全过才被接受
+</code></pre>
+<p><strong>注意（开源边界）：</strong> 仓库开源了 GPG/ED 度量、cold-start/RFT 的<strong>数据构造与验证门</strong>、以及 Qwen-Image 训练脚本；但 OPSD 的 <strong>token 级 KL 蒸馏训练循环（Eq. 6）本身</strong>没有以独立脚本形式给出（RFT 目录是分布式拒绝采样+验证的数据管线，产出的是偏好过滤后的 SFT/DPO 数据）。也就是说：<strong>验证器这一半</strong>可复现，<strong>teacher→student 密集蒸馏那一半</strong>依赖内部训练框架。这点复现时要心里有数。</p>
+<h2 id="sec-5">5. 评述 (Critique)</h2>
+<h3 id="sec-5-1">5.1 强在哪里</h3>
+<ul>
+<li><strong>把&quot;caption 信息量&quot;从描述性属性变成可控训练变量</strong>，这是概念上的真贡献。GPG/ED 两个正交指标（一个要 token 概率、一个不要）Spearman 0.96 的一致性，让&quot;信息量预测 loss&quot;这件事很难被说成是某个指标的伪相关。</li>
+<li><strong>Matched NL 控制做得诚实。</strong> 同图同预算同阶段、只换界面，直接砍掉了&quot;增益来自更大模型/更多训练&quot;的解释——这是很多&quot;我们的方法更好&quot;论文最爱偷的懒，这里没偷。</li>
+<li><strong>可迁移的工程范式清晰</strong>：冻结专家出证据 / VLM 调和成文本、确定性字段梯解耦丰富度与标注质量、验证器门控与密集蒸馏分工。</li>
+</ul>
+<h3 id="sec-5-2">5.2 值得存疑 / 局限（作者部分自陈）</h3>
+<ul>
+<li><strong>缩放律是 backbone 特定的经验标定，不是定理。</strong> 数值关系在 BAGEL 上拟合，端到端换 Qwen-Image 时<strong>并未重拟合</strong>——所以&quot;MSE=0.4549−8.45e-5·GPG&quot;这条线不能跨 backbone 迁移，只有&quot;结构化仍胜自由散文&quot;这个定性结论迁了过去。作者说清楚了，但读者容易把公式当普适。</li>
+<li><strong>每个配置只训一次</strong>，15 个点的误差带是&quot;对采样设置的敏感度&quot;而非训练随机性——严格说 <span class="math inline">\(r=-0.984\)</span> 这种相关系数没有 run-to-run 置信区间支撑，是&quot;单次实现上的拟合优度&quot;。</li>
+<li><strong>评测的裁判几乎全是大模型</strong>（GPT-5.4 offline judge、Gemini online judge、Soft-TIFA、VLM GSB）。当被评系统本身就是&quot;为讨好 VLM 判官而结构化&quot;的，&quot;用 VLM 判官打分&quot;存在<strong>目标与评测同源</strong>的隐忧；虽然作者用了&quot;控制用 Gemini、评测用 GPT-5.4&quot;来解耦，但两者都属&quot;强 VLM 品味&quot;，人类偏好研究基本缺席。</li>
+<li><strong>成本没有正面账。</strong> L10 SP 有 1374 token，5 阶段标注要跑 Seed-VL+Sapiens+DepthAnything+SAM+VLM 组装，prompter 是 397B 上的 LoRA，推理还可能套多轮智能体循环——相对&quot;直接给扩散器一句话&quot;的算力/延迟代价，正文没有系统给出。</li>
+<li><strong>开源不完整</strong>（见 §4 注）：验证门可复现，OPSD 蒸馏循环依赖内部框架。</li>
+</ul>
+<h3 id="sec-5-3">5.3 延伸阅读与交叉验证</h3>
+<p>本文的 OPSD 和本库里两篇&quot;OPSD/OPD 用在扩散/流匹配上&quot;的工作，构成了一组很有意思的对照——<strong>同一个 on-policy self-distillation 原理，作用在流水线的不同位置</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>本文 (Context-Scaling)</th>
+<th><a class="wiki-link" data-slug="d-opsd-2026" href="../d-opsd-2026/index.html">d-opsd-2026</a> (D-OPSD)</th>
+<th><a class="wiki-link" data-slug="flow-opd-2026" href="../flow-opd-2026/index.html">flow-opd-2026</a> (Flow-OPD)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OPSD 作用对象</td>
+<td><strong>LLM prompter</strong>（文本侧）</td>
+<td>步蒸馏<strong>扩散模型本身</strong></td>
+<td><strong>流匹配生成器本身</strong></td>
+</tr>
+<tr>
+<td>student/teacher 不对称来源</td>
+<td>teacher 看得到<strong>参考图</strong>、student 无图</td>
+<td>同模型分饰：teacher 拿 <strong>target 图</strong> 文本+图、student 仅文本</td>
+<td>多 teacher 的 <strong>dense 速度场</strong> 监督</td>
+</tr>
+<tr>
+<td>蒸馏目标</td>
+<td>next-token KL（Eq. 6）</td>
+<td>student 轨迹上 self-distill，无 reward</td>
+<td>reverse-KL 退化成<strong>速度场 L2</strong></td>
+</tr>
+<tr>
+<td>有没有 reward/验证器</td>
+<td><strong>有</strong>：保守高精确率验证器门控</td>
+<td><strong>无 reward</strong></td>
+<td><strong>无 reward</strong>（MAR 美学锚定）</td>
+</tr>
+<tr>
+<td>冻结谁</td>
+<td><strong>冻结扩散器</strong>，只训 prompter</td>
+<td>边用边学，<strong>在线更新生成器</strong></td>
+<td>训练生成器</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因：</strong> 三者对&quot;什么是文生图的瓶颈&quot;的判断不同。本文押注<strong>文本条件界面</strong>是瓶颈，于是冻住扩散器、把算力全砸在&quot;把 SP 界面填好&quot;的 prompter 上，OPSD 用来解决&quot;测试时没有配对图&quot;的信息不对称；而 D-OPSD/Flow-OPD 押注<strong>生成器的采样/概念适配</strong>是瓶颈，OPSD 用来在少步/在线设定下让生成器自蒸馏。一个把 OPSD 当&quot;文本侧的信息补全器&quot;，两个把它当&quot;生成侧的分布对齐器&quot;。<strong>谁更对取决于你的扩散器离饱和有多远</strong>——如果 backbone 已经很强（如 Qwen-Image），本文的&quot;界面才是瓶颈&quot;就更成立；如果 backbone 本身弱或要少步化，OPD/OPSD 直接作用在生成器上更划算。</p>
+<p>另一条对照是<strong>重述式提示词增强（recaptioning）<strong>这条线（DALL-E 3、FIBO 的长 JSON caption、Cosmos 3 的结构化字段、Reve 2.0 的层级布局）：它们都发现&quot;更结构/更细的 caption 有用&quot;。本文的</strong>更细一层的主张</strong>是——有用的不是&quot;更长&quot;也不只是&quot;JSON 语法&quot;，而是<strong>可度量的图像相关信息量</strong>（GPG/ED），并且把这个量标定成了能预测 loss 的缩放变量。换句话说，前人给了&quot;结构化有用&quot;的定性结论，本文给了&quot;为什么、以及能预测多少&quot;的定量刻度。</p>
+<!-- 研究启发 -->
+<h2 id="sec-6">研究启发 (Transferable Takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">把"信息量"做成可筛选的代理指标</h3><p>训练前用一个便宜的白盒/黑盒指标（似然增益 / 属性 F 值）给数据配置打分、先筛后训，能省掉大量"训完才知道好不好"的扩散训练。可迁移到任何"数据表示影响下游训练"的场景。</p></div>
+  <div class="card"><h3 id="sec-6-2">正交双指标互证因果</h3><p>用两个原理不同的指标（要 token 概率 vs 不要）度量同一个隐变量，若二者排序高度一致（ρ=0.96），就大幅降低"伪相关"的怀疑。做度量类工作时值得抄。</p></div>
+  <div class="card"><h3 id="sec-6-3">专家出证据、生成器出文本</h3><p>别把不可靠模型的原始预测直接序列化成条件——错误会变成显式监督。让冻结专家出中间证据，再由一个模型"调和"进最终表示。</p></div>
+  <div class="card"><h3 id="sec-6-4">确定性投影解耦"丰富度 vs 质量"</h3><p>从一份最全标注确定性地遮字段派生出多个层级，让消融只变"暴露多少信息"、不变"标注质量"。这是做干净 ablation 的通用手法。</p></div>
+  <div class="card"><h3 id="sec-6-5">验证器门控 ≠ 验证器当 reward（反直觉点）</h3><p>Table 4 显示：把验证器分数直接当 reward（GRPO 7.113）不如"验证器只当高精确率接受门 + 另一路密集蒸馏"（门控 OPSD 7.600）。把"筛哪些轨迹"和"在轨迹上学什么"拆开，比拿一个噪声分数硬做 RL 更稳。</p></div>
+  <div class="card"><h3 id="sec-6-6">结构化界面顺便解锁定点编辑</h3><p>把生成条件写成具名字段，推理期批评就能翻译成"改哪个字段"而不是"重写整段"，零样本可编辑是 SP 的免费副产品。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
