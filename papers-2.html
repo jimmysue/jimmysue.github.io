@@ -52,6 +52,21 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/qwen-image-flash-2026/index.html">Qwen-Image-Flash:把 4-NFE 蒸馏的胜负手从「目标函数」搬到「训练配方」</a></h3>
+  <p class="post-card__tldr">Qwen 团队的少步蒸馏技术报告:不再卷 distillation objective,而是系统性消融「数据组成 / 教师引导 / 任务混合」三个配方维度,把 Qwen-Image-2.0 蒸成 4-NFE 的统一生成-编辑模型。三个反直觉结论:(1) 文本中心数据反而蒸不出文本渲染,单类别(landscape/portrait)数据跨类泛化更好;(2) 直接用任务专精教师当唯一引导会让训练崩溃,需要 base 教师做锚 + 专精教师 step-wise 加权;(3) T2I:Edit = 5:5 平衡混合最优,而且编辑监督反过来还能涨 T2I。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/few-step-distillation.html">few-step-distillation</a>
+      <a class="tag-chip" href="concepts/dmd.html">dmd</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/physeditworld-2026/index.html">PhysEditWorld：把「重力」从隐式相关性拽成可编辑的设计变量</a></h3>
@@ -178,22 +193,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/identity-preservation.html">identity-preservation</a>
       <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
       <span class="tag-chip tag-chip--more">+6 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/osprey-2023/index.html">Osprey:把「掩码」喂进 MLLM 的像素级区域理解</a></h3>
-  <p class="post-card__tldr">Osprey 把 referring 的输入从「框」升级到「掩码」:用 mask-aware visual extractor 在卷积 CLIP(ConvNeXt-L)的多尺度特征图上做 mask-average-pooling 抽语义、再把掩码本身展平投影成 spatial token,两者替换文本里的 &lt;region&gt; 占位符喂给 LLM。配 724K 掩码-文本指令数据(Osprey-724K),在开放词表分割、部件级分类、区域描述上全面超过 box 级方法和 Ferret。
-它是 [[ferret-2023|Ferret]]「自由形状区域输入」的掩码精化版,也是 [[lisa-2023|LISA]] 输出侧掩码的输入侧对偶。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
-      <a class="tag-chip" href="concepts/region-input.html">region-input</a>
-      <a class="tag-chip" href="concepts/mask-pooling.html">mask-pooling</a>
-      <span class="tag-chip tag-chip--more">+4 more</span>
   </div>
 </div>
 </div>

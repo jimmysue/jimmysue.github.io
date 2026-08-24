@@ -49,6 +49,27 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-02</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/native-8k-t2i-2026/index.html">业界有没有原生 8K 的文生图？—— 2026 超高分辨率 T2I 方案调研</a></h3>
+  <p class="post-card__tldr">一句话结论：截至 2026-07，业界没有任何一个「原生 8K」（训练分布 = 7680×4320 / 8192²）的文生图模型。
+原生训练的天花板停在 4K（4096²）：商用侧 Seedream 4.0 原生到 4K，学术侧 Sana / Diffusion-4K / L2P /
+AsymFlow 原生 4K，UltraPixel 靠级联做到 6K。真正的 8K 输出全部来自「免训练超分 / 外推」管线——
+HiWave（8192² 免训练）、PixelRush（单卡 8K &lt; 100s）、Scale-DiT（8K &lt; 2min）、L2P 的 8K zero-shot 外推——
+它们都建立在 ≤4K（甚至 1K 的 SDXL）底座之上，用分块反演 + 小波细节 / 窗口注意力把分辨率「拉」上去。
+本文把两条路线（原生训练 vs 免训练外推）并排，给出为什么 8K 原生至今是空白的三个硬约束，并对 Diffusion-4K
+的小波损失、Sana 的 f32 DC-AE 做了代码交叉验证。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/ultra-high-resolution.html">ultra-high-resolution</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/training-free-upsampling.html">training-free-upsampling</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -171,23 +192,6 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
       <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
       <a class="tag-chip" href="concepts/video-super-resolution.html">video-super-resolution</a>
       <span class="tag-chip tag-chip--more">+9 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-25</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/krea-2-2026/index.html">Krea 2 技术报告精读：一个「为创意探索而生」的开源文生图基础模型，从数据、架构到万卡基建全栈拆解</a></h3>
-  <p class="post-card__tldr">Krea 2 是 Krea 自研的开源文生图（T2I）基础模型族，定位不是「给你一张最稳的默认图」，而是「让你在广阔的美学空间里探索」——刻意保留风格多样性、并配套 prompt 扩写器 + 风格参考系统两套可控性工具。开源权重 + 推理代码，permissive license，号称登上 Artificial Analysis T2I 榜前 10、独立实验室中第 2。
-这是一份「工程配方 + 系统基建」型技术报告（58 分钟阅读），重点不在新公式，而在**全栈决策**：数据策展原则（多样性优先、零 AI 生成图）、从 LLM 生态搬过来的极简 DiT（GQA + 门控 sigmoid 注意力 + SwiGLU + Qwen3-VL + 轻量时间步调制 + 多层特征聚合）、五阶段训练流水线（预训练→midtraining→SFT→偏好优化→RL→时间步蒸馏），以及从零自建的 Kubernetes 训练基建（Kueue 调度、Virtual Kubelet 外溢推理、Weka 文件系统、PostgreSQL「krablet」数据仓库 + FOR UPDATE SKIP LOCKED 队列）。
-本文按精读骨架交叉拆解，并补全报告用散文描述、但背后是标准公式的几处方法（rectified-flow v 参数化、DPO/STPO、多奖励 GRPO、DMD→TDM）。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
-      <a class="tag-chip" href="concepts/mmdit.html">mmdit</a>
-      <span class="tag-chip tag-chip--more">+18 more</span>
   </div>
 </div>
 </div>

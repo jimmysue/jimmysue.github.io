@@ -52,16 +52,15 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-05-22</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/bernini-2026/index.html">Bernini: Latent Semantic Planning for Video Diffusion（用 MLLM 做「语义规划」，DiT 只负责渲染像素）</a></h3>
-  <p class="post-card__tldr">字节跳动 Bernini 团队的技术报告。核心主张：MLLM 和扩散模型可以用一条「分工线」缝起来——让 MLLM 做语义规划（在它自己的 ViT embedding 空间里预测「目标该长什么样」），让 DiT 只负责把这份语义计划渲染成像素。关键设计有三个：(1) 用 MAR 式的掩码生成把 MLLM 从「理解模型」改造成「语义规划器」，目标 ViT token 训练时随机掩码、推理时从全掩码迭代填充；(2) SA-3D RoPE，给统一序列里每个视觉 segment 一个下标 i，用一个「段相位」旋转向量 ⊙ 到标准 3D RoPE 上，解决多张参考图/源视频「同一 (t,h,w) 坐标身份混淆」的问题；(3) 一条链式增量 guidance，把源视频 / 源图 / 文本 / 语义 embedding 四种条件拆成可独立调节的增量。因为「语义」是接口，planner 和 renderer 可以分开训、只轻量联训。实测在 OpenVE（4.04 vs 次优 3.18）、EditVerse（editing quality 8.02）、OpenS2V（FaceSim 78.20，比次优高 20+ 分）等多个视频编辑/生成榜上做到 SOTA，且 VBench 文生图质量几乎不掉（84.64 vs 底座 Wan2.2 的 84.79）。代码与权重已开源（Qwen2.5-VL-7B 规划器 + Wan2.2-A14B 渲染器）。
-</p>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/asymflow-2026/index.html">AsymFlow: 秩-非对称速度参数化, 把 latent 流匹配模型 lift 到像素空间</a></h3>
+  <p class="post-card__tldr">Stanford (Wetzstein/Guibas 组, arXiv 2026/05/13)。像素扩散用 plain DiT 的瓶颈是 velocity 目标 u = ε − x₀ 里那个 full-rank 高斯噪声污染 transformer hidden state。AsymFlow 把 velocity 拆开非对称: data 项 −x₀ 保持 full-rank, noise 项限到 rank-r 子空间, 即 u_A := Pε − x₀, 训练时网络只预测 u_A, sampling 时解析还原 full-rank。r=0 退化 x₀-pred, r=D 退化 u-pred, 中间是新东西。子空间用 PCA 或 latent→pixel Procrustes 对齐构造。架构 / training-loop / sampler 一字不改。结果: ImageNet 256 上 1.57 FID (JiT-H/16 + REPA), 是 plain transformer 像素扩散 SOTA; 从 FLUX.2 klein 9B Procrustes-lift 得到 AsymFLUX.2 klein, 是&lt;em&gt;第一个&lt;/em&gt;把大型 latent flow 直接转成像素生成器的方法, 在 HPSv3/DPG/GenEval 上全面超过 latent base。</p>
   <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video-editing.html">video-editing</a>
-      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
-      <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
+      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
 </div>
