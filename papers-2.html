@@ -47,8 +47,23 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 51 篇论文精读。</p>
+<p class="page__intro">共 53 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/physeditworld-2026/index.html">PhysEditWorld：把「重力」从隐式相关性拽成可编辑的设计变量</a></h3>
+  <p class="post-card__tldr">清华深圳 + 北航 + 港科大等。一个数据集论文：现有 game world model 把物理当成数据分布里的隐式规律学，能模仿「世界通常怎么演化」，但答不出游戏作者真正关心的问题——「同一个场景，如果改一条物理规则，应该怎么演化？」。PhysEditWorld 用 UE5 的 replay-and-rendering 管线，固定场景 / 初始态 / 动作序列 / 角色控制器 / 相机策略，只改重力配置重放同一段交互，得到 matched counterfactual replay group：12 个电影级 UE5 场景、100+ 小时交互、60M+ 渲染帧、8 路同步相机、RGB/深度/法线/音频/动作/相机/引擎态/重力标签。配套验证：在 Wan2.2-5B / LingBot-World 上 LoRA 微调后重力对齐从 33% → 100%、$R^2$ 0.066 → 0.570；Qwen3-VL 重力分类 24.7% → 95.3%。代码（UE5 插件）尚未释出，仓库目前只有数据契约 + 配置 + CLI 文档。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
+      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
+      <a class="tag-chip" href="concepts/physics-editing.html">physics-editing</a>
+      <span class="tag-chip tag-chip--more">+5 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -179,22 +194,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/region-input.html">region-input</a>
       <a class="tag-chip" href="concepts/mask-pooling.html">mask-pooling</a>
       <span class="tag-chip tag-chip--more">+4 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/oftsr-2024/index.html">OFTSR：一步超分 + 可调「保真度↔真实感」的整条曲线</a></h3>
-  <p class="post-card__tldr">OFTSR 用两阶段方案做单步图像超分：先训一个「噪声增广的条件 rectified flow」当教师，再蒸馏出一个一步学生网络——蒸馏的约束是「学生从不同时间 t、s 的预测必须落在教师同一条 PF-ODE 轨迹上」。
-关键好处：一步推理时只需调一个超参 t，就能在「高 PSNR / 高保真」和「低 LPIPS / 高真实感」之间连续滑动，把感知-失真权衡的整条曲线塞进单步模型，而过去的单步蒸馏只能锁死在曲线上的一个点。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/rectified-flow.html">rectified-flow</a>
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

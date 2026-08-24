@@ -71,6 +71,15 @@
   </div>
   <h2>提到此概念的论文 / 教程</h2>
   <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-08-24</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/pixrestore-2026/index.html">PixRestore：扔掉 VAE 和 T2I 先验，从零训一个像素空间 DiT 做统一图像修复</a></h3>
+  <p class="post-card__tldr">港理工 VCLab 的统一图像修复（UIR）工作。核心主张：为 UIR 适配大 T2I 潜空间扩散模型是走了弯路——VAE 会丢掉修复最在意的细节，开放式生成先验会造出与输入不一致的伪影，十亿级骨干 + MLLM + MoE + VAE 编解码则纯属浪费算力。PixRestore 反其道而行：无 VAE、不用 T2I 预训练，直接在 patch 化的 RGB 像素上从零做 flow matching。为了适应不同退化，它用冻结的 DINOv2 多层特征作条件，并训一个「相似度引导的自适应层路由」——用 LQ–HQ 特征相似度当老师，可靠的层融合成 dense 条件（Eq 5），不可靠的层反而加大 HQ 特征监督（Eq 6）。最后把多步模型固定 t=1、配 DINO 特征判别器蒸成一步生成器。结果：约 50M 参数、单步推理、44ms，在 8 类退化上整体保真度/感知质量/退化去除都拿到最优或次优，算力只有 FoundIR-v2 的 1/181、Flux-IR 的 1/1209。
+</p>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
@@ -245,6 +254,15 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/l2p-2026/index.html">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</a></h3>
   <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-05-22</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/bernini-2026/index.html">Bernini: Latent Semantic Planning for Video Diffusion（用 MLLM 做「语义规划」，DiT 只负责渲染像素）</a></h3>
+  <p class="post-card__tldr">字节跳动 Bernini 团队的技术报告。核心主张：MLLM 和扩散模型可以用一条「分工线」缝起来——让 MLLM 做语义规划（在它自己的 ViT embedding 空间里预测「目标该长什么样」），让 DiT 只负责把这份语义计划渲染成像素。关键设计有三个：(1) 用 MAR 式的掩码生成把 MLLM 从「理解模型」改造成「语义规划器」，目标 ViT token 训练时随机掩码、推理时从全掩码迭代填充；(2) SA-3D RoPE，给统一序列里每个视觉 segment 一个下标 i，用一个「段相位」旋转向量 ⊙ 到标准 3D RoPE 上，解决多张参考图/源视频「同一 (t,h,w) 坐标身份混淆」的问题；(3) 一条链式增量 guidance，把源视频 / 源图 / 文本 / 语义 embedding 四种条件拆成可独立调节的增量。因为「语义」是接口，planner 和 renderer 可以分开训、只轻量联训。实测在 OpenVE（4.04 vs 次优 3.18）、EditVerse（editing quality 8.02）、OpenS2V（FaceSim 78.20，比次优高 20+ 分）等多个视频编辑/生成榜上做到 SOTA，且 VBench 文生图质量几乎不掉（84.64 vs 底座 Wan2.2 的 84.79）。代码与权重已开源（Qwen2.5-VL-7B 规划器 + Wan2.2-A14B 渲染器）。
+</p>
 </div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">

@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Bernini: Latent Semantic Planning for Video Diffusion（用 MLLM 做「语义规划」，DiT 只负责渲染像素）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 统一输入：所有任务串成一条序列</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 掩码语义规划：把 MLLM 改造成规划器</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 SA-3D RoPE：给「同坐标不同段」的 token 消歧</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 训练目标：三个损失加权和</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 推理 guidance：把四路条件拆成可独立调节的增量</a></li>
+    <li class="h2"><a href="#sec-3">3. 结果 (Results)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节与系统工程 (Implementation &amp; Systems)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸 (Critique &amp; Related)</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 弱点与局限（部分作者已自陈）</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 交叉验证：与相似工作的结论对照</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable Takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">接口即架构</a></li>
+    <li class="h3"><a href="#sec-6-2">相位 &gt; 加法</a></li>
+    <li class="h3"><a href="#sec-6-3">零初始化接旁路</a></li>
+    <li class="h3"><a href="#sec-6-4">反直觉：语义可以很便宜</a></li>
+    <li class="h3"><a href="#sec-6-5">分数化离散 id</a></li>
+    <li class="h3"><a href="#sec-6-6">一致性是被忽视的战场</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Bernini: Latent Semantic Planning for Video Diffusion</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-05-22</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-05-22</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Bernini Team, ByteDance (Chenchen Liu, Junyi Chen, Lei Li, Lu Chi, Mingzhen Sun, Zhuoying Li, et al.)</span> · <span class="post-meta__venue">arXiv Technical Report</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2605.22344">arXiv:2605.22344</a> · <a class="post-meta__link" href="https://bernini-ai.github.io">项目页</a> · <a class="post-meta__link" href="https://github.com/bytedance/Bernini">代码</a> · <a class="post-meta__link" href="https://huggingface.co/collections/ByteDance/bernini">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/video-editing.html">video-editing</a> <a class="concept-chip" href="../../concepts/video-generation.html">video-generation</a> <a class="concept-chip" href="../../concepts/unified-multimodal.html">unified-multimodal</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/mllm-conditioning.html">mllm-conditioning</a> <a class="concept-chip" href="../../concepts/masked-generative-modeling.html">masked-generative-modeling</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/classifier-free-guidance.html">classifier-free-guidance</a> <a class="concept-chip" href="../../concepts/subject-to-video.html">subject-to-video</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-leaderboard.png" alt="Bernini 视频编辑竞技场排行榜与胜率矩阵">
+  <figcaption>
+    <strong>Fig. 1</strong> — 自建视频编辑竞技场（人类盲评、开放式指令）。左：Bradley–Terry 分数（含 95% bootstrap 置信区间），Bernini 以 480p/24fps 排到 <strong>第 2（BT 1044）</strong>，仅次于内部闭源系统 HappyHorse，压过 720p/24fps 的 Wan2.7、Grok-imagine-video、Kling_v3_omni。右：成对胜率矩阵。这是全文最诚实的一张图——它把 Bernini 放在真实商业模型之间做人评，而不是只挑对自己有利的自动指标。
+  </figcaption>
+</figure>
+<!-- 全局路线图 — 这是一篇有明确方法贡献又带完整系统工程的技术报告，先给读者一张全景。 -->
+<div class="summary-grid">
+  <div class="card"><h3>核心主张</h3><p>MLLM 做<strong>语义规划</strong>，DiT 做<strong>像素渲染</strong>，二者以 MLLM 自己的 ViT embedding 空间为接口，可分开训练、只轻量联训。</p></div>
+  <div class="card"><h3>规划器</h3><p>MAR 式掩码生成：目标视觉 token 训练随机掩码、推理从全掩码迭代 K 步填充；ViT decoder 用 flow matching 还原真值 embedding。</p></div>
+  <div class="card"><h3>渲染器</h3><p>Wan2.2 双专家 DiT，在 VAE 潜空间 flow matching；SA-3D RoPE 消除多段视觉输入的身份歧义；链式增量 guidance 拆四路条件。</p></div>
+  <div class="card"><h3>系统工程</h3><p>440K token 长序列训练（较此前 100K 提升 4.4×）；FSDP + Ulysses SP；序列打包 + 贪心装箱数据均衡；两阶段蒸馏做到 4 NFE。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>这篇报告要回答一个已经被问了两年、但一直没有干净答案的问题：<strong>MLLM（会理解、会推理）和扩散模型（会画）怎么合成一个既懂意图又能生成的系统？</strong></p>
+<p>现有做法大多把两者「熔」进一个骨干：Emu3 把文本/图像/视频全量化成离散词表、从零训一个 transformer 做纯 next-token；Janus 保留自回归骨干但把理解和生成的视觉编码器拆成两路；Show-o、HunyuanImage 3.0、BAGEL 则各自用混合目标（AR + 离散扩散、MoE 专家）在一个 transformer 里耦合。这些方案的共同代价是：<strong>为了统一，往往要动骨干、从头训、或者牺牲掉预训练 MLLM 本来那身「理解肌肉」。</strong></p>
+<p>Bernini 的出发点是两个朴素观察：</p>
+<ol>
+<li><strong>MLLM 天生适合语义推理</strong>——读长指令、grounding 多张参考图、在脑子里形成「输出该长什么样」的内部表征。</li>
+<li><strong>扩散生成天然可分解为「语义引导 + 细节保持」</strong>——高层内容由一个紧凑的语义信号决定，而细粒度保真（编辑时还要和源输入一致）才需要稠密的像素级 latent（VAE 特征）。<strong>关键是：语义信号本身不需要高分辨率——几个语义 token 就足以指定一整个场景。</strong></li>
+</ol>
+<p>于是就有了一条干净的分工线：<strong>让 MLLM 做语义推理，让扩散模型专注合成</strong>。剩下唯一的设计问题是——用什么表征在两者之间传递语义？Bernini 的答案是「不另造接口」：直接锚定到 <strong>MLLM 自己已经在用的 ViT embedding 空间</strong>。MLLM 本来就在这个空间里理解和表征视觉内容，所以训它「在 ViT embedding 里规划目标」和它的预训练表征天然对齐，几乎不需要额外适配。</p>
+<p>这一点决定了整篇报告的气质：它不是又一个「大力出奇迹」的统一大模型，而是一个<strong>用最小改动把两个成熟组件缝起来、并想尽办法不破坏它们各自预训练能力</strong>的工程系统。</p>
+<!-- 术语速查 — 本文 acronym 密度很高，先一句话一个，免得第二段就劝退。 -->
+<div class="term-grid">
+  <div class="card"><h4>Planner（规划器）</h4><p>基于 MLLM（Qwen2.5-VL-7B）的模块，输入多模态条件，输出「目标视觉内容」在 ViT embedding 空间里的语义表征。</p></div>
+  <div class="card"><h4>Renderer（渲染器）</h4><p>基于 DiT（Wan2.2-A14B）的模块，把 planner 给的语义计划 + 文本 + 源 VAE 特征，在 VAE 潜空间里 flow matching 去噪成最终图/视频。</p></div>
+  <div class="card"><h4>ViT embedding 空间</h4><p>MLLM 视觉编码器（ViT）输出的连续视觉特征空间。Bernini 把它当作 planner 和 renderer 之间的「语义接口」。</p></div>
+  <div class="card"><h4>MAR / 掩码生成</h4><p>Masked Autoregressive。训练时随机掩码一部分目标 token 让模型预测；推理时从全掩码开始，多步迭代由粗到细填满。Bernini 的 planner 用它做语义规划。</p></div>
+  <div class="card"><h4>Flow Matching</h4><p>连续型扩散/流的训练目标：学一个速度场把噪声「流」到数据。Bernini 的 ViT decoder 和 DiT 都用它。</p></div>
+  <div class="card"><h4>SA-3D RoPE</h4><p>Segment-Aware 3D RoPE。在标准时空 3D 旋转位置编码上，再乘一个「段相位」，让来自不同参考图/源视频的 token 即使坐标相同也能被区分。</p></div>
+  <div class="card"><h4>V2V / RV2V / S2V</h4><p>视频编辑任务类型：V2V=文本指令改视频；RV2V=文本+参考图改视频；S2V=给定主体参考生成视频。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig3-overview.png" alt="Bernini 总体架构：统一序列、MLLM 规划器、DiT 渲染器、段级混合注意力掩码、SA-3D RoPE">
+  <figcaption>
+    <strong>Fig. 3</strong> — Bernini 总览。(A) 文本与视觉输入被串成一条统一的 1D 序列。(B) MLLM 规划器从被掩码的目标出发预测语义 embedding，并作为条件喂给渲染器；训练时旁挂一个 ViT embedding decoder（flow match loss），推理时迭代掩码精化。(C) DiT 渲染器在 VAE 潜空间 flow matching，条件是语义 embedding + 源 VAE 特征。(D) MLLM 里用段级混合注意力掩码。(E) SA-3D RoPE 给不同 segment 加不同相位来消歧。
+  </figcaption>
+</figure>
+<p>Bernini 由两大件组成：<strong>MLLM 规划器</strong>和 <strong>DiT 渲染器</strong>，中间夹一个 <strong>MLP connector</strong> 把 MLLM 的隐状态映射成渲染器需要的条件表征。下面按「统一输入 → 掩码规划 → 段感知 RoPE → 训练目标 → 推理 guidance」五步拆。</p>
+<h3 id="sec-2-1">2.1 统一输入：所有任务串成一条序列</h3>
+<p>不管是文生图、文生视频、主体到视频，还是图/视频编辑，Bernini 都把它们串成同一条 token 序列（文本 token + 源视觉 token + 目标视觉 token）。MLLM 编码整条序列，产出捕捉目标意图的上下文隐状态 <span class="math inline">\(z\)</span>：</p>
+<div class="math block">
+\[z = \mathrm{MLLM}(t,\ v_1^{\mathrm{src}}, v_2^{\mathrm{src}}, \dots, v_N^{\mathrm{src}},\ v^{\mathrm{tgt}})\]
+</div>
+<p class="math-translation">—— 翻译：把「文字指令 + 所有源图/源视频 + 目标输出」拼成一句话喂进 MLLM，让它一次性读懂「要在什么素材上、做什么改动、得到什么」。$v^{\mathrm{tgt}}$（目标视觉 token）在训练时被随机部分掩码，推理时初始化为全掩码——因为推理时你还没有目标，正是要模型把它「想」出来。</p>
+<p>这个「统一输入协议」是 Bernini 能用一套架构覆盖多任务的前提：没有 task-specific 的分支，任务差异只体现在序列里放了哪些 segment、以及各 segment 的掩码策略。</p>
+<h3 id="sec-2-2">2.2 掩码语义规划：把 MLLM 改造成规划器</h3>
+<p>视觉语义 latent 本质是双向的（不像文本有天然从左到右的因果性），所以 Bernini 用<strong>掩码生成范式</strong>而非自回归。训练时随机掩掉一部分目标视觉 token（换成共享的 mask token），让 MLLM 从可见 token + 周围多模态上下文推断被掩内容；掩码比例从一个 <strong>task-dependent 的 Beta 分布</strong> <span class="math inline">\(r\sim\mathrm{Beta}(\alpha,\beta)\)</span> 采样。</p>
+<p>被掩位置的 MLLM 隐状态送进一个 <strong>ViT embedding decoder</strong>（一个 MLP + ResNet 预测头，学 MAR [39] 的设计），用 flow matching 在 ViT embedding 空间里还原真值 embedding。推理时所有目标 token 从全掩码起步，按余弦调度逐步减少掩码数、迭代 K 步由粗到细：</p>
+<div class="math block">
+\[\mathrm{mask\_ratio}(k, K) = \cos\!\Big(\frac{\pi}{2}\cdot\frac{k+1}{K}\Big)\]
+</div>
+<p class="math-translation">—— 翻译：第 k 步（共 K 步）还剩多大比例是掩着的。k 从 0 涨到 K−1 时，$\cos$ 从接近 1 平滑降到 0——一开始几乎全掩、每步敢确定的 token 很少，越到后面越自信、一次填一大批。这正是 MaskGIT/MAR 那套「先画轮廓再补细节」的填色顺序。</p>
+<p><strong>代码对照 ①：推理端的迭代掩码规划循环。</strong> 论文 §2.1.1 的余弦调度和「预测→回填→再预测」在 <code>pipeline.py</code> 里一字不差：</p>
+<p class="code-source">repo/bernini/pipeline.py:L744,L763-L828 — MLLM 规划器的迭代掩码精化循环</p>
+<pre><code class="language-python">mask_ratio_generator_infer = lambda s, totals: np.cos(math.pi / 2.0 * (s + 1) / totals)
+# ...
+for step in tqdm(range(planning_step), desc=f&quot;Sample FM+MAR clip in {planning_step} steps&quot;):
+    hidden_state       = self.text_encoder(inputs_embeds=input_embeds.clone(), ...).hidden_states[-2]
+    uncond_hidden_state= self.text_encoder(inputs_embeds=uncond_input_embeds.clone(), ...).hidden_states[-2]
+    imgcond_hidden_state=self.text_encoder(inputs_embeds=imgcond_input_embeds.clone(), ...).hidden_states[-2]
+    # 从倒数第二层取视觉输出位置的隐状态，过 connector 得到预测的 ViT embedding
+    pred_vit_embed_mllm       = self.connector.for_vit(hidden_state[:, visual_output_token_mask, :])
+    # 下一轮的掩码比例，遵循 MaskGIT / MAR
+    mask_ratio = mask_ratio_generator_infer(step, planning_step)
+    mask_len   = torch.Tensor([np.floor(n_query_tokens * mask_ratio)]).to(device)
+    mask_len   = torch.maximum(torch.Tensor([1]).cuda(),
+                               torch.minimum(torch.sum(mask, -1, keepdims=True) - 1, mask_len))
+    mask_next  = torch.scatter(torch.zeros_like(mask), -1, order[:mask_len.long()],
+                               torch.ones_like(mask)).bool()
+    mask_to_pred = mask.bool() if step &gt;= planning_step - 1 else torch.logical_xor(mask.bool(), mask_next)
+    # 只对「这一轮要定下来」的 token 跑 ViT decoder 的 flow-matching 去噪
+    cur_pred_vit_embed = self.sample_vit_decoder(
+        vit_embed=pred_vit_embed_mllm[:, mask_to_pred.nonzero(as_tuple=True)[0]],
+        vit_txt_cfg=vit_txt_cfg, vit_img_cfg=vit_img_cfg, sample_steps=vit_denoising_step)
+</code></pre>
+<p>注意三件事：<code>hidden_states[-2]</code> 说明用的是<strong>倒数第二层</strong>隐状态（和 §6.1 里「penultimate-layer」一致）；<code>order = shuffle(...)</code> 是随机生成顺序（MAR 精神）；每一步同时前向三条（cond / uncond文本 / img-cond）是为下一步的 ViT-decoder CFG 准备的。</p>
+<p><strong>代码对照 ②：ViT decoder 的 flow-matching 损失 <span class="math inline">\(\mathcal{L}_{\text{visual}}\)</span>。</strong> 论文说 decoder 在 ViT embedding 空间用 flow matching 训练，代码里就是一个标准 FM MSE，<code>z</code> 是条件（被掩位置的 MLLM 隐状态）、<code>target</code> 是真值 ViT embedding：</p>
+<p class="code-source">repo/bernini/models/diffloss_fm.py:L101-L133 — ViT embedding decoder 的 flow matching 损失</p>
+<pre><code class="language-python">def forward(self, target, z, mask=None):
+    # multi noise trick：同一个 target 复制 diffusion_batch_mul 份，摊薄采样方差
+    z      = z.reshape(seq_len, -1).repeat(self.diffusion_batch_mul, 1)
+    target = target.reshape(seq_len, -1).repeat(self.diffusion_batch_mul, 1)
+    x = target
+    timestep = self.scheduler.timesteps[timestep_id].to(dtype=z.dtype, device=z.device)
+    noise = torch.randn_like(x)
+    x_t   = self.scheduler.add_noise(x, noise, timestep).to(z.dtype)  # 在真值 embedding 上加噪
+    model_pred   = self.net(x_t, timestep, c=z)                        # 条件 z 预测速度场
+    model_target = self.scheduler.training_target(x, noise, timestep)  # flow matching 目标
+    loss = F.mse_loss(model_pred.float(), model_target.float(), reduction=&quot;none&quot;)
+    loss = loss.view(x.shape[0], -1).mean(dim=1) * self.scheduler.training_weight(timestep).to(x.device)
+    if mask is not None:
+        loss = loss * mask            # 只在被掩位置计损失
+    return loss
+</code></pre>
+<p>这解释了 planner 的「双分支」设计——<code>connector.for_vit</code>（还原 ViT embedding，服务规划）和 <code>connector.for_gen</code>（给 DiT 当条件，服务渲染）是两条独立投影：</p>
+<p class="code-source">repo/bernini/models/bernini.py:L72-L99 — MLP connector 的双分支：gen 分支给 DiT、vit 分支还原 ViT embedding</p>
+<pre><code class="language-python">if enable_gen_branch:
+    self.proj_gen = nn.Sequential(nn.Linear(in_dim, out_dim_for_gen), nn.GELU(),
+        RMSNorm(out_dim_for_gen), nn.Linear(out_dim_for_gen, out_dim_for_gen))   # out=4096 → DiT 条件
+if enable_vit_branch:
+    self.pred_vit = nn.Sequential(nn.Linear(in_dim, out_dim_for_vit), nn.GELU(),
+        nn.Linear(out_dim_for_vit, out_dim_for_vit), RMSNorm(out_dim_for_vit),
+        nn.Linear(out_dim_for_vit, out_dim_for_vit))                             # out=3584 → ViT embedding
+def for_gen(self, x): return self._run_projection(self.proj_gen, x)
+def for_vit(self, x): return self._run_projection(self.pred_vit, x)
+</code></pre>
+<p><code>out_dim_for_vit=3584</code> 正是 Qwen2.5-VL 的 ViT/隐藏维度——config 里 <code>z_channels/target_channels/out_dim_for_vit</code> 全是 3584，与「ViT embedding 空间做接口」一致。</p>
+<h3 id="sec-2-3">2.3 SA-3D RoPE：给「同坐标不同段」的 token 消歧</h3>
+<p>这是全文最漂亮的一个小设计。当 Bernini 把多张参考图、源视频、目标输出全拼进一条序列，<strong>不同 segment 的 token 可能撞上相同的 <span class="math inline">\((t,h,w)\)</span> 坐标</strong>——标准 3D RoPE 只编码时空位置，此时它们的位置相位一样，注意力分不清「这个特征属于参考图 1 还是源视频」，于是就发生 §6.6 图里那种「参考图的背景/材质泄漏到目标里」的现象。</p>
+<p>SA-3D RoPE 的解法：给每个 segment 一个下标 <span class="math inline">\(i\)</span>（目标段 <span class="math inline">\(i=0\)</span>，输入段 <span class="math inline">\(i=1,2,\dots\)</span>），构造一个全维旋转频率向量 <span class="math inline">\(r_i^{\text{seg}}\)</span> 编码这个下标，再复数逐元素乘到标准 3D RoPE 上：</p>
+<div class="math block">
+\[\tilde{r}_{t,h,w,i} = r_{t,h,w} \odot r_i^{\text{seg}}\]
+</div>
+<p class="math-translation">—— 翻译：原来每个 token 的旋转相位只由它的时空坐标 $(t,h,w)$ 决定；现在再叠一个只跟「它属于第几段」有关的全局相位。$\odot$ 是复数逐元素相乘，也就是相位相加。于是「参考图 1 的左上角」和「源视频的左上角」即使时空坐标相同，也因为段相位不同而在注意力里可区分——像给每个人的手表统一拨快了固定的时区。</p>
+<p><strong>代码对照 ③：SA-3D RoPE。</strong> <code>use_src_id_rotary_emb=True</code> 时，多算一个 <code>freqs_visual_id</code> 并乘上去，正是 Eq. 2 的 <span class="math inline">\(\odot\)</span>：</p>
+<p class="code-source">repo/bernini/models/transformer_wan.py:L269-L289 — SA-3D RoPE：段相位 ⊙ 标准 3D RoPE</p>
+<pre><code class="language-python">freqs_f = freqs[0][:ppf].view(ppf, 1, 1, -1).expand(ppf, pph, ppw, -1)
+freqs_h = freqs[1][:pph].view(1, pph, 1, -1).expand(ppf, pph, ppw, -1)
+freqs_w = freqs[2][:ppw].view(1, 1, ppw, -1).expand(ppf, pph, ppw, -1)
+freqs = torch.cat([freqs_f, freqs_h, freqs_w], -1).reshape(1, 1, ppf * pph * ppw, -1)  # 标准 3D RoPE
+
+if self.use_src_id_rotary_emb:
+    # source_id 可以是分数：把超训练范围的多参考 id 均匀映射进已训 id 区间，
+    # 让旋转相位落在已训流形内而不是外推到没见过的整数 id
+    pos = torch.tensor([float(source_id)], dtype=torch.float64, device=hidden_states.device)
+    freqs_visual_id = get_1d_rotary_pos_embed(self.attention_head_dim, pos, self.theta,
+        use_real=False, repeat_interleave_real=False, freqs_dtype=torch.float64)
+    freqs_visual_id = freqs_visual_id.view(1, 1, 1, -1).expand(ppf, pph, ppw, -1)
+    freqs_visual_id = freqs_visual_id.reshape(1, 1, ppf * pph * ppw, -1)
+    freqs = freqs * freqs_visual_id                       # ← Eq.2 的 r̃ = r_{t,h,w} ⊙ r_i^seg
+</code></pre>
+<p>代码比论文多讲了一层<strong>论文没写的工程细节</strong>：<code>source_id</code> 允许是<strong>分数</strong>。当推理时参考图数量超过训练见过的最大 <code>max_trained_src_id</code>（默认 5），它把这些 id 均匀铺进 <code>[1, max_trained]</code> 区间（<code>interpolate_src_id</code>），让旋转相位停在「训练见过的流形」内而不是外推到没见过的整数下标——这是让模型泛化到「更多参考图」的关键 trick。段 id 的分配在 <code>wan_diffusion.py:400</code>：噪声目标恒为 <code>source_id=0</code>，每个条件源从 1 开始。</p>
+<h3 id="sec-2-4">2.4 训练目标：三个损失加权和</h3>
+<div class="math block">
+\[\mathcal{L} = \lambda_{\text{text}}\,\mathcal{L}_{\text{ntp}} + \lambda_{\text{visual}}\,\mathcal{L}_{\text{visual}} + \lambda_{\text{dit}}\,\mathcal{L}_{\text{dit}}\]
+</div>
+<p class="math-translation">—— 翻译：三件事同时练。$\mathcal{L}_{\text{ntp}}$（next-token 预测）保住 MLLM 原本的语言/理解能力不退化；$\mathcal{L}_{\text{visual}}$（ViT 空间 flow matching）教 planner 把目标语义规划出来；$\mathcal{L}_{\text{dit}}$（VAE 空间 flow matching）教 renderer 把语义画成像素。$\lambda_{\text{text}}=0.2$，另两个为 1——文本损失权重压低，因为它只是「防遗忘」的正则，不是主线任务。</p>
+<p>三阶段训练（见 §4）：<strong>Stage I</strong> 只练 planner + ViT decoder（<span class="math inline">\(\lambda_{\text{text}}\mathcal{L}_{\text{ntp}}+\lambda_{\text{visual}}\mathcal{L}_{\text{visual}}\)</span>，256p）；<strong>Stage II</strong> 只练 DiT renderer（<span class="math inline">\(\mathcal{L}_{\text{dit}}\)</span>，480p，保留 T5 文本编码器）；<strong>Stage III</strong> 轻量联训对齐两者。「分开训、只轻量联训」正是「语义当接口」带来的红利——两个组件的预训练能力都不会在早期互相干扰中被冲垮。</p>
+<h3 id="sec-2-5">2.5 推理 guidance：把四路条件拆成可独立调节的增量</h3>
+<p>渲染时有四种条件：源视频 VAE 特征、源图 VAE 特征、文本特征、目标语义 embedding。Bernini 不是简单 CFG，而是把预测拆成一个无条件基项 + 四个<strong>逐级增量</strong>：</p>
+<div class="math block">
+\[\hat{\epsilon} = \epsilon_{\varnothing} + \omega_{\text{vid}}\Delta_{\text{vid}} + \omega_{\text{img}}\Delta_{\text{img}} + \omega_{\text{txt}}\Delta_{\text{txt}} + \omega_{\text{tgt}}\Delta_{\text{tgt}}\]
+</div>
+<p>其中每个增量是「多加一路条件」相对「上一级」的差，例如 <span class="math inline">\(\Delta_{\text{txt}} = \epsilon_{\text{txt,∅,vid,img}} - \epsilon_{\varnothing,\varnothing,\text{vid,img}}\)</span>。</p>
+<p class="math-translation">—— 翻译：从「什么都不给」的基准预测出发，一路一路把条件加回去，每加一路就量一次「这路条件让预测变了多少」（增量 Δ），再各自配一个旋钮 ω 控制它的强度。想让编辑更贴指令就调大 $\omega_{\text{txt}}$，想让非编辑区更像原视频就调大 $\omega_{\text{vid}}$——四路解耦、互不打架。</p>
+<p><strong>代码对照 ④：链式增量 guidance。</strong> 论文 Eq. 8–12 在 <code>wan_diffusion.py</code> 里就是一个「每路条件对上一路做差、再累加」的循环（还叠了 APG 投影抑制过饱和）：</p>
+<p class="code-source">repo/bernini/models/wan_diffusion.py:L117-L124 — 链式 APG guidance：Eq.8-12 的四路逐级增量</p>
+<pre><code class="language-python">def normalized_guidance_chain(pred_uncond, preds, scales, momentum_buffers, eta, norm_thresholds):
+    &quot;&quot;&quot;Chained APG: each condition's diff is taken against the previous one.&quot;&quot;&quot;
+    bases = [pred_uncond] + list(preds)
+    result = pred_uncond
+    for i, cond in enumerate(preds):
+        nd = _normalize_diff(cond - bases[i], cond, momentum_buffers[i], eta, norm_thresholds[i])
+        result = result + scales[i] * nd    # result += ω_i · Δ_i，Δ_i = 本级 − 上一级
+    return result
+</code></pre>
+<p><code>cond - bases[i]</code>（本级预测减去上一级预测）就是 <span class="math inline">\(\Delta\)</span> 的定义；<code>result += scales[i] * nd</code> 就是把带权增量累加回去。不同任务的 <span class="math inline">\(\omega\)</span> 见论文 Table 5（如 V2V：<span class="math inline">\(\omega_{\text{txt}}=4.0,\ \omega_{\text{vid}}=1.25,\ \omega_{\text{tgt}}=0.5\)</span>）。</p>
+<h2 id="sec-3">3. 结果 (Results)</h2>
+<p>Bernini 的实验覆盖三条线：视频编辑、主体到视频、文生视频，外加消融。<strong>底座是 Qwen2.5-VL-7B（规划器）+ Wan2.2-A14B（渲染器）</strong>。</p>
+<p><strong>视频编辑（主战场）。</strong></p>
+<ul>
+<li><strong>自建 Bernini-Bench</strong>（300 例、22 类编辑）：V2V 总分 <strong>3.49</strong>（Wan2.7 为 3.30，Kling O3 为 3.05）；尤其在 <strong>Video Consistency（非编辑区一致性）3.51 vs Wan2.7 的 3.11</strong> 拉开明显差距——这正是编辑模型最容易翻车、也最被忽视的维度。</li>
+<li><strong>OpenVE-Bench</strong>（Gemini 2.5 pro 评）：总分 <strong>4.04</strong>，大幅超过次优 VINO 的 3.18；Camera Edit 一项 4.67 vs 次优 2.81。</li>
+<li><strong>EditVerse</strong>：editing quality <strong>8.02</strong>（次优 EditVerse 7.65），pick score / text alignment 均第一。</li>
+<li><strong>FiVE</strong>：VQA 类 FiVE-Acc 系列全面 SOTA（Acc 78.16 vs 次优 Omni 72.41），结构/背景保持也接近最好。</li>
+</ul>
+<p><strong>主体到视频（OpenS2V-Eval）。</strong> 总分 <strong>62.94</strong>，超过所有闭源+开源对手（Kling O3 59.19、RefAlign-14B 60.42）。最亮眼的是 <strong>FaceSim 78.20，比次优 Kling O3 的 57.20 高出 20+ 个绝对点</strong>——多参考主体驱动里长期的老大难「人脸身份保持」被显著改善。这一条最能说明「MLLM 的理解能力真的迁移进了生成」。</p>
+<p><strong>文生视频（VBench，防退化验证）。</strong> Bernini 总分 <strong>84.64</strong>，几乎持平底座 Wan2.2-A14B 的 84.79。这条不是为了赢，而是证明：<strong>把 Wan2.2 扩成统一框架、加了编辑和主体生成能力后，原来的文生视频质量没被牺牲。</strong></p>
+<p><strong>消融。</strong></p>
+<ul>
+<li><strong>SA-3D RoPE</strong>（Fig. 15）：对比标准 3D RoPE、以及「3D RoPE + 可学习段 embedding」。加段 embedding 确实比 vanilla 好（如第二行的围巾一致性），但<strong>两个 baseline 都仍有明显的参考泄漏</strong>（第一行背景、第三行鸭子头串味）。结论：当多段共享 <span class="math inline">\((t,h,w)\)</span> 时，加性段 embedding 不够，必须靠相位调制解耦身份与位置。</li>
+<li><strong>ViT 语义接口 + MLLM 规划器</strong>（Fig. 16）：去掉 ViT 语义接口→指令跟随变弱（该换成机器狗的没换、该加的飞鸟没加）；两个都去掉→进一步退化。证明两者互补且都是「精确编辑」的必要件。</li>
+<li><strong>推理增强</strong>（Table 10）：baseline 3.12 → 用自身自文本推理 3.33 → 换 GPT-5.4 做 prompt enhancer 3.49 → 再加视觉-文本推理 <strong>3.52</strong>。多模态推理相对纯文本推理有增量收益。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig14-qualitative.png" alt="Bernini 与 VINO/Kling-O3/Wan-2.7 在 V2V 和 RV2V 任务上的定性对比">
+  <figcaption>
+    <strong>Fig. 14</strong> — 定性对比。V2V「让两只狗互相扭打」：VINO 的狗和原视频不一致、Kling-O3 背景不匹配、Wan-2.7 左边狗明显扭曲，只有 Bernini 同时保住了狗和背景、又自然改了动作。RV2V「把视频里的游艇换成参考图里的货船」：只有 Bernini 生成了与参考图一致的船。Bernini 的优势集中体现在<strong>「改该改的、不动不该动的」</strong>。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig15-rope-ablation.png" alt="SA-3D RoPE 消融：与标准 3D RoPE 及加段 embedding 的对比">
+  <figcaption>
+    <strong>Fig. 15</strong> — SA-3D RoPE 消融。第 1 行风格迁移：baseline 把参考图的「Happy Holidays」文字/雪景背景泄漏进目标；第 3 行主体到视频：baseline 出现鸭子头串味。SA-3D RoPE（左）干净隔离各段身份，两个 baseline（右二列）都做不到。
+  </figcaption>
+</figure>
+<h2 id="sec-4">4. 实现细节与系统工程 (Implementation &amp; Systems)</h2>
+<p>这是一篇带完整工程报告的技术论文，实现细节既有算法侧也有系统侧。<strong>≥5 处可对照的关键实现：</strong></p>
+<ol>
+<li>
+<p><strong>MLLM 只取倒数第二层、零初始化 MLP、与 T5 拼接</strong>（§6.1）。为了不破坏 Wan2.2 的预训练文本条件分布，Bernini <strong>保留原 T5 特征</strong>，只把 MLLM 倒数第二层过一个 <strong>zero-init 单层 MLP</strong> 再和 T5 concat。config 里 <code>t5_combine_type: &quot;concat_with_zero_init&quot;</code> 坐实——零初始化保证训练初期 MLLM 分支「先不说话」，不冲垮 Wan2.2 的先验。对应 <code>pipeline.py</code> 里 <code>hidden_states[-2]</code>。</p>
+</li>
+<li>
+<p><strong>task-dependent 掩码比例</strong>（§4.1，Table 3）。<span class="math inline">\(r\sim\mathrm{Beta}(\alpha,\beta)\)</span>，从文本生成（<span class="math inline">\(\alpha{=}5,\beta{=}1.1\)</span>）到视频编辑（<span class="math inline">\(\alpha{=}12,\beta{=}0.9\)</span>），<span class="math inline">\(\alpha\)</span> 增大把分布推向 <span class="math inline">\(r{\to}1\)</span>，即<strong>输入信息越充分、掩得越狠</strong>，逼 planner 从高层上下文而非「偷看」可见目标 token 来推断——编辑任务里源和目标高度相关，不这么做规划会「太容易」而学不到东西。</p>
+</li>
+<li>
+<p><strong>task-dependent 噪声调度</strong>（§4.2，Table 4）。图像任务用 logit-normal 加权 + shift 3.0，视频任务用 mode 加权 + shift 5.0（follow SD3、Waver）。对应 <code>scheduler.py</code> 的 <code>FlowMatchScheduler</code>。</p>
+</li>
+<li>
+<p><strong>分数段 id + 训练范围内插</strong>（<code>transformer_wan.py:274</code>、<code>wan_diffusion.py:400</code>）。上面 §2.3 已述——这是论文正文没提、但代码里让「多参考泛化」成立的关键工程点。</p>
+</li>
+<li>
+<p><strong>两阶段蒸馏做到 4 NFE</strong>（§5.3）。先 CFG 蒸馏（把 cond/uncond 双次前向压成单次），再 ReFlow 拉直 ODE 轨迹。最终 4 NFE 的学生≈80 NFE 的教师。对应 <code>wan_diffusion.py</code> 的双专家（high-noise/low-noise）采样器。</p>
+</li>
+<li>
+<p><strong>推理时 planner 开销可忽略</strong>（§4.2）。25 步语义规划、每步 ViT decoder 只跑 5 步去噪，相对后续 DiT 的 40–60 步渲染，运行时几乎可忽略——这是「语义信号不需要高分辨率」的直接兑现。</p>
+</li>
+</ol>
+<p><strong>系统工程线（Infrastructure，§5）——这是本报告被低估的一半：</strong></p>
+<ul>
+<li><strong>长序列训练</strong>：把每 GPU 显存从 72GB 压到 40GB（FSDP 调参 + 直接 index-scatter 到预分配 buffer，省掉 17GB 中间分配 + 自定义激活 offload），最终支持 <strong>440K token 序列，较此前 100K 提升 4.4×</strong>。</li>
+<li><strong>算子级优化</strong>：DiT 用 FlashAttention-4、MLLM 用 FlexAttention，异步 QKV 通信、TND 内存布局免转置、QuACK 的高性能 RMSNorm，合计最高 <strong>46% 加速</strong>。</li>
+<li><strong>并行</strong>：DiT 和 MLLM 都用 Ulysses 序列并行（MLLM 侧扩展后 SP=4 拿到 2× 吞吐），只在长序列任务开 SP 避免短输入的通信浪费。</li>
+<li><strong>序列打包 + 数据均衡</strong>：token-bucket 分桶 + 贪心 bin-packing 负载均衡（max/min 工作量比 &lt;1.01），端到端吞吐 <strong>~4.5×</strong>。</li>
+<li><strong>推理并行</strong>：DiT 上 DeepSpeed Ulysses + 异步 all-to-all，VAE 上时间维 context parallelism + 异步 conv cache 传输，合计 <strong>&gt;7.2× 加速</strong>。</li>
+</ul>
+<p><strong>论文↔代码差异排查：</strong> 未发现实质性冲突。开源仓库同时提供 **Bernini（7B planner + 14B renderer 全套）**和 <strong>Bernini-R（仅 renderer，从 Wan 微调）<strong>两族——README 的基准表显示 Bernini-R 14B 在纯质量指标上接近全套 Bernini，但 Bernini-V2V 总分（3.25 vs 3.49）落后，正好印证「MLLM planner 主要贡献在复杂指令的语义规划、而非渲染质量」。唯一「论文未明写、代码才有」的是 §2.3 的</strong>分数段 id 内插</strong>，属于增强而非矛盾。</p>
+<h2 id="sec-5">5. 批判与延伸 (Critique &amp; Related)</h2>
+<h3 id="sec-5-1">5.1 弱点与局限（部分作者已自陈）</h3>
+<ol>
+<li><strong>强依赖底座和外部改写器。</strong> 作者自陈：复杂编辑时仍需一个强 LLM 改写器（GPT-5.4）提供足够结构化的指令——Table 10 里「+PE(GPT-5.4)」相对「自身自文本」的跳变（3.33→3.49）说明<strong>模型自身的原生推理还不足以吃下最难的指令</strong>。「MLLM 做语义规划」的叙事很干净，但当前实例里最难那部分推理其实外包给了 GPT-5.4。</li>
+<li><strong>视觉质量仍逊于最强闭源。</strong> 主体到视频虽然一致性 SOTA，但绝对视觉质量仍不及 Wan2.7 这类更强系统（作者自陈）。Bernini 的强项是「一致性/身份保持」，不是「画面上限」。</li>
+<li><strong>人评榜第 2 而非第 1。</strong> Fig. 1 里 Bernini 输给内部闭源 HappyHorse，且这是 Bernini 480p 对 baseline 720p——分辨率不对等下的比较，读者需自行折算。</li>
+<li><strong>评测大量依赖 MLLM 打分（GPT-5.4 / Gemini 2.5 pro）。</strong> 作者也承认 MLLM 判不准小尺度失真/伪影，故 GQ 维度「仅供参考」。自动分的绝对值需谨慎。</li>
+<li><strong>规划步数/掩码调度是超参迷宫。</strong> 25 步规划 × 每步 5 步 ViT 去噪、6 类任务各一套 <span class="math inline">\((\alpha,\beta)\)</span> 和 shift、四路 <span class="math inline">\(\omega\)</span> 各任务不同——落地复现的调参面很大，报告给了表但没给敏感性分析。</li>
+</ol>
+<h3 id="sec-5-2">5.2 交叉验证：与相似工作的结论对照</h3>
+<p>Bernini 的「语义规划 / 像素渲染」二分，和近一年另外两条线的工作在**「压缩的高层信号 + 廉价渲染器」**这个核心观察上高度一致，但在「MLLM 到底插在哪」上分歧明显：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th><strong>Bernini</strong>（本文）</th>
+<th><strong>Boogu-Image</strong> <a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a></th>
+<th><strong>L2P / AsymFlow</strong> <a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a> · <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLLM 的角色</td>
+<td><strong>语义规划器</strong>：预测目标 ViT embedding（生成式）</td>
+<td><strong>指令编码器 + 改写器</strong>：给 DiT 当文本条件（判别式/编码）</td>
+<td>不用 MLLM，聚焦 latent→pixel 迁移本身</td>
+</tr>
+<tr>
+<td>语义接口</td>
+<td>MLLM 自己的 <strong>ViT embedding 空间</strong>（连续、双向、掩码生成）</td>
+<td>文本 embedding（Qwen3-VL 隐状态当 cross-attn 条件）</td>
+<td>LDM 的 <strong>latent 流形</strong>（把 latent flow lift 到像素）</td>
+</tr>
+<tr>
+<td>底座怎么用</td>
+<td>Qwen2.5-VL + Wan2.2，<strong>分开训只轻量联训</strong></td>
+<td>Lumina-Image-2 谱系 DiT，从头训生成侧</td>
+<td><strong>冻结</strong>预训练 LDM 大部分层，只训首尾 + Detailer</td>
+</tr>
+<tr>
+<td>共同观察</td>
+<td>高层语义信号不必高分辨率；细节交给稠密像素/VAE</td>
+<td>同：紧凑条件定内容，DiT 补像素</td>
+<td>同：LDM 已学到的平滑流形足以指导像素，无需从零</td>
+</tr>
+<tr>
+<td>关键分歧</td>
+<td>让 MLLM <strong>生成</strong>语义（planner），而非只<strong>编码</strong>指令</td>
+<td>让 MLLM <strong>编码/改写</strong>，生成完全交给 DiT</td>
+<td>根本不引入 MLLM，问题定义在「像素扩散怎么省 cold-start」</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因：</strong> 三者对「MLLM 的理解能力值不值得直接进生成回路」判断不同。Bernini 押注<strong>生成式规划</strong>——赌 MLLM 在 ViT 空间「想象目标」的能力能迁移成更强的指令跟随和身份保持（FaceSim +20 分是这个赌注的兑现证据）；Boogu 更保守，把 MLLM 当<strong>高质量文本编码器/改写器</strong>，避免动生成侧的稳定性；L2P/AsymFlow 干脆绕开 MLLM，只解决「像素扩散别从零 cold-start」这个正交问题。三条路互不冲突：可以预见「Bernini 式生成规划 + L2P 式冻结迁移渲染器」的组合会在未来出现——把 Bernini 的 Wan2.2 渲染器换成一个冻结迁移、原生高分的像素 renderer。</p>
+<p><strong>一个值得注意的一致「盲点」：</strong> 三者都严重依赖底座（Wan / Lumina / FLUX·Z-Image）的预训练质量，也都把「底座上限」列为主要 limitation。这说明当前这波「缝合式统一生成」的天花板，短期内仍由底层基座模型而非缝合方法本身决定。</p>
+<h2 id="sec-6">6. 研究启发 (Transferable Takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">接口即架构</h3><p>把「两个成熟模型怎么合作」重构成「用谁已有的表征当接口」——Bernini 选 MLLM 自己的 ViT 空间，于是两边都不用大改、能分开训。缝合系统的关键设计往往不是新模块，而是<strong>接口的选址</strong>。</p></div>
+  <div class="card"><h3 id="sec-6-2">相位 &gt; 加法</h3><p>要给序列里的 token 打「身份标签」，加性 embedding（加到隐状态）会被后续层稀释、泄漏；<strong>乘性相位调制</strong>（⊙ 到 RoPE）把身份编进旋转、与内容正交，隔离得更干净。消融证明这不是等价选择。</p></div>
+  <div class="card"><h3 id="sec-6-3">零初始化接旁路</h3><p>往预训练模型注入新条件时，用 zero-init MLP + concat（而非替换）让新分支「初始静默」，训练中再慢慢发声——保住底座先验的通用招式，Bernini 对 T5、ControlNet 对 UNet 同理。</p></div>
+  <div class="card"><h3 id="sec-6-4">反直觉：语义可以很便宜</h3><p>25 步规划相对 40–60 步渲染开销「可忽略」，因为<strong>语义信号不需要高分辨率</strong>——几个 token 定一整个场景。别把「规划」也做成高分辨率的重活。</p></div>
+  <div class="card"><h3 id="sec-6-5">分数化离散 id</h3><p>训练见过 id∈[1,5]，推理来了 8 个参考图？别外推到 id=6,7,8，把它们<strong>均匀内插进已训区间</strong>——让位置相位停在流形内。离散下标连续化是泛化到「更多」的通用 trick。</p></div>
+  <div class="card"><h3 id="sec-6-6">一致性是被忽视的战场</h3><p>Bernini 赢主要赢在「不动不该动的」（Video Consistency、FaceSim），而非画面上限。编辑类任务里，<strong>非编辑区保持</strong>比生成质量更能拉开体感差距，也更少被 benchmark 单独度量。</p></div>
+</div>
+<p>延伸阅读：<a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a>（MLLM 当编码器的统一生成+编辑）、<a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a> 与 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a>（latent→pixel 迁移的两种刀法，与 Bernini 的语义/像素二分互补）。</p>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

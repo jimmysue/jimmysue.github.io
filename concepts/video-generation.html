@@ -72,6 +72,15 @@
   <p class="post-card__tldr">清华深圳 + 北航 + 港科大等。一个数据集论文：现有 game world model 把物理当成数据分布里的隐式规律学，能模仿「世界通常怎么演化」，但答不出游戏作者真正关心的问题——「同一个场景，如果改一条物理规则，应该怎么演化？」。PhysEditWorld 用 UE5 的 replay-and-rendering 管线，固定场景 / 初始态 / 动作序列 / 角色控制器 / 相机策略，只改重力配置重放同一段交互，得到 matched counterfactual replay group：12 个电影级 UE5 场景、100+ 小时交互、60M+ 渲染帧、8 路同步相机、RGB/深度/法线/音频/动作/相机/引擎态/重力标签。配套验证：在 Wan2.2-5B / LingBot-World 上 LoRA 微调后重力对齐从 33% → 100%、$R^2$ 0.066 → 0.570；Qwen3-VL 重力分类 24.7% → 95.3%。代码（UE5 插件）尚未释出，仓库目前只有数据契约 + 配置 + CLI 文档。
 </p>
 </div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-05-22</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/bernini-2026/index.html">Bernini: Latent Semantic Planning for Video Diffusion（用 MLLM 做「语义规划」，DiT 只负责渲染像素）</a></h3>
+  <p class="post-card__tldr">字节跳动 Bernini 团队的技术报告。核心主张：MLLM 和扩散模型可以用一条「分工线」缝起来——让 MLLM 做语义规划（在它自己的 ViT embedding 空间里预测「目标该长什么样」），让 DiT 只负责把这份语义计划渲染成像素。关键设计有三个：(1) 用 MAR 式的掩码生成把 MLLM 从「理解模型」改造成「语义规划器」，目标 ViT token 训练时随机掩码、推理时从全掩码迭代填充；(2) SA-3D RoPE，给统一序列里每个视觉 segment 一个下标 i，用一个「段相位」旋转向量 ⊙ 到标准 3D RoPE 上，解决多张参考图/源视频「同一 (t,h,w) 坐标身份混淆」的问题；(3) 一条链式增量 guidance，把源视频 / 源图 / 文本 / 语义 embedding 四种条件拆成可独立调节的增量。因为「语义」是接口，planner 和 renderer 可以分开训、只轻量联训。实测在 OpenVE（4.04 vs 次优 3.18）、EditVerse（editing quality 8.02）、OpenS2V（FaceSim 78.20，比次优高 20+ 分）等多个视频编辑/生成榜上做到 SOTA，且 VBench 文生图质量几乎不掉（84.64 vs 底座 Wan2.2 的 84.79）。代码与权重已开源（Qwen2.5-VL-7B 规划器 + Wan2.2-A14B 渲染器）。
+</p>
+</div>
 </div>
 
   <p class="back-link"><a href="../graph.html">← 返回图谱</a></p>

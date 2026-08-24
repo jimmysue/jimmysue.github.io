@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>PixRestore：扔掉 VAE 和 T2I 先验，从零训一个像素空间 DiT 做统一图像修复</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">出发点：UIR 到底需不需要 T2I 那套重家伙</a></li>
+    <li class="h2"><a href="#sec-2">方法：像素流匹配 + 自适应 DINO 层路由 + 一步蒸馏</a></li>
+    <li class="h3"><a href="#sec-2-1">3.1 像素空间的修复流匹配</a></li>
+    <li class="h3"><a href="#sec-2-2">3.2 自适应层级视觉引导：本文最有意思的模块</a></li>
+    <li class="h3"><a href="#sec-2-3">3.3 一步蒸馏：固定 t=1 + DINO 特征判别器</a></li>
+    <li class="h2"><a href="#sec-3">实验结果：小、快、还最好</a></li>
+    <li class="h2"><a href="#sec-4">消融决策表：每个设计到底加了多少分</a></li>
+    <li class="h2"><a href="#sec-5">实现细节与「论文 vs 代码」核对</a></li>
+    <li class="h2"><a href="#sec-6">批判与延伸</a></li>
+    <li class="h3"><a href="#sec-6-1">值得商榷的地方</a></li>
+    <li class="h3"><a href="#sec-6-2">延伸阅读：与相似工作的交叉验证</a></li>
+    <li class="h3"><a href="#sec-6-3">研究启发（可迁移的套路）</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-08-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-08-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Lingchen Sun, Rongyuan Wu, Xiangtao Kong, Jixin Zhao, Qiaosi Yi, Yujing Sun, Shuaizheng Liu, Zhengqiang Zhang, Lei Zhang (HK PolyU Visual Computing Lab · OPPO Research Institute)</span> · <span class="post-meta__venue">arXiv preprint (cs.CV)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2608.16793">arXiv:2608.16793</a> · <a class="post-meta__link" href="https://github.com/csslc/PixRestore">项目页</a> · <a class="post-meta__link" href="https://github.com/csslc/PixRestore">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/image-restoration.html">image-restoration</a> <a class="concept-chip" href="../../concepts/unified-image-restoration.html">unified-image-restoration</a> <a class="concept-chip" href="../../concepts/pixel-diffusion.html">pixel-diffusion</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/dit.html">dit</a> <a class="concept-chip" href="../../concepts/dino.html">dino</a> <a class="concept-chip" href="../../concepts/vae-free.html">vae-free</a> <a class="concept-chip" href="../../concepts/one-step-generation.html">one-step-generation</a> <a class="concept-chip" href="../../concepts/adversarial-distillation.html">adversarial-distillation</a> <a class="concept-chip" href="../../concepts/degradation-aware.html">degradation-aware</a></div>
+</aside>
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="PixRestore teaser">
+  <figcaption><b>图 1（Teaser）。</b>左上：8 类退化上 PSNR / LPIPS / 退化去除三张雷达图，PixRestore（粉色）几乎全包围其他方法；右上：GFLOPs–推理延迟散点，气泡大小 = 参数量，PixRestore 在左下角（低算力、低延迟）孤零零一个小点；下：8 个修复任务的视觉对比。约 50M 参数 + 单步推理，是所有扩散类方法里又快又小又好的那个。</figcaption>
+</figure>
+<h2 id="sec-1">出发点：UIR 到底需不需要 T2I 那套重家伙</h2>
+<p>统一图像修复（Unified Image Restoration, UIR）想用<strong>一个模型</strong>处理噪声、模糊、雨、雾、低光、雪、超分等一大堆退化。最近的主流做法是<strong>去适配预训练的文生图（T2I）潜空间扩散模型</strong>——比如 FoundIR-v2 拿 SDXL + MoE 路由 + MLLM 写 caption，FLUX-IR 拿 FLUX + 强化 ODE 轨迹 + 成本感知蒸馏。理由很直接：T2I 有强大的生成先验和感知真实感。</p>
+<p>但作者认为这条路有三笔隐性成本：</p>
+<ol>
+<li><strong>有损的 latent 瓶颈</strong>：VAE 把图压进 latent 时，会顺手丢掉修复最在意的东西——小结构、文字笔画、锐利边缘。而这些恰恰是修复要还原的。</li>
+<li><strong>目标错位（objective mismatch）</strong>：T2I 先验擅长「无中生有」地合成看起来合理的细节，但修复要的是<strong>与输入一致</strong>的细节。开放式生成会造出「看着真、其实假」的内容。</li>
+<li><strong>冗余算力</strong>：十亿级骨干 + MLLM 规划器 + MoE 路由 + VAE 编解码 + 迭代采样，堆得又大又慢。</li>
+</ol>
+<p>作者的关键洞察是：<strong>UIR 不是 T2I</strong>。T2I 从一句文字凭空造图，需要极强的开放式生成能力；而 UIR 从 LQ 图出发，输入里已经<strong>塞满了视觉线索</strong>。所以 UIR 需要的开放式生成能力其实<strong>更少</strong>，它真正需要的是两件别的东西——<strong>对不同退化的鲁棒性</strong>，和<strong>像素对齐的忠实重建</strong>。</p>
+<p>顺着这个判断，PixRestore 做了三件&quot;逆流而上&quot;的事：</p>
+<ul>
+<li><strong>无 VAE、不预训练</strong>：直接在 patch 化的 RGB 像素上从零训一个 DiT 做 flow matching，把自编码器的信息损失和开销一并砍掉。</li>
+<li><strong>自适应层级视觉引导</strong>：不靠一个静态的全局退化表示，而是用冻结的 DINOv2 多层特征，训一个层路由按图、按退化自适应地挑可靠的层做条件、给不可靠的层加监督。</li>
+<li><strong>一步蒸馏</strong>：先训多步模型，再固定 <code>t=1</code>、配一个在 DINO 特征上做判别的轻量 GAN，蒸成单步生成器。</li>
+</ul>
+<p>一句话概括这篇的立场：<strong>修复的瓶颈不在&quot;生成先验够不够强&quot;，而在&quot;你有没有把输入的像素证据留住、并针对退化自适应地用好它&quot;。</strong></p>
+<h2 id="sec-2">方法：像素流匹配 + 自适应 DINO 层路由 + 一步蒸馏</h2>
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture.png" alt="PixRestore architecture">
+  <figcaption><b>图 2。</b>PixRestore 总览。冻结的视觉编码器（DINOv2）从 LQ 图抽多层特征，自适应层路由预测每层权重 <code>p₁…p_L</code>，把它们融成一个条件特征（Fused Feature）。LQ 图与噪声态 <code>xₜ</code> 沿通道拼接后 patch 化，过 N 个 DiT 块（每块含 Self-Attention → Cross-Attention → FFN），Cross-Attention 处注入融合后的 DINO 特征，最后线性解码回 HQ 输出。</figcaption>
+</figure>
+<h3 id="sec-2-1">3.1 像素空间的修复流匹配</h3>
+<p>设 HQ 图 <span class="math inline">\(y_{hq}\in[-1,1]^{3\times H\times W}\)</span>，LQ 图 <span class="math inline">\(y_{lq}\)</span> 是它被各种退化污染后的版本。作者把 UIR 建成<strong>像素空间里的条件流匹配</strong>。取线性插值路径</p>
+<div class="math block">
+\[x_t = (1-t)\,y_{hq} + t\,\epsilon,\qquad \epsilon\sim\mathcal N(0,I),\ t\sim\mathcal U(0,1)\]
+</div>
+<p>修复 DiT <span class="math inline">\(f_\theta\)</span> <strong>直接预测干净图</strong>（而不是速度）：</p>
+<div class="math block">
+\[\hat y_{hq} = f_\theta\big([\,y_{lq};x_t\,],\ t,\ \mathcal F(y_{lq})\big)\tag{1}\]
+</div>
+<p class="math-translation">—— 翻译：网络吃三样东西：把 LQ 图和当前带噪态 <code>xₜ</code> 沿通道拼在一起（6 通道）、时间 <code>t</code>、以及 LQ 图的多层 DINO 特征 <code>F(y_lq)</code>；吐出一张对干净图的估计 <code>ŷ_hq</code>。注意 <code>t=1</code> 时 <code>xₜ</code> 是纯噪声，<code>t=0</code> 时是干净图。</p>
+<p>预测完干净图，再折算成速度做 flow matching 损失。真实速度 <span class="math inline">\(v_t=(x_t-y_{hq})/t\)</span>，预测速度 <span class="math inline">\(\hat v_t=(x_t-\hat y_{hq})/t\)</span>，损失是 <span class="math inline">\(\mathcal L_{\text{flow}}=\lVert\hat v_t-v_t\rVert_2^2\)</span>。为防 <span class="math inline">\(t\to0\)</span> 时除零，把 <span class="math inline">\(1/t\)</span> 的分母<strong>裁剪到 0.05</strong>。</p>
+<p>这一段的代码几乎是逐字翻译。注意 <code>z_t</code> 就是 <span class="math inline">\(x_t\)</span>，<code>hq</code> 就是 <span class="math inline">\(y_{hq}\)</span>，<code>t_eps=0.05</code> 就是那个裁剪阈值：</p>
+<p class="code-source">repo/pixrestore/flow.py:L268-297 — 像素流匹配损失：先造 x_t，预测 x0，再折算速度算 L2</p>
+<pre><code class="language-python">z_t = (1 - t_shifted_) * hq + t_shifted_ * eps          # x_t = (1-t) y_hq + t ε   —— Eq(1) 的插值路径
+v = (z_t - hq) / t_shifted_.clamp_min(self.args.t_eps)  # 真实速度 v_t，分母裁到 t_eps=0.05
+inp = torch.cat([lq_mixed, z_t], dim=1)                 # [y_lq ; x_t]，6 通道
+if z_hq is not None:
+    (x_pred, x_fea) = model(inp, t, z=z_mixed, z_hq=z_hq)   # 预测干净图 x0（不是速度）
+else:
+    (x_pred, x_fea) = model(inp, t, z=z_mixed)
+v_pred = (z_t - x_pred) / t_shifted_.clamp_min(self.args.t_eps)  # 预测速度 v̂_t
+v_error = v_pred - v
+loss = _masked_mean_square(v_error, valid_loss_mask)    # L_flow = ‖v̂_t − v_t‖²
+# ... （下面还会加两个 DINO 辅助损失，见 3.2）
+adp_wt = (loss + self.norm_eps) ** self.norm_p          # JiT 式自适应梯度归一（见 §4）
+loss_backward = loss / adp_wt.detach()
+</code></pre>
+<p><strong>为什么&quot;预测 x0 再折算速度&quot;而不是直接回归速度？</strong> 因为当 <span class="math inline">\(t\)</span> 很小、<span class="math inline">\(x_t\)</span> 已经接近干净图时，速度 <span class="math inline">\(v_t=(x_t-y_{hq})/t\)</span> 会因为除以小 <span class="math inline">\(t\)</span> 而数值爆炸、方差极大；而 <span class="math inline">\(x_0=y_{hq}\)</span> 本身是一个尺度稳定的目标。预测 <span class="math inline">\(x_0\)</span> 再折算，等价于给速度回归自动加了一个 <span class="math inline">\(t\)</span> 相关的权重，训练更稳。这是 JiT（Back to basics: let denoising generative models denoise）那套思路在修复上的复用。</p>
+<p><strong>patch 化怎么让像素空间&quot;扛得住&quot;？</strong> 拼接后的输入是 6 通道全分辨率图。一个 patch embedding 把整张图切成 token；<strong>patch size 取 8</strong>（正好匹配 f8 VAE 的下采样率），这样在 512×512 上 token 序列长度和 latent DiT 一样，既保住了像素证据、又没让序列爆炸。每个 DiT 块是 RMSNorm + QK-norm 注意力 + RoPE，一个共享的 timestep 块给所有块产生 AdaLN 调制参数。</p>
+<p>值得一提的是 patch embed 用了个 <strong>bottleneck 结构</strong>（先降到 <code>pca_dim=768</code> 再升到 <code>hidden_size</code>），这是把「<span class="math inline">\(8\times8\times6=384\)</span> 维的原始 patch」先压后展的小技巧：</p>
+<p class="code-source">repo/pixrestore/models/patch_embed.py:L26-44 — bottleneck patch embed：两步卷积</p>
+<pre><code class="language-python">self.proj1 = nn.Conv2d(in_chans, pca_dim, kernel_size=patch_size, stride=patch_size, bias=False)  # 大卷积核 = patchify
+self.proj2 = nn.Conv2d(pca_dim, embed_dim, kernel_size=1, stride=1, bias=bias)                     # 1×1 升维
+def forward(self, x):
+    x = self.proj1(x)              # (B, pca_dim, H/p, W/p)
+    x = self.proj2(x)             # (B, embed_dim, H/p, W/p)
+    x = x.flatten(2).transpose(1, 2)   # (B, num_patches, embed_dim)
+    return x
+</code></pre>
+<p><strong>像素空间到底比 latent 好在哪？</strong> 作者做了一个干净的对照实验（同数据、同分辨率、同架构、同优化器、同采样器），把同一个 DiT-S 分别放在像素空间和三种主流 VAE 的 latent 空间里：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>VAE</th>
+<th style="text-align:right">参数(M)</th>
+<th style="text-align:right">DM 推理(ms/步)</th>
+<th style="text-align:right">VAE 推理(ms)</th>
+<th style="text-align:right">PSNR↑</th>
+<th style="text-align:right">LPIPS↓</th>
+<th style="text-align:right">MUSIQ↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Latent DiT-S</td>
+<td>SD2VAE (f8c4)</td>
+<td style="text-align:right">106.4</td>
+<td style="text-align:right">25</td>
+<td style="text-align:right">78</td>
+<td style="text-align:right">22.10</td>
+<td style="text-align:right">0.2483</td>
+<td style="text-align:right">50.38</td>
+</tr>
+<tr>
+<td>Latent DiT-S</td>
+<td>FluxVAE (f8c16)</td>
+<td style="text-align:right">106.6</td>
+<td style="text-align:right">25</td>
+<td style="text-align:right">78</td>
+<td style="text-align:right">22.63</td>
+<td style="text-align:right">0.2109</td>
+<td style="text-align:right">50.86</td>
+</tr>
+<tr>
+<td>Latent DiT-S</td>
+<td>QwenVAE (f8c16)</td>
+<td style="text-align:right">67.4</td>
+<td style="text-align:right">25</td>
+<td style="text-align:right">41</td>
+<td style="text-align:right">22.80</td>
+<td style="text-align:right">0.2181</td>
+<td style="text-align:right">51.87</td>
+</tr>
+<tr>
+<td><strong>Pixel DiT-S</strong></td>
+<td><strong>None (ps8)</strong></td>
+<td style="text-align:right"><strong>23.4</strong></td>
+<td style="text-align:right"><strong>25</strong></td>
+<td style="text-align:right"><strong>0</strong></td>
+<td style="text-align:right"><strong>26.62</strong></td>
+<td style="text-align:right"><strong>0.1593</strong></td>
+<td style="text-align:right"><strong>54.32</strong></td>
+</tr>
+</tbody>
+</table>
+<p class="math-translation">—— 读表：像素 DiT 在所有指标上碾压所有 latent 变体，PSNR 直接高出最好的 QwenVAE 基线 3.8 dB，参数还只有 1/3–1/5，VAE 那一段编解码开销直接归零。这是全文最有说服力的一张表——它把"要不要 VAE"这个问题在受控条件下回答了。</p>
+<h3 id="sec-2-2">3.2 自适应层级视觉引导：本文最有意思的模块</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-motivation.png" alt="Motivation of adaptive hierarchical visual guidance">
+  <figcaption><b>图 3。</b>左：DINO 逐层特征可视化（上=低光、下=去雨滴）。浅层（l1–l2）保留局部结构和细节，深层（l8–l10）编码全局语义。右：8 类退化下 LQ–HQ 特征相似度随 DINOv2-B 层数的变化——<b>没有任何一层对所有退化都敏感</b>：浅层对雨/模糊/雪敏感，深层对噪声敏感，中层对低光/超分/雾敏感。所以固定用某一层、或对所有层做均匀平均，都是次优的。</figcaption>
+</figure>
+<p>作者用<strong>冻结的 DINOv2</strong> 提供 dense 视觉线索（对比过 CLIP/MAE/SigLIP，DINOv2 几乎全面最好）。关键观察见图 3：不同 DINO 层携带互补线索，而<strong>层的可靠性随退化类型变化</strong>。于是核心问题变成：<strong>给定一张 LQ 图，该信哪几层？</strong></p>
+<p><strong>第一步：用 LQ–HQ 相似度造一个&quot;老师&quot;权重。</strong> 训练时 HQ 可见，对每层 <span class="math inline">\(l\)</span> 算 LQ 特征还保留了多少 HQ 内容——余弦相似度和归一化 <span class="math inline">\(L_2\)</span> 距离相似度的平均 <span class="math inline">\(s_l=\tfrac12(s_l^{\cos}+s_l^{\text{dist}})\)</span>。<span class="math inline">\(s_l\)</span> 越大说明该层在当前退化下越可靠，就该给越大的权重：</p>
+<div class="math block">
+\[q_l = \frac{\exp(s_l)}{\sum_{k\in\mathcal L}\exp(s_k)}\tag{3}\]
+</div>
+<p class="math-translation">—— 翻译：把各层的"可靠度分数"过一个 softmax，得到一组和为 1 的老师权重 <code>q_l</code>。可靠的层分到大权重。这个 q_l 是训练时才能算的（要 HQ），是用来教学生的监督信号。</p>
+<p>代码里这个&quot;老师&quot;叫 <code>_build_content_teacher_priors</code>，<code>mse_sim</code> 就是归一化 <span class="math inline">\(L_2\)</span> 相似度 <span class="math inline">\(s^{\text{dist}}\)</span>，<code>cos_sim_01</code> 是把余弦拉到 [0,1] 的 <span class="math inline">\(s^{\cos}\)</span>：</p>
+<p class="code-source">repo/pixrestore/models/pixel_dit.py:L334-351 — 老师权重 q_l：LQ-HQ 相似度 → softmax，对应 Eq(3)</p>
+<pre><code class="language-python">def _build_content_teacher_priors(self, z_lq, z_hq):
+    lq = self._stack_dino_feature_layers(z_lq, torch.float32, None).detach().float()
+    hq = self._stack_dino_feature_layers(z_hq, torch.float32, lq.device).detach().float()
+    diff_power  = (lq - hq).square().mean(dim=(-1, -2))
+    layer_scale = (0.5 * (lq.square().mean(dim=(-1,-2)) + hq.square().mean(dim=(-1,-2)))).clamp_min(1e-8)
+    mse_sim = (1.0 / (1.0 + diff_power / layer_scale)).clamp(0.0, 1.0)          # s^dist：L2 距离相似度
+    cos_sim = F.cosine_similarity(lq, hq, dim=-1).mean(dim=-1)
+    cos_sim_01 = ((cos_sim + 1.0) * 0.5).clamp(0.0, 1.0)                         # s^cos：余弦相似度→[0,1]
+    similarity = 0.5 * (cos_sim_01 + mse_sim)                                    # s_l = ½(s^cos + s^dist)
+    content_prior = torch.softmax(similarity / self.gate_temperature, dim=-1)    # q_l = softmax(s_l)  —— Eq(3)
+    return {'content': content_prior.to(dtype=lq.dtype), 'similarity': similarity}
+</code></pre>
+<p><strong>第二步：训一个&quot;学生&quot;路由，推理时也能用。</strong> <span class="math inline">\(q_l\)</span> 要 HQ，推理时没有。于是训一个轻量预测器 <span class="math inline">\(\rho_\psi\)</span>，只看 LQ 图和 LQ 特征就估权重 <span class="math inline">\(p_l=\text{softmax}(\rho_\psi([y_{lq},U_l]))\)</span>，用交叉熵向老师对齐：</p>
+<div class="math block">
+\[\mathcal L_{\text{wpred}} = -\sum_{l\in\mathcal L} q_l\log p_l\tag{4}\]
+</div>
+<p class="math-translation">—— 翻译：让"只看 LQ 就猜层权重"的学生 <code>p_l</code>，去逼近"偷看了 HQ 的"老师 <code>q_l</code>。这是一个标准的软标签蒸馏——老师是一组概率分布，学生用交叉熵学它。学成之后，推理时不需要 HQ 也能挑对层。</p>
+<p><strong>第三步：融合 + 反向监督。</strong> 学生权重把各层投影特征融成一个 dense 条件 <span class="math inline">\(U_{\text{fuse}}=\sum_l p_l U_l\)</span>（Eq 5），通过 cross-attention 注入每个 DiT 块（图像 token 当 query，<span class="math inline">\(U_{\text{fuse}}\)</span> 当 key/value）。同时——<strong>这是最巧的一笔</strong>——对那些 LQ 与 HQ 差最大（最不可靠）的层，反过来加大特征监督：</p>
+<div class="math block">
+\[\mathcal L_{\text{feat}}=\sum_{l\in\mathcal L} r_l\,\ell_l^{\text{feat}},\qquad r_l=\frac{\exp(1-s_l)}{\sum_{k\in\mathcal L}\exp(1-s_k)}\tag{6}\]
+</div>
+<p class="math-translation">—— 翻译：<code>ℓ_l^feat</code> 是"修复输出的第 l 层 DINO 特征"和"HQ 第 l 层特征"的余弦相似度损失。权重 <code>r_l</code> 用的是 <code>1−s_l</code> 的 softmax——和 Eq(3) 的 <code>q_l</code> 正好相反：<b>q_l 挑可靠的层来喂条件，r_l 盯不可靠的层来使劲监督</b>。可靠的层已经保留了内容，就直接拿来用；不可靠的层被退化打坏了，就用 HQ 特征把它"拽回来"、逼模型去除退化。两个权重一正一反、互补。</p>
+<p>代码里 <span class="math inline">\(r_l\)</span> 就是把相似度取 <code>1 - sim</code> 再 softmax（<code>tau</code> 是温度）：</p>
+<p class="code-source">repo/pixrestore/flow.py:L57-75 — 层级监督权重 r_l：(1 − 相似度) 的 softmax，对应 Eq(6)</p>
+<pre><code class="language-python">def _resolve_hierar_loss_layer_weights(model, args):
+    # 用 DINO 老师相似度反向加权：相似度高 → 权重低
+    dino_similarity = _get_model_attr(model, 'last_dino_teacher_similarity', None)
+    if dino_similarity is None:
+        return None
+    tau = max(float(getattr(args, 'gate_temperature', 1.0) or 1.0), 1e-06)
+    sim = dino_similarity.detach().float()
+    logits = (1.0 - sim) / tau                    # 1 − s_l
+    return torch.softmax(logits, dim=-1)           # r_l = softmax(1 − s_l)  —— Eq(6)
+</code></pre>
+<p>而学生逼老师的那一步（Eq 4 的交叉熵）、和融合（Eq 5）都在 <code>_gate_venc_features</code> 里：<code>prior_loss</code> 就是 <span class="math inline">\(\mathcal L_{\text{wpred}}\)</span>，最后一行的加权求和就是 <span class="math inline">\(U_{\text{fuse}}\)</span>：</p>
+<p class="code-source">repo/pixrestore/models/pixel_dit.py:L416-428 — 学生路由 CE 损失(Eq4) + 特征融合 U_fuse(Eq5)</p>
+<pre><code class="language-python">if self.use_dino_layer_router and compute_prior_loss and prior_probs is not None:
+    teacher_priors = self._build_content_teacher_priors(z_teacher, z_hq_teacher)   # q_l（Eq3）
+    if teacher_priors is not None:
+        teacher_weights = teacher_priors['content']
+        prior_loss = -(teacher_weights.float() * prior_probs.float().clamp_min(1e-8).log()).sum(-1).mean()
+        self._dino_layer_router_losses.append(prior_loss)        # L_wpred = −Σ q_l log p_l  —— Eq(4)
+token_weights = weights[:, None, :].expand(B, N_z, L)
+return (z_stack * token_weights.permute(0, 2, 1)[:, :, :, None]).sum(dim=1)        # U_fuse = Σ p_l U_l  —— Eq(5)
+</code></pre>
+<p>多步总目标（辅助权重都取 0.5，配置文件里 <code>dino_layer_router_loss_weight: 0.5</code>、<code>dino_hierar_loss_weight: 0.5</code> 印证）：</p>
+<div class="math block">
+\[\mathcal L = \mathcal L_{\text{flow}} + \lambda_{\text{wpred}}\mathcal L_{\text{wpred}} + \lambda_{\text{feat}}\mathcal L_{\text{feat}}\tag{2}\]
+</div>
+<h3 id="sec-2-3">3.3 一步蒸馏：固定 t=1 + DINO 特征判别器</h3>
+<p>多步模型要迭代采样，慢。作者把它蒸成一步生成器：从多步老师初始化学生，<strong>固定 <span class="math inline">\(t=1\)</span></strong>，让模型从纯高斯噪声 <span class="math inline">\(\epsilon\)</span> 一次前向就出干净图：<span class="math inline">\(\hat y_{hq}=f_\theta([y_{lq};\epsilon],t{=}1,\mathcal F(y_{lq}))\)</span>。</p>
+<p>一步生成容易丢纹理，于是加一个 <strong>DINO 特征上的对抗损失</strong>：复用同一个冻结编码器，一个轻量多层判别器 <span class="math inline">\(D\)</span>（每层一个独立头）去区分「修复输出的 DINO 特征 <span class="math inline">\(\mathcal F(\hat y_{hq})\)</span>」和「HQ 的 DINO 特征 <span class="math inline">\(\mathcal F(y_{hq})\)</span>」：</p>
+<div class="math block">
+\[\mathcal L_D = \frac{1}{|\mathcal L|}\sum_l\big[\ell_{\text{bce}}(D_l(F_l^{y_{hq}}),1)+\ell_{\text{bce}}(D_l(F_l^{\hat y_{hq}}),0)\big]\tag{7}\]
+</div>
+<div class="math block">
+\[\mathcal L_{\text{adv}}=\frac{1}{|\mathcal L|}\sum_l \ell_{\text{bce}}(D_l(F_l^{\hat y_{hq}}),1)\tag{8}\]
+</div>
+<p class="math-translation">—— 翻译：判别器把 HQ 特征判成"真(1)"、把修复输出特征判成"假(0)"；生成器反过来想骗它把自己判成"真"。关键是——<b>判别在冻结的 DINO token 上做，不是在原始像素上</b>。这样判别器和条件模块共享同一套先验、几乎不增加开销，而且比像素级 GAN 更稳（不用怕生成器去 hack 像素级纹理）。</p>
+<p>代码里判别器是每层一个&quot;LayerNorm + 谱归一化 MLP&quot;的小头，用带 reduction='none' 的 BCE：</p>
+<p class="code-source">repo/pixrestore/gan.py:L54-69 — 多层 DINO 判别器：每层一个谱归一化头，对应 Eq(7)(8)</p>
+<pre><code class="language-python">def forward(self, features, *, real: bool = True):
+    features = as_feature_list(features)
+    target_value = self.real_label if real else 0.0        # real_label=0.8（软标签）
+    losses = []
+    for feature, head in zip(features, self.heads):
+        logits = head(_as_tokens(feature).float()).squeeze(-1)   # 每层独立的谱归一化 MLP 头
+        target = torch.full_like(logits, target_value)
+        losses.append(self.loss(logits, target).mean())          # BCEWithLogits
+    return torch.stack(losses).sum()                             # 各层求和
+</code></pre>
+<p>多层 DINO 特征的抽取则靠给 DINOv2 打了个 monkey-patch，把每个 block 的中间 token 都收集起来：</p>
+<p class="code-source">repo/pixrestore/vision.py:L61-71 — 给 DINOv2 挂 forward_with_features，收集逐层中间特征（冻结）</p>
+<pre><code class="language-python">def forward_with_features(self, image, masks=None):
+    features = {}
+    tokens = self.prepare_tokens_with_masks(image, masks)
+    for index, block in enumerate(self.blocks):
+        tokens = block(tokens)
+        features[index] = tokens[:, 1:]          # 丢掉 CLS，只留 patch token
+    return features, self.norm(tokens)[:, 1:]
+
+model.forward_with_features = types.MethodType(forward_with_features, model)
+model.requires_grad_(False)                       # 整个 DINOv2 冻结
+</code></pre>
+<p>一步的总目标就是在 Eq(2) 上再加一个 <span class="math inline">\(\lambda_{\text{adv}}\mathcal L_{\text{adv}}\)</span>（Eq 9），生成器和判别器交替更新。</p>
+<h2 id="sec-3">实验结果：小、快、还最好</h2>
+<p><strong>公开基准（Table 2，8 类退化，节选）。</strong> 红=最优、蓝斜=次优。PixRestore（S，约 50M）和 PixRestore-B（约 210M）几乎在所有任务上包揽第一或第二：</p>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>指标</th>
+<th style="text-align:right">PromptIR*</th>
+<th style="text-align:right">DA-CLIP*</th>
+<th style="text-align:right">FoundIR*</th>
+<th style="text-align:right">FoundIR-v2*</th>
+<th style="text-align:right">FAPE-IR*</th>
+<th style="text-align:right"><strong>PixRestore</strong></th>
+<th style="text-align:right"><strong>PixRestore-B</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>De-rainstreak</td>
+<td>PSNR↑</td>
+<td style="text-align:right">28.43</td>
+<td style="text-align:right">31.61</td>
+<td style="text-align:right">32.36</td>
+<td style="text-align:right">27.85</td>
+<td style="text-align:right">31.91</td>
+<td style="text-align:right">32.28</td>
+<td style="text-align:right"><strong>32.85</strong></td>
+</tr>
+<tr>
+<td></td>
+<td>LPIPS↓</td>
+<td style="text-align:right">0.2659</td>
+<td style="text-align:right">0.1048</td>
+<td style="text-align:right">0.1593</td>
+<td style="text-align:right">0.1773</td>
+<td style="text-align:right">0.0903</td>
+<td style="text-align:right">0.0902</td>
+<td style="text-align:right"><strong>0.0767</strong></td>
+</tr>
+<tr>
+<td>Denoise</td>
+<td>PSNR↑</td>
+<td style="text-align:right">35.45</td>
+<td style="text-align:right">33.97</td>
+<td style="text-align:right"><strong>36.16</strong></td>
+<td style="text-align:right">28.17</td>
+<td style="text-align:right">34.22</td>
+<td style="text-align:right">34.87</td>
+<td style="text-align:right">34.62</td>
+</tr>
+<tr>
+<td></td>
+<td>LPIPS↓</td>
+<td style="text-align:right">0.1104</td>
+<td style="text-align:right">0.1462</td>
+<td style="text-align:right">0.1051</td>
+<td style="text-align:right">0.2889</td>
+<td style="text-align:right">0.0741</td>
+<td style="text-align:right">0.0624</td>
+<td style="text-align:right"><strong>0.0564</strong></td>
+</tr>
+<tr>
+<td>Deblur</td>
+<td>PSNR↑</td>
+<td style="text-align:right">29.10</td>
+<td style="text-align:right">28.29</td>
+<td style="text-align:right">29.14</td>
+<td style="text-align:right">24.98</td>
+<td style="text-align:right">27.96</td>
+<td style="text-align:right">28.32</td>
+<td style="text-align:right"><strong>29.23</strong></td>
+</tr>
+<tr>
+<td>Low-light</td>
+<td>PSNR↑</td>
+<td style="text-align:right">17.91</td>
+<td style="text-align:right">18.01</td>
+<td style="text-align:right">23.34</td>
+<td style="text-align:right">17.04</td>
+<td style="text-align:right"><strong>26.04</strong></td>
+<td style="text-align:right">25.62</td>
+<td style="text-align:right">25.72</td>
+</tr>
+<tr>
+<td>SR</td>
+<td>LPIPS↓</td>
+<td style="text-align:right">0.2839</td>
+<td style="text-align:right">0.2341</td>
+<td style="text-align:right">0.2883</td>
+<td style="text-align:right">0.2493</td>
+<td style="text-align:right">0.1952</td>
+<td style="text-align:right">0.1736</td>
+<td style="text-align:right"><strong>0.1601</strong></td>
+</tr>
+</tbody>
+</table>
+<p>作者的解读很诚实：回归模型 PromptIR 在去噪上仍有竞争力（信息丢失少的任务），但在模糊/雨/雾/低光/超分上明显掉队；SDXL 系的 FoundIR-v2 的 DR-Score（退化去除）高但保真度/感知差，正好印证了「latent VAE 丢输入细节」；FLUX 系里 FAPE-IR 强、Flux-IR 却很不稳——说明<strong>光有强生成先验并不保证好的 UIR</strong>。</p>
+<p><strong>复杂度（Table 3，512×512，单卡 A800）。</strong> 这是最扎眼的对比：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th style="text-align:right">NFE</th>
+<th style="text-align:right">参数(M)</th>
+<th style="text-align:right">FLOPs(G)</th>
+<th style="text-align:right">延迟(ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DA-CLIP</td>
+<td style="text-align:right">100</td>
+<td style="text-align:right">231.8</td>
+<td style="text-align:right">112927</td>
+<td style="text-align:right">18071</td>
+</tr>
+<tr>
+<td>FoundIR-v2</td>
+<td style="text-align:right">20</td>
+<td style="text-align:right">16910</td>
+<td style="text-align:right">119334</td>
+<td style="text-align:right">18293</td>
+</tr>
+<tr>
+<td>Flux-IR</td>
+<td style="text-align:right">21</td>
+<td style="text-align:right">17698</td>
+<td style="text-align:right">795290</td>
+<td style="text-align:right">5790</td>
+</tr>
+<tr>
+<td>FAPE-IR</td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">21575</td>
+<td style="text-align:right">64758</td>
+<td style="text-align:right">1011</td>
+</tr>
+<tr>
+<td><strong>PixRestore</strong></td>
+<td style="text-align:right"><strong>1</strong></td>
+<td style="text-align:right"><strong>53.7</strong></td>
+<td style="text-align:right"><strong>658</strong></td>
+<td style="text-align:right"><strong>44</strong></td>
+</tr>
+<tr>
+<td><strong>PixRestore-B</strong></td>
+<td style="text-align:right">1</td>
+<td style="text-align:right">210.9</td>
+<td style="text-align:right">1842</td>
+<td style="text-align:right">79</td>
+</tr>
+</tbody>
+</table>
+<p class="math-translation">—— 读表：PixRestore 的算力是 FoundIR-v2 的约 1/181、Flux-IR 的约 1/1209；延迟 44ms，比 PromptIR/DiffUIR/FoundIR/FAPE-IR 快 7–23×。参数 53.7M 里还包含了冻结的 DINO 编码器。这张表是"UIR 不需要十亿级 T2I 骨干"这个主张的硬证据。</p>
+<p><strong>一个方法论副产品：DR-Score。</strong> 作者发现现有无参考指标（MUSIQ、AFINE-NR）根本测不准&quot;退化到底去没去掉&quot;——图 4 里 PixRestore 把雨条去得最干净，MUSIQ/AFINE-NR 却把它排最差，反而偏爱保留了退化的 FoundIR-v2 输出。于是他们提出 DR-Score：用 VLM（Gemini-3.1 Pro）判断目标退化是否被去除，每图测 5 次取平均，与人类判断对齐更好。这是个值得单独记住的点——<strong>在真实世界无 GT 场景下，NR 指标可能系统性地误导 UIR 评测</strong>。</p>
+<h2 id="sec-4">消融决策表：每个设计到底加了多少分</h2>
+<p>Table 4 把主要设计逐个消融（15 个公开基准、8 类退化平均，起点是纯 Pixel DiT-S）：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点</th>
+<th>消融方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>空间</td>
+<td>Latent DiT</td>
+<td>latent(3 种 VAE) / pixel</td>
+<td><strong>Pixel (ps8)</strong></td>
+<td>Table 1：像素空间 PSNR +3.8dB、参数 1/3、无 VAE 开销</td>
+</tr>
+<tr>
+<td>DINO 条件</td>
+<td>无 (A0, 26.62)</td>
+<td>单层 l2/l5/l11 / 无</td>
+<td>先证明&quot;加就有用&quot;</td>
+<td>加任意单层都涨；最佳单层 l5：PSNR 26.62→27.36</td>
+</tr>
+<tr>
+<td>层数</td>
+<td>单层 l5 (A2)</td>
+<td>平均 2 层 / 平均 6 层</td>
+<td><strong>多层</strong></td>
+<td>平均 6 层 A5：PSNR→27.72、MUSIQ→55.01；浅深层互补</td>
+</tr>
+<tr>
+<td>融合方式</td>
+<td>均匀平均 6 层 (A6)</td>
+<td>均匀 / 自适应路由</td>
+<td><strong>自适应 (A7)</strong></td>
+<td>A7 比 A6：PSNR 27.36→27.66、SSIM +0.006、LPIPS 更低——层的可靠性随退化变</td>
+</tr>
+<tr>
+<td>层级监督</td>
+<td>无 (A5)</td>
+<td>加 L_feat (均匀/自适应)</td>
+<td><strong>自适应 L_feat</strong></td>
+<td>A6 把 LPIPS 从 0.1407→0.1239（感知↑），但均匀监督会掉 PSNR，自适应更平衡</td>
+</tr>
+<tr>
+<td>NFE</td>
+<td>10 步 (A7)</td>
+<td>10 / 4 / 1</td>
+<td><strong>1 步也够</strong></td>
+<td>A9(1步) PSNR 反升到 28.07——更少 Euler 步减少积分误差和过平滑</td>
+</tr>
+<tr>
+<td>一步蒸馏</td>
+<td>直接单步 (A9)</td>
+<td>有/无 GAN 蒸馏</td>
+<td><strong>加 DINO-GAN (A10)</strong></td>
+<td>PSNR 28.07→28.49、LPIPS→0.1120、MUSIQ 53.34→<strong>55.52</strong></td>
+</tr>
+<tr>
+<td>训练范式</td>
+<td>直接回归</td>
+<td>回归 / 流预训练+蒸馏</td>
+<td><strong>流预训练+一步蒸馏</strong></td>
+<td>Table 5：同骨干同迭代数，PSNR 27.00→28.49、LPIPS 0.1494→0.1120</td>
+</tr>
+</tbody>
+</table>
+<p>两个反直觉点值得单独标注：</p>
+<ul>
+<li><strong>降 NFE 反而略涨 PSNR/SSIM</strong>（A7→A8→A9：27.66→27.75→28.07）。作者解释是更少的 Euler 更新减少了积分误差累积和过平滑。对修复这种&quot;输入已经很像输出&quot;的任务，长采样轨迹是负担而非收益。</li>
+<li><strong>均匀特征监督会掉 PSNR</strong>（A5→A6：27.72→27.36，但 LPIPS 变好）。说明&quot;对所有层一视同仁地拿 HQ 特征去监督&quot;会牺牲保真度换感知——这正是要引入自适应 <span class="math inline">\(r_l\)</span> 的动机。</li>
+</ul>
+<h2 id="sec-5">实现细节与「论文 vs 代码」核对</h2>
+<p>交叉读代码发现了若干论文里没细说、但对复现很关键的点，也有几处口径需要澄清：</p>
+<ol>
+<li>
+<p><strong>【口径澄清】&quot;MeanFlow&quot; 是遗留脚手架，实际用的是普通 flow matching。</strong> <a href="https://github.com/csslc/PixRestore/blob/main/pixrestore/flow.py">flow.py</a> 顶部 docstring 写着 &quot;Pixel-space MeanFlow&quot;，还有 <code>sample_t_r</code>（采样 <span class="math inline">\(t,r\)</span>）、<code>flow_ratio</code>、<code>train_steps</code> 这些 MeanFlow 才需要的东西；但真正被训练调用的 <code>loss_fm</code> 里<strong>完全没有用到 <code>r</code></strong>——它就是「预测 x0 → 折算速度 → L2」的标准 flow matching，与论文 Eq(1) 一致。config 里 <code>flow_ratio: 0.5</code> 的注释也叫 &quot;MeanFlow and classifier-free guidance&quot;。<strong>结论：发布版目标函数是 flow matching，MeanFlow 的接口是没删干净的脚手架，读代码时别被误导。</strong></p>
+</li>
+<li>
+<p><strong>自适应梯度归一化（论文未提）。</strong> <code>loss_backward = loss / (loss + norm_eps)^norm_p .detach()</code>（<code>adaptive_loss_power: 0.5</code>）。这是 JiT 风格的把损失开方后当分母的自适应权重，效果是自动平衡不同 <span class="math inline">\(t\)</span>、不同样本的梯度尺度。论文的公式里看不到它，但它对像素空间训练的稳定性很可能是关键。</p>
+</li>
+<li>
+<p><strong>给路由额外喂了一个&quot;退化 token&quot;（论文未提）。</strong> 除了 <span class="math inline">\([y_{lq},U_l]\)</span>，代码里 <code>use_lq_degradation_token: true</code>，有个 <code>LQDegradationEncoder</code>（3 层 stride-2 卷积 + 池化）专门从原始 LQ 图抽一个全局退化向量，拼进层门控上下文 <code>_gate_context</code>。论文 Eq 里的 <span class="math inline">\(\rho_\psi([y_{lq},U_l])\)</span> 没体现这个额外分支。</p>
+</li>
+<li>
+<p><strong>老师相似度里的 <span class="math inline">\(s^{\text{dist}}\)</span> 是具体的一个式子。</strong> 论文只说&quot;归一化 <span class="math inline">\(L_2\)</span> 距离相似度&quot;，代码给了明确定义 <span class="math inline">\(s^{\text{dist}}=1/(1+\text{diff\_power}/\text{layer\_scale})\)</span>，其中 <code>layer_scale</code> 是 LQ/HQ 各自能量的均值。复现时这个归一化方式不能想当然。</p>
+</li>
+<li>
+<p><strong>路由启用后，原来的可学习 <code>layer_gates</code> 被冻结。</strong> <code>_freeze_exclusive_router_gate_params</code> 把 <code>layer_gates</code> 的梯度关掉，改由 <code>dino_prior_content_head</code>（那个向老师蒸馏的头）产出融合权重。代码注释直言&quot;不再用自适应的 layer_gates&quot;。这说明发布版走的是&quot;相似度老师蒸馏&quot;这条路，而不是&quot;纯端到端学门控&quot;。</p>
+</li>
+<li>
+<p><strong>条件增强 aelq（论文未提）。</strong> <code>use_aelq: true</code>，训练时把 LQ 用球面插值和噪声混合（<code>cond_strength_aelq_list: [5.0, 1.0]</code>），配合 CFG（<code>cfg_ratio: 0.1</code>）。这是提升条件鲁棒性的工程手段。</p>
+</li>
+<li>
+<p><strong>对得上的部分。</strong> 裁剪阈值 <code>t_eps=0.05</code>✓（Eq 对应&quot;clip at 0.05&quot;）；辅助损失权重 <code>0.5</code>✓（Eq 2/9）；patch size 8✓；DINO 取 6 层 <code>[1,2,4,6,8,10]</code> 均匀分布✓；DINOv2 冻结✓；特征投影前 channel RMS norm✓；cross-attention 用图像 token 当 query、融合特征当 k/v✓（<a href="https://github.com/csslc/PixRestore/blob/main/pixrestore/models/layers.py">layers.py:L206</a>）。核心方法的实现与论文高度一致，差异都在&quot;论文没写的工程增强&quot;上，没有发现会改变结论的实现级矛盾。</p>
+</li>
+</ol>
+<h2 id="sec-6">批判与延伸</h2>
+<h3 id="sec-6-1">值得商榷的地方</h3>
+<ul>
+<li><strong>&quot;扔掉 T2I 先验&quot;的代价被实验设置藏起来了一部分。</strong> PixRestore 从零训练依赖一个 <strong>2.83M 张、覆盖 8 类退化</strong>的大规模配对语料。它省掉的是 T2I 预训练，但换来的是自建的大规模退化配对数据——对没有这种数据的人来说，&quot;不用预训练&quot;并不等于&quot;便宜&quot;。而且泛化只在这 8 类退化的分布内验证，遇到<strong>训练分布外的复合退化</strong>能不能扛，论文没有正面回答。</li>
+<li><strong>一步生成 + 从零训练，感知上限可能受制于数据而非模型。</strong> T2I 先验的价值在于见过海量自然图像、能补出合理纹理。PixRestore 在保真度指标（PSNR/SSIM/LPIPS）上赢得干净，但在真实世界测试集的 MUSIQ 上（Table 6）其实<strong>并不领先</strong> FoundIR-v2 那类保留了强生成先验的方法。也就是说，&quot;忠实&quot;和&quot;好看到能无中生有补细节&quot;之间，PixRestore 明确选了前者——这在极端信息丢失（重度低光、大倍率 SR）时是不是最优，取决于应用。</li>
+<li><strong>DR-Score 用 VLM 当裁判存在循环风险。</strong> 它是个好的诊断工具，但用一个会&quot;脑补&quot;的 VLM 去判断退化是否去除，本身也可能有偏（例如偏好某种&quot;看起来干净&quot;的风格）。论文放在附录说与人类对齐，但主表已经用它排名，读者需要意识到这条证据链的强度弱于 PSNR/LPIPS。</li>
+<li><strong>DINOv2 是天花板也是地板。</strong> 整套自适应引导都建立在&quot;DINO 层相似度能反映退化可靠性&quot;之上。对 DINO 本身没见过的退化模态（如特定传感器噪声、压缩伪影），层相似度这套先验是否还成立，是个开放问题。</li>
+</ul>
+<h3 id="sec-6-2">延伸阅读：与相似工作的交叉验证</h3>
+<p>PixRestore 的核心赌注是「<strong>像素空间 + 无 VAE</strong>」。这恰好是 2026 年一批工作在激烈争论的问题，把它们的结论并排放，分歧一目了然：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>对&quot;latent vs 像素&quot;的立场</th>
+<th>一步生成怎么做</th>
+<th>与 PixRestore 的关键异同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PixRestore（本文）</strong></td>
+<td>VAE 有害，<strong>从零训纯像素 DiT</strong></td>
+<td>固定 t=1 + DINO 特征 GAN</td>
+<td>基准：无 VAE、无 T2I 预训练</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a></td>
+<td>不弃 latent 模型，用<strong>秩-非对称速度参数化把 latent 流匹配 lift 到像素</strong></td>
+<td>—</td>
+<td>同样想要像素级保真，但<strong>保留了预训练 latent 模型</strong>，只是&quot;抬&quot;上来；PixRestore 直接不要 latent 模型</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></td>
+<td>同问题（latent→pixel 迁移），不同刀法</td>
+<td>—</td>
+<td>与 AsymFlow 同月对打；三者共同承认&quot;像素空间更忠实&quot;，但<strong>是否要复用 latent 预训练</strong>上分成两派</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a></td>
+<td>latent 空间一步超分</td>
+<td><strong>把 LQ 注入到中间时刻</strong>（SNR 算最佳注入点）+ GAN</td>
+<td>都用 GAN 稳一步生成，但注入策略<strong>相反</strong>：OMGSR 从中间时刻起步，PixRestore 从纯噪声(t=1)起步</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></td>
+<td>latent 一步超分</td>
+<td>蒸馏 + 可调保真/真实感曲线</td>
+<td>同为一步，但 OFTSR 强调&quot;保真↔真实感&quot;可调；PixRestore 是固定地偏向保真</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因：</strong></p>
+<ol>
+<li><strong>&quot;要不要 VAE&quot; 的分歧本质是&quot;有没有大规模退化配对数据&quot;。</strong> PixRestore 敢从零训纯像素，是因为它自建了 283 万配对样本；AsymFlow / L2P 想复用 latent 预训练，是因为在没有这种数据时，预训练模型见过的自然图像分布是免费的先验。两派在不同的数据前提下都对。</li>
+<li><strong>&quot;从纯噪声还是从中间时刻起步&quot; 的分歧本质是任务信息丢失程度。</strong> OMGSR 面对超分（LQ 已含大量结构），从中间时刻注入能少走冤枉路；PixRestore 面对 8 类退化（有些如重度低光信息丢失严重），统一从 t=1 起步更通用但更依赖条件（LQ 拼接 + DINO 引导）把信息带回来。</li>
+<li><strong>都用 GAN，但判别的位置不同。</strong> OMGSR/OFTSR 在像素/latent 上判别，PixRestore 在<strong>冻结 DINO 特征</strong>上判别——后者更省、更稳，但上限受 DINO 表达力约束。</li>
+</ol>
+<p>对这一整片&quot;像素 vs latent、一步生成&quot;的全景，可参考本站的 <a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a> 调研。</p>
+<h3 id="sec-6-3">研究启发（可迁移的套路）</h3>
+<ul>
+<li><strong>&quot;老师偷看 GT、学生只看输入&quot;的软标签蒸馏，是把&quot;训练时可算、推理时不可算&quot;的量落地的通用套路。</strong> 这里老师用 LQ–HQ 相似度算层权重（Eq 3），学生只看 LQ 学（Eq 4）。任何&quot;有个理想信号但推理时拿不到&quot;的场景（如需要 GT 的自适应权重、需要未来帧的调度）都能套这个模式。</li>
+<li><strong>一正一反两个权重（<span class="math inline">\(q_l\)</span> 挑可靠的喂条件、<span class="math inline">\(r_l\)</span> 盯不可靠的加监督）是&quot;条件&quot;与&quot;监督&quot;解耦的漂亮设计。</strong> 条件要&quot;用现成的好料&quot;，监督要&quot;补最短的板&quot;，二者目标不同、权重就该相反。这个&quot;conditioning 用 top、supervision 用 bottom&quot;的思路可迁移到任何多源特征融合 + 蒸馏的任务。</li>
+<li><strong>在冻结的基础模型特征空间里做对抗，比在像素空间做 GAN 更省更稳。</strong> 复用同一个冻结编码器同时做「条件、监督、判别」三件事，判别器共享先验、几乎零额外开销。这是&quot;把基础模型当共享特征底座&quot;的一个具体范例。</li>
+<li><strong>反直觉：对&quot;输入已很像输出&quot;的任务，采样步数越少可能越好。</strong> 修复不是从零合成，长采样轨迹带来的积分误差和过平滑可能压过多步细化的收益。做 restoration/editing 类任务时，别默认&quot;多步一定更好&quot;。</li>
+<li><strong>别信单一 NR 指标给 restoration 排名。</strong> MUSIQ/AFINE-NR 会系统性偏爱&quot;看起来锐利但保留了退化&quot;的输出。真实世界无 GT 评测时，配一个&quot;退化是否真去除&quot;的正交指标（哪怕是 VLM 裁判）能救命。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

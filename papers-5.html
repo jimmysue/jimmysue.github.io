@@ -47,8 +47,21 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 51 篇论文精读。</p>
+<p class="page__intro">共 53 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/tm-interaction-2026/index.html">Interaction Models: A Scalable Approach to Human-AI Collaboration</a></h3>
+  <p class="post-card__tldr">不是把实时性做成 model 外面的 harness,而是按 200ms micro-turn 把模型重新设计 — 双流并行、encoder-free 早融合、双模型分工。FD-bench v1.5 拿 77.8 vs 竞品 45-55。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
+      <a class="tag-chip" href="concepts/system-paper.html">system-paper</a>
+      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -158,20 +171,6 @@
       <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <a class="tag-chip" href="concepts/transfer-learning.html">transfer-learning</a>
-      <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/l2p-2026/index.html">L2P: 把 LDM 的潜在知识搬到像素空间, 8 卡训出原生 4K 扩散</a></h3>
-  <p class="post-card__tldr">南大 + 腾讯优图 (arXiv 2026/05)。直接拆掉 VAE, 用 16×16 大 patch 把像素图打成 token, 接预训练好的 LDM (Z-Image-Turbo) DiT block, 只让首尾若干层 + 一个 U-Net Detailer Head 可训, 训练数据是源 LDM 自己生成的 20k 张合成图。8 张 GPU、零真实数据采集, DPG-Bench 86.00 超过源 LDM 84.86, GenEval 保留 93.6%; 取消 VAE 内存瓶颈后, 原生 4K 单步推理时间砍 97.67%、峰值显存降 38.81%。本质是把训练像素扩散从零的灾难性 cold start 换成从已经平滑的 LDM 流形上做轻量迁移。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
   </div>
 </div>
