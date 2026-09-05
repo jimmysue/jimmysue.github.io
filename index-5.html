@@ -49,6 +49,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span> · <span class="post-card__extra">19k 字</span> · <span class="post-card__extra">90–120 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-benchmarks-2024/index.html">VLM 评测 Benchmark 目录:测什么能力 · 怎么测 · 样题 · 模型如何被打分</a></h3>
+  <p class="post-card__tldr">业界常见 VLM(视觉语言模型)评测 benchmark 的速查目录,按三层组织:通用能力(MMMU/MMBench/MME/SEED-Bench)、会读图会算(DocVQA/ChartQA/TextVQA/AI2D/MathVista)、幻觉与诚实(POPE/HallusionBench/MMStar)、grounding 定位(RefCOCO/LVIS/ScreenSpot/PixMo-Points)、细节瑕疵(MVTec-AD/VisA/QGround)。每个 benchmark 做成卡片:测什么能力、测试方法、一个样题(题型示意)、模型如何被喂入+生成+提取+打分、用什么指标。§1 先讲清「任何 VLM 被测试的通用流水线」;§8 补一节 2025 发布会评分卡(推理 / agentic / 新多模态:GPQA·HMMT·MMMLU·IFBench·BFCL·BrowseComp·SWE-bench·Terminal-Bench·MMMU-Pro·ERQA·OmniDocBench·Video-MME),并对照「判分从对答案到跑环境」的代际差异。真实评分代码 verbatim 引自 open-compass/VLMEvalKit、openvinotoolkit/anomalib 与 princeton-nlp/SWE-bench。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/benchmark.html">benchmark</a>
+      <a class="tag-chip" href="concepts/vlm.html">vlm</a>
+      <a class="tag-chip" href="concepts/evaluation.html">evaluation</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -175,21 +190,6 @@ MeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑�
       <a class="tag-chip" href="concepts/vlm.html">vlm</a>
       <a class="tag-chip" href="concepts/detection.html">detection</a>
       <span class="tag-chip tag-chip--more">+6 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/d4rt-2025/index.html">Efficiently Reconstructing Dynamic Scenes One D4RT at a Time</a></h3>
-  <p class="post-card__tldr">CVPR 2026 最佳论文 (Google DeepMind)。把&quot;重建动态 4D 场景&quot;这件事从&quot;逐帧稠密解码&quot;改成&quot;按需点查询&quot;:一个 encoder 把视频压成固定的 Global Scene Representation,一个轻量 cross-attention decoder 接收查询 q=(u,v,t_src,t_tgt,t_cam) 独立吐出该点的 3D 坐标。改一改查询就能统一拿到深度、点云、点轨迹、相机内外参 —— 速度比 VGGT 快 9×、比 MegaSaM 快 100×,且是唯一能稠密重建动态像素的方法。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/3d-reconstruction.html">3d-reconstruction</a>
-      <a class="tag-chip" href="concepts/4d-reconstruction.html">4d-reconstruction</a>
-      <a class="tag-chip" href="concepts/point-tracking.html">point-tracking</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

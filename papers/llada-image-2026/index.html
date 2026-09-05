@@ -1,0 +1,565 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>LLaDA-Image：用完全开源配方从零训一个 6B 强图像生成器（技术报告精读 + 代码交叉验证）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">术语速查</a></li>
+    <li class="h2"><a href="#sec-2">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-3">2. 方法 (Model Design)</a></li>
+    <li class="h3"><a href="#sec-3-1">2.0 消融决策表（读这一节就够拿到主干）</a></li>
+    <li class="h3"><a href="#sec-3-2">2.1 三段式架构与&quot;单流&quot;DiT</a></li>
+    <li class="h3"><a href="#sec-3-3">2.2 image-only 预训练：从&quot;待生成的那块图&quot;里自造条件</a></li>
+    <li class="h3"><a href="#sec-3-4">2.3 编辑：让参考图绕过 VLM，走语义+像素双旁路</a></li>
+    <li class="h3"><a href="#sec-3-5">2.4 TwinFlow：一个 DiT 用正负时间当两个角色</a></li>
+    <li class="h2"><a href="#sec-4">3. 结果 (Results)</a></li>
+    <li class="h2"><a href="#sec-5">4. 实现细节与工程线 (Code Cross-Read)</a></li>
+    <li class="h3"><a href="#sec-5-1">4.1 Recipe #1 落地：无参数 RMSNorm 铺满整个 DiT</a></li>
+    <li class="h3"><a href="#sec-5-2">4.2 单流 block：sandwich-norm + zero-init tanh 门 + 逐 token 双调制</a></li>
+    <li class="h3"><a href="#sec-5-3">4.3 RQA = QueryFormer：256 个可学 query 撬动冻结 VLM</a></li>
+    <li class="h3"><a href="#sec-5-4">4.4 条件编码全链路：RQA → 追加 → 冻结 prefill → Connector</a></li>
+    <li class="h3"><a href="#sec-5-5">4.5 推理：flow-matching 欧拉 + 标准 CFG</a></li>
+    <li class="h3"><a href="#sec-5-6">4.6 训练侧系统工程（来自报告正文）</a></li>
+    <li class="h2"><a href="#sec-6">5. 评价 (Assessment)</a></li>
+    <li class="h3"><a href="#sec-6-1">亮点</a></li>
+    <li class="h3"><a href="#sec-6-2">不足与存疑</a></li>
+    <li class="h3"><a href="#sec-6-3">延伸阅读与交叉验证</a></li>
+    <li class="h2"><a href="#sec-7">研究启发 (Transferable Takeaways)</a></li>
+    <li class="h3"><a href="#sec-7-1">把监督信号从最贵的阶段挪走</a></li>
+    <li class="h3"><a href="#sec-7-2">用时间符号复用一个网络当两个角色</a></li>
+    <li class="h3"><a href="#sec-7-3">旁挂而非替换：非对称注意力掩码</a></li>
+    <li class="h3"><a href="#sec-7-4">反直觉点：真实感与 benchmark 会打架</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>LLaDA-Image：用完全开源配方从零训一个 6B 强图像生成器</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-05</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-05</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Chuyan Chen, Haoxing Chen, Kun Chen, Zhenglin Cheng, ... Jun Xie (AGI Research Center, Inclusion AI)</span> · <span class="post-meta__venue">arXiv Technical Report</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.03796">arXiv:2609.03796</a> · <a class="post-meta__link" href="https://github.com/inclusionAI/LLaDA-Image">项目页</a> · <a class="post-meta__link" href="https://github.com/inclusionAI/LLaDA-Image">代码</a> · <a class="post-meta__link" href="https://huggingface.co/collections/inclusionAI/llada-image">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/image-editing.html">image-editing</a> <a class="concept-chip" href="../../concepts/unified-multimodal.html">unified-multimodal</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/image-only-pretraining.html">image-only-pretraining</a> <a class="concept-chip" href="../../concepts/diffusion-language-model.html">diffusion-language-model</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/mllm-conditioning.html">mllm-conditioning</a> <a class="concept-chip" href="../../concepts/rmsnorm.html">rmsnorm</a> <a class="concept-chip" href="../../concepts/muon-optimizer.html">muon-optimizer</a> <a class="concept-chip" href="../../concepts/text-rendering.html">text-rendering</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-benchmark.png" alt="Qwen-Image-Bench 上各模型 EN/CN 综合分柱状图，LLaDA-Image 蓝色柱居开源第一">
+  <figcaption>
+    <strong>Fig. 1</strong> — Qwen-Image-Bench 结果（按两语种均分排序）。深灰=开源，浅灰=闭源，蓝色=LLaDA-Image。
+    LLaDA-Image 综合 53.53(EN)/53.38(CN) 是开源第一，已超过闭源的 Imagen 4.0 Ultra、逼近 FLUX.2 Max；离顶级闭源 GPT-Image 2 (65.23) 仍有明显差距。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>目标</h3><p>不是只追生成质量，而是回答一个系统问题：<strong>在"可获取的数据预算 + 稳定的大规模训练 + 高效部署"三重约束下，从零训一个强图像生成器要付出什么代价？</strong>并把配方完全开源。</p></div>
+  <div class="card"><h3>数据</h3><p>220M 生成训练样本，<strong>98% 真图</strong>；其中 <strong>90%+ 是无 caption 的 image-only 数据</strong>用于预训练/中训练；配对 image-text 只进入后段 SFT，且真图占比全程 >70%。</p></div>
+  <div class="card"><h3>方法</h3><p>冻结的 <strong>dLLM 版 VLM</strong>（LLaDA2.0-Mini）当理解后端 + RQA/Connector 桥接 + <strong>单流 DiT</strong> 做 flow-matching；编辑走绕过 VLM 的参考图双通道。</p></div>
+  <div class="card"><h3>系统</h3><p>DiT 全程<strong>无参数 RMSNorm</strong> + <strong>Muon 优化器</strong>；序列 bin-packing + 分块扩散；宽高比分桶变分辨率；checkpoint 合并抑制震荡；TwinFlow 蒸馏到 2–4 步。</p></div>
+</div>
+<h2 id="sec-1">术语速查</h2>
+<p>这篇报告的缩写密度很高，先一句话一个：</p>
+<div class="glossary">
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>一句话解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DiT</strong></td>
+<td>Diffusion Transformer，用 Transformer（而非 U-Net）做扩散/流匹配的主干；本文是&quot;单流&quot;的——图像 token 和条件 token 在同一套 block 里联合注意力。</td>
+</tr>
+<tr>
+<td><strong>dLLM</strong></td>
+<td>扩散语言模型（diffusion LLM）。不是自回归逐 token 生成，而是像扩散一样&quot;从全 [MASK] 迭代去噪出文本&quot;。本文的理解后端 LLaDA2.0-Mini 就是 dLLM。</td>
+</tr>
+<tr>
+<td><strong>VLM</strong></td>
+<td>视觉-语言模型。这里指基于 dLLM 的多模态理解模块，负责把文本指令（和可选图像）编码成生成条件。</td>
+</tr>
+<tr>
+<td><strong>RQA</strong></td>
+<td>Residual Query Adapter，残差查询适配器。一组可学习 query token 去 cross-attend 输入序列，抽出&quot;对生成有用&quot;的信息，再拼回原序列喂给冻结 VLM。</td>
+</tr>
+<tr>
+<td><strong>Connector</strong></td>
+<td>一个浅层 Transformer，把 VLM 的隐状态投影/对齐到 DiT 的条件空间。</td>
+</tr>
+<tr>
+<td><strong>SigLIP-VQ</strong></td>
+<td>带向量量化的 SigLIP 视觉编码器，本文既做 VLM 的视觉输入，也在编辑时抽参考图的语义特征。</td>
+</tr>
+<tr>
+<td><strong>VAE</strong></td>
+<td>变分自编码器，图像↔latent 的压缩器。本文用 FLUX.2 VAE。</td>
+</tr>
+<tr>
+<td><strong>Flow Matching</strong></td>
+<td>流匹配。学一个把噪声直线插值到数据的&quot;速度场&quot;，训练目标是回归 <span class="math inline">\(z-x\)</span>。</td>
+</tr>
+<tr>
+<td><strong>RMSNorm</strong></td>
+<td>只按均方根归一化、去掉均值中心化的 Norm；&quot;无参数&quot;= 连缩放增益 <span class="math inline">\(\gamma\)</span> 都不学。</td>
+</tr>
+<tr>
+<td><strong>Muon</strong></td>
+<td>一种对权重矩阵做正交化/谱归一更新的优化器，近来在大模型训练里以稳定著称。</td>
+</tr>
+<tr>
+<td><strong>DMD / DMD2</strong></td>
+<td>Distribution Matching Distillation，用真/假 score 之差匹配分布，把多步模型蒸成少步。</td>
+</tr>
+<tr>
+<td><strong>TwinFlow</strong></td>
+<td>本文用的蒸馏法：用<strong>同一个 DiT</strong> 的正时间/负时间两个&quot;角色&quot;分别当生成器和假 score，省掉独立的假 score 网络。</td>
+</tr>
+<tr>
+<td><strong>CoT SFT</strong></td>
+<td>Chain-of-Thought 监督微调，先把理解后端的&quot;边想边答&quot;能力练好。</td>
+</tr>
+<tr>
+<td><strong>T2I / I2I</strong></td>
+<td>文生图 / 图生图（编辑）。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="sec-2">1. 出发点 (Motivation)</h2>
+<p>主流文生图配方（Stable Diffusion、SD3 那一系）从<strong>第一步就把&quot;学视觉先验&quot;和&quot;学语言对齐&quot;耦在一起</strong>——最耗算力的早期训练阶段就需要配对 caption。这带来一串环环相扣的瓶颈：</p>
+<ul>
+<li><strong>Caption 又贵又有损。</strong> 人写贵、模型写会幻觉；更要命的是<strong>分辨率错配</strong>：caption 描述的是整张图，训练要把整图降采样到低分辨率（如 <span class="math inline">\(256^2\)</span>），caption 里提的细节可能降采样后就没了，于是&quot;图-文不一致&quot;。</li>
+<li><strong>合成数据是把双刃剑。</strong> 合成 image-text 对能加速早期收敛，但合成占比一高，artifact 会被继承，长期真实感受限。</li>
+<li><strong>统一模型还要接两头。</strong> 一个统一模型既要把&quot;多模态理解&quot;接到&quot;生成&quot;，编辑时还要保住参考图证据；部署又要求把长扩散轨迹压短而不掉质量。</li>
+</ul>
+<p>作者的判断是：这些必须<strong>协同设计</strong>（监督信号 + 架构 + 训练管线 + 蒸馏），单点优化解决不了。于是提出三条与主流相反的赌注：</p>
+<ol>
+<li><strong>把视觉先验学习和语言对齐解耦</strong>——先用 image-only 数据学先验，语言对齐推迟到后段 SFT（<a class="wiki-link" data-slug="i1-2026" href="../i1-2026/index.html">i1-2026</a> 恰好相反，靠纯合成 caption 从头训，是很好的对照）。</li>
+<li><strong>真图为主</strong>——明知早期 benchmark 涨得慢，也押注&quot;更高的真实感天花板&quot;。</li>
+<li><strong>用扩散语言模型（dLLM）当理解后端</strong>——在一片&quot;自回归 VLM / T5 文本编码器&quot;里是个异类。</li>
+</ol>
+<blockquote>
+<p><strong>这篇属于&quot;技术报告 / 系统论文&quot;。</strong> 它的价值不在某一个新公式，而在<strong>一整套可复现的工程决策 + 每个决策背后的&quot;为什么&quot;</strong>。所以下面 §2 用&quot;决策日志 + 关键公式&quot;来读，§4 单独拉一条系统/工程线。</p>
+</blockquote>
+<h2 id="sec-3">2. 方法 (Model Design)</h2>
+<figure>
+  <img class="zoomable" src="figures/fig2-pipeline.png" alt="训练流水线：dLLM CoT SFT → Image-only PT 256² → Image-only MT 512² AR桶 → Text-to-image SFT 512²→1024² → Joint Gen-Edit → LLaDA-Image → Turbo 2-4步">
+  <figcaption>
+    <strong>Fig. 2</strong> — 训练与发布路径。虚线（CoT SFT）先把冻结理解后端准备好；实线训练生成器，产出 Base（多步）和 TwinFlow 蒸馏的 Turbo（2–4 步）两个 checkpoint。分辨率从 $256^2$ 一路爬到 $1024^2$。
+  </figcaption>
+</figure>
+<h3 id="sec-3-1">2.0 消融决策表（读这一节就够拿到主干）</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点/常规做法</th>
+<th>本文选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>早期监督信号</strong></td>
+<td>配对 image-text（caption）</td>
+<td><strong>image-only 自条件</strong>（Recipe #3）</td>
+<td>caption 贵且和降采样后的图不一致；图里本就含有监督它自己所需的语义，冻结 VLM 抠出来当条件即可</td>
+</tr>
+<tr>
+<td><strong>数据真/合成比</strong></td>
+<td>合成为主，早期收敛快</td>
+<td><strong>真图 &gt;70%（PT/MT 100% 真图）</strong>（Recipe #2/#4）</td>
+<td>合成早期快但传染 artifact；真图收敛慢但真实感天花板更高</td>
+</tr>
+<tr>
+<td><strong>DiT 归一化</strong></td>
+<td>LayerNorm / 带参数 Norm</td>
+<td><strong>全程无参数 RMSNorm</strong>（Recipe #1）</td>
+<td>长训练地平线上显著更稳；去掉可学增益减少一处漂移源</td>
+</tr>
+<tr>
+<td><strong>优化器</strong></td>
+<td>AdamW</td>
+<td><strong>Muon</strong>（生成全阶段）</td>
+<td>谱/正交化更新，稳住大规模训练</td>
+</tr>
+<tr>
+<td><strong>条件流</strong></td>
+<td>双流 MMDiT（图/文各一路）</td>
+<td><strong>单流 DiT</strong>（图文 token 同栈联合注意力）</td>
+<td>让语义在每一层都能直接影响像素合成，主干更同质简单</td>
+</tr>
+<tr>
+<td><strong>理解后端</strong></td>
+<td>自回归 VLM / T5 文本编码器</td>
+<td><strong>dLLM 版 VLM（LLaDA2.0-Mini）</strong></td>
+<td>统一多模态理解，且能在 image-only 阶段消费视觉 token</td>
+</tr>
+<tr>
+<td><strong>编辑参考图注入</strong></td>
+<td>进 VLM 一起理解</td>
+<td><strong>绕过 VLM，直接进 DiT</strong>（语义+像素双通道）</td>
+<td>保住 VLM 通用理解；干净 VAE latent 提供未改区域的原生像素证据</td>
+</tr>
+<tr>
+<td><strong>时间步采样</strong></td>
+<td>均匀 <span class="math inline">\(U(0,1)\)</span></td>
+<td><strong>logit-normal（<span class="math inline">\(P_{mean}=P_{std}=0.8\)</span>）</strong></td>
+<td>把更多监督预算投到高噪声（早期去噪）——那里最敏感、错误会沿轨迹传播</td>
+</tr>
+<tr>
+<td><strong>少步部署</strong></td>
+<td>独立训练一个少步模型</td>
+<td><strong>TwinFlow 蒸馏（共享 DiT 正/负时间双头）</strong></td>
+<td>不引入独立假 score 网络，推理时丢掉假 score 头零开销</td>
+</tr>
+<tr>
+<td><strong>收敛后选点</strong></td>
+<td>选单个最优 checkpoint</td>
+<td><strong>多邻近 checkpoint 权重平均</strong></td>
+<td>抑制采样噪声导致的分数震荡，更鲁棒</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-3-2">2.1 三段式架构与&quot;单流&quot;DiT</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="LLaDA-Image 架构：RQA 学习 query cross-attend 输入，拼接后进 LLaDA2.0 Mini 单次 prefill，Connector 投到 DiT 条件空间；FLUX.2 VAE 供 latent；编辑额外用 SigLIP-VQ 语义 + 干净 VAE latent；所有 token 拼接进单流 DiT 预测速度">
+  <figcaption>
+    <strong>Fig. 3</strong> — 架构总览。三大件：<strong>dLLM-VLM 理解</strong>（中）→ <strong>RQA+Connector 桥接</strong> → <strong>单流 DiT 生成</strong>（上，×N block）。右侧是无参数 RMSNorm 的 FFN/Attention block 细节（zero-init gate、Q/K-Norm）。下方两行分别是 T2I 与 Editing 的数据流：编辑时参考图<strong>不进 VLM</strong>，走 SigLIP-VQ 语义 + FLUX.2 VAE 干净 latent 两条旁路直接进 DiT。
+  </figcaption>
+</figure>
+<p>整个前向可以写成一条嵌套式子（论文 Eq. 5）：</p>
+<div class="math block">
+\[\hat{v}_t = F_\theta(x_t, t, h_{cond}) = F_\theta\Big(x_t,\, t,\, c_\phi\big(g\left(\text{concat}(c,\, q_\psi(q_0, c))\right)\big)\Big)\]
+</div>
+<p class="math-translation">—— 翻译: 从里到外读——先把可学 query $q_0$ 和输入条件 $c$ 送进 RQA $q_\psi$ 抽出残差 query，拼回 $c$ 后过冻结 VLM $g$ 做一次 prefill，再用 Connector $c_\phi$ 投影成条件 $h_{cond}$；最后 DiT $F_\theta$ 在噪声 latent $x_t$、时间 $t$、条件 $h_{cond}$ 下预测流匹配速度 $\hat v_t$。四个字母就是四个模块的串联。</p>
+<p><strong>为什么要 RQA？</strong> 冻结的 VLM 不会主动把&quot;生成需要的细粒度视觉先验&quot;暴露出来。RQA 的做法是让一组 query 先去 cross-attend 全部多模态输入（Eq. 2 <span class="math inline">\(q_{res}=q_\psi(q_0,c)\)</span>），把结果<strong>追加</strong>到输入序列末尾（而不是替换），再让冻结 VLM 一次 prefill（Eq. 3）——相当于用一段可学的&quot;提示后缀&quot;去撬动冻结 VLM 吐出对生成最有用的隐状态。全程 VLM 参数不动，只训 RQA、Connector、DiT。</p>
+<p><strong>&quot;单流&quot;的含义</strong>：与 MMDiT 那种&quot;图一路、文一路、各自有独立权重&quot;不同，本文把图像 token 和条件 token 拼成一条序列，<strong>同一套 block 的联合自注意力</strong>处理。好处是语义能在每一层直接影响像素演化，主干保持同质简单。</p>
+<h3 id="sec-3-3">2.2 image-only 预训练：从&quot;待生成的那块图&quot;里自造条件</h3>
+<p>这是全篇最反常识的一步（Recipe #3）。核心观察：<strong>一张图本身就含有监督它自己生成所需的高层语义</strong>。于是训练时：</p>
+<ul>
+<li>从源图<strong>随机裁一块</strong> native 分辨率约 <span class="math inline">\(256^2\)</span>（或略大）的区域，只做<strong>轻微降采样</strong>到 <span class="math inline">\(256^2\)</span>——因为条件来自这块裁图自己，不存在&quot;整图降采样丢 caption 细节&quot;的问题，反而能喂进多得多的局部细节。</li>
+<li>用冻结 SigLIP-VQ 把这块图编码成 patch 特征 <span class="math inline">\(c_{img}=v(y)\in\mathbb{R}^{N\times D}\)</span>，配一句固定辅助 prompt（&quot;Generate an image identical to the reference image&quot;）。</li>
+<li><strong>关键：掩码自条件。</strong> 若把全部图像特征都给它，等于泄露了几乎完整的重建目标，模型会学到平凡的恒等映射。所以按比例 <span class="math inline">\(\rho_{img}\)</span> 随机 mask 掉一部分（Eq. 9）：</li>
+</ul>
+<div class="math block">
+\[\tilde{c}_{img} = c_{img} \odot m, \qquad c = \text{concat}(c_{aux},\, \tilde{c}_{img})\]
+</div>
+<p class="math-translation">—— 翻译: $m\in\{0,1\}^N$ 是保留概率 $1-\rho_{img}$ 的二值掩码。留下一部分可见 patch、遮掉其余，任务就从"稠密重建"变成"稀疏→稠密预测"：模型必须从可见 patch 推断缺失内容，被逼着学上下文与构图结构，而不是抄答案。</p>
+<p>生成器用<strong>流匹配</strong>训练（Eq. 10）。对高斯噪声 <span class="math inline">\(z\)</span>、<span class="math inline">\(t\sim U(0,1)\)</span>，构造插值 <span class="math inline">\(x_t=(1-t)x+tz\)</span>，回归常速度场：</p>
+<div class="math block">
+\[\mathcal{L}_{FM}(\theta,\phi,\psi) = \mathbb{E}_{y,x,z,t,m}\Big[\big\|F_\theta(x_t, t, h_{cond}) - (z-x)\big\|_2^2\Big]\]
+</div>
+<p class="math-translation">—— 翻译: 目标速度是 $z-x$（从数据指向噪声的直线方向）。这一步只更新 DiT $F_\theta$、RQA $q_\psi$、Connector $c_\phi$；VLM $g$ 和视觉编码器 $v$ 全程冻结。于是"廉价的 image-only 数据"就被吸收成了视觉先验。</p>
+<p><strong>中训练</strong>（MT）沿用同样的 image-only 公式，只把像素预算从 <span class="math inline">\(256^2\)</span> 提到 <span class="math inline">\(512^2\)</span>，并引入<strong>宽高比分桶</strong>。它是一座&quot;桥&quot;：先只改分辨率（条件仍来自图自身），到 SFT 再只改监督来源（换成文本）——避免&quot;分辨率+监督来源&quot;同时突变。</p>
+<h3 id="sec-3-4">2.3 编辑：让参考图绕过 VLM，走语义+像素双旁路</h3>
+<p>编辑是这套架构最巧的地方——<strong>参考图故意不进 VLM</strong>（否则会污染 VLM 的通用理解），而是开两条直达 DiT 的旁路：</p>
+<p><strong>① 语义旁路</strong>（Eq. 6）：SigLIP-VQ 抽参考图语义 <span class="math inline">\(f_{ref}=v(y_{ref})\)</span>，过一个 DiT 专用分支 <span class="math inline">\(b_\omega\)</span>（一个 embedder + 两层 Transformer）得 <span class="math inline">\(h_{ref}\)</span>，与文本条件拼成联合条件 <span class="math inline">\(h_{joint}=\text{concat}(h_{cond}, h_{ref})\)</span>。</p>
+<p><strong>② 像素旁路</strong>（Eq. 8）：光有语义留不住未改区域的低层外观。所以再用 FLUX.2 VAE 把<strong>干净</strong>参考图编码成 latent，与噪声目标 latent <strong>在通道上拼接</strong>后进 DiT：</p>
+<div class="math block">
+\[x_{ref}=\text{VAE}(y_{ref}),\quad x_t^{edit}=\text{concat}(x_t, x_{ref}),\quad \hat{v}_t^{edit}=F_\theta(x_t^{edit}, t, h_{joint})\]
+</div>
+<p class="math-translation">—— 翻译: 语义旁路告诉模型"参考图讲了什么"，像素旁路直接把"不该改的区域长什么样"的原生像素塞进去。两者互补，让身份、结构、纹理、背景一致性都稳住——而且没有引入独立的编辑专用主干，一个 checkpoint 通吃 T2I+编辑。</p>
+<p>代码里这一步有个漂亮的实现：干净参考 latent 的时间步被强制设成 0，和噪声目标 latent（时间步 <span class="math inline">\(t\)</span>）<strong>逐 token 用不同的 AdaLN 调制</strong>（详见 §4.2）。</p>
+<h3 id="sec-3-5">2.4 TwinFlow：一个 DiT 用正负时间当两个角色</h3>
+<p>要把 50 步的 Base 蒸成 2–4 步，本文用 TwinFlow（建立在 DMD2 上）。DMD2 需要一个<strong>在线假 score 模型</strong>去追学生分布，通常得多养一个网络。TwinFlow 的技巧是<strong>用同一个 DiT 的时间符号当角色开关</strong>：正时间 <span class="math inline">\(+t\in[0,1]\)</span> 训生成器，负时间 <span class="math inline">\(-t\in[-1,0]\)</span> 训假 score。</p>
+<p>一步从噪声到数据的映射（Eq. 12）：<span class="math inline">\(\hat{x}=z-F_\theta(z,+1,h_{cond})\)</span>。假 score 分支用 detach 后的 <span class="math inline">\(\hat x\)</span> 重新加噪训练（Eq. 13–14），分布匹配的 DMD 目标（Eq. 16）：</p>
+<div class="math block">
+\[\mathcal{L}_{DMD}(\theta) = \mathbb{E}\big[w(t)\,\langle \text{sg}(s_{fake}-s_{real}),\, \hat{x}_t\rangle\big]\]
+</div>
+<p class="math-translation">—— 翻译: $s_{real}$ 来自冻结的原始模型 $F_{base}$（在 $+t$），$s_{fake}$ 来自被蒸的 $F_\theta$（在 $-t$）。用两者 score 之差（stop-gradient）去推学生样本 $\hat x_t$，只更新正时间的生成器；负时间分支由 Eq. 14 单独更新。交替优化 = 在一个模型里实现 DMD。</p>
+<p>三个工程细节：① 借 DuMo 的&quot;一进双出&quot;给共享 DiT 挂<strong>两个输出头</strong>（假 score 头 / DMD 头），推理只留 DMD 头、零额外开销；② 用<strong>4 步反向仿真</strong>对齐学生推理轨迹；③ 生成器:假 score 更新按 <strong>1:2</strong>（比 DMD2 的 1:5 省），蒸完再用 TBSM 做 RL 微调。</p>
+<h2 id="sec-4">3. 结果 (Results)</h2>
+<p><strong>主战场 Qwen-Image-Bench</strong>（1000 条分层 prompt，测质量/美学/对齐/真实感/创意五维，中英双轨）：</p>
+<ul>
+<li>LLaDA-Image 综合 <strong>53.53 (EN) / 53.38 (CN)</strong>，<strong>开源双轨第一</strong>，分别超次优开源 Z-Image Turbo <strong>1.87 / 0.67</strong> 分（无 prompt 增强、无 test-time thinking）。</li>
+<li>在开源阵营的 Quality、Aesthetics、Alignment 三维两语种都排第一；EN 的 Creative 也第一。</li>
+<li>已超过闭源 Imagen 4.0 Ultra (52.42)、逼近 FLUX.2 Max (56.14)；但距 GPT-Image 2 (65.23) 仍有约 12 分的实打实差距——报告没有回避这一点。</li>
+<li>Turbo（4 步）综合 50.98 (EN)/50.27 (CN)，比 Base 掉约 2.5–3 分，换来 ~12× 步数压缩。</li>
+</ul>
+<p><strong>文字渲染</strong>：LongText-Bench EN/ZH 0.923 / 0.913，双语差距小（均衡）但低于最强专用文字模型（Qwen-Image 2512 的 0.956/0.965）。CVTG-2K 平均词准 <strong>0.875 排第二</strong>（仅次于 SenseNova U1.5 Preview 0.887），且随文字区域从 2→5 增多只从 0.892 降到 0.857，稳定性好。</p>
+<p><strong>编辑 GEdit-Bench</strong>：综合 EN/CN <strong>7.336 / 7.294</strong>，单 checkpoint 双语编辑。分项暴露短板：<strong>语义一致性(GSC 8.043) 明显强于感知质量(GPQ 7.182)</strong>，EN 尤其如此——离专用编辑模型（Qwen-Image-Edit 2511 的 7.877、FireRed 7.943）还有距离。</p>
+<p><strong>旧诊断基准（作者明确降权）</strong>：GenEval 综合 0.85（单物体 1.00、双物体 0.98、属性绑定 0.84 并列最高，但<strong>计数只有 0.53</strong> 拉低总分，是明确的组合弱点）；DPG-Bench 87.48。作者直言 GenEval/DPG 已饱和、与人类偏好排序背离，只作历史对照。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-datacomp.png" alt="SFT 数据构成环形图：People 37.2%、Nature 26.6%、Design 26.4%、Synthetic 9.9%，内含 Single Portrait 25.2% 等细分">
+  <figcaption>
+    <strong>Fig. 4</strong> — SFT 阶段（加权）内容构成。People 37.2%（其中单人像 25.2%）、Nature 26.6%、Design 26.4%、Synthetic 仅 9.9%。人像和文字/设计类占比高，呼应"针对性 refinement 强化文字渲染+高保真人像"。
+  </figcaption>
+</figure>
+<h2 id="sec-5">4. 实现细节与工程线 (Code Cross-Read)</h2>
+<blockquote>
+<p>仓库 <code>inclusionAI/LLaDA-Image</code> 目前放出的是<strong>模型定义 + 推理 pipeline</strong>（<code>transformer_llada_image.py</code> 1874 行、<code>pipeline_llada_image.py</code> 651 行）；训练代码仓库标注在陆续释放中。以下引用均来自已开源的推理侧代码，逐条对回论文公式。</p>
+</blockquote>
+<h3 id="sec-5-1">4.1 Recipe #1 落地：无参数 RMSNorm 铺满整个 DiT</h3>
+<p>论文说&quot;把 DiT 里每个 Norm 换成无参数 RMSNorm&quot;。代码里 <code>elementwise_affine=False</code> 就是&quot;无参数&quot;——连缩放增益都不学：</p>
+<p class="code-source">repo/src/models/transformer_llada_image.py:L199-L202, L152-L153 — TransformerBlock 的四处 RMSNorm 与 Q/K-Norm 全部无参数</p>
+<pre><code class="language-python">self.attention_norm1 = RMSNorm(dim, eps=norm_eps, elementwise_affine=False)
+self.ffn_norm1       = RMSNorm(dim, eps=norm_eps, elementwise_affine=False)
+self.attention_norm2 = RMSNorm(dim, eps=norm_eps, elementwise_affine=False)
+self.ffn_norm2       = RMSNorm(dim, eps=norm_eps, elementwise_affine=False)
+# 注意力里 Q/K 也各挂一个无参数 RMSNorm（qk_norm 稳定注意力 logits）
+self.norm_q = RMSNorm(self.head_dim, eps=norm_eps, elementwise_affine=False) if qk_norm else None
+self.norm_k = RMSNorm(self.head_dim, eps=norm_eps, elementwise_affine=False) if qk_norm else None
+</code></pre>
+<p>整个文件里 <code>elementwise_affine=False</code> 出现十余次，覆盖 DiT block、QueryFormer、Connector、SigVQ 视觉塔——确实是&quot;铺满&quot;。这印证了报告把它当<strong>一等公民的稳定性手段</strong>而非小 trick。</p>
+<h3 id="sec-5-2">4.2 单流 block：sandwich-norm + zero-init tanh 门 + 逐 token 双调制</h3>
+<p>论文 Fig. 3 右侧的 block 细节（Scale → RMSNorm → 子层 → RMSNorm → zero-init Gate → 残差）在代码里一字不差，且藏着编辑的关键——<strong>noise_mask 逐 token 选择&quot;噪声/干净&quot;两套调制</strong>：</p>
+<p class="code-source">repo/src/models/transformer_llada_image.py:L228-L251 — TransformerBlock.forward 的调制与残差</p>
+<pre><code class="language-python">if noise_mask is None:                       # T2I：全序列一套调制
+    scale_msa, gate_msa, scale_mlp, gate_mlp = \
+        self.adaLN_modulation(adaln_input).unsqueeze(1).chunk(4, dim=2)
+    gate_msa, gate_mlp = gate_msa.tanh(), gate_mlp.tanh()   # 门用 tanh 压到 (-1,1)
+    scale_msa, scale_mlp = 1.0 + scale_msa, 1.0 + scale_mlp # scale 以 1 为中心
+else:                                        # 编辑：噪声 token 与干净参考 token 各一套
+    noisy_mod = self.adaLN_modulation(adaln_noisy).chunk(4, dim=1)
+    clean_mod = self.adaLN_modulation(adaln_clean).chunk(4, dim=1)
+    scale_msa = _select_per_token(1.0+noisy_mod[0], 1.0+clean_mod[0], noise_mask, seq_len)
+    gate_msa  = _select_per_token(noisy_mod[1].tanh(), clean_mod[1].tanh(), noise_mask, seq_len)
+    # ... mlp 同理
+attention_output = self.attention(self.attention_norm1(hidden_states) * scale_msa, ...)
+hidden_states = hidden_states + gate_msa * self.attention_norm2(attention_output)
+hidden_states = hidden_states + gate_mlp * self.ffn_norm2(
+    self.feed_forward(self.ffn_norm1(hidden_states) * scale_mlp))
+</code></pre>
+<p><strong>paper↔code 印证</strong>：Eq. 8 说&quot;干净参考 latent 与噪声目标 latent 拼接进 DiT&quot;。代码用 <code>noise_mask</code> 逐 token 判断这个 token 是&quot;噪声目标&quot;还是&quot;干净参考&quot;，分别用时间步 <span class="math inline">\(t\)</span> 和时间步 <span class="math inline">\(0\)</span> 生成的调制——这样同一个 block 里，参考 token 表现得像&quot;已经去噪完的干净图&quot;，目标 token 才被真正去噪。这正是主 forward 里 <code>dual_timestep = torch.cat([t, torch.zeros_like(t)])</code>（L634）的来源。</p>
+<p>FFN 是标准 <strong>SwiGLU</strong>（<code>w2(silu(w1 x) * w3 x)</code>，L166-L175），隐藏维 <code>dim/3*8</code>。</p>
+<h3 id="sec-5-3">4.3 RQA = QueryFormer：256 个可学 query 撬动冻结 VLM</h3>
+<p>论文 Eq. 2 的 <span class="math inline">\(q_\psi(q_0,c)\)</span> 就是这个 <code>QueryFormerModel</code>——默认 <strong>256 个 meta_queries</strong>、单层 cross-attention：</p>
+<p class="code-source">repo/src/models/transformer_llada_image.py:L1338-L1382 — QueryFormer 的可学 query 与前向</p>
+<pre><code class="language-python">self.meta_queries = nn.Parameter(torch.zeros(num_queries, hidden_size))   # q0，默认 256×2048
+nn.init.normal_(self.meta_queries, std=1 / math.sqrt(hidden_size))
+# ...
+def forward(self, inputs_embeds, attention_mask, ...):
+    query_embeds = self.meta_queries.unsqueeze(0).expand(batch_size, -1, -1)
+    for query_block in self.query_blocks:          # 默认只 1 层
+        query_embeds = query_block(query_embeds, inputs_embeds, attention_mask)  # cross-attend 输入
+    return LLaDAImageQueryFormerOutput(query_embeds=query_embeds)
+</code></pre>
+<h3 id="sec-5-4">4.4 条件编码全链路：RQA → 追加 → 冻结 prefill → Connector</h3>
+<p>pipeline 侧把 Eq. 2→3→4 串成一条，还有一处论文没细说但很关键的<strong>非对称注意力掩码</strong>：</p>
+<p class="code-source">repo/src/pipelines/pipeline_llada_image.py:L196-L228 — _encode_text：query 追加 + 冻结 VLM prefill + connector</p>
+<pre><code class="language-python">inputs_embeds = self.text_encoder.get_input_embeddings()(input_ids)
+query_embeds = self.queryformer(inputs_embeds, attention_mask).query_embeds   # Eq.2
+text_length = inputs_embeds.shape[1]
+inputs_embeds = torch.cat([inputs_embeds, query_embeds], dim=1)               # 追加，非替换
+# ...构造 backbone 注意力掩码...
+backbone_attention_mask[:, :, :text_length, text_length:] = mask_value        # ★关键
+hidden_states = self.text_encoder.model(inputs_embeds=inputs_embeds, ...)     # Eq.3 冻结 prefill
+prompt_embeds = self.text_projection(hidden_states).hidden_states             # Eq.4 connector→h_cond
+</code></pre>
+<p><strong>那行 <code>★关键</code> 是点睛之笔</strong>：它让<strong>原始文本 token 看不见后面追加的 query token</strong>，但 query 能看见文本。于是冻结 VLM 对文本的理解完全不被 query 干扰（保住通用能力），而 query 单向地从文本里&quot;吸&quot;出对生成有用的信息——这正是 RQA &quot;residual/旁挂&quot;设计哲学在注意力层面的体现。</p>
+<h3 id="sec-5-5">4.5 推理：flow-matching 欧拉 + 标准 CFG</h3>
+<p class="code-source">repo/src/pipelines/pipeline_llada_image.py:L603-L624 — 去噪循环与分类器无关引导</p>
+<pre><code class="language-python">latent_model_input = torch.cat([latents, latents], dim=0) if do_cfg else latents
+model_output = self.transformer(latent_model_input, timestep, cap_feats, glm_cap_feats,
+                                source_latents=source_latents, ...)
+if do_classifier_free_guidance:
+    conditional_output, unconditional_output = model_output.chunk(2)
+    model_output = unconditional_output + self.guidance_scale * (
+        conditional_output - unconditional_output)          # 默认 guidance_scale=4.5
+latents = self.scheduler.step(model_output, timestep, latents, return_dict=False)[0]
+</code></pre>
+<p>用 <code>FlowMatchEulerDiscreteScheduler</code>，编辑时把 <code>source_latents</code>（干净参考 VAE latent）一路传进 DiT。</p>
+<h3 id="sec-5-6">4.6 训练侧系统工程（来自报告正文）</h3>
+<p>推理代码没有的这些，报告写得很细，值得单列（复现的真正难点在此）：</p>
+<ul>
+<li><strong>序列 bin-packing + 分块扩散</strong>：CoT SFT 把语料贪心打包成恰好 16384 token 的序列，块对角掩码防跨样本泄露；块大小 <span class="math inline">\(b=32\)</span>，mask 比例 <span class="math inline">\(\rho=\cos(r\pi/2),\,r\sim U(0,1)\)</span>，<strong>同一 batch 用互补 mask 各跑一次</strong>（两个 optimizer step），保证每个 token 都被监督到。</li>
+<li><strong>Muon 全程 + 分阶段 LR</strong>：PT <span class="math inline">\(4\times10^{-4}\)</span> → MT <span class="math inline">\(2\times10^{-4}\)</span> → SFT <span class="math inline">\(5\times10^{-5}\to3\times10^{-5}\)</span> → 蒸馏 <span class="math inline">\(5\times10^{-6}\)</span>；global batch 从 PT 的 24576 一路降到蒸馏的 256。</li>
+<li><strong>logit-normal 时间步</strong>：<span class="math inline">\(t=\text{sigmoid}(P_{mean}+P_{std}\epsilon)\)</span>，<span class="math inline">\(P_{mean}=P_{std}=0.8\)</span> 把质量堆向高噪声端（Eq. 11）。</li>
+<li><strong>宽高比分桶变分辨率</strong>：按源图长宽比就近分桶、保持比例降采样、只裁掉少量溢出像素——三重收益（各 rank 显存/算力均衡、避免形变、天然学会多长宽比）。</li>
+<li><strong>checkpoint 合并</strong>：收敛后对邻近 checkpoint 做权重平均（SWA 思路），抹平采样噪声导致的分数震荡。</li>
+<li><strong>编辑期能力回放</strong>：编辑训练里 T2I:I2I = 1:1 混合，T2I 当&quot;回放&quot;防止只练编辑导致遗忘视觉先验。</li>
+</ul>
+<blockquote>
+<p><strong>paper vs code 差异</strong>：目前公开仓库只有推理路径，训练循环、image-only 掩码自条件、TwinFlow 蒸馏均<strong>未在代码中可见</strong>，只能对回报告正文——上面的系统细节属于&quot;报告主张、代码尚未开源验证&quot;，复现者需留意。</p>
+</blockquote>
+<h2 id="sec-6">5. 评价 (Assessment)</h2>
+<h3 id="sec-6-1">亮点</h3>
+<ul>
+<li><strong>&quot;image-only 预训练&quot;把 caption 从最贵的阶段挪走</strong>，是这套配方最有迁移价值的思想：条件与目标天然对齐（都来自同一块图），还顺带解决了高分辨率图降采样丢细节的老问题。</li>
+<li><strong>真图为主 + 明说代价</strong>。作者反复强调&quot;真图早期 benchmark 涨得慢&quot;，没有藏这个 trade-off，反而把它当成对&quot;高天花板&quot;的主动选择——技术报告应有的诚实。</li>
+<li><strong>编辑的双旁路 + 逐 token 双调制</strong>，工程上干净利落：一个 checkpoint 通吃 T2I 和编辑，参考图不污染 VLM。</li>
+<li><strong>全开源</strong>：权重（含 FP8）、推理代码、配方都放出，且用了两页&quot;真图挑战&quot;直观展示真实感。</li>
+</ul>
+<h3 id="sec-6-2">不足与存疑</h3>
+<ul>
+<li><strong>感知质量是硬伤</strong>。GEdit-Bench 上 GPQ(7.182) 明显落后 GSC(8.043)，即&quot;改得对但不够好看/自然&quot;；主榜也离 GPT-Image 2 有 ~12 分整差距。真实感天花板的赌注，目前只兑现了一半。</li>
+<li><strong>计数能力塌陷</strong>（GenEval Counting 0.53，Turbo 更低到 0.42）。虽然作者给 GenEval 降了权，但计数是组合性硬指标，0.53 说明单流 DiT + image-only 先验在&quot;数量对齐&quot;上有系统性弱点。</li>
+<li><strong>训练代码尚未开源</strong>，而全篇最反常识、最需要被复现验证的三件事（掩码自条件、TwinFlow、Muon 配方）恰恰都在训练侧。&quot;完全开源配方&quot;目前是&quot;报告完整 + 推理代码 + 权重&quot;，训练可复现性待补齐。</li>
+<li><strong>dLLM 后端的收益未被拆解</strong>。用扩散语言模型而非自回归 VLM 是本文最独特的选择，但报告没有&quot;dLLM vs AR-VLM&quot;的对照实验来证明这个选择本身带来了什么——它更像是&quot;因为有 LLaDA2.0-Mini 所以用了&quot;。</li>
+<li><strong>原生 2K 未评测</strong>：训练只到 <span class="math inline">\(1024^2\)</span>，2K 是&quot;扩展方向&quot;而非已验证能力。</li>
+</ul>
+<h3 id="sec-6-3">延伸阅读与交叉验证</h3>
+<p>把 LLaDA-Image 放进&quot;2026 开源统一图像生成&quot;的坐标系里，和 KB 里三篇同期工作对照，分歧非常有信息量：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th><strong>LLaDA-Image</strong>（本文）</th>
+<th><a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a></th>
+<th><a class="wiki-link" data-slug="i1-2026" href="../i1-2026/index.html">i1-2026</a></th>
+<th><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>早期监督</td>
+<td><strong>image-only 自条件</strong>（90%+ 无 caption）</td>
+<td>配对为主，但<strong>总数据少 ~1 数量级</strong></td>
+<td><strong>纯长合成 caption</strong> 从头训</td>
+<td>配对 + 长文本</td>
+</tr>
+<tr>
+<td>真/合成</td>
+<td><strong>真图 &gt;70%</strong>（PT 100% 真）</td>
+<td>真图为主</td>
+<td><strong>合成 caption 反而更好</strong></td>
+<td>混合</td>
+</tr>
+<tr>
+<td>条件流</td>
+<td><strong>单流 DiT</strong></td>
+<td>双流/单流 MMDiT</td>
+<td><strong>双流 MMDiT + long-skip</strong></td>
+<td>MMDiT</td>
+</tr>
+<tr>
+<td>理解后端</td>
+<td><strong>dLLM-VLM（LLaDA2.0-Mini）</strong></td>
+<td>Qwen3-VL（AR，兼当 prompt 改写器）</td>
+<td>T5Gemma-2B 文本编码器</td>
+<td>Qwen3-VL（冻结）</td>
+</tr>
+<tr>
+<td>AdaLN</td>
+<td><strong>保留</strong>（tanh 门 + zero-init）</td>
+<td>保留</td>
+<td><strong>砍掉</strong>（省 0.23B）</td>
+<td>保留</td>
+</tr>
+<tr>
+<td>蒸馏</td>
+<td>TwinFlow（共享 DiT 双头 DMD）</td>
+<td>Decoupled DMD 4 步</td>
+<td>——</td>
+<td>DMD 4-NFE</td>
+</tr>
+<tr>
+<td>参数量</td>
+<td>6B</td>
+<td>10B</td>
+<td>3B</td>
+<td>——</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一致的地方</strong>：四家都把&quot;少步蒸馏（DMD 系）&quot;当标配，都用某种强多模态/文本后端当条件，都认同&quot;传统 GenEval/DPG 已饱和、要换 Qwen-Image-Bench 这类人本基准&quot;。</p>
+<p><strong>尖锐的矛盾</strong>（这才是读一组论文的价值）：</p>
+<ol>
+<li><strong>合成 vs 真图，直接对撞</strong>。i1 用 300+ 控制实验得出&quot;<strong>纯合成长 caption 训练效果更好</strong>&quot;；LLaDA-Image 则押注&quot;<strong>真图为主、承认早期慢但天花板高</strong>&quot;。两者不是谁错，而是<strong>目标函数不同</strong>：i1 优化的是 benchmark（合成 caption 与评测分布更对齐），LLaDA-Image 优化的是&quot;照片级真实感天花板&quot;（合成会传染 artifact）。分歧成因 = <strong>评测代理 vs 真实感</strong>的取舍。</li>
+<li><strong>单流 vs 双流</strong>。LLaDA-Image 赌&quot;单流让语义每层影响像素、主干更简单&quot;；i1/Boogu/Qwen 都用双流 MMDiT。目前没有控制实验能判谁在同算力下更优——这是开源社区值得补的对照。</li>
+<li><strong>要不要 caption 进最贵阶段</strong>。这是 LLaDA-Image 与其余三家最根本的分野，也是它数据预算&quot;moderate&quot;的来源。若 image-only 自条件真能规模化，等于给&quot;没有海量配对数据的团队&quot;开了一条路——但需要它把训练代码放出来才能证伪。</li>
+</ol>
+<h2 id="sec-7">研究启发 (Transferable Takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-7-1">把监督信号从最贵的阶段挪走</h3><p>"最耗算力的阶段最好别依赖最贵的标注"。image-only 自条件是这条原则在图像域的实例——任何"早期用廉价数据学先验、后期才引入昂贵对齐"的任务都可借鉴。</p></div>
+  <div class="card"><h3 id="sec-7-2">用时间符号复用一个网络当两个角色</h3><p>TwinFlow 用 $+t/-t$ 把生成器和假 score 塞进同一个 DiT，省掉一整个网络。凡是"需要一个在线辅助网络追学生分布"的蒸馏/对抗训练，都可以想想能不能用一个符号位复用主干。</p></div>
+  <div class="card"><h3 id="sec-7-3">旁挂而非替换：非对称注意力掩码</h3><p>让可学 query 单向"吸"冻结模型的信息、又不让原输入看见 query（`mask[:, :, :text_len, text_len:]=-inf`），是"在不动冻结主干的前提下榨取它"的通用手法，比全量微调便宜得多。</p></div>
+  <div class="card"><h3 id="sec-7-4">反直觉点：真实感与 benchmark 会打架</h3><p>"真图早期涨分慢"被明确写进报告。当你的模型在 benchmark 上被合成数据方案压着时，先分清你要的是"评测代理分数"还是"真实分布"——它们可能指向相反的数据配方。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

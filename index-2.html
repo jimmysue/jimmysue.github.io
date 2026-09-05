@@ -52,6 +52,21 @@
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">3-6k 字</span> · <span class="post-card__extra">18–22 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-4-narrowing/index.html">TS·04 窄化与类型守卫:安全地处理不可信的数据</a></h3>
+  <p class="post-card__tldr">编译器如何在 if/switch 里自动收窄类型(typeof/in/instanceof),如何用 `x is T` 谓词函数写自定义
+类型守卫,以及如何用 unknown + 守卫安全地消化来自 LLM/外部世界的不可信数据。素材取自 pi 的错误处理与工具参数校验。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/type-guards.html">type-guards</a>
+      <a class="tag-chip" href="concepts/unknown.html">unknown</a>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-3-unions/index.html">TS·03 联合类型与可辨识联合:pi 为什么不用 enum</a></h3>
@@ -167,21 +182,6 @@
       <a class="tag-chip" href="concepts/distribution-matching.html">distribution-matching</a>
       <a class="tag-chip" href="concepts/mmd.html">mmd</a>
       <span class="tag-chip tag-chip--more">+10 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-03</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/la-sr-2026/index.html">LA-SR: 一张照片里的「远处即 LR、近处即 HR」——把无配对超分搬进 CLIP 语言空间</a></h3>
-  <p class="post-card__tldr">真实世界超分的老大难是拿不到成对 HR-LR 数据, 合成退化 (bicubic / ISP) 又不像真的。LA-SR 的观察:同一张高清照片里, 远景因景深天然就是「真·LR」, 近景是 HR——用深度图就能从任意图里抠出真实退化的无配对 LR/HR 补丁。没有配对怎么监督? 把无配对超分重新定义在 CLIP 的语言空间里:用「内容文本」(BLIP 生成) 和「质量文本」({good}/{bad}) 作锚点, 两个对比损失——linguistic-content 保内容、linguistic-quality 拉画质, 训练 SR 网络产出「内容像输入、质量像 HR」的结果。在真实低质数据 (DRealSR/CameraFusion) 上感知指标 (CLIPIQA/MUSIQ/TOPIQ) 全面超过合成退化训练的 RealESRGAN 等。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/super-resolution.html">super-resolution</a>
-      <a class="tag-chip" href="concepts/real-world-sr.html">real-world-sr</a>
-      <a class="tag-chip" href="concepts/unpaired-learning.html">unpaired-learning</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 </div>
