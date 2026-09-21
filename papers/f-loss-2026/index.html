@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>f-loss：给像素空间流匹配换一副「频域眼镜」——先学频率、再抠像素</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">出发点：为什么像素空间流模型「学得慢」</a></li>
+    <li class="h3"><a href="#sec-1-1">术语速查</a></li>
+    <li class="h2"><a href="#sec-2">方法：把损失从「像素域」搬到「对数频域」</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 baseline：v-loss 其实是加权 x-回归</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 诊断：v-loss 到底歪在哪</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 f-loss：对数频域上的焦点损失</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 fv-loss：早频域、晚像素域的两段式调度</a></li>
+    <li class="h2"><a href="#sec-3">实验结果：跨尺度、跨架构的一致加速</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 和 SOTA 比：同架构更快、更好</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 拆解 v / f / fv：谁在什么阶段赢</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 泛化到别的架构：不只吃 JiT</a></li>
+    <li class="h2"><a href="#sec-4">实现细节：从祖先代码看 f-loss 到底怎么算</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 2D DFT：tensor2freq</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 焦点权重 + 对数压缩 + stop-gradient：loss_formulation</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 discrepancy：本文 Eq. 3 ≠ 祖先代码的默认形态（重要）</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 两段式 sigmoid 调度</a></li>
+    <li class="h2"><a href="#sec-5">批判与延伸</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 这篇好在哪</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 值得追问的弱点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 交叉验证：和相邻工作对照着读</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 研究启发（可迁移的套路）</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-21</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-21</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Lucas Degeorge, Paul Couairon, Arijit Ghosh, Alexei A. Efros, David Picard, Vicky Kalogeiton</span> · <span class="post-meta__venue">arXiv preprint (cs.CV)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.02748">arXiv:2609.02748</a> · <a class="post-meta__link" href="https://github.com/EndlessSora/focal-frequency-loss">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/pixel-space-generation.html">pixel-space-generation</a> <a class="concept-chip" href="../../concepts/frequency-domain-loss.html">frequency-domain-loss</a> <a class="concept-chip" href="../../concepts/spectral-bias.html">spectral-bias</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/training-objective.html">training-objective</a> <a class="concept-chip" href="../../concepts/fourier-transform.html">fourier-transform</a></div>
+</aside>
+<h2 id="sec-1">出发点：为什么像素空间流模型「学得慢」</h2>
+<p>先看这篇论文的封面图。八张 256² 的图里藏着 2 张 ImageNet 真图当「冒充者」——你大概率一眼看不出来。这正是 XL 模型用作者的 <strong>fv-loss</strong> 训出来的效果；而右边那条 FID 曲线才是重点：同样的架构、同样的训练预算，只是换了个损失函数，收敛就快了 1.25×。</p>
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="f-loss 封面图：生成样本 + FID 收敛曲线">
+  <figcaption>图 1（Fig. 1）：左，XL 模型 fv-loss 生成的 256² 样本（其中 2 张是真图）；右，Guided FID vs 训练轮数，fv-loss（红）比标准 v-loss / JiT（绿）快约 1.25×，且不改任何架构。</figcaption>
+</figure>
+<p>问题的根子在<strong>自然图像的频谱结构</strong>。任何一张自然图像做傅里叶变换，功率谱大致按 <span class="math inline">\(1/f^2\)</span> 衰减：绝大部分能量堆在低频（全局形状、大色块），而<strong>人眼真正在乎的东西——纹理、边缘、毛发、织物花纹——是稀疏地散布在高频</strong>，能量很小但感知权重很大。论文开头用老虎举例：轮廓（低频）告诉你「这是只老虎」，而条纹（高频）才让它「看起来真实」。</p>
+<p>矛盾就在这：像素空间的重建损失（v-loss）用的是 <span class="math inline">\(\ell_2\)</span>，<strong>对所有空间位置的误差一视同仁</strong>。由于低频能量本身就大 100×、1000×，它天然主导了梯度信号，于是模型把算力优先砸在「已经很容易的低频」上，高频细节被一路拖延。作者把这件事命名为<strong>目标函数层面的频谱失衡（objective-level spectral imbalance）</strong>——注意，这不是网络结构的锅（很多前作去改架构、加多尺度分支、加频率支路），而是<strong>损失函数自己写歪了</strong>。</p>
+<blockquote>
+<p>一句话动机：<strong>能量分布 ≠ 感知重要性</strong>。<span class="math inline">\(\ell_2\)</span> 忠实地跟着能量走，于是也就系统性地忽视了高频。f-loss 要做的，是在损失里把「能量」换成「每个频段等权」。</p>
+</blockquote>
+<h3 id="sec-1-1">术语速查</h3>
+<p>在进正文之前，先把这篇论文（及其所在的像素空间生成圈）高频出现的黑话一句话讲清：</p>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>一句话解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>流匹配 / Flow Matching</strong></td>
+<td>学一个速度场 <span class="math inline">\(\bm v_\theta\)</span>，把噪声沿直线「流」成数据；训练即回归这个速度。扩散模型的近亲。</td>
+</tr>
+<tr>
+<td><strong>v-loss</strong></td>
+<td>速度预测损失。本文把它等价改写成带 <span class="math inline">\(1/(1-t)^2\)</span> 权重的 <strong>x-回归</strong>（直接预测干净图 <span class="math inline">\(\bm x_1\)</span>）。是本文的 baseline。</td>
+</tr>
+<tr>
+<td><strong>f-loss</strong></td>
+<td>本文主角。Focal <strong>Log-Frequency</strong> Loss——在傅里叶谱上做对数压缩 + 焦点归一化的频域损失。</td>
+</tr>
+<tr>
+<td><strong>fv-loss</strong></td>
+<td>f-loss 与 v-loss 的<strong>两段式调度组合</strong>：早期偏频域，后期切像素域。本文最终交付的训练配方。</td>
+</tr>
+<tr>
+<td><strong>JiT</strong></td>
+<td>&quot;Just image Transformers&quot;，一个<strong>直接在像素空间</strong>（不进 VAE latent）跑流匹配的 Transformer 架构，是本文的主实验载体。</td>
+</tr>
+<tr>
+<td><strong>REPA</strong></td>
+<td>用预训练视觉编码器（如 DINO）的特征对齐生成模型内部表征的一种对齐损失，能把特征推向富含高频的 DINO 空间。</td>
+</tr>
+<tr>
+<td><strong>FID / FDD / IS</strong></td>
+<td>生成质量指标：FID 基于 InceptionV3 特征，FDD 基于 DINOv2 特征，IS 衡量类别可辨识度。前二者越低越好，IS 越高越好。</td>
+</tr>
+<tr>
+<td><strong>径向平均功率谱</strong></td>
+<td>把 2D 傅里叶谱按频率半径取环形平均，得到「功率 vs 空间频率」的一维曲线，用来诊断频谱偏差。</td>
+</tr>
+<tr>
+<td><strong>Nyquist 频率</strong></td>
+<td>采样能表达的最高频率（0.5 cycles/pixel）。高频缺陷在这里最严重。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sec-2">方法：把损失从「像素域」搬到「对数频域」</h2>
+<h3 id="sec-2-1">2.1 baseline：v-loss 其实是加权 x-回归</h3>
+<p>流匹配学一个速度场 <span class="math inline">\(\bm v_\theta(\bm x_t, t)\)</span>，把噪声 <span class="math inline">\(\bm x_0 \sim p_0\)</span> 沿 ODE <span class="math inline">\(\frac{d\bm x_t}{dt} = \bm v_\theta\)</span> 输运到数据 <span class="math inline">\(\bm x_1 \sim p_1\)</span>。用线性插值 <span class="math inline">\(\bm x_t = (1-t)\bm\epsilon + t\,\bm x_1\)</span>，真值速度是个常数 <span class="math inline">\(\bm v^\* = \bm x_1 - \bm\epsilon\)</span>，于是标准目标是：</p>
+<div class="math block">
+\[\mathcal{L}_{\bm v} = \mathbb{E}\big\|\bm v_\theta - \bm v^\*\big\|^2 .\]
+</div>
+<p>但在<strong>高维像素空间</strong>里直接回归高方差的速度场容易「灾难性失败」。所以作者跟 JiT 一样把它重参数化成 <strong>x-预测</strong>：用 <span class="math inline">\(\bm v = \frac{\bm x_1 - \bm x_t}{1-t}\)</span>、<span class="math inline">\(\bm v_\theta = \frac{\bm x_\theta - \bm x_t}{1-t}\)</span> 代入，速度损失就变成一个<strong>加权的 x-回归损失</strong>——这就是本文口径下的 v-loss：</p>
+<div class="math block">
+\[\mathcal{L}_{\bm v} = \mathbb{E}\left[\frac{1}{(1-t)^2}\,\big\|\bm x_\theta(\bm x_t, t) - \bm x_1\big\|^2\right].\]
+</div>
+<p class="math-translation">—— 翻译：别去回归「速度」，直接让网络预测「干净图 $\bm x_1$」，误差按 $1/(1-t)^2$ 加权（越接近数据端 $t\to 1$、权重越大，逼模型在终点处对齐）。这个 $\ell_2$ 就是所有麻烦的源头——它在空间域，对每个像素等权，于是被低频能量主导。</p>
+<h3 id="sec-2-2">2.2 诊断：v-loss 到底歪在哪</h3>
+<p>作者不是拍脑袋，而是<strong>量出来</strong>的。用训好的 v-loss 模型生成一批图，算径向平均功率谱，跟真实 ImageNet 图对比（图 2a）：</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-spectral-bias.png" alt="v-loss 的频谱偏差诊断">
+  <figcaption>图 2（Fig. 2）：v-loss 的频谱偏差。(a) 生成图功率谱相对真图的偏差——低/中频（&lt; 10⁻¹ cycles/pixel）被高估约 +20%，高频（&gt; 8×10⁻¹）被低估、逼近 Nyquist 时缺口达 -60%，且整个训练过程都补不回来。(b) 只含两个频率的玩具信号上，MLP 迅速学会低频、高频那根尖峰始终起不来。</figcaption>
+</figure>
+<p>两个证据：</p>
+<ul>
+<li><strong>成品的频率签名</strong>：低频、中频被<strong>高估约 20%</strong>，高频被<strong>低估</strong>，且缺口随频率单调增大，逼近 Nyquist 时达到 <strong>-60%</strong>。到训练末期低频能自愈，高频依然缺。</li>
+<li><strong>训练动态</strong>：用一个小 MLP 去拟合「只有一个低频 + 一个高频」的合成信号，追踪整个训练过程的频谱——<strong>低频那根峰几乎瞬间学会，高频那根峰从头到尾几乎不涨</strong>（图 2b）。这坐实了神经网络的「谱偏置（spectral bias）」：频率 <span class="math inline">\(k\)</span> 的学习速度约按 <span class="math inline">\(1/k\)</span> 衰减。</li>
+</ul>
+<p>作者由此下了个<strong>很强</strong>的判断：<em>早期就把算力全砸低频，会让模型生成高频的能力「不可逆地损失，后期也补不回来」</em>。所以修正必须发生在<strong>早期</strong>。</p>
+<h3 id="sec-2-3">2.3 f-loss：对数频域上的焦点损失</h3>
+<p>核心公式（Eq. 3）。设 <span class="math inline">\(\mathcal{F}\)</span> 是 2D 离散傅里叶变换，<span class="math inline">\(e_{u,v} = |\mathcal{F}_{\text{pred}}(u,v) - \mathcal{F}_{\text{target}}(u,v)|\)</span> 是每个频率 <span class="math inline">\((u,v)\)</span> 上的残差幅值：</p>
+<div class="math block">
+\[\mathcal{L}_{\bm f} = \sum_{u,v} \underbrace{\frac{1}{(1-t)^2}}_{\text{时间步权重}} \cdot \underbrace{\frac{e_{u,v}}{\max_{u',v'} e_{u',v'}}}_{\text{自适应焦点权重（stop-grad）}} \cdot \underbrace{\log\!\big(1 + |\mathcal{F}_{\text{pred}}(u,v) - \mathcal{F}_{\text{target}}(u,v)|\big)}_{\text{对数压缩}} .\]
+</div>
+<p class="math-translation">—— 翻译：把误差搬到傅里叶谱上逐频率算，然后乘三个系数。① $1/(1-t)^2$：跟 v-loss 一样的时间步权重，原样保留，保证训练动态一致。② $e/\max e$：**焦点归一化**——每个样本内部，用「本样本最大残差」把所有残差压到 [0,1]，让当前错得最狠的频率获得最大关注（focal 的本意），且用 stop-gradient 冻住（纯粹当数据依赖的系数，不回传）。③ $\log(1+e)$：**对数压缩**——防止任何单一频率（尤其是能量爆表的低频）独吞损失。</p>
+<p>对数压缩是这篇论文最漂亮的一笔，作者给了个几何解释：<span class="math inline">\(\log\)</span> <strong>把频谱层级「线性化」了</strong>——每一次频率翻倍（一个倍频程 / octave）在总损失里拿到<strong>等量权重</strong>，而不再服从 <span class="math inline">\(1/f^2\)</span> 的自然衰减。这可以看成 <strong>Laplacian 金字塔分解的连续版</strong>：金字塔给每个 octave 相同的结构重要性，<span class="math inline">\(\log\)</span> 在连续频域上做同一件事。</p>
+<blockquote>
+<p>直觉对照：v-loss 是「按能量分配注意力」，低频能量大就多看；f-loss 是「按倍频程分配注意力」，低频高频一人一票。前者迎合 <span class="math inline">\(1/f^2\)</span>，后者对抗 <span class="math inline">\(1/f^2\)</span>。</p>
+</blockquote>
+<h3 id="sec-2-4">2.4 fv-loss：早频域、晚像素域的两段式调度</h3>
+<p>但 f-loss <strong>不能单独用到底</strong>。作者的观察（图 3、后面的表 2）很清楚：<strong>f-loss 早期碾压 v-loss，但后期被 v-loss 反超</strong>。原因是 f-loss 对<strong>相位不敏感</strong>——傅里叶幅值对了，但相位（边缘/纹理的精确空间位置）没锁死；而 v-loss 直接监督像素值，天生擅长把边缘钉到精确像素位置。所以理想配方是<strong>先用 f-loss 把频率快速拉齐，再切回 v-loss 做相位/边缘精修</strong>：</p>
+<div class="math block">
+\[\mathcal{L} = w_f \cdot \mathcal{L}_{\bm f} + w_v \cdot \mathcal{L}_{\bm v}, \qquad w_f = \lambda(s),\quad w_v = 1 - \lambda(s).\]
+</div>
+<p class="math-translation">—— 翻译：两个损失加权求和，权重随训练进度 $s$ 走一条 sigmoid 曲线：$\lambda(s)$ 从 1 平滑衰减到 0，中心对准「f-loss 与 v-loss 的 FID 曲线交叉点 $s^\star$」。即早期 $w_f\approx 1$（几乎纯频域），晚期 $w_v\approx 1$（几乎纯像素）。这条调度出来的损失，作者叫 fv-loss。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-convergence.png" alt="fv-loss vs v-loss 收敛速度对比">
+  <figcaption>图 4（Fig. 4）：三档模型（B/L/XL）× 无引导（上）/引导（下）FID。红线 fv-loss 全程压着绿线 v-loss，加速比 1.13×–1.57×。gap 在早期最大、后期收窄——印证「频率监督在早期最值钱」。</figcaption>
+</figure>
+<p>关键 <span class="math inline">\(s^\star\)</span> <strong>不需要网格搜索</strong>：直接取 f-loss 与 v-loss 两条 FID 曲线在验证集上的交叉点即可。这让整套方法几乎零调参。</p>
+<hr />
+<h2 id="sec-3">实验结果：跨尺度、跨架构的一致加速</h2>
+<h3 id="sec-3-1">3.1 和 SOTA 比：同架构更快、更好</h3>
+<figure>
+  <img class="zoomable" src="figures/tab1-sota.png" alt="与像素空间 SOTA 方法对比">
+  <figcaption>表 1（Table 1）：ImageNet 256²，与像素空间 SOTA 对比。同架构 JiT-XL/16 750k：Ours FID 2.13 vs JiT 2.21；叠 REPA 后 750k 的 1.87 反超 DeCo 1.6M 步的 1.90；叠感知损失后 500k 追平 PixelGen 800k 的 1.83，且 IS 更高（323.4 vs 293.6）。</figcaption>
+</figure>
+<p>三档对照都成立（表 1）：</p>
+<ul>
+<li><strong>裸架构</strong>：JiT-XL/16，同样 750k 步，Ours <strong>2.13</strong> vs JiT <strong>2.21</strong>。</li>
+<li><strong>叠 REPA 对齐损失</strong>：Ours 在 <strong>750k</strong> 步就到 <strong>1.87</strong>，反超 DeCo 花 <strong>1.6M</strong> 步的 1.90——<strong>不到一半算力追平并超越</strong>。REPA 本身把特征推向富高频的 DINO 空间，f-loss 仍能叠加受益，说明二者正交。</li>
+<li><strong>叠感知损失</strong>：Ours <strong>500k</strong> 步的 FID <strong>1.83</strong> = PixelGen <strong>800k</strong> 步的 1.83，但 IS <strong>323.4 vs 293.6</strong>，且零架构改动。</li>
+</ul>
+<h3 id="sec-3-2">3.2 拆解 v / f / fv：谁在什么阶段赢</h3>
+<figure>
+  <img class="zoomable" src="figures/tab2-ablation.png" alt="v-loss / f-loss / fv-loss 三者对比">
+  <figcaption>表 2（Table 2）：256²（左）/512²（右）下 v / f / fv 三种损失、B/L 两档、80/200/320 轮的 FID·FDD·IS 全表。规律稳定：早期 f-loss &gt; v-loss，后期 fv-loss 集大成——既拿到 f-loss 的早期速度，又拿到 v-loss 的终点精度。</figcaption>
+</figure>
+<p>表 2 把「早频域、晚像素域」这个主张钉死了（以 256² 为例）：</p>
+<ul>
+<li><strong>早期（80 轮）</strong>：f-loss 全面领先。JiT-B/16 无引导 FID <strong>42.34（f）vs 46.02（v）</strong>，引导 <strong>6.82 vs 8.44</strong>；JiT-L/16 无引导 <strong>20.24 vs 26.90</strong>。</li>
+<li><strong>末期（320 轮）</strong>：fv-loss 集大成。JiT-B/16 无引导 <strong>26.86（fv）vs 28.70（v）</strong>，引导 <strong>3.95 vs 4.11</strong>；JiT-L/16 无引导 <strong>12.93 vs 14.46</strong>，引导 <strong>2.55 vs 2.63</strong>。FDD、IS 同向改善。</li>
+</ul>
+<h3 id="sec-3-3">3.3 泛化到别的架构：不只吃 JiT</h3>
+<figure>
+  <img class="zoomable" src="figures/fig5-qualitative.png" alt="早期训练阶段 f-loss vs v-loss 定性对比">
+  <figcaption>图 5（Fig. 5）：早期训练阶段（60k / 120k 步）定性对比。f-loss 的老虎条纹、茅草屋顶的干草、手套的针织花纹在很早就出细节；v-loss 同阶段更偏「先把物体边界画利索」（如帆船的帆很清晰），纹理要晚得多才补上。</figcaption>
+</figure>
+<ul>
+<li><strong>换 PixelDiT 架构</strong>（表 3）：fv-loss 在 200k/400k/600k 步分别是 <strong>10.18 / 6.88 / 5.92</strong>，对比复现的 v-loss <strong>15.09 / 10.60 / 10.25</strong>——<strong>约 2× 加速</strong>，且 PixelDiT 本身带 REPA，说明收益不绑定 JiT。</li>
+<li><strong>调度消融</strong>（表 4）：sigmoid 的 <span class="math inline">\(\lambda(s)\)</span>（早频晚像素）在末期拿到最优 FID <strong>3.95</strong>；把它<strong>反过来</strong>（早像素晚频率）是最差档之一（4.30）——<strong>「必须早期做频谱平衡」这个方向是刚性的，不能反</strong>。有趣的是恒定 <span class="math inline">\(w_v=10\)</span> 拿到最高 IS 285.88，说明 IS 和 FID 的最优权重未必一致。</li>
+<li><strong>算力账</strong>（正文 §4.2）：f-loss 每步多一次 2D FFT，JiT-B 400k 步总墙钟仅 <strong>+4%</strong>（453 vs 432 min）；fv-loss 因两个损失都要反传是 <strong>+14%</strong>（492 min）。100 分钟刻度上 v-loss 因步数多暂时领先，但 fv-loss 在 200 分钟处反超，300 分钟后加速完全盖过额外开销。</li>
+</ul>
+<hr />
+<h2 id="sec-4">实现细节：从祖先代码看 f-loss 到底怎么算</h2>
+<p><strong>代码状态</strong>：本文代码与模型「承诺开源」但<strong>截至精读时尚未放出</strong>。不过 f-loss 是 ICCV 2021 <em>Focal Frequency Loss</em>（EndlessSora/focal-frequency-loss）的直系后代——作者在正文把 <span class="math inline">\(\log(1+e)\)</span>、焦点归一化、stop-gradient 逐一对上了那份实现里的选项。所以下面<strong>用祖先仓库的真实代码</strong>锚定「每个数学部件对应哪段张量操作」，再把本文 Eq. 3 的差异写成<strong>带标注的等价伪代码</strong>。</p>
+<h3 id="sec-4-1">4.1 2D DFT：<code>tensor2freq</code></h3>
+<p class="code-source">repo/focal_frequency_loss/focal_frequency_loss.py:L37-L57 — 把图像张量做正交归一化的 2D FFT，拆成实部/虚部</p>
+<pre><code class="language-python">def tensor2freq(self, x):
+    # crop image patches
+    patch_factor = self.patch_factor
+    _, _, h, w = x.shape
+    patch_list = []
+    patch_h = h // patch_factor
+    patch_w = w // patch_factor
+    for i in range(patch_factor):
+        for j in range(patch_factor):
+            patch_list.append(x[:, :, i*patch_h:(i+1)*patch_h, j*patch_w:(j+1)*patch_w])
+    y = torch.stack(patch_list, 1)
+    # perform 2D DFT (real-to-complex, orthonormalization)
+    freq = torch.fft.fft2(y, norm='ortho')
+    freq = torch.stack([freq.real, freq.imag], -1)
+    return freq
+</code></pre>
+<p>这就是 Eq. 3 里的 <span class="math inline">\(\mathcal{F}\)</span>。<code>norm='ortho'</code> 保证 Parseval 意义下频域/空域能量守恒——<strong>这一步是频域损失能和像素损失可比的前提</strong>。本文对 <code>pred</code> 和 <code>target</code> 各做一次，得到 <span class="math inline">\(\mathcal{F}_{\text{pred}}\)</span>、<span class="math inline">\(\mathcal{F}_{\text{target}}\)</span>。</p>
+<h3 id="sec-4-2">4.2 焦点权重 + 对数压缩 + stop-gradient：<code>loss_formulation</code></h3>
+<p class="code-source">repo/focal_frequency_loss/focal_frequency_loss.py:L59-L98 — 在线计算频谱权重矩阵（残差幅值 → log → 逐样本归一化 → detach），再和频率距离做 Hadamard 积</p>
+<pre><code class="language-python">def loss_formulation(self, recon_freq, real_freq, matrix=None):
+    if matrix is not None:
+        weight_matrix = matrix.detach()
+    else:
+        # 残差幅值 e_{u,v} = |F_pred - F_target|^alpha （alpha=1）
+        matrix_tmp = (recon_freq - real_freq) ** 2
+        matrix_tmp = torch.sqrt(matrix_tmp[..., 0] + matrix_tmp[..., 1]) ** self.alpha
+        # 对数压缩：log(1 + e)   ← 本文把它从「可选」升级成核心
+        if self.log_matrix:
+            matrix_tmp = torch.log(matrix_tmp + 1.0)
+        # 焦点归一化：e / max(e)，逐样本
+        if self.batch_matrix:
+            matrix_tmp = matrix_tmp / matrix_tmp.max()
+        else:
+            matrix_tmp = matrix_tmp / matrix_tmp.max(-1).values.max(-1).values[:, :, :, None, None]
+        matrix_tmp[torch.isnan(matrix_tmp)] = 0.0
+        matrix_tmp = torch.clamp(matrix_tmp, min=0.0, max=1.0)
+        weight_matrix = matrix_tmp.clone().detach()          # ← stop-gradient
+    # 频率距离（平方欧氏）
+    tmp = (recon_freq - real_freq) ** 2
+    freq_distance = tmp[..., 0] + tmp[..., 1]
+    # 动态谱加权（Hadamard 积）
+    loss = weight_matrix * freq_distance
+    return torch.mean(loss)
+</code></pre>
+<p>对照 Eq. 3，三个部件一一落地：</p>
+<ul>
+<li><code>torch.sqrt(real² + imag²)</code> = 残差幅值 <span class="math inline">\(e_{u,v}\)</span>；</li>
+<li><code>torch.log(matrix_tmp + 1.0)</code> = <strong>对数压缩</strong> <span class="math inline">\(\log(1+e)\)</span>；</li>
+<li><code>matrix_tmp / matrix_tmp.max(...)</code> = <strong>焦点归一化</strong> <span class="math inline">\(e/\max e\)</span>；</li>
+<li><code>.clone().detach()</code> = <strong>stop-gradient</strong>（把权重当纯数据系数）。</li>
+</ul>
+<h3 id="sec-4-3">4.3 discrepancy：本文 Eq. 3 ≠ 祖先代码的默认形态（重要）</h3>
+<p>这里有个<strong>必须点破的结构差异</strong>。祖先代码里，被惩罚的量是<strong>平方频率距离</strong> <code>freq_distance</code>，而 <span class="math inline">\(\log\)</span> / 归一化只作用在<strong>权重矩阵</strong>上（<code>loss = weight_matrix * freq_distance</code>）。而本文 Eq. 3 把 <span class="math inline">\(\log(1+e)\)</span> <strong>直接当成被惩罚的距离项</strong>，权重则是 <span class="math inline">\(e/\max e\)</span> 与 <span class="math inline">\(1/(1-t)^2\)</span>：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>被惩罚的距离</th>
+<th>乘的权重</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ICCV'21 默认</td>
+<td><span class="math inline">\(\;e^2\;\)</span>（平方残差）</td>
+<td>归一化后的（可选 log）幅值</td>
+</tr>
+<tr>
+<td>本文 Eq. 3</td>
+<td><span class="math inline">\(\;\log(1+e)\;\)</span>（对数残差）</td>
+<td><span class="math inline">\(\dfrac{e}{\max e}\cdot\dfrac{1}{(1-t)^2}\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>也就是说，本文把「对数」从<strong>权重</strong>挪进了<strong>惩罚项本身</strong>，并额外接上了流匹配特有的 <span class="math inline">\(1/(1-t)^2\)</span> 时间步权重。所以严格说，f-loss 是这份祖先实现的<strong>改写变体</strong>，不是把它某组开关打开就能得到。下面是本文 Eq. 3 的等价伪代码。</p>
+<p class="code-source">等价伪代码 — 非原文逐字（据本文 Eq. 3 重构，锚定实现方式）</p>
+<pre><code class="language-python"># 等价伪代码：本文 f-loss（Eq. 3），非官方代码
+def f_loss(x_pred, x_target, t):                       # x_*: (N,C,H,W)
+    Fp = torch.fft.fft2(x_pred,   norm='ortho')        # 2D DFT
+    Ft = torch.fft.fft2(x_target, norm='ortho')
+    e  = (Fp - Ft).abs()                               # 逐频率残差幅值 e_{u,v}
+
+    # 焦点权重：逐样本用最大残差归一化，stop-grad（纯数据依赖系数）
+    w_focal = (e / e.amax(dim=(-2,-1), keepdim=True).clamp_min(1e-8)).detach()
+
+    # 时间步权重：与 v-loss 一致，t→1 处加大
+    w_time  = 1.0 / (1.0 - t).clamp_min(0.05) ** 2      # 0.05 为除零保护（示意）
+
+    # 对数压缩作为被惩罚的距离项：每个倍频程等权
+    penalty = torch.log1p(e)                            # log(1 + e)
+
+    return (w_time * w_focal * penalty).sum(dim=(-2,-1)).mean()
+</code></pre>
+<h3 id="sec-4-4">4.4 两段式 sigmoid 调度</h3>
+<p class="code-source">等价伪代码 — 非原文逐字（据本文 Eq. 4 + §3.3 重构）</p>
+<pre><code class="language-python"># 等价伪代码：fv-loss 调度（Eq. 4），非官方代码
+def lambda_schedule(step, s_star, tau):
+    # sigmoid 从 1 衰减到 0，中心对准 f/v 两条 FID 曲线的交叉点 s*
+    return torch.sigmoid(-(step - s_star) / tau)
+
+def fv_loss(x_pred, x_target, t, step, s_star, tau):
+    wf = lambda_schedule(step, s_star, tau)            # 早期≈1
+    wv = 1.0 - wf                                       # 晚期≈1
+    return wf * f_loss(x_pred, x_target, t) + wv * v_loss(x_pred, x_target, t)
+</code></pre>
+<p>至此，5 个以上可复现的实现要点：① <code>norm='ortho'</code> 的 2D FFT 是频/空可比的前提；② 焦点权重逐样本用 <code>amax</code> 归一化并 <code>detach</code>；③ 对数压缩落在惩罚项而非权重（本文相对祖先的关键改写）；④ <span class="math inline">\(1/(1-t)^2\)</span> 时间步权重从 v-loss 原样继承、需除零保护；⑤ 调度中心 <span class="math inline">\(s^\star\)</span> 取 FID 曲线交叉点、免网格搜索；⑥ f-loss 每步多一次 2D FFT，实测墙钟 +4%（单 f）/ +14%（fv）。</p>
+<p><strong>唯一实打实的 discrepancy</strong> 已在 4.3 指出：本文 Eq. 3 与祖先仓库的默认损失形态不一致（对数项的位置 + 时间步权重），需按伪代码重构，不能直接 <code>FocalFrequencyLoss(log_matrix=True)</code> 得到。等官方代码放出后应以官方为准。</p>
+<hr />
+<h2 id="sec-5">批判与延伸</h2>
+<h3 id="sec-5-1">5.1 这篇好在哪</h3>
+<ul>
+<li><strong>诊断先于方法</strong>：图 2 那套「径向功率谱偏差 + 双频玩具信号」把「v-loss 系统性欠高频」量化得干净利落，不是拿方法硬套故事。</li>
+<li><strong>几乎零调参</strong>：<span class="math inline">\(s^\star\)</span> 取 FID 曲线交叉点，不做网格搜索；drop-in 替换，零架构改动。这对「损失函数类」论文是很强的卖点——可迁移性高。</li>
+<li><strong>跨尺度/跨架构/跨分辨率一致</strong>：B/L/XL、256²/512²、JiT/PixelDiT 全都成立，且能和 REPA、感知损失正交叠加。这种「一致性」比单点刷 SOTA 更有说服力。</li>
+</ul>
+<h3 id="sec-5-2">5.2 值得追问的弱点</h3>
+<ul>
+<li><strong>对数压缩的「等权」是拍脑袋的先验</strong>：<span class="math inline">\(\log\)</span> 让每个倍频程等权，但「等权」凭什么就是最优？人眼的对比敏感度函数（CSF）是<strong>带通</strong>的（中频最敏感，极高频反而不敏感）。用 <span class="math inline">\(\log\)</span> 一刀切等权，可能在极高频上过度投入。作者没有和「按 CSF 加权」或「幂律加权 <span class="math inline">\(f^{\alpha}\)</span>」做对比。</li>
+<li><strong>相位问题只是「绕过」而非「解决」</strong>：f-loss 只管幅值、不管相位，作者的对策是「后期切回 v-loss 补相位」。但这等于承认频域损失有个结构性短板；有没有直接的相位感知频域损失（如复数域损失）？没讨论。</li>
+<li><strong><span class="math inline">\(s^\star\)</span>「取交叉点」需要先各训一版 f-loss 和 v-loss</strong>：所谓免调参，其实前提是你已经有两条 FID 曲线——对大模型这本身就是可观的算力。真正的「一次成型」调度（如与 loss ratio 自适应挂钩）会更实用。</li>
+<li><strong>只在类条件 ImageNet 上验证</strong>：没有文本到图像（T2I）、没有更高分辨率（&gt;512²）、没有视频。像素空间 T2I 正是当前热点，缺这块证据让「通用性」打了折扣。</li>
+<li><strong>代码未放出</strong>：Eq. 3 与祖先实现存在 4.3 指出的差异，复现有歧义空间（对数项位置、<span class="math inline">\(s^\star\)</span>/<span class="math inline">\(\tau\)</span> 具体取值、时间步除零阈值都未给数）。</li>
+</ul>
+<h3 id="sec-5-3">5.3 交叉验证：和相邻工作对照着读</h3>
+<p>f-loss 处在「<strong>像素空间流匹配 + 频率视角</strong>」的交叉口。把它和本站已精读的几篇放一起，能看出这条线的共识与分歧：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心主张</th>
+<th>和 f-loss 的关系</th>
+<th>结论异同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a class="wiki-link" data-slug="mfd-2026" href="../mfd-2026/index.html">mfd-2026</a></strong>（MFD）</td>
+<td>不比「瞬时速度」比「平均速度」，把<strong>时间积分当低通滤波器</strong>给流匹配蒸馏降方差</td>
+<td>同样把<strong>频域视角</strong>引入流匹配，但作用点相反：MFD 在<strong>时间轴</strong>上做低通（平滑速度），f-loss 在<strong>空间频率轴</strong>上做<strong>升高频</strong>（补细节）</td>
+<td><strong>同</strong>：都认为朴素 <span class="math inline">\(\ell_2\)</span> 速度回归的频谱性质有问题。<strong>异</strong>：MFD 主动<strong>低通</strong>去方差（蒸馏场景），f-loss 主动<strong>提高频</strong>补细节（训练场景）——同一把「傅里叶尺子」量出两个方向的病</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a></strong>（AsymFlow）</td>
+<td>用秩-非对称速度参数化，把 latent 流匹配 <strong>lift 到像素空间</strong></td>
+<td>都在攻「像素空间流匹配为什么难训」；AsymFlow 从<strong>架构/参数化</strong>下刀，f-loss 从<strong>损失函数</strong>下刀</td>
+<td><strong>同</strong>：都承认像素空间比 latent 难、高频是痛点。<strong>异</strong>：正交解法——AsymFlow 改速度场的秩结构，f-loss 改目标函数的频谱权重。理论上可叠加</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></strong>（L2P 对比）</td>
+<td>同问题（latent→pixel）不同刀法的横向对比</td>
+<td>提供「像素空间生成为何难」的问题地图</td>
+<td><strong>同</strong>：印证 f-loss 诊断的「高频欠学习」是这条线的公认瓶颈，不是个例</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="pixrestore-2026" href="../pixrestore-2026/index.html">pixrestore-2026</a></strong>（PixRestore）</td>
+<td>扔掉 VAE 和 T2I 先验，从零训像素空间 DiT 做图像修复</td>
+<td>同为「纯像素空间 DiT」阵营；修复任务对高频（纹理/边缘）更敏感</td>
+<td><strong>异</strong>：PixRestore 靠架构和任务设计吃高频，未用频域损失——f-loss 若移植过去理论上能直接受益，是个未验证的白地</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>：MFD 与 f-loss 看似矛盾（一个低通、一个提高频），其实作用在<strong>不同轴</strong>——MFD 的低通是沿<strong>时间/ODE 轨迹</strong>平滑（降蒸馏方差），f-loss 的提高频是沿<strong>空间频率</strong>补细节（治训练偏置）。二者不冲突，甚至可能互补：<strong>用 f-loss 训 base、用 MFD 蒸馏</strong>。这正是一个明确的组合白地。</p>
+<h3 id="sec-5-4">5.4 研究启发（可迁移的套路）</h3>
+<ul>
+<li><strong>「能量分布 ≠ 优化重要性」是个通用透镜</strong>：任何 <span class="math inline">\(\ell_2\)</span> 目标，只要目标信号的能量谱不均匀（图像 <span class="math inline">\(1/f^2\)</span>、音频、点云、甚至 LLM 的 token 频率），都可能存在「高能量维度主导梯度、低能量但重要的维度被饿死」。<strong>在变换域（傅里叶/小波/PCA）里重新分配损失权重</strong>，是一招可复用的通法。</li>
+<li><strong>stop-gradient 的焦点权重 = 免费的课程学习</strong>：<span class="math inline">\(e/\max e\)</span> 用「当前错得最狠的地方」当权重且不回传，本质是<strong>数据驱动的自适应课程</strong>——不引入新参数、不改架构，却能动态把注意力导向欠学习区域。这个「用 detach 的残差当权重」的 trick 可迁移到任何回归损失。</li>
+<li><strong>反直觉点：修正必须发生在早期，且方向不可逆</strong>。表 4 里「早像素晚频率」是最差档之一——不是「频域损失有益」这么简单，而是<strong>时序</strong>关键：谱平衡是早期的「奠基工程」，晚了就补不回来（图 2b 的高频峰再也起不来）。这提示很多「训练技巧」的收益可能高度依赖<strong>施加的时间窗口</strong>，值得当成一个独立超参来 ablate。</li>
+<li><strong>「先粗后精」的调度哲学</strong>：早期用一个<strong>低保真但覆盖全频段</strong>的目标（f-loss）铺开，晚期切一个<strong>高保真但易偏科</strong>的目标（v-loss）精修——这个「先广度、后深度」的两段式，可迁移到蒸馏、对齐、RLHF 等任何「早期探索 vs 晚期利用」的训练场景。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

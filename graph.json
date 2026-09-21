@@ -120,6 +120,15 @@
       "url": "papers/diffusion-opd-2026/index.html"
     },
     {
+      "id": "papers/f-loss-2026",
+      "type": "paper",
+      "slug": "f-loss-2026",
+      "title": "f-loss：给像素空间流匹配换一副「频域眼镜」——先学频率、再抠像素",
+      "date": "2026-09-21",
+      "tldr": "自然图像功率谱按 1/f² 衰减：能量几乎全堆在低频，但人眼在乎的纹理/边缘藏在稀疏的高频。像素空间的 v-loss 对所有空间误差一视同仁 → 低频主导梯度 → 模型迟迟学不会细节。作者把这诊断成「目标函数层面的频谱失衡」。\n解法两件套：① **f-loss（Focal Log-Frequency Loss）**——在 2D 傅里叶谱上做「对数压缩 log(1+e) + 逐样本焦点归一化 e/max(e) + 保留 1/(1-t)² 时间步权重」，让每个频率倍频程拿到等量学习信号；② **fv-loss 两段式调度**——训练早期用 f-loss 把所有频率快速拉齐，再用 sigmoid 权重平滑切回标准 v-loss 做像素级相位精修。\n纯 drop-in、零架构改动。跨 B/L/XL 三档、256²/512² 两分辨率：收敛最高快 40%（1.13×–1.57×），FID/FDD/IS 全面改善；JiT-XL/16 在 750k 步做到 FID 2.13（v-loss 2.21），叠 REPA 后 750k 的 1.87 反超 DeCo 1.6M 的 1.90，叠感知损失后 500k 追平 PixelGen 800k 的 1.83 且 IS 更高（323.4 vs 293.6）。代码与模型承诺开源（尚未放出）。\n",
+      "url": "papers/f-loss-2026/index.html"
+    },
+    {
       "id": "papers/ferret-2023",
       "type": "paper",
       "slug": "ferret-2023",
@@ -1283,6 +1292,54 @@
       "host": "github.com",
       "owner": "ali-vilab",
       "name": "DiffusionOPD"
+    },
+    {
+      "id": "concepts/pixel-space-generation",
+      "type": "concept",
+      "slug": "pixel-space-generation",
+      "name": "pixel-space-generation",
+      "has_file": false,
+      "url": "concepts/pixel-space-generation.html"
+    },
+    {
+      "id": "concepts/frequency-domain-loss",
+      "type": "concept",
+      "slug": "frequency-domain-loss",
+      "name": "frequency-domain-loss",
+      "has_file": false,
+      "url": "concepts/frequency-domain-loss.html"
+    },
+    {
+      "id": "concepts/spectral-bias",
+      "type": "concept",
+      "slug": "spectral-bias",
+      "name": "spectral-bias",
+      "has_file": false,
+      "url": "concepts/spectral-bias.html"
+    },
+    {
+      "id": "concepts/training-objective",
+      "type": "concept",
+      "slug": "training-objective",
+      "name": "training-objective",
+      "has_file": false,
+      "url": "concepts/training-objective.html"
+    },
+    {
+      "id": "concepts/fourier-transform",
+      "type": "concept",
+      "slug": "fourier-transform",
+      "name": "fourier-transform",
+      "has_file": false,
+      "url": "concepts/fourier-transform.html"
+    },
+    {
+      "id": "repos/EndlessSora/focal-frequency-loss",
+      "type": "repo",
+      "url": "https://github.com/EndlessSora/focal-frequency-loss",
+      "host": "github.com",
+      "owner": "EndlessSora",
+      "name": "focal-frequency-loss"
     },
     {
       "id": "concepts/referring-grounding",
@@ -3504,17 +3561,17 @@
     },
     {
       "from": "papers/bernini-2026",
-      "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/bernini-2026",
       "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/bernini-2026",
       "to": "papers/l2p-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/bernini-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -3574,17 +3631,17 @@
     },
     {
       "from": "papers/boogu-image-2026",
+      "to": "papers/ggt-100k-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/boogu-image-2026",
       "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/boogu-image-2026",
-      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -3644,17 +3701,17 @@
     },
     {
       "from": "papers/colt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/colt-2026",
       "to": "papers/rls-razor-2025",
       "kind": "cites"
     },
     {
       "from": "papers/colt-2026",
       "to": "papers/dapo-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/colt-2026",
-      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -3709,12 +3766,12 @@
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -3864,17 +3921,17 @@
     },
     {
       "from": "papers/dataevolver-2026",
+      "to": "papers/ggt-100k-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/dataevolver-2026",
       "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
       "from": "papers/dataevolver-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/dataevolver-2026",
-      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -3934,6 +3991,11 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
@@ -3949,12 +4011,72 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "repos/ali-vilab/DiffusionOPD",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/flow-matching",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/pixel-space-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/frequency-domain-loss",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/spectral-bias",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/diffusion-transformer",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/text-to-image",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/training-objective",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "concepts/fourier-transform",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
-      "from": "papers/diffusion-opd-2026",
-      "to": "repos/ali-vilab/DiffusionOPD",
+      "from": "papers/f-loss-2026",
+      "to": "papers/mfd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "papers/pixrestore-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "papers/latent-to-pixel-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/f-loss-2026",
+      "to": "repos/EndlessSora/focal-frequency-loss",
       "kind": "implements"
     },
     {
@@ -4224,6 +4346,11 @@
     },
     {
       "from": "papers/i1-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
       "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
@@ -4235,11 +4362,6 @@
     {
       "from": "papers/i1-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4304,12 +4426,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4319,7 +4436,12 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4534,12 +4656,7 @@
     },
     {
       "from": "papers/la-sr-2026",
-      "to": "papers/op4ksr-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/la-sr-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "cites"
     },
     {
@@ -4549,7 +4666,12 @@
     },
     {
       "from": "papers/la-sr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "surveys/diffusion-sr-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/la-sr-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
@@ -4684,7 +4806,7 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/worldforge-2026",
       "kind": "cites"
     },
     {
@@ -4694,12 +4816,12 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/worldforge-2026",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -4824,7 +4946,7 @@
     },
     {
       "from": "papers/llada-image-2026",
-      "to": "papers/context-scaling-2026",
+      "to": "papers/i1-2026",
       "kind": "cites"
     },
     {
@@ -4834,12 +4956,12 @@
     },
     {
       "from": "papers/llada-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/context-scaling-2026",
       "kind": "cites"
     },
     {
       "from": "papers/llada-image-2026",
-      "to": "papers/i1-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4879,12 +5001,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4974,17 +5096,17 @@
     },
     {
       "from": "papers/mfd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mfd-2026",
       "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mfd-2026",
       "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mfd-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -5039,12 +5161,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/mrt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -5054,7 +5176,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -5104,12 +5226,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -5214,12 +5336,12 @@
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
@@ -5279,12 +5401,12 @@
     },
     {
       "from": "papers/op4ksr-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/omgsr-2025",
       "kind": "cites"
     },
     {
       "from": "papers/op4ksr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -5324,17 +5446,17 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/ferret-v2-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
       "to": "papers/ferret-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
-      "to": "papers/ferret-v2-2024",
       "kind": "cites"
     },
     {
@@ -5454,12 +5576,7 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/pixrestore-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "cites"
     },
     {
@@ -5474,7 +5591,12 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "papers/omgsr-2025",
+      "to": "surveys/diffusion-sr-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/pixrestore-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -5524,12 +5646,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
@@ -5609,17 +5731,12 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/mambo-g-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
       "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/mambo-g-2025",
       "kind": "cites"
     },
     {
@@ -5630,6 +5747,11 @@
     {
       "from": "papers/qwen-image-flash-2026",
       "to": "papers/diffusion-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -5704,12 +5826,7 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/qwen-image-flash-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/rdm-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -5719,7 +5836,12 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-flash-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
@@ -5769,12 +5891,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -6029,7 +6151,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -6039,7 +6161,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -6184,7 +6306,7 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
@@ -6194,7 +6316,7 @@
     },
     {
       "from": "tutorials/diffusion-sr-2021",
-      "to": "papers/omgsr-2025",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -6289,12 +6411,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
@@ -6414,12 +6536,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -6694,12 +6816,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
@@ -6879,12 +7001,12 @@
     },
     {
       "from": "surveys/deblur-diffusion-2026",
-      "to": "tutorials/opd-diffusion-2026",
+      "to": "surveys/diffusion-sr-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/deblur-diffusion-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -6989,12 +7111,7 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/op4ksr-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/diffusion-sr-2026",
-      "to": "tutorials/diffusion-sr-2021",
+      "to": "papers/omgsr-2025",
       "kind": "covers"
     },
     {
@@ -7004,7 +7121,12 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "papers/omgsr-2025",
+      "to": "tutorials/diffusion-sr-2021",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
@@ -7114,17 +7236,17 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/latent-to-pixel-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/native-8k-t2i-2026",
       "to": "papers/l2p-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/native-8k-t2i-2026",
       "to": "papers/op4ksr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "covers"
     },
     {
