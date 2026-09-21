@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Paint-Anything：把「任意颜色」做成提示词原生能力——用 24-bit hex 统一生成与编辑</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 底座与训练目标：生成和编辑其实是同一个损失</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 三个动作：标签包裹、统一格式、纯色锚点</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 数据管线：把真实图&quot;榨&quot;成物体级 hex 监督</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 设计决策表（谁贡献了多少）</a></li>
+    <li class="h2"><a href="#sec-3">3. 关键结果 (Results)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 评价与延伸 (Critique &amp; Related)</a></li>
+    <li class="h3"><a href="#sec-5-1">亮点</a></li>
+    <li class="h3"><a href="#sec-5-2">不足与存疑</a></li>
+    <li class="h3"><a href="#sec-5-3">交叉验证：与相近工作的结论对照</a></li>
+    <li class="h3"><a href="#sec-5-4">研究启发（可迁移的套路）</a></li>
+    <li class="h3"><a href="#sec-5-5">延伸阅读</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Paint-Anything: Unified Any-Color Control for Image Generation and Editing</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-21</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-21</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Ji Xie, Dewei Zhou, Xinyu Huang, Zhennan Chen, Xun Wang (ByteDance Seed / 浙大 / 南大)</span> · <span class="post-meta__venue">arXiv (Seed Technical Report)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.20816">arXiv:2609.20816</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/color-control.html">color-control</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/image-editing.html">image-editing</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/vlm.html">vlm</a> <a class="concept-chip" href="../../concepts/grounding.html">grounding</a> <a class="concept-chip" href="../../concepts/design.html">design</a> <a class="concept-chip" href="../../concepts/unified-model.html">unified-model</a> <a class="concept-chip" href="../../concepts/image-gen.html">image-gen</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-teaser.png" alt="同一个微调模型，既能按 hex 重新给灯上色，也能按 hex 直接生成图像">
+  <figcaption>
+    <strong>Fig. 1</strong> — 一套 hex 提示词接口同时覆盖「生成」与「编辑」。上排：给同一盏灯指定不同 hex（<code>#10A9FF</code>/<code>#40F5BB</code>/…）做物体重上色；下排：把一组 hex 调色板写进提示词，直接生成富士山油画、卧室、和服人像。<strong>颜色规格完全活在文本里</strong>，没有额外的颜色控制分支。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>一句话</strong>：颜色控制不该是一个&quot;外挂模块&quot;，而是模型本来就该会、只是没被专门喂过的<strong>提示词原生能力</strong>。Paint-Anything 证明——只要把 hex 写进提示词、再用物体级颜色数据对齐一下，一个 8B 模型就能在颜色保真上打过 56B 的同门大模型。</p>
+</blockquote>
+<div class="summary-grid">
+  <div class="card"><h3>目标</h3><p>用任意 24-bit hex（<code>#RRGGBB</code>）指定物体颜色，一个接口同时管生成和编辑，不做专用颜色编码器、不做推理时优化。</p></div>
+  <div class="card"><h3>数据</h3><p>Paint-500K：VLM grounding + SAM3 + CIELAB MeanShift 抽物体主色，把真实图转成 hex 监督（40 万 T2I + 10 万编辑）。</p></div>
+  <div class="card"><h3>方法</h3><p>纯色锚点提供干净的 hex→RGB 参照，只在高噪声段 t∈[0.8,1] 激活；<code>&lt;color&gt;</code> 标签包裹 + 全量微调。</p></div>
+  <div class="card"><h3>结果</h3><p>FLUX.2-4B 上 ACBench-T2I 37.0→68.6（+85.3%），Edit 58.9→75.6（+28.3%），8B 反超 56B FLUX.2-dev。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p><strong>「AI 离一个设计师还有多远？」</strong> 论文开篇就把问题摆得很具体：今天的图像模型能想象丰富的场景、渲染惊人的细节，但专业设计要的不只是&quot;一张好看的图&quot;，而是<strong>跟一个精确的颜色规格走</strong>。品牌 logo 要那个牌子标志性的蓝，电商新品图要那款指定的红——这些需求都<strong>不是</strong>&quot;蓝色&quot;&quot;红色&quot;这种词能表达的，它们需要显式的 hex 值。用户应该能像画家挑颜料一样直接挑物体的颜色。作者把这个能力叫 <strong>any-color control（任意颜色控制）</strong>：通过 24-bit hex 值指定目标颜色。</p>
+<p>以往做颜色控制的路子大致两类，作者认为都有硬伤：</p>
+<ol>
+<li><strong>加模块 / 学颜色表示</strong>——可学习的颜色 prompt（ColorPeel）、CIELAB 对齐的文本 embedding、专门的数值颜色编码器（NumColor）。问题：难以在颜色空间上 scale、难迁移到新架构。</li>
+<li><strong>推理时优化 / 训练无关技巧</strong>——采样引导、attention/value 操纵、颜色对齐目标（ColorWave 等）。问题：推理贵、常带任务特定假设。</li>
+</ol>
+<p>结果就是：<strong>任意颜色生成、着色 (colorization)、颜色编辑被当成三个分开的问题</strong>，而不是同一个&quot;跟着提示词走&quot;的原生能力。</p>
+<p>作者的关键观察（也是全文的支点）：<strong>现代 LLM 本来就能把 hex 字符串读成颜色语义</strong>。Figure 2 是一个&quot;动机探针&quot;——连一个紧凑的 Qwen3-4B 都能把 <code>#F0FFF1</code> 解释成&quot;淡淡的、近乎半透明的绿白色&quot;、把 <code>#E8D00A</code> 解释成&quot;接近金色但更暗、偏橘的黄&quot;。既然文本编码器里已经藏着 hex↔颜色的语义，那<strong>颜色规格就该活在文本里</strong>，而不是外挂一个新分支。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-llm-hex.png" alt="Qwen3-4B 能把 hex 字符串解释成合理的颜色描述">
+  <figcaption>
+    <strong>Fig. 2</strong> — 动机探针：即便 4B 的小语言模型也能把裸 hex（<code>#F0FFF1</code> / <code>#E8D00A</code>）关联到合理的颜色语义。这说明 hex 字符串可以充当"生成 + 编辑"统一的文本颜色接口——问题不在"模型不认识 hex"，而在"像素输出没跟数值对齐"。
+  </figcaption>
+</figure>
+<div class="term-grid">
+  <div class="card"><h4>any-color control</h4><p>用任意 24-bit hex 值（<code>#RRGGBB</code>，约 1677 万色）精确指定物体颜色的能力，区别于"红/蓝"这类命名色。</p></div>
+  <div class="card"><h4>hex 提示词接口</h4><p>把颜色规格直接写进文本提示，用 <code>&lt;color&gt;#AABBCC&lt;/color&gt;</code> 标签标出，生成与编辑共用同一套语法。</p></div>
+  <div class="card"><h4>pure-color anchor（纯色锚点）</h4><p>一批"纯色块图 + 对应 hex 提示"的辅助样本，像素严格等于目标 hex，给模型一个干净的 hex→RGB 数值参照。</p></div>
+  <div class="card"><h4>timestep gate（时间步门控）</h4><p>只在高噪声段 t∈[t_gate,1] 用纯色锚点训练；因为纯色轨迹里颜色早在 t≈0.8 就定形，低噪声段留给真实图。</p></div>
+  <div class="card"><h4>CIELAB / MeanShift</h4><p>CIELAB 是感知均匀的颜色空间（欧氏距离≈人眼色差）；MeanShift 是不用预设簇数 K 的聚类，用来自适应地抽物体主色。</p></div>
+  <div class="card"><h4>rectified flow / flow-matching</h4><p>本文底座的扩散范式：在干净 latent z₀ 与噪声 ε 之间走直线 z_t=(1−t)z₀+tε，模型学预测速度 v⋆=ε−z₀。</p></div>
+  <div class="card"><h4>SAM3 / VLM grounding</h4><p>数据管线里的两把工具：VLM 把 caption 里的物体定位成 bbox，SAM3 把 bbox 分割成精确物体掩码，供颜色抽取用。</p></div>
+  <div class="card"><h4>ACBench</h4><p>本文自建的物体级颜色保真基准，分 ACBench-T2I（生成，1000 条）和 ACBench-Edit（编辑，500 条），打分 0–100。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<h3 id="sec-2-1">2.1 底座与训练目标：生成和编辑其实是同一个损失</h3>
+<p>Paint-Anything 建在一个 rectified-flow 文生图模型上（文本编码器 + VAE + 去噪 transformer，对应 FLUX.2 谱系）。记文本提示 <span class="math inline">\(y\)</span>、目标图 <span class="math inline">\(I^\star\)</span>；编辑时还有源图 <span class="math inline">\(I^c\)</span>。冻结的文本编码器把 <span class="math inline">\(y\)</span> 映成 <span class="math inline">\(c\)</span>；VAE 把目标图编成 latent <span class="math inline">\(z_0=E_\text{vae}(I^\star)\)</span>，编辑时源图编成<strong>干净</strong>的条件 latent <span class="math inline">\(z^c=E_\text{vae}(I^c)\)</span>。</p>
+<p>flow-matching 的前向过程和速度目标：</p>
+<div class="math block">
+\[z_t=(1-t)z_0+t\epsilon,\qquad v^\star=\epsilon-z_0,\qquad \epsilon\sim\mathcal N(0,I),\ t\sim\mathcal U(0,1)\]
+</div>
+<p class="math-translation">—— 翻译：在"干净图 z₀"（t=0）和"纯噪声 ε"（t=1）之间拉一条直线，t 是位置。模型要学的"速度" v⋆ 就是这条直线的方向 ε−z₀——沿它反着走就能从噪声回到干净图。</p>
+<p>去噪器从&quot;带噪目标 latent + 时间步 + 文本 token + 可选图像条件 token&quot;预测速度：</p>
+<div class="math block">
+\[\hat v_\theta = D_\theta([z_t;z^c],\,t,\,c),\qquad \mathcal L_\text{FM}=\mathbb E_{z_0,\epsilon,t,y}\big\|\hat v_\theta-v^\star\big\|_2^2\]
+</div>
+<p class="math-translation">—— 翻译：[z_t; z^c] 是"把源图 latent 拼在带噪目标 latent 后面"。生成任务里没有源图，这一项就退化成只有 z_t。所以——<strong>生成和编辑用的是同一个去噪目标，唯一区别是要不要把干净的条件图 latent 拼进去</strong>。这是"一套接口管两件事"在数学上的落点。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="训练架构：hex 写进文本提示，VAE 编码目标图，去噪 transformer 用 flow-matching 训练">
+  <figcaption>
+    <strong>Fig. 3</strong> — 训练架构。hex 直接以文本 token 进入冻结文本编码器；VAE（也冻结）编码三种目标图。<strong>三条流的时间步采样不同</strong>：纯色目标只在高噪声段 t∈[t_gate,1]（图中红框 0.8）加噪训练；真实图目标全段 t∈(0,1)；编辑的条件图作为干净 latent 放在 t=0。只有去噪 transformer（🔥）参与微调。
+  </figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 三个动作：标签包裹、统一格式、纯色锚点</h3>
+<p><strong>① 显式 color 标签包裹。</strong> 把每个 24-bit sRGB hex 用 <code>&lt;color&gt;</code> 和 <code>&lt;/color&gt;</code> 括起来，直接写进提示里，例如&quot;a photo of a <code>&lt;color&gt; #CFEFFB &lt;/color&gt;</code> colored car&quot;或&quot;change the bag to <code>&lt;color&gt; #FFF8C4 &lt;/color&gt;</code>&quot;。为什么要这么做？因为<strong>文本编码器在微调期间是冻结的</strong>——它不会学新东西，那就得在喂给它之前把&quot;这串字符是颜色属性&quot;这件事讲清楚。消融显示（Table 2）这个包裹能显著抬 ACBench 和 CompColor。</p>
+<p><strong>② 统一生成/编辑格式。</strong> 生成和编辑联合训练，让一个模型通过同一套 hex 接口同时学&quot;颜色感知、物体-颜色绑定、颜色条件编辑&quot;。每个样本都有目标图 + hex 提示；编辑样本额外带一张源图，作为干净的条件 latent 分支。</p>
+<p><strong>③ 纯色锚点监督（本文最精巧的一招）。</strong> 真实图给了物体语义，但<strong>测出来的颜色是有噪声的</strong>——阴影会把同一个&quot;单色&quot;物体映射到一大堆 RGB 值，标签只是近似色。于是作者补一路<strong>纯色锚点</strong>：采样 24-bit RGB 值，渲染成一张<strong>纯色块</strong>图，配上带 <code>&lt;color&gt;#HEX&lt;/color&gt;</code> 的提示。纯色块的像素<strong>严格等于</strong>目标 hex，给模型一个干净的 hex→RGB 数值映射，把训练焦点放在&quot;颜色 token 对齐&quot;而不是&quot;物体语义&quot;上。</p>
+<p><strong>但纯色锚点不能全程用</strong>——这是关键洞察。作者观察纯色生成轨迹（Fig. 9）发现：<strong>颜色在 t≈0.8 就已经视觉稳定了</strong>，后面低噪声段基本是在补细节。所以他们上了一个<strong>高噪声门控</strong>：纯色样本只用 <span class="math inline">\(t\sim\mathcal U(t_\text{gate},1.0)\)</span> 训练（<span class="math inline">\(t_\text{gate}=0.8\)</span>），把低噪声段留给真实图的 T2I 和编辑。直觉上——纯色块在低噪声段是&quot;没有任何纹理/物体结构可学&quot;的退化样本，硬塞进去只会让模型在细节阶段学到&quot;平涂&quot;的坏习惯，反而伤编辑保真。</p>
+<figure>
+  <img class="zoomable" src="figures/fig9-trajectory.png" alt="纯色生成轨迹：颜色在 t≈0.8 就已经稳定">
+  <figcaption>
+    <strong>Fig. 9</strong> — 纯色生成轨迹的"早期颜色稳定"现象。上两行是噪声态 x_t，下两行是对应的单步去噪预测 x₀，从左（t=1.0）到右（t=0.0）。<strong>在 t≈0.8，预测出的颜色就已经视觉稳定</strong>——这正是"把纯色锚点监督集中在高噪声段"的动机来源，Table 3 的 gate 消融给出下游证据。
+  </figcaption>
+</figure>
+<p><strong>总损失</strong>把三条流加起来：</p>
+<div class="math block">
+\[\mathcal L=\lambda_\text{t2i}\mathcal L_\text{t2i}+\lambda_\text{edit}\mathcal L_\text{edit}+\lambda_\text{rgb}\mathcal L_\text{rgb}\]
+</div>
+<p class="math-translation">—— 翻译：三项都用同一个 flow-matching 损失（Eq. 3），只是喂的数据不同：L_t2i 用真实图颜色生成样本、L_edit 用成对编辑样本、L_rgb 用高噪声门控下的纯色锚点。论文里 λ 全取 1，实际配比靠 batch 内样本数控制（30 T2I : 12 纯色 : 30 编辑）。只微调去噪 transformer，VAE 和文本编码器全冻。</p>
+<p>由于没有官方开源代码，下面用<strong>等价伪代码</strong>还原三条流的采样与门控逻辑（常量取自论文正文与附录 D）：</p>
+<p class="code-source">等价伪代码 — 非原文逐字（据 §3.2 与附录 D 重建）</p>
+<pre><code class="language-python"># 一个 batch = 72 条：30 真实图 T2I + 12 纯色锚点 + 30 编辑
+T_GATE = 0.8          # 纯色锚点只在 t∈[0.8,1] 激活
+LAM = dict(t2i=1.0, edit=1.0, rgb=1.0)
+
+def build_batch(t2i_pool, pure_pool, edit_pool):
+    return (sample(t2i_pool, 30), sample(pure_pool, 12), sample(edit_pool, 30))
+
+def wrap_hex(prompt, hex_list):
+    # ① 显式 color 标签包裹：冻结文编码器读不懂裸 hex，先把&quot;这是颜色&quot;讲明白
+    for h in hex_list:
+        prompt = prompt.replace(h, f&quot;&lt;color&gt; {h} &lt;/color&gt;&quot;)
+    return prompt
+
+def flow_loss(z0, cond_latent, text_emb, t):
+    eps = randn_like(z0)
+    zt  = (1 - t) * z0 + t * eps          # Eq.1 直线插值
+    v_star = eps - z0                     # 目标速度
+    zin = cat([zt, cond_latent]) if cond_latent is not None else zt   # 编辑才拼源图
+    v_hat = denoiser(zin, t, text_emb)    # 只有 denoiser 可训练
+    return mse(v_hat, v_star)             # Eq.3
+
+def step(batch):
+    t2i, pure, edit = batch
+    L = 0.0
+    for s in t2i:    # 真实图：全段采样
+        t = uniform(0.0, 1.0)
+        L += LAM['t2i'] * flow_loss(s.z0, None, encode(wrap_hex(s.prompt, s.hex)), t)
+    for s in pure:   # 纯色锚点：③ 高噪声门控 —— 只在 [T_GATE, 1] 采样
+        t = uniform(T_GATE, 1.0)
+        L += LAM['rgb'] * flow_loss(s.z0, None, encode(wrap_hex(s.prompt, s.hex)), t)
+    for s in edit:   # 编辑：全段采样，且拼干净源图 latent
+        t = uniform(0.0, 1.0)
+        L += LAM['edit'] * flow_loss(s.z0, s.cond_latent, encode(wrap_hex(s.instr, s.hex)), t)
+    return L / 72
+</code></pre>
+<p>三个动作的对应关系一目了然：<code>wrap_hex</code> 是①，<code>edit</code> 分支拼 <code>cond_latent</code> 是②，<code>pure</code> 分支的 <code>uniform(T_GATE, 1.0)</code> 是③。整套微调只有 <code>denoiser</code> 的参数在动。</p>
+<h3 id="sec-2-3">2.3 数据管线：把真实图&quot;榨&quot;成物体级 hex 监督</h3>
+<p>Paint-500K 的核心是<strong>从真实图里可靠地抽出物体主色</strong>。作者指出朴素做法（RGB 空间 k-means）的两个毛病：(I) RGB 距离不反映人眼感知，会把相近色拆开、把不同色并掉；(II) 物体的主色数目不定，固定 K 会把阴影/噪声拆成多余的簇。</p>
+<p>对策两点：<strong>换空间</strong>（用感知均匀的 CIELAB）+ <strong>换聚类</strong>（用不用预设 K 的 MeanShift 自适应簇数）。Fig. 5 是直观对比——k-means（K=3/5）把一块皮肤拆成好几个冗余簇，MeanShift（bandwidth=0.05）给出更连贯的单一主色区。</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-meanshift.png" alt="MeanShift 相比固定 K 的 k-means 减少冗余颜色拆分">
+  <figcaption>
+    <strong>Fig. 5</strong> — 同一块（虚线框）皮肤区在 CIELAB 里聚类。k-means（K=3、K=5）把一块本该是单色的皮肤拆成多个冗余簇（下方色条杂乱）；MeanShift（h=0.05）自适应地收敛到一个连贯主色。感知空间 + 自适应簇数 = 更干净的主色标签。
+  </figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/fig4-pipeline.png" alt="Paint-500K 数据管线">
+  <figcaption>
+    <strong>Fig. 4</strong> — Paint-500K 全流程。真实图-caption 对 → VLM grounding 定位物体 bbox → SAM3 分割掩码 → CIELAB 空间聚类抽主色 → 过滤 → VLM recaptioning 把 hex 绑回名词短语。<strong>编辑数据是"反着造"的</strong>：拿单物体图，用一个编辑专家把它改色成"源图"，原始照片当"目标图"，配一条"把它改回原 hex"的指令——这样目标图是真实照片、不带生成瑕疵。
+  </figcaption>
+</figure>
+<p>数据管线的过滤逻辑同样用伪代码还原（常量取自附录 D）：</p>
+<p class="code-source">等价伪代码 — 非原文逐字（据 §3.3 与附录 D：bandwidth=0.05, COLOR_MIN_RATIO=0.15, INSTANCE_KEEP_RATIO=0.90）</p>
+<pre><code class="language-python">COLOR_MIN_RATIO   = 0.15   # 单个保留簇至少覆盖物体像素的 15%
+INSTANCE_KEEP_RATIO = 0.90 # 保留簇合计至少覆盖 90%，否则丢弃该实例
+
+def extract_object_color(image, mask):
+    lab = rgb_to_cielab(image[mask])          # 只取物体像素，进感知空间
+    lab = normalize(lab, to=[0, 1])           # CIELAB 通道归一化到 [0,1]
+    clusters = mean_shift(lab, bandwidth=0.05)  # 自适应簇数，不预设 K
+
+    total = len(lab)
+    kept = [c for c in clusters if c.size / total &gt;= COLOR_MIN_RATIO]  # 滤掉高光/阴影/装饰小块
+    if sum(c.size for c in kept) / total &lt; INSTANCE_KEEP_RATIO:
+        return None                           # 覆盖不够 → 这个实例整体丢弃
+    dominant = max(kept, key=lambda c: c.size)  # 像素质量最大的簇 = 主色
+    return cielab_to_hex(dominant.mean)         # 转成 24-bit sRGB hex 标签
+
+# 上游：Seed1.8(VLM) 定位物体 bbox → SAM3 分割 → 上面抽主色 → VLM 把 &lt;color&gt;#HEX&lt;/color&gt; 写回 caption
+# 编辑数据反向合成：Qwen-Image-Edit-2511 + 4步 Lightning LoRA 把单物体图改色成&quot;源图&quot;，原图当&quot;目标图&quot;
+</code></pre>
+<p>两条流的产量：<strong>T2I 40 万</strong>（10 万单物体 + 30 万多物体，多物体教&quot;组合式颜色绑定&quot;，单物体教&quot;直接颜色感知&quot;）+ <strong>编辑 10 万</strong>。作者随机抽检 100 条，96 条的主色标签与人眼一致。</p>
+<!-- 消融决策表 -->
+<h3 id="sec-2-4">2.4 设计决策表（谁贡献了多少）</h3>
+<p>下表把 Table 2 的模块消融拉成决策视图（FLUX.2-4B，指标为 ACBench-T2I / ACBench-Edit / CompColor-hex）：</p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点</th>
+<th>消融方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>微调方式</td>
+<td>冻结底座 37.0 / 58.9 / 0.38</td>
+<td>裸 hex 全量微调 → 44.1 / 65.8 / 0.52</td>
+<td><strong>全量微调</strong></td>
+<td>光是&quot;喂颜色数据全量微调&quot;就抬一大截；但只到这还远不够。</td>
+</tr>
+<tr>
+<td>color 标签包裹</td>
+<td>裸 hex</td>
+<td>加 <code>&lt;color&gt;</code> 包裹（无锚点）→ 57.2 / 73.9 / 0.71</td>
+<td><strong>加包裹</strong></td>
+<td>冻结文编码器读不懂裸 hex，包裹给它一个明确的&quot;这是颜色&quot;文本把手；单这一项 T2I +13。</td>
+</tr>
+<tr>
+<td>纯色锚点</td>
+<td>有包裹无锚点</td>
+<td>加锚点但不门控 → 63.8 / <strong>70.4</strong> / 0.71</td>
+<td><strong>加锚点 + 门控</strong></td>
+<td>无门控锚点：生成↑（57→64）但<strong>编辑↓</strong>（74→70）——纯色块塞进低噪声段伤了编辑细节保真。</td>
+</tr>
+<tr>
+<td>高噪声门控</td>
+<td>无门控锚点 63.8 / 70.4</td>
+<td>门控 t_gate=0.8 → <strong>68.6 / 75.6 / 0.79</strong></td>
+<td><strong>t_gate=0.8</strong></td>
+<td>把锚点关在高噪声段，生成 +4.75、编辑 +5.18，两个都涨。对齐&quot;颜色 t≈0.8 就定形&quot;的观察。</td>
+</tr>
+<tr>
+<td>full-FT vs LoRA</td>
+<td>完整配方全量微调 68.6</td>
+<td>rank-256 LoRA → 48.5 / 58.7 / 0.54</td>
+<td><strong>全量微调</strong></td>
+<td>同样 4000 步、同学习率下，LoRA 差一大截——像素级颜色对齐需要动到主干，不是低秩补丁能覆盖的。</td>
+</tr>
+</tbody>
+</table>
+<p><code>t_gate</code> 单独扫（Table 3，配方其余不变）：0.0 / 0.7 / <strong>0.8</strong> / 0.9 / 1.0 对应 T2I 63.8 / 65.9 / <strong>68.6</strong> / 67.5 / 67.6，Edit 70.4 / 72.7 / <strong>75.6</strong> / 73.7 / 71.5。0.7~0.9 都比不门控好，<strong>敏感度低</strong>，取 0.8。</p>
+<h2 id="sec-3">3. 关键结果 (Results)</h2>
+<p><strong>主表（Table 1，ACBench 0–100，CompColor 0–1）。</strong> 在 FLUX.2-4B 上：</p>
+<ul>
+<li><strong>ACBench-T2I</strong>：Single 37.45→<strong>72.67</strong>，Two 36.60→<strong>64.49</strong>，Overall 37.02→<strong>68.58</strong>（相对 <strong>+85.3%</strong>）。</li>
+<li><strong>ACBench-Edit</strong>：58.90→<strong>75.57</strong>（相对 <strong>+28.3%</strong>）。</li>
+<li><strong>CompColor（hex 提示）</strong>：base 平均 0.38 → <strong>0.79</strong>（翻倍还多）；命名色平均也从 0.72→0.79，说明<strong>微调没有牺牲原有的命名色组合绑定能力，反而增强了</strong>。</li>
+</ul>
+<p><strong>8B 反超 56B——本文最有冲击力的一条。</strong> FLUX.2 家族里，off-the-shelf 模型随参数增长（8B→17B→56B）颜色分数确实在涨；但<strong>微调后的 8B 模型在 ACBench-T2I 上比 56B 的 FLUX.2-dev 高 16.88 分（68.58 vs 51.70），编辑高 6.70 分（75.57 vs 68.87）</strong>。换句话说，正确的颜色监督数据，比堆 7 倍参数更管用。</p>
+<p><strong>打过专用颜色系统。</strong> ACBench-T2I 比最强专用基线 ColorWave 高 22.04 分；ACBench-Edit 比 ColorBind/Edit 高 15.19 分。同一套配方换到 Z-Image Base 上，ACBench-T2I 也从 33.45→53.77，说明<strong>配方可迁移，不是对 FLUX 过拟合</strong>。</p>
+<p><strong>打分函数</strong>（Eq. 5）值得一提，它决定了这些数字怎么来：</p>
+<div class="math block">
+\[\text{MAE}=\tfrac13\!\!\sum_{k\in\{R,G,B\}}\!\!|\bar c_k-c^\star_k|,\qquad s=100\cdot\max\!\Big(0,\ 1-\frac{\max(0,\text{MAE}-16)}{48}\Big)\]
+</div>
+<p class="math-translation">—— 翻译：先用 SAM3 抠出目标物体掩码，算掩码内像素的平均 RGB c̄，跟目标 c⋆ 比每通道平均绝对误差 MAE（0–255 尺度）。MAE≤16 满分 100，MAE≥64 得 0 分，中间线性给分——留出"渐变信用"，不把差一点的结果一刀切到零。定位失败直接记 0。</p>
+<p><strong>独立基准 + 人评佐证</strong>：GenColorBench NCU 评测也把 Paint-Anything 排在被比方法里最高；人类偏好研究更偏好它的颜色结果而非底座（附录 A、K）。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation)</h2>
+<p>无官方开源代码（Seed 技术报告，源图库也不公开），以下细节取自正文与附录 D，供复现参考：</p>
+<ol>
+<li><strong>底座</strong>：微调 FLUX.2-klein-base-4B 和 Z-Image Base，同一套配方。&quot;4B/9B&quot;指 DiT 参数量；Table 1 的 Total params 含捆绑的 Qwen3 文本编码器（所以 4B 记为 8B total）。用的是<strong>未蒸馏</strong>的 klein base checkpoint。</li>
+<li><strong>优化</strong>：Adam，学习率 <span class="math inline">\(2\times10^{-5}\)</span>，全局 batch size 72，训 4000 步，4 卡。只微调去噪 transformer，VAE + 文本编码器全冻。</li>
+<li><strong>batch 配比</strong>：每个 batch = 30 真实图 T2I + 12 纯色锚点 + 30 编辑（λ 全取 1，配比靠样本数控制）。</li>
+<li><strong>纯色锚点流</strong>：1 万张纯色块，512×512 分辨率，只在 <span class="math inline">\(t\in[0.8,1.0]\)</span> 采样。</li>
+<li><strong>数据管线工具链</strong>：VLM = <strong>Seed1.8</strong>（负责 grounding / 过滤 / recaptioning）；分割 = <strong>SAM3</strong>；编辑专家 = <strong>Qwen-Image-Edit-2511</strong> + 4 步 Qwen-Image-Edit-2511-Lightning LoRA。</li>
+<li><strong>颜色抽取常量</strong>：CIELAB 通道归一化到 [0,1]，MeanShift bandwidth = 0.05；<code>COLOR_MIN_RATIO=0.15</code>（单簇最小覆盖），<code>INSTANCE_KEEP_RATIO=0.90</code>（保留簇合计覆盖）。</li>
+<li><strong>推理 CFG</strong>：FLUX.2-4B 的 T2I 默认 CFG=4.0；所有编辑对比（含底座与微调变体）统一 CFG=2.0。</li>
+<li><strong>评测协议</strong>：T2I 分割&quot;生成图里的被提示物体&quot;；编辑分割&quot;源图里的目标物体&quot;并人工核掩码，同一源掩码在所有被比编辑输出上复用（保证公平）。</li>
+</ol>
+<p><strong>论文 ↔ 复现的对齐/存疑点</strong>（无代码，只能标注）：</p>
+<ul>
+<li>✅ 三条流的时间步采样区间（真实图全段、纯色高噪声段、条件图 t=0）在 Fig. 3 和正文一致，伪代码可直接落地。</li>
+<li>⚠️ <strong>纯色锚点在 latent 空间的表示</strong>：附录 I（&quot;Pure-Color Anchor Resolution&quot;）提到分辨率问题——纯色块过 VAE 后 latent 未必严格常数，论文用 512×512 但未给 latent 端的精确处理，复现时需注意 VAE 对纯色的重建误差。</li>
+<li>⚠️ <strong>MeanShift bandwidth=0.05 是在归一化 CIELAB 上</strong>，换未归一化或不同 LAB 尺度会得到完全不同的簇数，这个常量强依赖预处理。</li>
+<li>⚠️ 编辑数据用 Qwen-Image-Edit 反向合成，<strong>源图带生成瑕疵、目标图是真实照片</strong>——这条&quot;只让源图是生成的&quot;设计很聪明（避免目标端学到生成 artifact），但也意味着模型见到的&quot;源→目标&quot;分布与真实用户编辑（源是真实照片）方向相反，可能有分布偏移。</li>
+</ul>
+<h2 id="sec-5">5. 评价与延伸 (Critique &amp; Related)</h2>
+<h3 id="sec-5-1">亮点</h3>
+<ul>
+<li><strong>问题定义干净</strong>：把散落的&quot;颜色生成 / 着色 / 颜色编辑&quot;收敛成一个&quot;提示词原生的任意颜色控制&quot;，并给出可量化的 ACBench，让&quot;颜色保真&quot;从主观变成可比数字。</li>
+<li><strong>纯色锚点 + 高噪声门控</strong>是全文最有迁移价值的一招：用&quot;退化但绝对干净&quot;的合成样本补真实数据的短板，再用&quot;能力在哪个噪声段涌现&quot;的观察决定它该在哪个时间段起作用。这套&quot;合成锚点 + 时间步定向&quot;的思路可以迁移到任何&quot;真实标签有噪声、但理想信号可合成&quot;的属性控制（材质、光照、纹理密度……）。</li>
+<li><strong>8B 打过 56B</strong>：一个很有说服力的&quot;数据/接口 &gt; 参数堆叠&quot;的证据点。</li>
+</ul>
+<h3 id="sec-5-2">不足与存疑</h3>
+<ul>
+<li><strong>§5 限制自陈很短</strong>：只说&quot;没有调色板 (palette) 专项监督&quot;。但更实质的问题作者没展开：<strong>多物体、每物体多主色</strong>时的绑定可靠性——ACBench 的 Two 分数（64.49）明显低于 Single（72.67），说明组合式颜色绑定仍是弱项，论文没给失败案例分析。</li>
+<li><strong>依赖强上游工具</strong>：整条数据管线吊在 Seed1.8（闭源 VLM）+ SAM3 + Qwen-Image-Edit 上。grounding 错、掩码错、或编辑专家改色不干净，都会污染标签。作者只报了&quot;100 抽检 96 对&quot;，但没有量化上游误差如何传导到最终颜色保真。</li>
+<li><strong>打分函数偏宽松</strong>：MAE≤16（0–255 尺度，即每通道平均差 16/255≈6%）就满分。对&quot;品牌色必须像素级精确&quot;的真实设计诉求，这个阈值可能过松——85.3% 的相对提升有一部分来自&quot;从很差到还行&quot;，而非&quot;从还行到精确&quot;。</li>
+<li><strong>纯色锚点的 VAE 悖论</strong>：纯色块本意是给&quot;绝对干净的 hex→RGB 映射&quot;，但它得先过一个对纯色重建有误差的 VAE，附录 I 暴露了这个张力却没彻底解决——理论上&quot;干净&quot;的锚点在 latent 空间可能并不干净。</li>
+<li><strong>闭源、不可复现</strong>：数据、权重、代码均不公开，ACBench 虽自建但也未见公开发布承诺，第三方难以独立验证。</li>
+</ul>
+<h3 id="sec-5-3">交叉验证：与相近工作的结论对照</h3>
+<p>Paint-Anything 的元主张是——<strong>新的控制能力应该来自&quot;数据监督 + 提示词接口&quot;，而不是&quot;专用模块 / 推理时优化&quot;</strong>。把它放到本库几篇相近工作里对照：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>要获取的新能力</th>
+<th>手段（架构 vs 数据/接口）</th>
+<th>与本文结论</th>
+<th>观察</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Paint-Anything</strong>（本文）</td>
+<td>hex 任意颜色控制</td>
+<td><strong>数据监督 + 冻结文编码器 + 提示原生 hex</strong>，只加一个 timestep-gate 小 loss，不加模块</td>
+<td>—</td>
+<td>8B 微调反超 56B；LoRA 明显不如全量微调</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a></td>
+<td>中文长文本渲染 / 统一生成编辑</td>
+<td><strong>数据 + RLHF + 蒸馏</strong>，冻结 Qwen3-VL 当 condition encoder，无专用控制模块</td>
+<td><strong>同</strong></td>
+<td>能力主要来自数据配方与接口设计，而非新控制分支</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="bernini-2026" href="../bernini-2026/index.html">bernini-2026</a></td>
+<td>跨模态语义规划下的视频编辑</td>
+<td><strong>加专用模块</strong>：MLLM 语义 planner + SA-3D RoPE，planner/renderer 分工</td>
+<td><strong>异</strong></td>
+<td>这里的能力来自一个新的架构接口（语义 embedding），不是纯数据对齐</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></td>
+<td>latent→像素空间迁移</td>
+<td>AsymFlow <strong>动 loss 不动架构</strong> / L2P <strong>动架构不动 loss</strong></td>
+<td><strong>元层面同一争论</strong></td>
+<td>同样在问&quot;动数据/loss 还是动架构&quot;，两条路都能成</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>：颜色是一个**&quot;语义早就在预训练里、只是数值没对齐&quot;的低维属性**——模型本来就&quot;认识&quot;<code>#FF0000</code> 是红（Fig. 2 已证），缺的只是把输出像素跟这个数值校准，所以<strong>数据对齐就够了，不需要新模块</strong>。而 Bernini 要的&quot;跨模态语义规划&quot;、latent→pixel 要的&quot;分布外迁移&quot;，是预训练分布里<strong>没有现成对应物</strong>的新能力，往往就得架构介入。<strong>一句话：属性是否已在预训练语义里，决定了你该动数据还是动架构。</strong> Paint-Anything 之所以能用最轻的手段（不加模块）拿最大的收益，正是因为它挑的是一个&quot;底座已经会、只是没校准&quot;的问题。</p>
+<h3 id="sec-5-4">研究启发（可迁移的套路）</h3>
+<div class="term-grid">
+  <div class="card"><h4>合成锚点补真实噪声</h4><p>真实标签有噪声（阴影污染颜色）时，造一批"绝对干净但退化"的合成样本（纯色块）当锚点，把某个子能力的监督信号钉死。可迁移到材质/光照/纹理等属性控制。</p></div>
+  <div class="card"><h4>能力涌现的时间步 → 监督的时间步</h4><p>先观察"目标属性在扩散轨迹的哪个噪声段定形"（颜色在 t≈0.8），再把该属性的监督**定向**投到那个段。时间步不是均匀的，别浪费监督预算。</p></div>
+  <div class="card"><h4>把控制塞进冻结编码器能读的文本</h4><p>文编码器冻结时，与其外挂新分支，不如用它已能解析的 token（hex 字符串）表达控制，再用 <code>&lt;color&gt;</code> 这类显式标签降低歧义。零新增参数的控制接口。</p></div>
+  <div class="card"><h4>反向合成编辑对</h4><p>要"源→目标"编辑数据但只有单张真实图？让真实图当<strong>目标</strong>、生成模型造<strong>源</strong>——这样目标端零生成瑕疵。反直觉但干净。</p></div>
+</div>
+<h3 id="sec-5-5">延伸阅读</h3>
+<ul>
+<li><a class="wiki-link" data-slug="qwen-image-2-2026" href="../qwen-image-2-2026/index.html">qwen-image-2-2026</a> —— 同样&quot;数据/接口 &gt; 堆参数&quot;的路线，看统一生成编辑怎么靠数据配方 + 蒸馏拿 SOTA。</li>
+<li><a class="wiki-link" data-slug="bernini-2026" href="../bernini-2026/index.html">bernini-2026</a> —— 对照组：当能力是&quot;分布外的新东西&quot;时，为什么就得加专用模块。</li>
+<li><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a> —— &quot;动数据/loss vs 动架构&quot;这场元争论的另一个案例，两条刀法并排。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

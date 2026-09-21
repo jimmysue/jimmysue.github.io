@@ -54,6 +54,21 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/paint-anything-2026/index.html">Paint-Anything：把「任意颜色」做成提示词原生能力——用 24-bit hex 统一生成与编辑</a></h3>
+  <p class="post-card__tldr">字节跳动 Seed 的技术报告。核心主张：让图像模型「听懂十六进制颜色」不需要专用颜色编码器、也不需要推理时优化，而是把 &lt;color&gt;#AABBCC&lt;/color&gt; 直接写进提示词、再用物体级颜色监督数据把这套接口喂给模型。三件套：(1) Paint-500K 数据管线——VLM grounding + SAM3 分割 + CIELAB 空间 MeanShift 聚类抽物体主色，把 50 万张真实图变成 hex 标注（40 万 T2I + 10 万编辑）；(2) 纯色锚点 (pure-color anchor)——用纯色块给出干净的 hex→RGB 映射，且只在高噪声段 t∈[0.8,1] 激活，因为纯色轨迹里颜色早在 t≈0.8 就稳定了；(3) 显式 color 标签包裹 + 全量微调（冻结 VAE 和文本编码器）。FLUX.2-4B 上 ACBench-T2I +85.3%、ACBench-Edit +28.3%，8B 微调模型在颜色保真上反超 56B 的 FLUX.2-dev。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/color-control.html">color-control</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/jit-2025/index.html">JiT：让去噪模型真的去「噪」——预测干净图，一个朴素 ViT 就能直接在像素上做扩散</a></h3>
   <p class="post-card__tldr">何恺明 + 李天弘（MIT）的「回到基本功」。一句话主张：**预测干净数据 x 和预测噪声 ε / 速度 v 是本质不同的两件事**。据流形假设,自然图像躺在高维像素空间里的一张低维流形上,而 ε、v 是「离流形」的、弥散在整个高维空间——所以让网络直接预测 x,一个「欠容量」的小网络也能在极高维空间里工作;反之预测 ε/v 会灾难性失败。
 由此得到 **JiT（Just image Transformers）**：一个朴素 ViT 直接吞大像素 patch(16×16×3=768 维,甚至 32×32×3=3072 维)、做 x-预测、配 v-loss。无 tokenizer、无预训练、无感知/对抗/表征对齐损失,自成一体。
@@ -175,21 +190,6 @@
       <a class="tag-chip" href="concepts/typescript.html">typescript</a>
       <a class="tag-chip" href="concepts/agent-harness.html">agent-harness</a>
       <a class="tag-chip" href="concepts/typebox.html">typebox</a>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-7-async/index.html">TS·07 异步与流式:Promise、async/await、与 async generator</a></h3>
-  <p class="post-card__tldr">从 Promise 与 async/await(对照 Python asyncio)到 Promise.all 并发、AbortSignal 取消,最后讲清
-pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await...of。读懂这章就读懂了 pi 的事件流。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/async.html">async</a>
-      <a class="tag-chip" href="concepts/async-generators.html">async-generators</a>
   </div>
 </div>
 </div>

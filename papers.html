@@ -47,8 +47,23 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 56 篇论文精读。</p>
+<p class="page__intro">共 57 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/paint-anything-2026/index.html">Paint-Anything：把「任意颜色」做成提示词原生能力——用 24-bit hex 统一生成与编辑</a></h3>
+  <p class="post-card__tldr">字节跳动 Seed 的技术报告。核心主张：让图像模型「听懂十六进制颜色」不需要专用颜色编码器、也不需要推理时优化，而是把 &lt;color&gt;#AABBCC&lt;/color&gt; 直接写进提示词、再用物体级颜色监督数据把这套接口喂给模型。三件套：(1) Paint-500K 数据管线——VLM grounding + SAM3 分割 + CIELAB 空间 MeanShift 聚类抽物体主色，把 50 万张真实图变成 hex 标注（40 万 T2I + 10 万编辑）；(2) 纯色锚点 (pure-color anchor)——用纯色块给出干净的 hex→RGB 映射，且只在高噪声段 t∈[0.8,1] 激活，因为纯色轨迹里颜色早在 t≈0.8 就稳定了；(3) 显式 color 标签包裹 + 全量微调（冻结 VAE 和文本编码器）。FLUX.2-4B 上 ACBench-T2I +85.3%、ACBench-Edit +28.3%，8B 微调模型在颜色保真上反超 56B 的 FLUX.2-dev。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/color-control.html">color-control</a>
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -175,21 +190,6 @@
       <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
       <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
       <span class="tag-chip tag-chip--more">+12 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-06</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/mfd-2026/index.html">MFD: 不比「瞬时速度」比「平均速度」——把时间积分当低通滤波器, 给 flow matching 蒸馏降方差</a></h3>
-  <p class="post-card__tldr">浙大/普林斯顿:现有蒸馏把 flow 的速度场硬转成 score, 单时刻匹配, 方差大、训练抖。MFD 改成匹配一段区间 [s,t] 上的**时间积分平均速度** (mean flow) —— 积分天然是低通滤波, 把瞬时速度里的高频噪声磨平, 梯度方差更低。理论上证明「匹配平均速度 ⇒ 分布对齐」(Mean Flow Matching 定理), 且 VSD 只是区间缩成一点 (s→t) 的退化特例。SANA 1.6B 上 4 步 FID(DINOv2) 43.68→33.28; 4D 占据预测单步 IoU 37.07 (teacher 10 步 37.52)。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>
