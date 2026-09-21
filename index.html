@@ -54,6 +54,24 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/jit-2025/index.html">JiT：让去噪模型真的去「噪」——预测干净图，一个朴素 ViT 就能直接在像素上做扩散</a></h3>
+  <p class="post-card__tldr">何恺明 + 李天弘（MIT）的「回到基本功」。一句话主张：**预测干净数据 x 和预测噪声 ε / 速度 v 是本质不同的两件事**。据流形假设,自然图像躺在高维像素空间里的一张低维流形上,而 ε、v 是「离流形」的、弥散在整个高维空间——所以让网络直接预测 x,一个「欠容量」的小网络也能在极高维空间里工作;反之预测 ε/v 会灾难性失败。
+由此得到 **JiT（Just image Transformers）**：一个朴素 ViT 直接吞大像素 patch(16×16×3=768 维,甚至 32×32×3=3072 维)、做 x-预测、配 v-loss。无 tokenizer、无预训练、无感知/对抗/表征对齐损失,自成一体。
+三个反直觉证据：① 玩具螺旋实验——把 2D 螺旋埋进 D 维,只有 x-预测能随 D→512 存活,ε/v-预测在 D=16 就崩、D=512 全崩;② ImageNet 256² 上 JiT-B/16 的 x-预测 FID 8.62,同架构 ε-预测 372、v-预测 96 直接爆掉;③ 给 patch embedding 加一个「降维瓶颈」(768→64 维)反而更好(FID 8.62→7.35),呼应经典流形学习。
+结果：同一套 base 尺寸、几乎恒定算力,把分辨率从 256 推到 1024(靠 patch 边长成比例放大、token 数固定 256);JiT-G 在 256²/512² 拿到 FID 1.82/1.78。代码极简开源(denoiser.py 就是论文 Algorithm 1)。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/diffusion-models.html">diffusion-models</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/pixel-space-generation.html">pixel-space-generation</a>
+      <span class="tag-chip tag-chip--more">+6 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/f-loss-2026/index.html">f-loss：给像素空间流匹配换一副「频域眼镜」——先学频率、再抠像素</a></h3>
   <p class="post-card__tldr">自然图像功率谱按 1/f² 衰减：能量几乎全堆在低频，但人眼在乎的纹理/边缘藏在稀疏的高频。像素空间的 v-loss 对所有空间误差一视同仁 → 低频主导梯度 → 模型迟迟学不会细节。作者把这诊断成「目标函数层面的频谱失衡」。
 解法两件套：① **f-loss（Focal Log-Frequency Loss）**——在 2D 傅里叶谱上做「对数压缩 log(1+e) + 逐样本焦点归一化 e/max(e) + 保留 1/(1-t)² 时间步权重」，让每个频率倍频程拿到等量学习信号；② **fv-loss 两段式调度**——训练早期用 f-loss 把所有频率快速拉齐，再用 sigmoid 权重平滑切回标准 v-loss 做像素级相位精修。
@@ -172,21 +190,6 @@ pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await.
       <a class="tag-chip" href="concepts/typescript.html">typescript</a>
       <a class="tag-chip" href="concepts/async.html">async</a>
       <a class="tag-chip" href="concepts/async-generators.html">async-generators</a>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-6-classes-modules/index.html">TS·06 类与模块:封装、契约、与 import/export</a></h3>
-  <p class="post-card__tldr">类的字段/构造器/访问修饰符(private/public/readonly)、implements 契约、extends 继承(含 class extends Error),
-以及 ESM 模块的具名导出、import type/export type、barrel 与 declare module。用 pi 的 Agent、FileError、EventStream 讲。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/classes.html">classes</a>
-      <a class="tag-chip" href="concepts/modules.html">modules</a>
   </div>
 </div>
 </div>

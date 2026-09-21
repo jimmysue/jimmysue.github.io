@@ -49,6 +49,23 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/mambo-g-2025/index.html">MAMBO-G:用幅度比 r_t 自适应阻尼 CFG——一个免训练、即插即用的扩散/视频采样加速器</a></h3>
+  <p class="post-card__tldr">CFG 在采样初期(t→1)对&quot;通用方向&quot;施加了过大的更新,在高维大模型里尤其会 overshoot 出过饱和与结构崩坏。
+MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 高就指数级压低 guidance scale,r_t 低才放开。
+免训练、几乎零开销,已并入 Diffusers。SD3.5 提速 3×、Lumina 4×、14B 视频模型 Wan2.1 提速 2×。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/classifier-free-guidance.html">classifier-free-guidance</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/diffusion-sampling.html">diffusion-sampling</a>
+      <span class="tag-chip tag-chip--more">+3 more</span>
+  </div>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
@@ -176,22 +193,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/rectified-flow.html">rectified-flow</a>
       <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
       <span class="tag-chip tag-chip--more">+5 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ggt-100k-2026/index.html">GGT-100K：用多模态大模型「生成」真实世界修复的 Ground Truth</a></h3>
-  <p class="post-card__tldr">真实世界图像修复（IR）卡在「没有成对训练数据」：合成退化不像真的，真实成对数据又贵又难采。GGT-100K 的思路是——既然没有干净参考图，那就让生成式多模态大模型（MFM）「画」一张出来当 ground truth。
-作者系统评测了 9 个 MFM × 4 种提示策略，发现 Nano-Banana-2 + Gemini 自适应提示在「保真 + 感知 + 无幻觉」上最均衡；再用它配合「指标过滤 → VLM 复检改写 → 人工验收」三级质控，构建出 103,707 对 LQ-HQ 训练对 + 500 对测试集。用它训各类 IR 模型都涨点，对生成式修复模型（FLUX/Qwen-Image-Edit）增益尤其大。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-restoration.html">image-restoration</a>
-      <a class="tag-chip" href="concepts/real-world-restoration.html">real-world-restoration</a>
-      <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>

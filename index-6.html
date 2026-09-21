@@ -52,6 +52,21 @@
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-09</span> · <span class="post-card__extra">15k 字</span> · <span class="post-card__extra">100–130 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/opd-diffusion-2026/index.html">OPD 在 Diffusion / Flow Matching 上的应用:三兄弟 + 分布匹配蒸馏 + 统一视角</a></h3>
+  <p class="post-card__tldr">7 节螺旋系统讲透 On-Policy Distillation(OPD)如何从 LLM 的 GKD 搬到扩散/flow matching。地基是一个折叠:SDE 同协方差让 reverse-KL 解析坍缩成速度场 L2(ODE 极限退化成纯 L2)。在此之上讲&quot;三兄弟&quot;:Flow-OPD(留住 RL:PPO+task reward+MAR,能反超 teacher)、DiffusionOPD(砍掉 RL:closed-form 直接 loss,§3.3 论证 PPO 是纯方差)、D-OPSD(teacher=EMA 自己,reward-free 自蒸馏,少步模型边用边学);再讲近亲 DMD/SiD 分布匹配蒸馏(为提速),最后收敛到一个统一模板&quot;在 student 自采轨迹上匹配 teacher 的 per-state 目标&quot;+ 四个选择轴。代码 verbatim 引自 CostaliyA/Flow-OPD、DiffusionOPD、vvvvvjdy/D-OPSD、tianweiy/DMD2 真实训练脚本(均经 diff 验证)。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/on-policy-distillation.html">on-policy-distillation</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-06</span> · <span class="post-card__extra">18k 字</span> · <span class="post-card__extra">110–140 分钟</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/vlm-grounding-2025/index.html">VLM Grounding 全景(2025–2026):从「框是输出」到「框是思维」</a></h3>
@@ -167,20 +182,6 @@
       <a class="tag-chip" href="concepts/rl.html">rl</a>
       <a class="tag-chip" href="concepts/distillation.html">distillation</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/worldforge-2026/index.html">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</a></h3>
-  <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video.html">video</a>
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </div>
 </div>

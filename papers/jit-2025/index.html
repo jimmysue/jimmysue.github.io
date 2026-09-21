@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>JiT：让去噪模型真的去「噪」——预测干净图，一个朴素 ViT 就能直接在像素上做扩散</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">出发点：今天的「去噪」模型其实不去噪</a></li>
+    <li class="h3"><a href="#sec-1-1">术语速查</a></li>
+    <li class="h2"><a href="#sec-2">方法：输出空间 ≠ 损失空间,以及一个朴素 ViT</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 背景：流、以及三个可互相换算的量</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 核心区分：九种组合,以及「直接输出什么」才是要害</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 玩具实验：把螺旋埋进高维,只有 x-预测活下来</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 JiT：朴素 ViT 直接吞大像素 patch</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 最终算法:x-预测的输出 + v-loss 的权重</a></li>
+    <li class="h2"><a href="#sec-3">实验结果:高维会灾难性失败,而 x-预测不会</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 灾难性失败,以及它只在高维出现</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 两个「看似该有效、其实不够」的对照</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 反直觉:降维瓶颈反而更好</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 「Just Advanced」组件 + 分辨率/规模缩放</a></li>
+    <li class="h2"><a href="#sec-4">实现细节:denoiser.py 就是论文的 Algorithm 1</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 核心:网络输出 x,损失在 v-空间</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 流形瓶颈:BottleneckPatchEmbed</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 logit-normal 时间步采样(控噪声档位)</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 与论文的一致性核对(无 discrepancy)</a></li>
+    <li class="h2"><a href="#sec-5">批判与延伸</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 这篇好在哪</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 值得追问的弱点</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 交叉验证:和相邻工作对照着读</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 研究启发（可迁移的套路）</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-21</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-21</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Tianhong Li, Kaiming He</span> · <span class="post-meta__venue">arXiv preprint (cs.CV)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2511.13720">arXiv:2511.13720</a> · <a class="post-meta__link" href="https://github.com/LTH14/JiT">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/diffusion-models.html">diffusion-models</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/pixel-space-generation.html">pixel-space-generation</a> <a class="concept-chip" href="../../concepts/manifold-assumption.html">manifold-assumption</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/x-prediction.html">x-prediction</a> <a class="concept-chip" href="../../concepts/vision-transformer.html">vision-transformer</a> <a class="concept-chip" href="../../concepts/denoising.html">denoising</a> <a class="concept-chip" href="../../concepts/image-generation.html">image-generation</a></div>
+</aside>
+<h2 id="sec-1">出发点：今天的「去噪」模型其实不去噪</h2>
+<p>先把一个几乎所有人都默认、却很少被点破的事实摆出来：<strong>今天的扩散模型并不预测干净图像</strong>。DDPM 起,主流做法是让网络预测<strong>噪声</strong> ε;后来的流匹配预测<strong>速度</strong> v（数据与噪声的线性组合）。名义上叫「去噪扩散」,网络的实际输出却是「噪声」或「掺了噪声的量」。</p>
+<p>这篇论文的主张就一句话,但很重：<strong>预测干净数据 x,和预测 ε / v,是本质不同的两件事——不是同一个目标的等价改写</strong>。理由是<strong>流形假设（manifold assumption）</strong>：</p>
+<figure>
+  <img class="zoomable" src="figures/fig1-manifold.png" alt="流形假设：x 在流形上，ε 和 v 离流形">
+  <figcaption>图 1（Fig. 1）：流形假设。干净图像 x 躺在高维像素空间里的一张<strong>低维流形</strong>上;而噪声 ε、速度 v = x − ε 是<strong>离流形</strong>的,弥散在整个高维空间。让网络预测 x（曲线箭头落回流形）与让它预测 ε/v（落到流形外的弥散点）——是根本不同难度的任务。</figcaption>
+</figure>
+<p>直觉是这样：自然图像虽然名义上有几十万维（256×256×3 ≈ 20 万）,但真实图像只占其中极小的一张低维流形（“一张脸”“一只鹦鹉”的自由度远小于像素数）。而<strong>一团高斯噪声 ε 是各向同性的,它填满整个高维空间,没有任何低维结构</strong>。于是：</p>
+<ul>
+<li><strong>预测 x</strong>：网络只要把输入「投影回那张低维流形」,即使网络容量不足、会丢信息,只要丢的是「流形外的噪声方向」,输出依然可以正确——因为理想输出本就是低维的。</li>
+<li><strong>预测 ε / v</strong>：网络必须在整个高维空间里<strong>逐维精确保留噪声信息</strong>。维度一高,一个「欠容量」网络根本存不下,于是<strong>灾难性失败</strong>。</li>
+</ul>
+<p>这解释了一个长期现象：为什么扩散模型几乎都在 <strong>VAE latent</strong>（已经被压到低维、且相对白化）里做,而<strong>像素空间</strong>一直难训。作者说：latent 把这个困难<strong>藏起来了,而不是解决了</strong>。JiT 要正面解决它——<strong>回到基本功,让去噪模型真的预测干净图</strong>。</p>
+<blockquote>
+<p>一句话动机：<strong>难的不是「像素维度高」,而是「你让网络预测了一个本质高维的量（ε/v）」</strong>。换成预测本质低维的 x,高维就不再是诅咒。</p>
+</blockquote>
+<h3 id="sec-1-1">术语速查</h3>
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>一句话解释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>x / ε / v-prediction</strong></td>
+<td>网络<strong>直接输出</strong>的是干净图 x、噪声 ε、还是速度 v。本文核心区分。</td>
+</tr>
+<tr>
+<td><strong>x-loss / ε-loss / v-loss</strong></td>
+<td>损失定义在哪个空间（<span class="math inline">\(\mathbb{E}\lVert\cdot_\theta-\cdot\rVert^2\)</span>）。<strong>关键：输出空间和损失空间可以不一样</strong>（见表 1）。</td>
+</tr>
+<tr>
+<td><strong>流形假设</strong></td>
+<td>自然数据躺在高维空间中的一张低维流形上;噪声不在。</td>
+</tr>
+<tr>
+<td><strong>JiT</strong></td>
+<td>Just image Transformers——朴素 ViT 直接吞大像素 patch 做 x-预测。</td>
+</tr>
+<tr>
+<td><strong>瓶颈 patch embedding</strong></td>
+<td>patch 先降到低维 d′（如 64/128）再升到 hidden,是「流形投影」的显式实现。</td>
+</tr>
+<tr>
+<td><strong>logit-normal t 采样</strong></td>
+<td>训练时时间步 t 用 <span class="math inline">\(\text{sigmoid}(\mathcal{N}(\mu,\sigma^2))\)</span> 采,μ 控噪声档位。</td>
+</tr>
+<tr>
+<td><strong>adaLN-Zero / RoPE / qk-norm / SwiGLU</strong></td>
+<td>从语言模型搬来的通用 Transformer 组件,JiT 直接复用。</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="sec-2">方法：输出空间 ≠ 损失空间,以及一个朴素 ViT</h2>
+<h3 id="sec-2-1">2.1 背景：流、以及三个可互相换算的量</h3>
+<p>设数据 <span class="math inline">\(\bm x\sim p_\text{data}\)</span>、噪声 <span class="math inline">\(\bm\epsilon\sim\mathcal{N}(0,\bm I)\)</span>,线性插值出带噪样本（这里 <span class="math inline">\(t=1\)</span> 端是干净数据、<span class="math inline">\(t=0\)</span> 端是纯噪声）：</p>
+<div class="math block">
+\[\bm z_t = t\,\bm x + (1-t)\,\bm\epsilon, \qquad \bm v = \bm z_t' = \bm x - \bm\epsilon .\]
+</div>
+<p class="math-translation">—— 翻译：把干净图和噪声按 t 线性混一下得到 $\bm z_t$;速度 v 就是这条直线的方向 = 数据减噪声。给定 $\bm z_t$,只要知道 x/ε/v 中任意一个,另外两个都能算出来——它们是同一组约束下的三个可互换的量。</p>
+<p>标准流匹配最小化 v-loss：<span class="math inline">\(\mathcal{L}=\mathbb{E}\lVert \bm v_\theta(\bm z_t,t)-\bm v\rVert^2\)</span>。采样时把网络输出换算到 v-空间,解 ODE <span class="math inline">\(d\bm z_t/dt=\bm v_\theta\)</span>。</p>
+<h3 id="sec-2-2">2.2 核心区分：九种组合,以及「直接输出什么」才是要害</h3>
+<p>作者把问题拆成一张 3×3 表：<strong>损失定义在哪个空间</strong>（x/ε/v-loss,行）× <strong>网络直接输出什么</strong>（x/ε/v-pred,列）。对角线是「输出即损失量」,off-diagonal 需要一次换算。</p>
+<figure>
+  <img class="zoomable" src="figures/tab1-combinations.png" alt="损失空间×预测空间的九种组合">
+  <figcaption>表 1（Table 1）：九种组合。列 = 网络<strong>直接输出</strong>的量(彩色高亮),行 = 损失定义空间。任何「输出空间 ≠ 损失空间」的格子,都对网络输出做一次换算。既往工作(v-prediction、EDM 等)都是这张表里的特例。</figcaption>
+</figure>
+<p>关键洞察被作者用黑体点出：<strong>损失空间和网络输出空间不必相同,而且这个选择会造成决定性差异</strong>。既往研究（如 [52] 关于 loss weighting）主要在调「行」（损失/权重）,而<strong>忽略了「列」（网络到底直接吐出什么）</strong>——恰恰是列决定了任务在流形意义上难不难。</p>
+<h3 id="sec-2-3">2.3 玩具实验：把螺旋埋进高维,只有 x-预测活下来</h3>
+<p>这是全文最有说服力的一张图,也是「流形假设」从口号变成证据的地方。取一个 2 维螺旋 <span class="math inline">\(\hat{\bm x}\in\mathbb{R}^2\)</span>,用一个<strong>列正交、固定随机</strong>的投影矩阵 <span class="math inline">\(\bm P\in\mathbb{R}^{D\times2}\)</span>（<span class="math inline">\(\bm P^\top\bm P=\bm I\)</span>）把它「埋」进 <span class="math inline">\(D\)</span> 维：<span class="math inline">\(\bm x=\bm P\hat{\bm x}\)</span>。模型不知道 P,面对的是一个 <span class="math inline">\(D\)</span> 维生成问题。用一个<strong>固定的 5 层、256 隐藏单元 MLP</strong> 当生成器,分别做 x / ε / v-预测:</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-toy-spiral.png" alt="玩具螺旋实验：只有 x-预测随维度存活">
+  <figcaption>图 2（Fig. 2）：2D 螺旋埋进 D 维空间。列 = ground-truth / x-pred / ε-pred / v-pred;行 = D=2/8/16/512。<strong>只有 x-预测（第 2 列）在 D 一路升到 512 时仍还原出干净螺旋</strong>;ε-预测、v-预测在 D=16 就开始糊,D=512 彻底崩成一团。网络容量不变,变的只是「你让它预测什么」。</figcaption>
+</figure>
+<p>结论一目了然：<strong>网络容量、数据本征维度（2 维螺旋）都没变,变的只是观测维度 D 和「预测目标」。x-预测无视 D 的升高（因为理想输出始终是 2 维流形上的点,MLP 只要投影回去）;ε/v-预测随 D 升高而崩溃</strong>（因为要在 512 维里逐维存住噪声,256 隐藏的 MLP 是「欠完备」的,存不下）。这就是把「流形假设」这个抽象命题,压成了一张可复现的图。</p>
+<h3 id="sec-2-4">2.4 JiT：朴素 ViT 直接吞大像素 patch</h3>
+<p>有了上面的判断,架构就「无聊」得理直气壮了——<strong>就是一个朴素 ViT（DiT）直接作用在像素 patch 上,做 x-预测</strong>：</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="JiT 架构：朴素 ViT on pixels">
+  <figcaption>图 3（Fig. 3）：JiT 架构。把图切成大 patch → 线性嵌入 → 若干 Transformer block → 线性预测,输出每个 patch 的 <strong>x-pred（干净像素）</strong>,拼回整图。就是「Transformer on Patches」,无 tokenizer、无额外损失。</figcaption>
+</figure>
+<ul>
+<li><strong>JiT/16</strong>：patch 16,用于 256²,每 patch = 16×16×3 = <strong>768 维</strong>;</li>
+<li><strong>JiT/32</strong>：patch 32,用于 512²,每 patch = 32×32×3 = <strong>3072 维</strong>;</li>
+<li><strong>JiT/64</strong>：patch 64,用于 1024²,每 patch = 64×64×3 = <strong>12288 维</strong>。</li>
+</ul>
+<p>注意三者<strong>序列长度恒定 16×16 = 256 个 token</strong>——分辨率翻倍就把 patch 边长翻倍,让单个 token 吞更大的像素块,于是注意力的 <span class="math inline">\(O(N^2)\)</span> 成本几乎不随分辨率变。这些高维 patch「常规模型的 hidden 都装不下」,但 x-预测扛得住。</p>
+<h3 id="sec-2-5">2.5 最终算法:x-预测的输出 + v-loss 的权重</h3>
+<p>一个<strong>极易被读者搞混</strong>的细节:JiT 是「x-预测」,但<strong>损失仍写在 v-空间</strong>（表 1 的 (3)(a) 格子）:</p>
+<div class="math block">
+\[\mathcal{L}=\mathbb{E}_{t,\bm x,\bm\epsilon}\big\lVert \bm v_\theta(\bm z_t,t)-\bm v\big\rVert^2,\qquad \bm v_\theta(\bm z_t,t)=\frac{\text{net}_\theta(\bm z_t,t)-\bm z_t}{1-t}.\]
+</div>
+<p class="math-translation">—— 翻译:网络<strong>直接吐出的 $\text{net}_\theta$ 是干净图 x</strong>(这是「x-预测」);但拿去算 loss 前,先按 $\bm v_\theta=(\text{net}_\theta-\bm z_t)/(1-t)$ 换算到速度,再和真速度 v 比 $\ell_2$。所以「输出空间 = x、损失空间 = v」。这个 $1/(1-t)$ 的换算等价于给 x-loss 乘了 $1/(1-t)^2$ 的时间步权重——即 <a href="../f-loss-2026/index.html">f-loss 精读</a>里那个 v-loss。</p>
+<p>这正是 2.2 节「输出空间 ≠ 损失空间」的落地:<strong>列选 x（决定任务在流形上可解）,行选 v（决定权重更优）</strong>。表 2 会验证:x-预测配任意一种 loss 都行,但 v-loss 权重最好。</p>
+<hr />
+<h2 id="sec-3">实验结果:高维会灾难性失败,而 x-预测不会</h2>
+<h3 id="sec-3-1">3.1 灾难性失败,以及它只在高维出现</h3>
+<figure>
+  <img class="zoomable" src="figures/tab2-catastrophic.png" alt="ImageNet 上 x/ε/v-预测的灾难性失败对比">
+  <figcaption>表 2（Table 2）：九种组合在 ImageNet 上的 FID-50K。(a) 256² JiT-B/16(每 patch 768 维):x-预测三行全绿(8.62/10.14/10.45),ε-预测(372~394)、v-预测(96~126)<strong>全部灾难性爆掉</strong>(红)。(b) 64² JiT-B/4(每 patch 仅 48 维):九格全绿——<strong>问题只在高维出现</strong>。</figcaption>
+</figure>
+<ul>
+<li><strong>256²（高维,768/patch）</strong>：只有 <strong>x-预测</strong>能用,最佳 = x-预测 + v-loss = <strong>FID 8.62</strong>;ε-预测、v-预测无论配哪种 loss 都在 100~400 的量级,完全不可用。</li>
+<li><strong>64²（低维,48/patch）</strong>：九种组合<strong>全部正常</strong>（FID 3.4~6.2）。这解释了为什么<strong>latent 扩散从没暴露这个问题</strong>——latent 的每-token 维度本就小,和 64² 一样待在「安全区」。<strong>问题是维度触发的,不是 ImageNet 触发的。</strong></li>
+</ul>
+<h3 id="sec-3-2">3.2 两个「看似该有效、其实不够」的对照</h3>
+<p>作者很克制地堵掉了两条「显而易见的解法」:</p>
+<ul>
+<li><strong>调噪声档位不够</strong>（表 3）：把 logit-normal 的 μ 往负调（加大噪声）,对已经能用的 x-预测有帮助（μ=0 时 14.44 → μ=−0.8 时 <strong>8.62</strong>）,但<strong>救不了 ε/v-预测</strong>（仍是 355~464）。噪声调度是「锦上添花」,不触及高维信息无法传播的根因。</li>
+<li><strong>加宽网络不必要也不治本</strong>（表 5）：与其堆 hidden units 去「装下」高维 patch,x-预测让你<strong>不必</strong>这么做——1024² 下每 patch 12288 维,而 JiT-B 的 hidden 只有 768,照样работает。</li>
+</ul>
+<h3 id="sec-3-3">3.3 反直觉:降维瓶颈反而更好</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-bottleneck.png" alt="瓶颈维度消融：降维反而提升">
+  <figcaption>图 4（Fig. 4）：把 patch 线性嵌入换成「先降到 d′ 维、再升到 hidden」的低秩瓶颈。原始 768 维(无瓶颈)FID 8.62;<strong>瓶颈到 64 维反而最好(7.35),约 1.3 FID 提升</strong>;哪怕压到 16 维也没崩(9.40)。呼应经典流形学习——瓶颈鼓励网络学到本征低维表征。</figcaption>
+</figure>
+<p>这是对「流形假设」的正面加分:既然理想表征本就低维,<strong>在网络入口处显式加一个降维瓶颈</strong>（768→64）不仅不掉点,反而提升。作者把它做成 patch embedding 的两段线性层（低秩重参数化）,一个宽范围（32~512 维）都有约 1.3 FID 的收益。</p>
+<h3 id="sec-3-4">3.4 「Just Advanced」组件 + 分辨率/规模缩放</h3>
+<ul>
+<li><strong>通用组件叠加</strong>（表 4）：从语言模型搬来的 SwiGLU + RMSNorm + RoPE + qk-norm + in-context 类别 token,逐项把 JiT-B/16 引导 FID 从 7.48 → 6.69 → <strong>5.49</strong>（L/16 到 <strong>3.39</strong>）。核心卖点:<strong>架构与任务解耦,就能白嫖别领域的进步</strong>。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/tab56-scaling.png" alt="分辨率与规模缩放">
+  <figcaption>表 5 + 6（Table 5/6）：上,同一 JiT-B 从 256²→1024²,patch 维度 768→12288、参数 131→141M、算力 25→30 Gflops <strong>几乎不变</strong>(靠 token 数恒定),FID 4.37/4.64/4.82。下,规模缩放:256² 上 JiT-G 600 轮 <strong>FID 1.82</strong>,512² 上 JiT-G <strong>1.78</strong>。</figcaption>
+</figure>
+<ul>
+<li><strong>分辨率近乎「免费」</strong>（表 5）：256/512/1024 用 patch 16/32/64,序列长度恒为 256,于是参数、算力几乎恒定,FID 只从 4.37 温和涨到 4.82。像素空间直接做 1024²、且不涨算力——这是 JiT 最抓眼的工程结论。</li>
+<li><strong>规模缩放</strong>（表 6）：B→L→H→G 单调改善,JiT-G 在 256²/512² 分别 <strong>1.82 / 1.78</strong>。有趣的是<strong>大模型下 512² 反而略优于 256²</strong>（G：1.78 vs 1.82）,作者归因于大模型在 256² 更易过拟合,而 512² 去噪任务更难、反而抗过拟合。</li>
+</ul>
+<hr />
+<h2 id="sec-4">实现细节:denoiser.py 就是论文的 Algorithm 1</h2>
+<p>官方代码（<a href="https://github.com/LTH14/JiT">LTH14/JiT</a>）极其干净,<code>denoiser.py</code> 的 <code>forward</code> <strong>逐行对应论文 Algorithm 1</strong>。下面把「x-预测 + v-loss」「流形瓶颈」「logit-normal 采样」三处载重逻辑对到代码。</p>
+<h3 id="sec-4-1">4.1 核心:网络输出 x,损失在 v-空间</h3>
+<p class="code-source">repo/denoiser.py:L49-L65 — 训练前向:网络直接输出 x_pred,换算成 v_pred 后在 v-空间算 l2 损失</p>
+<pre><code class="language-python">def forward(self, x, labels):
+    labels_dropped = self.drop_labels(labels) if self.training else labels
+
+    t = self.sample_t(x.size(0), device=x.device).view(-1, *([1] * (x.ndim - 1)))
+    e = torch.randn_like(x) * self.noise_scale
+
+    z = t * x + (1 - t) * e                              # z_t = t·x + (1-t)·ε
+    v = (x - z) / (1 - t).clamp_min(self.t_eps)          # 真速度 v =(x - z)/(1-t)
+
+    x_pred = self.net(z, t.flatten(), labels_dropped)    # ← 网络直接输出「干净图 x」
+    v_pred = (x_pred - z) / (1 - t).clamp_min(self.t_eps)# ← 再换算到 v-空间
+
+    # l2 loss（定义在 v-空间）
+    loss = (v - v_pred) ** 2
+    loss = loss.mean(dim=(1, 2, 3)).mean()
+    return loss
+</code></pre>
+<p>这 17 行就是全论文的心脏。<code>x_pred = self.net(...)</code> 坐实「x-预测」(网络输出即干净图);<code>loss = (v - v_pred)²</code> 坐实「v-loss」(损失在 v-空间)。<strong>输出空间 = x、损失空间 = v,正是表 1 的 (3)(a) 格子</strong>。<code>clamp_min(self.t_eps)</code> 即论文 <span class="math inline">\(1/(1-t)\)</span> 的除零保护,<code>t_eps=0.05</code> 与正文一致。</p>
+<h3 id="sec-4-2">4.2 流形瓶颈:BottleneckPatchEmbed</h3>
+<p class="code-source">repo/model_jit.py:L17-L37 — patch 先降到低维瓶颈(proj1),再升到 hidden(proj2)</p>
+<pre><code class="language-python">class BottleneckPatchEmbed(nn.Module):
+    def __init__(self, img_size=224, patch_size=16, in_chans=3, pca_dim=768, embed_dim=768, bias=True):
+        super().__init__()
+        ...
+        # 第一段:把每个 patch 降到低维「瓶颈」(pca_dim,如 128 / 64)
+        self.proj1 = nn.Conv2d(in_chans, pca_dim, kernel_size=patch_size, stride=patch_size, bias=False)
+        # 第二段:再升到 Transformer 的 hidden_size
+        self.proj2 = nn.Conv2d(pca_dim, embed_dim, kernel_size=1, stride=1, bias=bias)
+
+    def forward(self, x):
+        x = self.proj2(self.proj1(x)).flatten(2).transpose(1, 2)
+        return x
+</code></pre>
+<p>变量名 <code>pca_dim</code> 直接暴露了意图——这是显式的<strong>低秩/流形投影</strong>。B/L 用瓶颈 128,H 用 256（<code>model_jit.py</code> 的工厂函数 <code>bottleneck_dim=128/256</code>）;图 4 表明压到 64 还更好。<strong>把「理想表征本就低维」这个信念焊进了架构入口</strong>。</p>
+<h3 id="sec-4-3">4.3 logit-normal 时间步采样(控噪声档位)</h3>
+<p class="code-source">repo/denoiser.py:L45-L47 — 时间步 t ~ sigmoid(N(P_mean, P_std²))</p>
+<pre><code class="language-python">def sample_t(self, n: int, device=None):
+    z = torch.randn(n, device=device) * self.P_std + self.P_mean
+    return torch.sigmoid(z)
+</code></pre>
+<p>默认 <code>P_mean=-0.8, P_std=0.8</code>（<code>main_jit.py</code>）。μ=−0.8 把采样偏向更小的 t、即更高噪声档位——正是表 3 里扫出来的最优值。采样端 <code>generate()</code> 用 50 步 Euler/Heun 解 ODE,配 CFG-interval,均为标准实现。</p>
+<h3 id="sec-4-4">4.4 与论文的一致性核对(无 discrepancy)</h3>
+<p>逐条核对,代码与论文<strong>完全一致</strong>,未见偏差:</p>
+<ul>
+<li>✅ 网络输出 x、损失在 v-空间 → 表 1 (3)(a)、Algorithm 1 一致;</li>
+<li>✅ 插值 <span class="math inline">\(\bm z_t=t\bm x+(1-t)\bm\epsilon\)</span>、<span class="math inline">\(\bm v=(\bm x-\bm z)/(1-t)\)</span> 一致;</li>
+<li>✅ 瓶颈 patch embedding(<code>pca_dim</code> 128/256)与图 4、正文一致;</li>
+<li>✅ <code>t_eps=0.05</code> 除零保护、logit-normal μ=−0.8 与表 3 一致;</li>
+<li>✅ adaLN-Zero + RoPE + qk-norm + SwiGLU + in-context 类别 token(<code>in_context_len=32</code>)与表 4「Just Advanced」一致。</li>
+</ul>
+<p>唯一值得读者自己当心的<strong>不是 bug 而是命名陷阱</strong>：「x-预测」指<strong>网络输出空间</strong>,不是「x-loss」。很多人把两者混为一谈,而代码把它们<strong>明确分开</strong>(<code>x_pred=net(...)</code> 后仍算 <code>(v-v_pred)²</code>)。这恰是论文最想强调的一点。</p>
+<hr />
+<h2 id="sec-5">批判与延伸</h2>
+<h3 id="sec-5-1">5.1 这篇好在哪</h3>
+<ul>
+<li><strong>一个命题,三重证据,层层收紧</strong>：流形假设(概念)→ 螺旋埋维实验(合成、可控)→ ImageNet 九宫格灾难性失败(真实、量化)。从抽象到可复现,论证链条极干净,是「how to make a point」的范本。</li>
+<li><strong>负结果比正结果更值钱</strong>：它没有发明新损失/新架构,而是<strong>证明了「预测什么」这个被忽略的自由度,才是像素扩散难训的真因</strong>;并用两个对照(噪声档位、加宽网络)堵掉了 easy answer。这种「诊断型」贡献往往比刷 SOTA 更有长尾影响。</li>
+<li><strong>架构与任务解耦 → 白嫖通用进步</strong>：把扩散做成「纯 Transformer on pixels」,SwiGLU/RoPE/qk-norm 这些语言模型的红利直接迁移。分辨率缩放几乎免费(表 5)是这套哲学最漂亮的副产品。</li>
+<li><strong>代码即论文</strong>：<code>denoiser.py</code> 17 行 = Algorithm 1,复现门槛极低。</li>
+</ul>
+<h3 id="sec-5-2">5.2 值得追问的弱点</h3>
+<ul>
+<li><strong>FID 仍未追平 latent 顶尖水平的绝对最优</strong>：JiT-G 256² 的 1.82 很强,但仍需要 G（十亿级）这样的大模型 + 600 轮;和 latent 扩散在同等算力下的性价比,论文没有正面掰扯。像素空间的「税」到底多大,交代不足。</li>
+<li><strong>「流形假设」是定性直觉,缺定量刻画</strong>：全文没有测量真实图像流形的本征维度,也没解释为什么瓶颈「64 维」附近最优(而非 16 或 256)。瓶颈维度目前是 empirical 的,理论上「该压到多少」悬空。</li>
+<li><strong>x-预测在 t→1（接近干净）时的换算数值风险</strong>：<span class="math inline">\(\bm v_\theta=(\text{net}_\theta-\bm z_t)/(1-t)\)</span> 在 <span class="math inline">\(t\to1\)</span> 处被 <span class="math inline">\(1/(1-t)\)</span> 放大,靠 <code>t_eps=0.05</code> 硬 clip。这个 clip 阈值对结果的敏感性没有 ablate,可能是个隐藏超参。</li>
+<li><strong>只做类条件 ImageNet</strong>：没有文本到图像(T2I)、没有真实高分辨率美学数据。像素空间 T2I 才是产业关心的战场,JiT 能否在弱条件、长尾数据上保持优势,是空白。</li>
+<li><strong>和「加噪声尺度」的耦合</strong>：1024² 需要把噪声按 ×2/×4 成比例放大(正文提及),说明「x-预测无视维度」并非完全免调——高分辨率下仍要调噪声,弱化了「一劳永逸」的叙事。</li>
+</ul>
+<h3 id="sec-5-3">5.3 交叉验证:和相邻工作对照着读</h3>
+<p>JiT 是「像素空间扩散复兴」这条线的<strong>奠基/定调</strong>之作。把它和本站已精读的几篇放一起,能看清这条线的共识与分工:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心主张</th>
+<th>和 JiT 的关系</th>
+<th>结论异同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><a class="wiki-link" data-slug="f-loss-2026" href="../f-loss-2026/index.html">f-loss-2026</a></strong>（f-loss）</td>
+<td>像素空间 v-loss 有频谱失衡(欠学高频),用频域焦点损失 + 两段式调度修</td>
+<td><strong>直接建在 JiT 上</strong>——f-loss 的 baseline、载体架构就是 JiT</td>
+<td><strong>同</strong>:都认定「像素空间训练目标的选择」是关键杠杆。<strong>异</strong>:JiT 改「预测什么量(x vs ε/v)」治<strong>流形/容量</strong>病;f-loss 改「在哪个域加权(频域)」治<strong>频谱偏置</strong>病。两者正交可叠(f-loss 论文正是这么做的)</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a></strong>（AsymFlow）</td>
+<td>用秩-非对称速度参数化,把 latent 流匹配 lift 到像素空间</td>
+<td>都攻「像素空间为何难」,但下刀点不同:AsymFlow 改<strong>速度场的秩结构</strong>,JiT 改<strong>预测目标 + 朴素架构</strong></td>
+<td><strong>同</strong>:都承认像素空间的高维是核心障碍,且都与「低秩/低维结构」有关(AsymFlow 秩-非对称 ↔ JiT 瓶颈)。<strong>异</strong>:JiT 主张「别预测高维量」,AsymFlow 主张「让速度场结构适配像素」——从不同角度逼近同一个低维本质</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></strong>（L2P 对比）</td>
+<td>latent→pixel 迁移的不同刀法横向对比</td>
+<td>提供「像素空间生成为何难」的问题地图与方法谱系</td>
+<td><strong>同</strong>:印证 JiT 的诊断(高维 + 预测目标)是这条线的公认瓶颈</td>
+</tr>
+<tr>
+<td><strong><a class="wiki-link" data-slug="pixrestore-2026" href="../pixrestore-2026/index.html">pixrestore-2026</a></strong>（PixRestore）</td>
+<td>扔掉 VAE 和 T2I 先验,从零训像素空间 DiT 做图像修复</td>
+<td>同为「纯像素空间 DiT、无 VAE」阵营,精神一致</td>
+<td><strong>同</strong>:都主张像素空间可以自成一体、不必依赖 latent。<strong>异</strong>:PixRestore 面向修复任务、靠任务设计;JiT 面向生成、靠预测目标的重新选择。JiT 的 x-预测洞察若移植到 PixRestore 值得一试</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>:这几篇看似都在「攻像素空间」,但触及的病灶不同——JiT 是<strong>流形/容量</strong>（预测高维量存不下）,f-loss 是<strong>频谱/优化动力学</strong>（低频主导梯度）,AsymFlow 是<strong>速度场的秩结构</strong>。三者不冲突,反而像是同一头大象的三个部位:低维流形结构,在「预测目标」「频率权重」「速度场秩」三处各自留下了病症。<strong>把三者组合(JiT 的 x-预测 base + f-loss 的频域调度 + AsymFlow 的秩参数化)是一个明确的白地。</strong></p>
+<h3 id="sec-5-4">5.4 研究启发（可迁移的套路）</h3>
+<ul>
+<li><strong>「网络该直接输出什么」是一个被系统性忽视的设计自由度</strong>。我们习惯了纠结损失、架构、数据,却默认「预测目标」理所当然。JiT 提醒:<strong>在任何回归/生成任务里,让网络输出「本质低维、在流形上」的量,而非「本质高维、离流形」的量,可能是免费的巨大杠杆</strong>。（类比:预测残差 vs 预测绝对值、预测参数 vs 预测样本……都值得用「流形/维度」这把尺子重新审视。）</li>
+<li><strong>合成的「埋维实验」是验证维度类假设的利器</strong>。把一个已知低维结构(螺旋)用正交投影埋进可控的高维,固定网络容量、只扫 D——这个实验设计范式,可迁移到任何「我怀疑高维是瓶颈」的场景,用最小成本把定性直觉变成定量曲线。</li>
+<li><strong>反直觉点:入口加降维瓶颈反而更好</strong>。当你相信「理想表征本就低维」,与其让网络自由地在高维里挣扎,不如<strong>在入口显式压一刀</strong>(low-rank 重参数化)。这与「越宽越好」的直觉相反,是流形视角给出的具体、可操作的架构手术。</li>
+<li><strong>架构与任务解耦 = 长期复利</strong>。JiT 坚持「就是个朴素 ViT」,于是语言模型的每一次组件进步(RoPE/SwiGLU/qk-norm/更好的优化器)都能免费迁移。<strong>在做领域专用设计前,先问一句:这个特化是不是切断了我未来白嫖通用进步的能力?</strong>——很多「聪明的领域 trick」的长期成本正在于此。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
