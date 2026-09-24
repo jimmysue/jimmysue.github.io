@@ -54,6 +54,21 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-09-24</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/flowinone-2026/index.html">FlowInOne:把多模态生成统一成「图进图出」的流匹配</a></h3>
+  <p class="post-card__tldr">FlowInOne 抛弃「文本编码器条件化视觉」的主流范式,把文本、布局、编辑指令统统渲染进一张输入画布(visual prompt),让单个流匹配模型在一个共享视觉潜空间里学从「指令图」到「目标图」的确定性传输——真正的 image-in / image-out。配套开源 VisPrompt-5M(500 万视觉提示对,含物理力学/轨迹)和 VP-Bench。核心机制是 Dual-Path Spatially-Adaptive Modulation:纯生成时旁路结构分支、编辑时用交叉注意力+token 级 Sigmoid 门控注入源图结构。1.2B 模型在开源阵营 SOTA,部分维度逼近 Nano Banana。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/multimodal-generation.html">multimodal-generation</a>
+      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-24</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/dsec-2026/index.html">DeepSeek Elastic Compute (DSec): 为大规模 Agentic RL 训练造的沙箱基础设施</a></h3>
   <p class="post-card__tldr">DeepSeek 把 agentic RL 训练/评测所需的执行环境做成了一个生产级沙箱平台 DSec:一套 SDK 暴露 FnCall / 容器 / microVM / 全 VM 四种后端,用可组合的 EROFS 分层替代单体镜像,靠 3FS 做按需镜像加载,用 virtio-pmem + DAMON 气球回收把内存超卖压下来,用 SCHED_IDLE + core scheduling 保护延迟敏感任务,并与 RL 框架协同做抢占安全的暂停/恢复。单个 scale unit 约 160 节点,日均 300 万沙箱、峰值并发 38 万、创建速率 5000+/秒。
 </p>
@@ -175,21 +190,6 @@
       <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <a class="tag-chip" href="concepts/structured-prompt.html">structured-prompt</a>
       <span class="tag-chip tag-chip--more">+7 more</span>
-  </div>
-</div>
-<div class="post-card post-card--survey">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-27</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/deblur-diffusion-2026/index.html">扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</a></h3>
-  <p class="post-card__tldr">对 2025 年以来用扩散（diffusion）与流匹配（flow matching）做图像去模糊（image deblurring）的工作做的调研，优先收录有模型与代码的方法。逐篇厘清核心贡献 / 方法 / 关键结果（带数字）/ 代码位置，再平行对比、找一致与矛盾、并对有仓库的方法做代码交叉验证；每篇核心工作都配了从原论文裁剪的架构主图。覆盖两大块：(A) 通用图像去模糊——把预训练 SD 当先验的真实去模糊（DeblurDiff、OSDD）、把去模糊重构成扩散过程本身的一步/少步方法（FideDiff、BlurDM）、非配对/自监督路线（TP-Diff、DeblurSDI）、流匹配残差路线（DeblurFlow）；(B) 人脸去模糊 / 盲人脸复原——身份保持与反幻觉为主战场（FaceMe、HonestFace、AuthFace、LAFR、ELIR）。所有 arxiv 号、年份、代码状态均联网核实；DeblurDiff 的 EAC、DeblurSDI 的自扩散、BlurDM/AuthFace/FaceMe 的仓库对照真实代码交叉验证。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="concepts/image-deblurring.html">image-deblurring</a>
-      <span class="tag-chip tag-chip--more">+9 more</span>
   </div>
 </div>
 </div>

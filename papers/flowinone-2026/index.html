@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>FlowInOne:把多模态生成统一成「图进图出」的流匹配</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 流匹配预备:线性插值 + 恒定速度</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 统一处理:把文字当成视觉几何</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Dual-Path Spatially-Adaptive Modulation:本文真正的&quot;聪明处&quot;</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>FlowInOne: Unifying Multimodal Generation as Image-in, Image-out Flow Matching</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Junchao Yi, Rui Zhao, Jiahao Tang, Weixian Lei, Linjie Li, Qisheng Su, Zhengyuan Yang, Lijuan Wang, Xiaofeng Zhu, Alex Jinpeng Wang (UESTC / CSU / NUS / USTC / Microsoft)</span> · <span class="post-meta__venue">ECCV 2026</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2604.06757">arXiv:2604.06757</a> · <a class="post-meta__link" href="https://csu-jpg.github.io/FlowInOne.github.io/">项目页</a> · <a class="post-meta__link" href="https://github.com/CSU-JPG/FlowInOne">代码</a> · <a class="post-meta__link" href="https://huggingface.co/CSU-JPG/FlowInOne">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/multimodal-generation.html">multimodal-generation</a> <a class="concept-chip" href="../../concepts/image-editing.html">image-editing</a> <a class="concept-chip" href="../../concepts/vision-centric.html">vision-centric</a> <a class="concept-chip" href="../../concepts/unified-generation.html">unified-generation</a> <a class="concept-chip" href="../../concepts/visual-prompt.html">visual-prompt</a> <a class="concept-chip" href="../../concepts/cross-attention.html">cross-attention</a> <a class="concept-chip" href="../../concepts/dit.html">dit</a> <a class="concept-chip" href="../../concepts/vae.html">vae</a> <a class="concept-chip" href="../../concepts/eccv.html">eccv</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-paradigm.png" alt="三种生成范式对比:左 T2I 只用文本编码器条件化 LDM;中 TI2I 需要文本+图像双编码器联合条件;右 FlowInOne 把所有条件统一成视觉输入,单个视觉编码器 → 流匹配模型 → 图像解码器">
+  <figcaption>
+    <strong>Fig. 1</strong> — 三种生成范式对比。<strong>左</strong>:传统 T2I 只用文本编码器条件化 LDM;<strong>中</strong>:TI2I 需要文本+图像两个编码器联合条件;<strong>右(本文)</strong>:把所有条件(文本/布局/指令)统一渲染成视觉输入,形成极简的「图进-图出」流水线——单个视觉编码器 → 流匹配模型 → 图像解码器。没有文本编码器、没有跨模态桥、没有任务专属分支。
+  </figcaption>
+</figure>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>多模态生成长期被一条<strong>文本主导</strong>的假设统治:<strong>语言编码意图,视觉执行意图</strong>。从 DDPM/LDM/DiT 到各种 T2I,都靠语言 embedding 作为核心条件源。这带来一个根本性的<strong>不对称</strong>:语言能控制视觉,但视觉自己不能推理、不能生成。理解、编辑、生成因此被劈成三块,很难在一个模型里统一。</p>
+<p>近来有一批 <strong>vision-centric</strong> 工作(把文字<strong>渲染成像素</strong>再处理,如 &quot;Language modelling with pixels&quot;)证明:<strong>视觉模态本身足够表达,可以当多模态理解的统一底座</strong>。但它们停在<strong>感知</strong>层面,把 vision-first 的<strong>生成潜力</strong>留白了。于是本文问了个尖锐的问题:</p>
+<blockquote>
+<p>能不能造一个模型,<strong>完全在视觉空间里既推理又生成</strong>?</p>
+</blockquote>
+<p><strong>流匹配(Flow Matching)给了原则性答案</strong>。相比扩散靠&quot;渐进去噪&quot;,FM 直接学一个分布到另一个分布的<strong>连续速度场</strong>,采样更快、优化更稳,且<strong>允许非高斯源分布</strong>——只要源和目标同构(isomorphic)。这恰好能把&quot;感知&quot;和&quot;生成&quot;统一到<strong>一个确定性传输</strong>原理下。</p>
+<p>FlowInOne 的做法:把文本、布局、编辑指令<strong>全部渲染进一张输入画布</strong> <span class="math inline">\(I_v\)</span>(visual prompt),它就是流的<strong>起点状态</strong>;模型学一个连续传输过程,把这个状态<strong>演化</strong>成目标图。这样一举消掉了三样东西——<strong>噪声调度、扩散采样、任务专属条件头</strong>。</p>
+<p><strong>三个贡献</strong>:① 把多模态生成重构成 vision-centric 的「图进图出」范式,删掉文本编码器和模态桥;② 提出 FlowInOne,用统一流匹配把多模态变换建模成共享潜空间里的连续演化;③ 构建 VisPrompt-5M(500 万视觉提示对)和 VP-Bench 评测基准。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>FlowInOne 有三个环环相扣的部件:<strong>(a)</strong> 把一切指令渲染进画布 + Janus 视觉编码器提特征;<strong>(b)</strong> text-image VAE 把统一视觉 token 映射成源潜变量 <span class="math inline">\(z_0\)</span>;<strong>(c)</strong> 一个 DiT 变体用 <strong>Dual-Path Spatially-Adaptive Modulation</strong> 在共享潜空间里做流匹配,从 <span class="math inline">\(z_0\)</span> 演化到目标图潜变量 <span class="math inline">\(z_1\)</span>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-architecture.png" alt="FlowInOne 架构:输入带视觉指令的图 → Janus 视觉编码器 → Text-Image VAE 产生 ZTI;目标图/输入图经 Image VAE Encoder;DiT 块内 self-attention 后接 dual-path:cross-attention(q 来自状态,k/v 来自输入图潜) → 拼接 → adaptive gating network 产 α → 门控注入 → MLP → ZI → Image VAE Decoder">
+  <figcaption>
+    <strong>Fig. 3</strong> — FlowInOne 架构。带视觉指令的输入图经 <strong>Janus 视觉编码器</strong> → <strong>Text-Image VAE</strong> 得到源潜变量 $Z_{TI}$(冻结的 Image VAE 编码目标图得 $Z_I$)。DiT 块内先 self-attention,再走 <strong>dual-path</strong>:纯文生图时旁路右侧结构分支;编辑时用 cross-attention(query 来自当前状态、key/value 来自输入图潜)取源图结构,经 <strong>adaptive gating network</strong> 产 token 级权重 α 后有选择地注入。全程冻结的 Image VAE 编解码。
+  </figcaption>
+</figure>
+<h3 id="sec-2-1">2.1 流匹配预备:线性插值 + 恒定速度</h3>
+<p>流匹配把生成建模成从源分布 <span class="math inline">\(p_0\)</span> 到目标 <span class="math inline">\(p_1\)</span> 在 <span class="math inline">\(t\in[0,1]\)</span> 上的连续传输。训练时在样本对 <span class="math inline">\((z_0, z_1)\)</span> 之间构造可微概率路径 <span class="math inline">\(z_t\)</span>,直接给出监督用的真值速度:</p>
+<div class="math block">
+\[z_t = t z_1 + \left(1 - (1-\sigma_{\min})t\right) z_0, \qquad v_t^\star = \frac{\partial z_t}{\partial t} = z_1 - (1-\sigma_{\min}) z_0\]
+</div>
+<p class="math-translation">—— 翻译:在起点 $z_0$ 和终点 $z_1$ 之间拉一条(近似)直线,$t$ 从 0 走到 1 就从源滑到目标。这条线的斜率(速度)几乎是常数 $z_1 - z_0$($\sigma_{\min}$ 是个 $10^{-5}$ 量级的小修正)。网络只要学会在任意 $(z_t, t)$ 预测这个速度,推理时解 ODE 积分回去即可。比扩散"每步猜噪声"直白得多。</p>
+<p>关键区别:FlowInOne <strong>显式定义了一个非高斯源分布</strong>——<span class="math inline">\(z_0\)</span> 是统一视觉指令经视觉编码器 + text-image VAE 抽出的潜状态,<span class="math inline">\(z_1\)</span> 是目标图潜。因为两者在共享空间里同构,推理就是从 <span class="math inline">\(t{=}0\)</span> 到 <span class="math inline">\(t{=}1\)</span> 解 ODE <span class="math inline">\(\frac{dz_t}{dt}=v_\theta(z_t,t)\)</span>,把指令<strong>确定性地演化</strong>成目标图。</p>
+<p>代码里 <code>psi</code> 就是上面的插值、<code>Dt_psi</code> 就是真值速度,一一对应:</p>
+<p class="code-source">repo/diffusion/flow_matching.py:L309-L322 — 流匹配的概率路径 psi(=z_t)与真值速度 Dt_psi(=v*)</p>
+<pre><code class="language-python">def psi(self, t, x, x1):        # x=z0(源/noise), x1=z1(目标)
+    t = self.expand_t(t, x)
+    return (t * (self.sigma_min / self.sigma_max - 1) + 1) * x + t * x1
+    #      = (1 - (1-σmin)t) · z0  +  t · z1        ← 正是 Eq.1 的 z_t
+
+def Dt_psi(self, t, x, x1):
+    return (self.sigma_min / self.sigma_max - 1) * x + x1
+    #      = z1 - (1-σmin) · z0                      ← 正是 Eq.1 的 v*
+</code></pre>
+<p>训练损失是三项之和:流匹配 MSE + text-image VAE 的 KL + CLIP 对比损失(用来对齐视觉/文本特征)。注意 KL 被改成了一个更&quot;激进拉向标准正态&quot;的变体:</p>
+<p class="code-source">repo/diffusion/flow_matching.py:L268-L303 — 组合损失:FM MSE(多尺度) + 魔改 KL + CLIP 对比</p>
+<pre><code class="language-python"># 魔改 KL:把 mu→0 的惩罚从二次改成六次 [(0.3*mu)**6],更&quot;温柔&quot;地约束均值
+kld_loss = -0.5 * torch.sum(1 + log_var - (0.3 * mu) ** 6 - log_var.exp(), dim=1)
+loss_mlp = recons_loss + kld_loss * 1e-2          # recons_loss 其实是 CLIP 对比损失
+
+x_noisy        = self.psi(t, x=noise, x1=x_start)      # z_t
+target_velocity = self.Dt_psi(t, x=noise, x1=x_start)  # v*
+prediction = nnet(x_noisy, log_snr=log_snr, image_latent=image_latent,
+                  use_cross_atten_mask=use_cross_atten_mask)   # ← 双路开关在此
+target = multi_scale_targets(target_velocity, levels=len(prediction), scale_correction=True)
+loss_diff = sum(coeff * self.mos(pred - target[pred.shape[-1]])
+                for pred, coeff in check_zip(prediction, loss_coeffs))   # 多尺度 FM 损失
+loss = loss_diff + loss_mlp
+</code></pre>
+<h3 id="sec-2-2">2.2 统一处理:把文字当成视觉几何</h3>
+<p>离散语言符号和连续视觉纹理天然异质,在流匹配里对齐很难。FlowInOne 的范式转变是:<strong>把文本指令和各种视觉线索直接渲染到图像画布上</strong>,让空间布局和结构先验被原生保留,不再需要复杂的跨模态对齐模块。</p>
+<p>对这张统一图 <span class="math inline">\(I_v\)</span>,用 <strong>Janus-Pro-1B 的视觉编码器</strong>(SigLIP ViT)抽 patch 级语义特征,再经 MLP projector 投到目标嵌入空间:</p>
+<div class="math block">
+\[X_{\text{fuse}} = \mathrm{MLP}(\mathrm{SigLIP}(I_v)) \in \mathbb{R}^{N\times D}\]
+</div>
+<p class="math-translation">—— 翻译:一张"写满指令的图"进去,出来一串 patch token,每个 token 同时编码了"这块区域画了什么"和"这里写了什么字/画了什么箭头"。文字不再走 tokenizer,而是作为图像几何的一部分被视觉编码器看见。</p>
+<p>然后 text-image VAE 不直接预测源潜,而是<strong>参数化一个分布再采样</strong>源状态(这是把非高斯源接进流匹配的关键):</p>
+<div class="math block">
+\[q_\psi(z\mid X) = \mathcal{N}\!\left(\bar\mu_X,\ \mathrm{diag}(\bar\sigma_X^2)\right),\qquad z_0 \sim q_\psi(z\mid X)\]
+</div>
+<p class="math-translation">—— 翻译:视觉编码器给的特征 $X$ 先被压成一个高斯分布的均值和方差,再从里面采一个 $z_0$ 当流的起点。对称地,冻结的 Image VAE 把目标图编码成 $z_1$。两者在同一个潜空间里,流匹配才能直接在它们之间连线。</p>
+<h3 id="sec-2-3">2.3 Dual-Path Spatially-Adaptive Modulation:本文真正的&quot;聪明处&quot;</h3>
+<p>问题:视觉编码阶段有信息压缩,初始潜 <span class="math inline">\(Z_{TI}\)</span> 常<strong>抓不住源图的细粒度结构</strong>。纯文生图无所谓(本来就不该保留结构),但<strong>图像编辑</strong>必须保住背景、只改指定区域。于是作者设计了一个能<strong>按任务类型切换计算路径</strong>的机制。</p>
+<p>设第 <span class="math inline">\(l\)</span> 层隐状态 <span class="math inline">\(H^{(l)}\)</span>,先过 self-attention 拿全局上下文:</p>
+<div class="math block">
+\[\tilde H^{(l)} = \mathrm{LayerNorm}\!\left(H^{(l)} + A_{\text{self}}(H^{(l)})\right)\]
+</div>
+<p><strong>编辑分支</strong>:用 Image VAE 把源图 <span class="math inline">\(I_{src}\)</span> 编码成 <span class="math inline">\(z_{src}\)</span>,reshape 成参考序列 <span class="math inline">\(S\)</span>,以 <span class="math inline">\(\tilde H^{(l)}\)</span> 为 Query、<span class="math inline">\(S\)</span> 为 Key/Value 做交叉注意力,取出<strong>结构增量</strong> <span class="math inline">\(\Delta H_{\text{struct}}\)</span>:</p>
+<div class="math block">
+\[\Delta H_{\text{struct}} = \mathrm{Softmax}\!\left(\frac{(\tilde H^{(l)} W_Q)(S W_K)^\top}{\sqrt{d_k}}\right)(S W_V)\]
+</div>
+<p>然后是<strong>核心</strong>:一个轻量门控网络,把当前状态和结构增量拼起来,预测一个 <strong>token 级、各向异性</strong>的权重向量 <span class="math inline">\(\Lambda\in[0,1]^N\)</span>——它能在<strong>像素级</strong>区分&quot;属于背景、要严格保留&quot;和&quot;属于编辑区、要重建&quot;:</p>
+<div class="math block">
+\[\Lambda = \sigma\!\left(\mathrm{MLP}_\theta\big[\tilde H^{(l)}\ \|\ \Delta H_{\text{struct}}\big]\right)\]
+</div>
+<p class="math-translation">—— 翻译:把"我现在生成到哪了"和"源图这里长啥样"两串特征并排喂给一个小 MLP,它给每个 token 打一个 0~1 的分。分高=这块要照抄源图结构,分低=这块要按指令重画。这就是"空间自适应":不同位置注入源图信息的力度不一样。</p>
+<p>最后用一个<strong>二值任务指示器</strong> <span class="math inline">\(I_{\text{edit}}\in\{0,1\}\)</span> 控制这条结构分支通不通:</p>
+<div class="math block">
+\[H_{\text{out}}^{(l)} = \tilde H^{(l)} + I_{\text{edit}}\cdot\left(\Lambda \odot \Delta H_{\text{struct}}\right)\]
+</div>
+<p class="math-translation">—— 翻译:纯文生图时 $I_{\text{edit}}{=}0$,整个结构注入项归零,模型严格跟着文本语义演化,不被源图"污染";编辑时 $I_{\text{edit}}{=}1$,门控 $\Lambda$ 精细地把源图结构掺进来。一个开关 + 一个门控,统一了"从无到有生成"和"改一张已有图"两种本质不同的任务。</p>
+<p>代码里 <code>CrossAttention</code> 干的正是 Eq.4 + Eq.5——交叉注意力算出 <code>ca_output</code>,再把它和输入拼起来过 <code>weight_mlp</code>(末尾就是 <code>nn.Sigmoid()</code>)得到 token 级门控 <code>ca_weights</code>:</p>
+<p class="code-source">repo/libs/model/dimr.py:L198-L248 — 交叉注意力 + token 级 Sigmoid 门控(Eq.4 / Eq.5)</p>
+<pre><code class="language-python">self.weight_mlp = nn.Sequential(              # 门控网络:2C → C/4 → 1 → Sigmoid
+    Linear(config.dim * 2, config.dim // 4),
+    nn.GELU(),
+    Linear(config.dim // 4, 1),
+    nn.Sigmoid(),                             # → Λ ∈ [0,1]^N,每个 token 一个标量
+)
+
+def forward(self, x, image_latent, pos=None):
+    q  = ...(x)                                # Query 来自当前生成状态 H̃
+    k, v = ...(image_latent)                   # Key/Value 来自源图潜 S
+    atten_output = F.scaled_dot_product_attention(q, k, v, attn_mask=None)  # ΔH_struct
+    ca_output = self.dense(atten_output...)
+    combined  = torch.cat([x_input, ca_output], dim=-1)   # [H̃ ‖ ΔH_struct]
+    ca_weights = self.weight_mlp(combined)     # Λ = σ(MLP[·])
+    return ca_output, ca_weights
+</code></pre>
+<p>而 Eq.6 的&quot;开关 + 门控注入&quot;在 <code>TransformerBlock</code> 里:<code>use_cross_atten_mask</code> 就是 <span class="math inline">\(I_{\text{edit}}\)</span> 的取反——对纯生成任务把交叉注意力整支跳过:</p>
+<p class="code-source">repo/libs/model/dimr.py:L283-L297 — Eq.6:用 use_cross_atten_mask 切换双路,门控相乘注入</p>
+<pre><code class="language-python">if self.use_cross_attention and image_latent is not None and not should_skip_cross_attn:
+    ca_output, ca_weights = self.block1_cross(x, image_latent, pos)
+    x = x + self.dropout(ca_output * ca_weights)   # H̃ + Λ ⊙ ΔH_struct
+elif should_skip_cross_attn:
+    pass                                            # I_edit = 0:结构分支彻底旁路
+x = x + self.dropout(self.block2(x))                # MLP
+</code></pre>
+<p>推理侧对上了:<code>use_cross_atten_mask</code> 对 <code>class2image</code>/<code>text2image</code> 置 <code>True</code>(旁路结构分支),其余编辑任务保持交叉注意力活跃——这正是论文&quot;纯生成 <span class="math inline">\(I_{\text{edit}}{=}0\)</span>、编辑 <span class="math inline">\(I_{\text{edit}}{=}1\)</span>&quot;主张的代码实证:</p>
+<p class="code-source">repo/i2i.py:L205-L233 — 推理:按任务名切换双路;image_latent 是输入图的 VAE 潜(交叉注意力的 K/V 源)</p>
+<pre><code class="language-python">mask_list = [('class2image' in parts or 'text2image' in parts) for parts in ...]
+use_cross_atten_mask = torch.tensor(mask_list, dtype=torch.bool)  # 纯生成 → 旁路 CA
+...
+input_moments = autoencoder(batch_tensors_vae, fn='encode_moments')
+input_latent  = autoencoder.sample(input_moments)     # 源图潜 = 交叉注意力的 K/V
+samples = ode_fm_solver_sample(nnet, context=contexts, image_latent=input_latent,
+                               use_cross_atten_mask=use_cross_atten_mask)
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p><strong>数据集 VisPrompt-5M</strong>:8 类任务、共 500 万对(Iv, I⋆)。占比:文生图 42.24%、text-in-image edit 36.39%、class-to-image 15.58%、visual marker edit 4.69%、force understanding 0.61%、trajectory 0.19%、text bbox edit 0.45%、doodles edit 0.02%。每个样本把<strong>所有文本/空间指令直接嵌进输入画布</strong>,消除辅助文本通道、强制几何对齐。</p>
+<figure>
+  <img class="zoomable" src="figures/fig2-visprompt5m.png" alt="VisPrompt-5M 八类任务示例网格:text-in-image edit(颜色/复合/去物/表情/关系/inpainting/canny/depth/restoration)、visual marker edit、textbbox edit、trajectory、class-to-image、force、text-to-image、doodles edit,右下角是各类占比环形图">
+  <figcaption>
+    <strong>Fig. 2</strong> — VisPrompt-5M 覆盖 8 类图进图出任务,从基础文生图到复合编辑再到物理感知指令跟随(力/轨迹)。所有操作意图都以视觉文本/箭头/框/涂鸦的形式**显式渲染在输入画布上**。右下环形图为各类占比。
+  </figcaption>
+</figure>
+<p><strong>主结果(VP-Bench,四类评委的总成功率 Total)</strong>:1.2B 的 FlowInOne 在 Gemini3/GPT5.2/Qwen3.5/人工 下分别拿到 <strong>54.0% / 39.2% / 50.3% / 44.9%</strong>,<strong>全面碾压所有开源基线</strong>(OmniGen2 ~23–25%、FLUX.1-Kontext ~24–27%、Qwen-IE-2509 ~23–28%),并<strong>逼近商业模型 Nano Banana</strong>(在 GPT5.2 下反超,其余小幅落后)。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-qualitative.png" alt="七列定性对比(Inputs/Kontext/OmniGen2/Qwen-Image-Edit/Nano Banana/FlowInOne/Ground Truth),五行任务:doodle、力、text bbox(橙汁)、轨迹(小车)、visual marker(橙子换柠檬)">
+  <figcaption>
+    <strong>Fig. 4</strong> — 五类任务定性对比。基线即便喂了 Qwen3-VL 扩写的详细文本提示,仍常把箭头/涂鸦/框误解成场景元素或违反空间约束;FlowInOne 直接读统一画布,能把箭头转成物理合理的运动、遵守 bbox 大小位置、并保住背景一致。
+  </figcaption>
+</figure>
+<p><strong>分维度看(每维满分 5)</strong>:FlowInOne 在<strong>空间精度(Spatial Precision)<strong>上</strong>三个评委全场最高</strong>(3.42 / 3.24 / 3.30),指令忠实度和内容一致性也很强;唯一明显短板是**视觉真实感(Visual Realism)**低于 Nano Banana(这是 1.2B 小模型 + 256×256 分辨率的代价)。</p>
+<p><strong>定量指标(Table 3)</strong>:FlowInOne 的 <strong>DINOv3 方向相似度均值 48.7%</strong> 超过 Nano Banana 的 47.3%——即<strong>细粒度空间/物理结构变化的准确性</strong>是全场第一,尤其在力/轨迹理解和 text-bbox 编辑上优势明显。CLIP-IQA/CLIP Score 显著超所有开源基线、接近商业模型。</p>
+<p><strong>关键消融</strong>:① 压缩方式——MLP+MLP(序列长和特征维都用 MLP 投)最好(18.12%),简单截断会丢边缘信息;② 调制方式——无交叉注意力 18.12% → 加双路交叉注意力 21.40% → <strong>Dual-Path SAM 23.1%</strong>,证明自适应门控确实在动态平衡一致性与指令跟随;③ 训练策略——<strong>联合训练 47.8% 碾压两阶段 29.1%</strong>,两阶段会灾难性遗忘,联合训练逼模型在同一视觉流空间里同时学语义生成+几何变换+物理规律。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ol>
+<li>
+<p><strong>建立在 CrossFlow 之上</strong>。1.2B 的 FlowInOne 从 <a href="https://arxiv.org/abs/2412.15213">CrossFlow</a>(直接把文本 embedding 流匹配到图像、无噪声无 cross-attn 的工作)初始化,在其 Transformer 块上<strong>新增交叉注意力层</strong>。这解释了为什么它能用相对小的模型和算力起步——继承了 CrossFlow 的流匹配先验。</p>
+</li>
+<li>
+<p><strong>三个 VAE / 编码器,冻结与否要分清</strong>。Janus-Pro-1B 视觉编码器(SigLIP ViT)抽统一图特征;<strong>text-image VAE 可训练</strong>(把视觉 token 参数化成源分布 <span class="math inline">\(z_0\)</span>);<strong>Image VAE(来自 LDM)全程冻结</strong>——既编码目标图 <span class="math inline">\(z_1\)</span>(训练监督),又编码源图 <span class="math inline">\(z_{src}\)</span> 供交叉注意力当 K/V(推理见 <a href="repo/i2i.py">i2i.py:L224</a>)。</p>
+</li>
+<li>
+<p><strong>训练配置</strong>:256×256 分辨率、240k 步、WebDataset 均衡采样、组合损失(FM + KL + CLIP 对比)。消融为省算力用 100k 步、batch 512。全部对齐预训练潜空间——序列长度和特征维必须匹配 CrossFlow 的潜空间,否则先验用不上。</p>
+</li>
+<li>
+<p><strong>魔改 KL 是个不显眼但实在的细节</strong>。代码把标准 KL 里 <span class="math inline">\(\mu^2\)</span> 的均值惩罚换成了 <span class="math inline">\((0.3\mu)^6\)</span>(<a href="repo/diffusion/flow_matching.py">flow_matching.py:L268</a>),注释说是&quot;让 mu→0 更温柔、var→1&quot;。这类偏离教科书的小改动在正文里没提,是交叉读代码才能捞到的。</p>
+</li>
+<li>
+<p><strong>多尺度流匹配损失</strong>。预测不是单一分辨率,而是 <code>multi_scale_targets</code> 产生多个尺度、各配一个 <code>loss_coeff</code> 加权(<a href="repo/diffusion/flow_matching.py">flow_matching.py:L296-L300</a>)——继承自 DIMR 风格的多尺度 DiT,正文同样一笔带过。</p>
+</li>
+<li>
+<p><strong>CFG 的实现</strong>:训练时按 <code>cfg_indicator</code> 概率把一批样本的条件&quot;错位打乱&quot;制造 null 条件(<a href="repo/diffusion/flow_matching.py">flow_matching.py:L276-L285</a>),推理用 <code>unconditional_guidance_scale</code> 做 classifier-free guidance。</p>
+</li>
+<li>
+<p><strong>评测用了 2026 年的前沿 VLM 当评委</strong>(Gemini3 / GPT5.2 / Qwen3.5),外加 10 人交叉复核 250 个分层随机样本。因为 FID 对复杂视觉指令无能为力,作者转向&quot;四条标准同时满足才算成功&quot;的 VLM+人工 pass rate,并为公平把画布里的文字指令<strong>手动抽出来</strong>补给 VLM。</p>
+</li>
+</ol>
+<p><strong>论文 vs 代码:一致性高,无重大出入</strong>。Eq.1/4/5/6 都能在 <code>flow_matching.py</code> 和 <code>dimr.py</code> 里找到逐行对应,双路开关 <code>use_cross_atten_mask</code> 的语义(纯生成旁路、编辑激活)与正文 <span class="math inline">\(I_{\text{edit}}\)</span> 完全吻合。唯一&quot;正文没细说、代码才有&quot;的是魔改 KL、多尺度损失、CFG 错位打乱这几处工程细节。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>范式漂亮且自洽</strong>。&quot;把一切渲染成图 → 单模态流匹配&quot;这个想法把噪声调度、跨模态对齐、任务分支一次性消掉,概念上极简。数据、模型、评测三件套齐全且开源,是一份诚实的完整工作。</li>
+<li><strong>Dual-Path SAM 是真的巧</strong>。用一个二值开关统一&quot;生成&quot;和&quot;编辑&quot;两种结构依赖完全相反的任务,再用 token 级 Sigmoid 门控做像素级的&quot;保留 vs 重画&quot;决策——消融(18.12→21.40→23.1)证明每一层都有增益。</li>
+<li><strong>空间/物理精度是硬优势</strong>。在力、轨迹、text-bbox 这些<strong>需要精确空间落地</strong>的任务上,1.2B 小模型 DINOv3 相似度反超 Nano Banana,坐实了&quot;视觉指令原生对齐几何&quot;的论点——这是文本条件管线天生吃亏的地方。</li>
+<li><strong>代码可交叉验证</strong>。核心公式逐行对得上,没有&quot;正文吹、代码空&quot;的落差。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>视觉真实感明显偏弱</strong>。256×256 + 1.2B 的组合让 Visual Realism 全面落后 Nano Banana。范式的优雅暂时以画质为代价,能否 scale 到高分辨率、大模型仍待验证。</li>
+<li><strong>T2I 反而不突出</strong>。在纯文生图(T2I)列,FlowInOne 常低于 Nano Banana 甚至部分开源模型——&quot;把文字渲染成图再读回来&quot;对纯生成可能是<strong>绕远路</strong>,信息经视觉编码压缩有损。它的甜区是<strong>编辑/空间控制</strong>,不是从零生成。</li>
+<li><strong>依赖&quot;指令能被渲染成图&quot;</strong>。长文本、抽象语义、精细属性一旦塞进画布就受分辨率/版面限制;画布上文字太多会挤占像素、也考验视觉编码器的 OCR 能力。范式对&quot;视觉可表达&quot;的指令友好,对&quot;纯语言细腻描述&quot;未必。</li>
+<li><strong>评委即 2026 前沿 VLM,存在循环风险</strong>。用 Gemini3/GPT5.2 当主评委,而这些模型本身的空间 grounding 也有限(论文自己承认 marker 类 MLLM 与人工有偏差),pass rate 的绝对值需谨慎。</li>
+<li><strong>数据分布极度不均</strong>。force/trajectory/doodles 合计不到 1%,却在这些任务上报了亮眼数字——小样本类别的泛化稳健性存疑。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>:需要<strong>精确空间/几何/物理控制</strong>的图像编辑与指令跟随(布局编辑、箭头指代、力/轨迹、bbox 插入),尤其想要一个<strong>单模型、无任务分支</strong>的统一接口;算力有限、想在 CrossFlow 类流匹配底座上快速扩编辑能力。</li>
+<li><strong>不适合</strong>:追求<strong>极致画质</strong>的纯文生图或高分辨率商用出图(去用 FLUX/Nano Banana 类);指令高度依赖<strong>长篇自然语言</strong>细腻描述而非可视化线索的场景;对小众任务(涂鸦/力)要求生产级稳健的场景。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较(Cross-validation against similar work)</strong> —— FlowInOne 的&quot;统一&quot;和&quot;vision-centric&quot;主张,和本仓另外几篇的路线正好构成对照:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本文 (FlowInOne)</strong></td>
+<td>把文本/布局/指令全渲染成视觉输入,单个流匹配模型「图进图出」即可统一生成+编辑</td>
+<td>vision-centric 在<strong>空间/物理精度</strong>上超文本条件管线;编辑是甜区、纯 T2I 是短板</td>
+<td>—</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="boogu-image-2026" href="../boogu-image-2026/index.html">boogu-image-2026</a></td>
+<td>用 1/10 数据也能做「统一生成+编辑」大模型</td>
+<td>走的仍是<strong>文本+图像条件</strong>的主流范式,靠数据/架构效率取胜</td>
+<td>同:都追求&quot;一个模型统一生成与编辑&quot;。异:Boogu 保留文本条件桥,FlowInOne<strong>彻底删掉文本编码器</strong>、把条件视觉化</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="jit-2025" href="../jit-2025/index.html">jit-2025</a></td>
+<td>何恺明 JiT:朴素 ViT 直接在<strong>像素空间</strong>做扩散,x-预测在流形假设下本质更优</td>
+<td>质疑&quot;必须在 latent + 复杂调度里做生成&quot;</td>
+<td>同:都在&quot;简化生成管线、挑战既有范式&quot;上同向。异:JiT 简化的是<strong>去噪空间</strong>(像素 vs latent),FlowInOne 简化的是<strong>条件模态</strong>(视觉 vs 文本)</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a></td>
+<td>秩-非对称速度参数化,把 latent 流匹配 lift 到像素空间</td>
+<td>流匹配的<strong>速度场参数化</strong>方式直接影响能否跨空间迁移</td>
+<td>同:都基于流匹配、都在&quot;源/目标空间同构&quot;上做文章。异:AsymFlow 改的是<strong>速度参数化</strong>,FlowInOne 改的是<strong>源分布的来源</strong>(视觉指令而非噪声)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>:根子在**&quot;统一&quot;统一的是哪一层**。Boogu 统一的是<strong>任务接口</strong>(仍靠文本条件),FlowInOne 统一的是<strong>模态本身</strong>(全部视觉化)——所以后者在空间控制上赢、在纯文本生成上亏。而 JiT/AsymFlow 关心的是生成<strong>过程</strong>(去噪空间、速度参数化)而非<strong>条件来源</strong>,与 FlowInOne 正交:理论上可以把 FlowInOne 的视觉条件接到 JiT 的像素扩散或 AsymFlow 的速度参数化上,是互补而非竞争。</p>
+<p><strong>相关工作(外部)</strong>:CrossFlow(直接文本→图像流匹配,本文的初始化底座)、&quot;Language modelling with pixels&quot;(文字渲染成像素的 vision-centric 感知先驱)、Janus-Pro(视觉编码器来源)、OmniGen2 / FLUX.1-Kontext / Qwen-Image-Edit(编辑基线)、Nano Banana(商业对照)。</p>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
