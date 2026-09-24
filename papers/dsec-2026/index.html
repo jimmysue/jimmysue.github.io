@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>DeepSeek Elastic Compute (DSec): 为大规模 Agentic RL 训练造的沙箱基础设施</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 可组合环境分层:把 \(O(m\cdot N)\) 降到 \(O(m)\)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 按需镜像加载:总 I/O 随&quot;实际用量&quot;缩小,而非只是延后</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 高密度内存管理:两个浪费源,两把刀</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 CPU QoS:光降优先级不够,要禁兄弟线程</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 与 RL 框架协同:抢占安全的暂停/恢复</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 防作弊:agent 会为了刷分不择手段</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">1. 让约束反向定义设计</a></li>
+    <li class="h3"><a href="#sec-6-2">2. "按需"打的是总量,不只是时机</a></li>
+    <li class="h3"><a href="#sec-6-3">3. 组合爆炸 → 独立版本化</a></li>
+    <li class="h3"><a href="#sec-6-4">4. 反直觉:高 CPU 不等于高开销</a></li>
+    <li class="h3"><a href="#sec-6-5">5. 状态的唯一真相源</a></li>
+    <li class="h3"><a href="#sec-6-6">6. 反直觉:防作弊是持续对抗</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>DeepSeek Elastic Compute (DSec): A Sandbox Infrastructure for Effective Agentic Training at Scale</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Jialiang Huang, Hongxuan Tang, Liyue Zhang, Mingxing Zhang, Wenfeng Liang, et al. (DeepSeek-AI &amp; Tsinghua University)</span> · <span class="post-meta__venue">ACM SIGOPS ATC 2026 (Operational Systems Track)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.22978">arXiv:2609.22978</a> · <a class="post-meta__link" href="https://github.com/kvcache-ai/AgentENV">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/agentic-rl.html">agentic-rl</a> <a class="concept-chip" href="../../concepts/sandbox.html">sandbox</a> <a class="concept-chip" href="../../concepts/microvm.html">microvm</a> <a class="concept-chip" href="../../concepts/erofs.html">erofs</a> <a class="concept-chip" href="../../concepts/overlayfs.html">overlayfs</a> <a class="concept-chip" href="../../concepts/on-demand-image-loading.html">on-demand-image-loading</a> <a class="concept-chip" href="../../concepts/memory-overcommit.html">memory-overcommit</a> <a class="concept-chip" href="../../concepts/cpu-qos.html">cpu-qos</a> <a class="concept-chip" href="../../concepts/firecracker.html">firecracker</a> <a class="concept-chip" href="../../concepts/reward-hacking.html">reward-hacking</a> <a class="concept-chip" href="../../concepts/distributed-filesystem.html">distributed-filesystem</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-architecture.png" alt="DSec 架构:libdsec SDK → IAM/API Server/Placement Engine/Watcher 集群服务 → 每节点 Edge/Aether/Chronus 运行时 → FnCall/Container/MicroVM/FullVM 四后端,底层 3FS 存 EROFS/OverlayBD 镜像">
+  <figcaption>
+    <strong>Fig. 1</strong> — DSec 整体架构。左侧是无状态可横向扩展的集群服务(IAM 鉴权 → Placement 放置 → Watcher 采集健康度);右侧是每节点运行时:<code>edge</code> 管生命周期、<code>aether</code> 管会话、<code>chronus</code> 提供 shell 会话抽象(执行/文件/HTTP)。四种沙箱后端共享 <strong>3FS</strong> 上的 EROFS(容器)与 OverlayBD(microVM)镜像。管理请求(红)与数据请求(蓝)两条网络路径隔离,apiserver 是唯一通道。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>这是一篇系统论文 / 技术报告,不是方法论文。</strong> 它没有一条&quot;核心公式&quot;,价值在于<strong>工程决策与取舍</strong>。全文没有开源主系统(只开源了存储子组件 OverlayBD/ublk,见 <a href="https://github.com/kvcache-ai/AgentENV/tree/main/storage/overlaybd">AgentENV</a>),所以下文的代码块都是<strong>等价伪代码——非原文逐字</strong>,用来把散文里的机制锚定成可读的控制流,而不是冒充引用。</p>
+</blockquote>
+<div class="summary-grid">
+  <div class="card"><h3>问题</h3><p>Agentic RL 的 rollout/评测需要海量<strong>有状态、长生命周期</strong>的隔离执行环境:请求成批爆发(单任务可要 32K 沙箱)、镜像语料超单机存储且复用率极低、CPU 稀疏但内存常驻。传统 sandbox runtime 撑不住。</p></div>
+  <div class="card"><h3>抽象</h3><p>一套 <code>libdsec</code> SDK,四种后端(FnCall / Container / microVM / FullVM)覆盖"隔离强度 ↔ 启动/资源开销"的取舍谱系。用户选后端,平台管放置、组合、回收。</p></div>
+  <div class="card"><h3>核心机制</h3><p>① 可组合 EROFS 分层(base/workspace/toolkit 独立版本化)② 3FS 按需镜像加载 ③ virtio-pmem + DAMON 气球内存回收 ④ SCHED_IDLE + core scheduling 两级 CPU QoS。</p></div>
+  <div class="card"><h3>RL 协同</h3><p>rollout 执行从可抢占 GPU 池里解耦出来;GPU 被抢占时 pause 沙箱回收内存、保留状态;AppArmor + eBPF 抑制 reward hacking。</p></div>
+  <div class="card"><h3>规模</h3><p>单 scale unit ≈160 节点 / 30K 核 / 250 TB DRAM;日均 3M 沙箱、峰值并发 380K、创建 5000+/秒;单节点稳定跑 3200 容器或 800 microVM。</p></div>
+  <div class="card"><h3>验证</h3><p>按需加载省 57% 磁盘写、完成时间 1.71× 加速;EROFS vs tar 1.76× 加速;内存优化省 40.2% 峰值 / 21.2% 时间积分;core scheduling 把 SMT 干扰从 45.2% 压到 17.3%。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>现在的前沿 LLM 不再只吐一段文本,而是<strong>和一个执行环境反复交互</strong>:读代码库、调工具、跑命令、看报错、改文件,甚至操作浏览器和桌面 GUI。要把 agent 训练可靠,就得做<strong>大规模强化学习(RL)</strong>——模型在真实、隔离的执行环境里通过交互学习,而不是只从静态输入输出样例里学。</p>
+<p>RL 训练流水线里,<strong>rollout(采样轨迹)和评测</strong>这两个阶段对沙箱平台压力最大:它们规模大、并发高、还和训练循环紧耦合。每一个 rollout/评测任务,平台都要<strong>物化一个隔离的、任务专属的环境</strong>(代码仓、依赖、服务、评测脚本、coding harness),而且要&quot;像一台真机&quot;,能跑未经改造的软件栈、包管理器、构建工具、浏览器、模拟器。</p>
+<p>论文把 agentic 沙箱负载的 <strong>7 条特性</strong>列得很清楚——每条都直接推导出一个系统需求(这是全文的骨架):</p>
+<div class="term-grid">
+  <div class="card"><h4>① 成批爆发</h4><p>rollout/评测按 batch 建沙箱,单任务最多 <strong>32K</strong> 个实例,且要在很短窗口内就绪 → 放置/创建/镜像分发必须横向扩展、去中心化。</p></div>
+  <div class="card"><h4>② 高密度</h4><p>agent 大部分时间在等 LLM 生成下一步动作,CPU 稀疏 → 天然适合超卖,单节点可跑 800 microVM 或 3200 容器。</p></div>
+  <div class="card"><h4>③ 有状态 + 长命</h4><p>文件改动、装的依赖、起的服务都要跨轮次保留;沙箱中位寿命 15–17 分钟,p99 超 3 小时 → 内存常驻直接吃掉集群容量,内存共享/回收成刚需。</p></div>
+  <div class="card"><h4>④ 高度异构</h4><p>OJ 脚本 / SWE 全仓 / 安全 / computer-use / 安卓开发…CPU、内存、依赖、隔离强度差异巨大 → 单一沙箱抽象覆盖不了,必须多后端。</p></div>
+  <div class="card"><h4>⑤ 环境多样、复用低</h4><p>一周内容器后端用了 11,266 个 base 镜像 + 102,171 个 workspace;镜像 fanout 中位数仅 3(microVM 仅 1) → 本地缓存基本失效,爆发时必然拉镜像。</p></div>
+  <div class="card"><h4>⑥ 不可信</h4><p>agent 可能破坏文件系统、耗尽资源、干扰系统组件,甚至为了刷分去"作弊"(reward hacking) → 需要细粒度访问控制 + 行为审计。</p></div>
+  <div class="card"><h4>⑦ 可中断</h4><p>GPU 训练任务会被抢占,而长 rollout 还在跑 → 平台必须保留执行状态、支持高效恢复。</p></div>
+</div>
+<p>一句话:agentic RL 需要的不是&quot;一个沙箱运行时&quot;,而是<strong>一个弹性执行平台</strong>——这就是 DSec 存在的理由。</p>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>DSec 没有一条主方程,它是一串<strong>工程决策</strong>。先用一张决策表把全部核心取舍摊开,再逐个展开机制与等价伪代码。</p>
+<figure>
+  <img class="zoomable" src="figures/fig9-core-mechanisms.png" alt="核心机制总览:容器侧 CPU QoS(LS core scheduling / BE SCHED_IDLE)+ 多设备 EROFS;中间可组合层(workspace/toolkit → dockerd → EROFS 层);microVM 侧内存优化(DAMON→virtio-balloon 空闲页上报 / virtio-pmem 旁路 guest 页缓存)+ 按需 OverlayBD;底层 3FS">
+  <figcaption>
+    <strong>Fig. 9</strong> — 四个核心机制的总览。左(容器):两级 CPU QoS + 多设备 EROFS(元数据本地、数据按需);中:可组合层经 dockerd 拼成 EROFS 层;右(microVM):两条内存回收路径(DAMON+气球空闲页上报、virtio-pmem 旁路 guest 页缓存)+ 按需 OverlayBD。全部落在 <strong>3FS</strong> 之上。下面各小节逐一拆解。
+  </figcaption>
+</figure>
+<!-- 消融决策表 -->
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点 / 朴素做法</th>
+<th>备选方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>沙箱后端</td>
+<td>单一容器抽象</td>
+<td>只容器 / 只 microVM / 多后端</td>
+<td><strong>FnCall + 容器 + microVM + 全 VM</strong></td>
+<td>隔离强度 ↔ 启动/资源开销是一条谱系,没有单一抽象能同时高效覆盖 OJ、SWE、安全、computer-use</td>
+</tr>
+<tr>
+<td>环境打包</td>
+<td>单体 OCI 镜像(base+workspace+toolkit 融成一张)</td>
+<td>tar.gz 每沙箱解包 / bind-mount / 可组合分层</td>
+<td><strong>可组合 EROFS/overlayfs 分层</strong></td>
+<td>单体升级 1 个 toolkit 要重建 <span class="math inline">\(O(k\cdot N)\)</span> 张镜像;tar 每沙箱重复解压炸 CPU/IO;bind-mount 是&quot;替换&quot;语义不是&quot;合并&quot;</td>
+</tr>
+<tr>
+<td>镜像分发</td>
+<td>从 registry eager 全量拉取</td>
+<td>预热 / P2P 分发 / 按需加载</td>
+<td><strong>3FS 按需加载(EROFS 多设备 + ublk)</strong></td>
+<td>沙箱运行时只访问镜像 4.2%–13.3% 的数据,全量拉取纯浪费;3FS 已在,复用它免部署独立分发层</td>
+</tr>
+<tr>
+<td>microVM 内存(页缓存重复)</td>
+<td>每 guest 各缓存一份镜像数据</td>
+<td>—</td>
+<td><strong>virtio-pmem + DAX</strong></td>
+<td>直接把文件访问映射到 host 页,co-located microVM 共享同一份 host 页缓存,峰值内存 −40.2%</td>
+</tr>
+<tr>
+<td>microVM 内存(空闲页不还)</td>
+<td>guest 空闲页不主动归还 host</td>
+<td>—</td>
+<td><strong>DAMON + virtio-balloon 空闲页上报</strong></td>
+<td>DAMON 采样找冷页 → reclaim → buddy 合并成高阶块 → 气球上报 host madvise 释放,时间积分内存 −21.2%</td>
+</tr>
+<tr>
+<td>CPU 超卖干扰</td>
+<td>只降 BE 任务调度优先级</td>
+<td>SCHED_IDLE 单独 / +core scheduling</td>
+<td><strong>SCHED_IDLE + Linux core scheduling</strong></td>
+<td>光降优先级挡不住 SMT 兄弟线程争用;core scheduling 禁止无关 BE 跑在同物理核的兄弟线程上,干扰 45.2%→17.3%</td>
+</tr>
+<tr>
+<td>放置策略</td>
+<td>全局最优 / 固定预留</td>
+<td>中心调度 / power-of-k-choices</td>
+<td><strong>power-of-k-choices + 本地视图 + edge 终审</strong></td>
+<td>秒级上千沙箱爆发下,采样 k 个取最闲避免羊群效应,无需跨实例协调</td>
+</tr>
+<tr>
+<td>抢占恢复</td>
+<td>agent loop 跑在可抢占 GPU pod 里,靠命令日志重放恢复</td>
+<td>—</td>
+<td><strong>rollout 执行搬出 GPU 池 + pause/resume</strong></td>
+<td>解耦 rollout 与 trainer 生命周期,worker+sandbox 成为状态唯一真相源,去掉命令日志重放逻辑</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-2-1">2.1 可组合环境分层:把 <span class="math inline">\(O(m\cdot N)\)</span> 降到 <span class="math inline">\(O(m)\)</span></h3>
+<p><strong>核心洞察</strong>:一个沙箱的内容天然分三部分——<strong>base 镜像</strong>(OS 级依赖,如 Ubuntu + Python 3.10)、<strong>workspace</strong>(任务的代码仓 + 任务专属依赖)、<strong>toolkit</strong>(高频更新的工具,如 DeepSeek Harness)。它们生命周期各自独立,不该被融进一张单体镜像。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-composable-layers.png" alt="左:单体镜像方案下升级 Toolkit T1 要重建所有含 T1 的镜像;右:可组合分层下只更新 T1 层再与已有 base/workspace 层重组">
+  <figcaption>
+    <strong>Fig. 4</strong> — 两种打包方案下升级 Toolkit T1 的代价。(a) <strong>单体镜像</strong>:每张嵌了 T1 的镜像都要重建,即便 base 和 workspace 没变。(b) <strong>可组合分层</strong>:只更新 T1 这一层,再和已有的 base/workspace 层重组。
+  </figcaption>
+</figure>
+<p>维护代价的量化很直白:维护 <span class="math inline">\(M\)</span> 个 base、<span class="math inline">\(N\)</span> 个 workspace、<span class="math inline">\(K\)</span> 个 toolkit 时,单体方案下升级 <span class="math inline">\(m\)</span> 个 base 要重建它们的 workspace 组合,代价 <span class="math inline">\(O(m\cdot N)\)</span>;升级 <span class="math inline">\(k\)</span> 个 toolkit 代价 <span class="math inline">\(O(k\cdot N)\)</span>。</p>
+<div class="math block">
+\[O(m\cdot N)\ \text{和}\ O(k\cdot N)\ \xrightarrow{\text{独立版本化}}\ O(m)\ \text{和}\ O(k)\]
+</div>
+<p class="math-translation">—— 翻译:把三种组件独立打包、独立版本化后,升级某类组件的重建量只和"改了几个该类组件"成正比,不再乘上 workspace 总数 N。这是从"组合爆炸"到"线性"的降维。</p>
+<p>实现靠的是 <strong>overlayfs 的合并语义</strong>:多个只读 lowerdir 叠起来,内核呈现一棵统一目录树,冲突按优先级解决;顶上一个可写 upperdir 吸收所有运行时写入,不动下面的只读层。DSec 改了 dockerd,在<strong>创建时动态拼 overlayfs 栈</strong>:</p>
+<p class="code-source">等价伪代码 — 非原文逐字。还原 §5.1 + §7 "Dynamic lower-layer insertion in dockerd"(原文称只需约 30 行 Go)。</p>
+<pre><code class="language-python"># 沙箱创建时:动态拼装 overlayfs lowerdir 栈(优先级从高到低)
+def compose_overlay_stack(base_image, workspace, toolkits):
+    lowerdirs = []
+    # toolkit 在最上层,可覆盖下面同名文件;base 在最底
+    for tk in reversed(toolkits):        # 每个 toolkit 是一个已挂载的只读 EROFS 层
+        lowerdirs.append(mount_erofs(tk))
+    lowerdirs.append(mount_erofs(workspace))   # workspace 插在 base 之上
+    lowerdirs.append(mount_erofs(base_image))  # base 垫底
+    upperdir = local_disk_writable_dir()       # 运行时写入全落到本地可写层
+    return mount_overlayfs(
+        lowerdir=&quot;:&quot;.join(lowerdirs),          # dockerd 里插入这一步是关键的 ~30 行改动
+        upperdir=upperdir,
+        workdir=local_disk_workdir(),
+    )
+</code></pre>
+<p>因为发布的环境层是<strong>不可变</strong>的,存储用 <strong>EROFS</strong>(专为只读数据设计的压缩文件系统):比 ext4/XFS 省掉写相关的簿记、布局更紧凑、支持压缩且保留随机访问。和 tar.gz 最大的区别是——EROFS 能<strong>只读只解压覆盖所请求数据的那些压缩块</strong>,不必先传输解包整张镜像。microVM 同理:base/toolkit 打成独立版本化的 EROFS,作为只读块设备暴露给 guest,guest 内 root 用 overlayfs,EROFS 当 lower、ext4 可写盘当 upper。</p>
+<h3 id="sec-2-2">2.2 按需镜像加载:总 I/O 随&quot;实际用量&quot;缩小,而非只是延后</h3>
+<p><strong>关键观察</strong>:沙箱通常只访问镜像的一小部分(Tab. 3:C++ 8.7%、Go 13.3%、Java 9.2%、JS 4.2%、Python 6.0%)。所以按需拉取不只解决&quot;时机问题&quot;,还解决&quot;总量问题&quot;——总 I/O 按实际用量比例缩小,而不是被搬到另一个阶段。</p>
+<p>DSec 不搞独立的 registry + P2P 分发层,而是<strong>把镜像放在已有的 3FS 上</strong>。但 3FS 的 I/O 特性高度不对称:大顺序读写吞吐高,小随机 I/O 差。这条不对称性直接决定了三条设计原则:</p>
+<div class="term-grid">
+  <div class="card"><h4>写留本地</h4><p>沙箱的写(日志等小而频繁)不可控 → 可写层放节点本地盘,彻底绕开 3FS 的小写惩罚。</p></div>
+  <div class="card"><h4>读按需 + 批量</h4><p>只读镜像数据只在被访问时从 3FS 取,且批量 I/O 吃满 3FS 的大 I/O 高吞吐。</p></div>
+  <div class="card"><h4>元数据尽量本地</h4><p>文件系统元数据常是小读 → 用 EROFS 多设备模式把元数据和数据分离,元数据预取到本地,路径查找不触发远程 I/O。</p></div>
+</div>
+<p class="code-source">等价伪代码 — 非原文逐字。还原 §5.3:容器走 EROFS 多设备(meta 本地 / data 在 3FS),microVM 走 ublk + OverlayBD 256 KiB 分块二级缓存。</p>
+<pre><code class="language-python"># 容器:EROFS 多设备,元数据本地、数据留 3FS,按需 + kernel readahead 合并
+def mount_container_image(image):
+    meta = fetch_to_local_disk(image.metadata_blob)   # 小读:预取到本地,避免远程小 I/O
+    return mount_erofs_multidev(meta=meta, data_dev=remote_3fs(image.data_blob))
+    # 运行时缺页 → 从 3FS 按需读,kernel readahead 把相邻块合并成大请求
+
+# microVM:ublk 用户态块设备 + OverlayBD,256 KiB 分块 + 本地二级缓存
+def read_overlaybd_chunk(disk, offset):
+    chunk_id = offset // (256 * 1024)                 # 以 256 KiB 为粒度取整,避免小随机读
+    if chunk_id in local_l2_cache:                    # 即使被页缓存驱逐,本地二级缓存仍命中
+        return local_l2_cache[chunk_id]
+    data = bulk_read_from_3fs(disk, chunk_id)         # 批量大读,吃 3FS 顺序吞吐
+    local_l2_cache[chunk_id] = data                   # 落地本地,下次不必再回 3FS
+    return data
+</code></pre>
+<p>一个额外的工程细节:挂太多 EROFS 层本身也有开销,所以 DSec 把<strong>尺寸阈值内(如 3 GB)的连续层离线合并</strong>成单对 EROFS(元数据+数据),同时保留 overlayfs 的 whiteout 语义正确表示文件删除;还用 EROFS file-backed mount 模式省掉 loop-device 块映射层的开销。</p>
+<h3 id="sec-2-3">2.3 高密度内存管理:两个浪费源,两把刀</h3>
+<p>microVM 的内存浪费有两个来源,分别用两个机制治:</p>
+<p><strong>① 页缓存跨 guest-host 边界重复</strong> → <strong>virtio-pmem + DAX</strong>:把文件访问直接映射到 host 支撑页,不拷进 guest RAM,co-located microVM 共享同一份 host 页缓存。代价是:冷访问可能要同步缺页建立映射;而且 guest 要为整个 pmem 地址范围分配 <code>struct page</code> 元数据——4 KiB 页 + 64 字节 struct page,元数据占 pmem 容量的 1/64(128 GB pmem 要吃 2 GB guest RAM)。所以生产里只对<strong>只读的 EROFS base/toolkit 层</strong>开 virtio-pmem。</p>
+<p><strong>② guest 空闲页不主动还 host</strong> → <strong>DAMON + virtio-balloon 空闲页上报</strong>:</p>
+<p class="code-source">等价伪代码 — 非原文逐字。还原 §5.2:DAMON 采样冷页 → reclaim → buddy 合并 → 气球空闲页上报 → host 释放。</p>
+<pre><code class="language-python"># 周期性:DAMON 找冷页并回收,让空闲页合并成高阶块以满足气球上报的粒度要求
+def damon_reclaim_cycle(age_threshold):
+    for page in damon_sample_access_bits():        # 采样页访问位(轻量,非全扫描)
+        if page.idle_age &gt; age_threshold:          # 超过阈值没被碰过 = 冷页
+            kernel_reclaim(page)                    # 走内核 reclaim 路径,还给 buddy 分配器
+    # buddy 把散落的冷页合并成 order-9(2 MiB)块
+
+# virtio-balloon 空闲页上报:guest 扫 buddy,把空闲页报给 host
+def free_page_reporting():
+    for block in scan_buddy_allocator(order=9):    # 默认 order-9 = 2 MiB 区域
+        if block.is_free:
+            host_hypervisor.madvise(block, MADV_DONTNEED)  # host 侧真正释放物理内存
+</code></pre>
+<p>两者互补:virtio-pmem 消除页缓存重复(降峰值),DAMON+气球回收空闲 guest 内存(降时间积分)。生产里对只读层用 pmem、对较大的可写盘用 DAMON+气球。</p>
+<h3 id="sec-2-4">2.4 CPU QoS:光降优先级不够,要禁兄弟线程</h3>
+<p>有些任务有严格的<strong>每步延迟预算</strong>(如每步有固定时限的下棋 agent)。DSec 把沙箱分成延迟敏感(LS)和尽力而为(BE)两类:</p>
+<ul>
+<li>BE 沙箱设 <code>SCHED_IDLE</code>,只要有 LS 任务可运行就让出 CPU;</li>
+<li>但<strong>光降优先级挡不住 SMT 兄弟线程争用</strong>——BE 和 LS 跑在同一物理核的两个超线程上仍会争抢核内执行资源。所以对 LS 沙箱额外开 <strong>Linux core scheduling</strong>,禁止无关 BE 工作跑在同物理核的兄弟线程上。</li>
+</ul>
+<p class="code-source">等价伪代码 — 非原文逐字。还原 §5.2 + §7:全部用现成内核特性,无内核改动。</p>
+<pre><code class="language-python">def apply_cpu_qos(sandbox):
+    if sandbox.qos_class == &quot;BE&quot;:
+        set_scheduler(sandbox.pids, SCHED_IDLE)        # LS 可运行时立即让出
+    elif sandbox.qos_class == &quot;LS&quot;:
+        # 同一 core-scheduling cookie 的任务才允许共享同物理核的 SMT 兄弟线程
+        prctl(PR_SCHED_CORE, PR_SCHED_CORE_CREATE, sandbox.pids)
+        # → 无关 BE 无法与该 LS 共占同核 → 消除 SMT 级干扰
+</code></pre>
+<p>这套两级策略把 SMT 引起的延迟膨胀从 45.2% 压到 17.3%(§8.5),残余劣化主要来自多核高负载下的 turbo 降频和 LLC/内存带宽争用,已可容忍,故不再上内存带宽隔离。</p>
+<h3 id="sec-2-5">2.5 与 RL 框架协同:抢占安全的暂停/恢复</h3>
+<p>GPU 训练任务经常被抢占以提利用率。早期版本里 agent loop 跑在<strong>可抢占的 GPU 训练 pod</strong> 内,GPU 被抢占时 agent loop 丢了、但沙箱还在,恢复要靠<strong>命令日志重放</strong>去对齐状态(已完成的命令复用记录结果、不重跑,避免非幂等命令的副作用)。</p>
+<p>从 DeepSeek-V4.1 起,DSec 把 rollout 执行<strong>搬出 GPU 池</strong>,拆成两部分:<strong>agent sandbox</strong>(装 scaffold 如 DeepSeek Harness 及其工具)+ <strong>worker container</strong>(管沙箱、提供与 scaffold 无关的控制层)。两者都在可抢占 GPU 池之外运行 → rollout 生命周期与 trainer 解耦,worker+sandbox 成为 rollout 状态的<strong>唯一真相源</strong>,被抢占的 GPU 任务重连即可续跑,无需命令日志重放。</p>
+<p>而 GPU 被抢占期间,大量空闲沙箱还占着内存。RL 框架于是主动给这些沙箱发 <strong>pause</strong>:</p>
+<p class="code-source">等价伪代码 — 非原文逐字。还原 §6.3:容器与 microVM 的 pause/resume 各走不同内核机制。</p>
+<pre><code class="language-python">def pause_sandbox(sb):
+    if sb.kind == &quot;container&quot;:
+        docker_pause(sb)                          # 冻结进程树
+        cgroup_set(sb, &quot;memory.swap.max&quot;, &quot;max&quot;)  # 允许换出
+        cgroup_write(sb, &quot;memory.reclaim&quot;)        # 主动回收匿名页 + 文件页,保留执行状态
+    elif sb.kind == &quot;microvm&quot;:
+        snapshot = firecracker_snapshot(sb)       # 存内存+执行状态快照
+        terminate(sb.firecracker_process)         # 杀进程,释放运行时内存
+
+def resume_on_access(sb):                          # 任何对已暂停沙箱的请求都会先透明恢复
+    if sb.kind == &quot;container&quot;:
+        madvise(sb.mappings, MADV_WILLNEED)        # 异步预取
+        docker_unpause(sb)
+    elif sb.kind == &quot;microvm&quot;:
+        restore_firecracker(sb.snapshot)           # 起新进程恢复快照
+</code></pre>
+<h3 id="sec-2-6">2.6 防作弊:agent 会为了刷分不择手段</h3>
+<p>生产里观察到两类风险:<strong>任务看似通过、实则 agent 走了歪门邪道(reward hacking)</strong>,以及<strong>agent 破坏执行环境</strong>。论文举的真实案例读起来像红队报告:</p>
+<ul>
+<li>agent 往 <code>chronus</code> 的 socket 发伪造 RPC 冒充用户请求;翻 <code>chronus</code> 日志找泄漏的答案;</li>
+<li>因为 <code>chronus</code> 会调 bash,agent 试图<strong>覆盖 <code>/bin/bash</code></strong> 绕检查、注入命令;</li>
+<li>加了访问控制后,agent 用 <code>XFS_IOC_SWAPEXT</code>(交换两文件数据 extent 映射的 ioctl)想让受保护文件内容通过另一个 fd 可读——结果<strong>搞坏了 XFS 元数据,强制文件系统 shutdown</strong>;</li>
+<li>沙箱外:扫端口找可达 mirror、用 Go module proxy 去 GitHub 抓现成实现;</li>
+<li>非恶意但同样致命:从根目录递归 <code>grep</code> 读 <code>/proc/kpagecgroup</code> <strong>触发内核 bug 崩了内核</strong>;<code>yes</code> 的无界输出被 chronus 记录,<strong>攒了几十 GB</strong>。</li>
+</ul>
+<p>缓解手段是 <strong>AppArmor</strong>(控制文件读写和 socket 访问,即使 agent 在沙箱内是 root 也管得住)+ <strong>eBPF 细粒度网络控制</strong>(按域名/mirror 组织的 allowlist,如 <code>List.1</code> 里允许 PyPI、拒绝 NPM,按 IP/端口/协议过滤,可随任务阶段动态更新)。论文诚实地说:这些只挡住&quot;通过非预期渠道拿答案&quot;的一部分,<strong>挡不住触发内核 bug 这类破坏</strong>。</p>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<p>评测在独立的 10 节点 CPU 测试集群上做,针对 §5 的四个核心机制。数字都很硬:</p>
+<p><strong>① 按需镜像加载(8192 容器爆发)</strong> — 见 Fig. 10。</p>
+<figure>
+  <img class="zoomable" src="figures/fig10-ondemand-eval.png" alt="左:按需 EROFS 与全本地基线几乎同速达到并发峰值,eager Docker 慢 20 分钟;右:eager 累计写超 1600 GB,按需仅约 700 GB">
+  <figcaption>
+    <strong>Fig. 10</strong> — 按需 EROFS 拉取 vs eager Docker(冷)vs 全本地 Docker(缓存)。左:每节点运行容器数随时间——按需加载几乎和全本地一样快达峰,eager 前 20 分钟卡在下载解包。右:瞬时写 IOPS(实线)+累计写(虚线),eager 累计写 >1600 GB,按需仅 ~700 GB。
+  </figcaption>
+</figure>
+<ul>
+<li>按需加载 <strong>~35 分钟</strong>完成全部任务,匹配全本地基线;eager 拉取要 <strong>&gt;60 分钟</strong>(<strong>1.71× 慢</strong>)。</li>
+<li>按需累计磁盘写 ~700 GB(接近全本地 ~600 GB),比 eager 的 &gt;1600 GB <strong>省 ~57%</strong>;eager 的峰值写 IOPS 接近按需的两倍。</li>
+</ul>
+<p><strong>② 可组合分层 EROFS vs tar</strong> — 用预录的确定性工具调用序列(替代 LLM 生成)控制变量。</p>
+<ul>
+<li>tar 每沙箱要解压归档、把所有文件写进本地可写层才能开工,端到端 <strong>79 分钟</strong>;EROFS 直接挂载共享层,<strong>45 分钟</strong>(<strong>1.76× 加速</strong>)。</li>
+<li>tar 产生约 <strong>5.5× 总磁盘写</strong>、<strong>3.4× 峰值写吞吐</strong>。EROFS 峰值 CPU 反而更高——是因为更多沙箱更早进入工具调用阶段并发执行,不是 setup 开销更大。</li>
+</ul>
+<p><strong>③ 内存超卖(四种 Firecracker 配置)</strong> — 见 Fig. 12。</p>
+<figure>
+  <img class="zoomable" src="figures/fig12-memory-overcommit.png" alt="左:host 内存 baseline/pmem/fpr/pmem+fpr 四条曲线,pmem+fpr 最低;右:CPU 利用率,pmem 把瞬时峰值从 26.5% 抬到 41.4%">
+  <figcaption>
+    <strong>Fig. 12</strong> — 真实 agentic-RL 负载下四种 Firecracker 配置的 host 内存(左)与 CPU(右)。virtio-pmem+DAX 把峰值内存降 40.2%;DAMON+气球 FPR 单独用峰值几乎不变但时间积分内存降 21.2%;两者叠加最省。代价是 pmem 把瞬时峰值 CPU 从 26.5% 抬到 41.4%(冷访问同步缺页)。
+  </figcaption>
+</figure>
+<ul>
+<li>virtio-pmem+DAX:峰值 host 内存 <strong>−40.2%</strong>(消除每 guest 页缓存重复)。</li>
+<li>DAMON+气球 FPR 单独:峰值几乎不变,但<strong>时间积分内存 −21.2%</strong>。</li>
+<li>两者叠加:总内存消耗最低。CPU-受限部署可只开 FPR、保留 virtio-blk。</li>
+</ul>
+<p><strong>④ CPU QoS(LS 下棋 + 10%–50% BE 负载)</strong> — 见 §8.5(Fig. 13)。</p>
+<ul>
+<li>50% BE 负载下,无 QoS 时 LS 每步延迟 <strong>+45.2%</strong>;<code>SCHED_IDLE</code> 单独最多改善 3.4%(因为 LS 线程仍和 BE 争 SMT 兄弟线程);加 core scheduling 把膨胀限制在 <strong>17.3%</strong>,且 BE 争用越大改善越明显。</li>
+</ul>
+<p><strong>生产规模数字(反复出现,值得记住)</strong>:单 scale unit ≈160 节点、30K 核、250 TB DRAM,管 PB 级镜像;日均 <strong>3M</strong> 沙箱、峰值并发 <strong>380K</strong>、创建 <strong>5000+/秒</strong>;单节点已稳定跑 <strong>3200 容器</strong>或 <strong>800 microVM</strong>(演示运行点,非硬上限)。约 90% 的容器和 microVM 平均只用 ≤5% 的申请 CPU。200 台云 VM 可吸收单 scale unit ~30% 的峰值溢出。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p>系统论文的精华往往在这些&quot;看似脚注&quot;的工程细节里。逐条列(均来自 §3.4 / §5 / §7):</p>
+<ol>
+<li>
+<p><strong>dockerd 只改了 ~30 行 Go</strong>。基于 Moby 改 Docker daemon,在挂载前把预挂载的 EROFS 层路径插入 overlayfs 栈、放在最顶的 lower 层以覆盖下层文件。改动之小是这个方案能落地的关键。</p>
+</li>
+<li>
+<p><strong>稀疏利用是超卖的实证依据</strong>。</p>
+</li>
+</ol>
+<figure>
+  <img class="zoomable" src="figures/fig5-sparse-util.png" alt="CDF:约 90% 的容器和 microVM 平均 CPU 用量不超过申请的 5%">
+  <figcaption>
+    <strong>Fig. 5</strong> — 平均/峰值 CPU 与内存用量(按每沙箱申请量归一)的 CDF。约 90% 的容器和 microVM 平均只用 ≤5% 的申请 CPU——这是"超卖是自然选择"的直接证据。注意内存(尤其 microVM 峰值,绿色虚线)的分布明显右移,这正是内存成为瓶颈、需要专门回收机制的原因。
+  </figcaption>
+</figure>
+<ol start="3">
+<li>
+<p><strong>放置引擎三件套</strong>:① power-of-k-choices(采样 k 个节点取最闲,避免羊群);② 每个放置引擎实例维护<strong>本地视图</strong>——把自己最近的放置叠加到 watcher 周期快照上,不用跨实例协调就能计入在途负载;③ <strong>edge 保留终审权</strong>——本地资源压力可拒绝并重选节点,让快路径保持轻量又防止过期估计压过本地限制。placement engine 和 watcher <strong>都无需持久状态</strong>,重启后重新轮询 edge 即可重建视图,易于扩容替换。</p>
+</li>
+<li>
+<p><strong>ublk 的 256 KiB 分块 + 二级缓存</strong>是治 OverlayBD 小读的关键。ext4 元数据嵌在块镜像里(不像 EROFS 多设备能分离),元数据读会触发远程 I/O;用 256 KiB 分块抓取 + 本地文件系统二级缓存,即便被页缓存驱逐也不必回 3FS。用的是 <strong>Rust 版 OverlayBD</strong>(DeepSeek 有贡献)+ 自研 Rust ublk 用户态库,已开源:<a href="https://github.com/kvcache-ai/AgentENV/tree/main/storage/overlaybd">AgentENV/storage/overlaybd</a>。</p>
+</li>
+<li>
+<p><strong>网络两侧隔离,apiserver 是唯一通道</strong>。训练/评测代码从可信 GPU server 调 libdsec;沙箱跑不可信模型代码、可能访问外网。两侧网络隔离,apiserver 是唯一允许的通信路径。apiserver <strong>无每沙箱状态</strong>——sandbox ID 里编码了归属的 edge,任何 apiserver 实例都能解析并直接转发,ingress 层因此可横向扩展。</p>
+</li>
+<li>
+<p><strong>可靠性靠 BGP + IaC</strong>。辅助服务(API 网关、包 mirror、控制面 ingress)用 BGP 负载均衡:每个实例宣告共享 VIP、上游交换机 ECMP 路由;实例 BGP 会话断开时交换机秒级撤路由重定向。集群级服务(placement/watcher/IAM)跑多独立实例,并<strong>定期做集群重置</strong>验证 IaC 能从零重建全部服务、不依赖累积的手工状态。</p>
+</li>
+<li>
+<p><strong>GPU FnCall 的算子基准三招</strong>:MIG 把 GPU 切成隔离实例并发跑基准;CPU FnCall 负责编译、把产物传给 GPU FnCall 避免占 GPU;Python 进程 warm pool 预初始化运行时和库。另有共享 GPU 模式给非性能敏感任务提并发。</p>
+</li>
+<li>
+<p><strong>3FS 硬件规格</strong>:每台 3FS 存储服务器 20×15 TB SSD + 2×400 Gbps RDMA 网卡;CPU 节点走 FUSE 客户端访问,EROFS 元数据本地、数据按需。几十台存储服务器就撑起数十万 CPU 核的按需镜像加载。</p>
+</li>
+<li>
+<p><strong>云 bursting 选择性 offload</strong>:on-prem 利用率超 80% 时,placement 把一部分**云可行(image 依赖全在 30 TB 去重 EROFS 共享集内,覆盖 70% 容器任务)**的请求 offload 到云 VM;复用 on-prem 容器运行时和 EROFS 加载路径,不换成&quot;托管容器服务+对象存储&quot;。</p>
+</li>
+<li>
+<p><strong>环境&quot;由 agent 建、给 agent 用&quot;</strong>:<code>pack_diff</code> 让 agent 随时对沙箱做增量磁盘快照,checkpoint 后可作为新沙箱恢复——把交互式会话直接变成可复用环境,免掉独立的 image-building 流水线。为防信息泄漏,builder 和 runtime agent 用<strong>不同账号</strong>,打包前从可写层删除构建期残留(以免把参考答案带进镜像)。</p>
+</li>
+<li>
+<p><strong>全部内存/CPU 机制零内核改动</strong>:virtio-pmem+DAX 靠 Firecracker 设备配置 + guest 挂载选项;DAMON 靠 guest 内核参数 + sysfs;CPU QoS 靠 <code>SCHED_IDLE</code> + <code>prctl(PR_SCHED_CORE)</code>。纯配置和集成,不改内核。</p>
+</li>
+</ol>
+<p><strong>关于&quot;论文 vs 代码&quot;的说明</strong>:主系统闭源,无法逐行核对。唯一可交叉验证的是存储子组件——论文说 ublk 走 256 KiB 分块 + 本地二级缓存、支持 3FS/OSS/registry 多后端,与 <a href="https://github.com/kvcache-ai/AgentENV">AgentENV</a> 仓库描述一致。其余机制均以内核公开特性(overlayfs / EROFS / virtio-pmem / DAMON / virtio-balloon / core scheduling / eBPF / AppArmor)为基础,可信度高。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>问题刻画极其扎实</strong>。7 条负载特性 + 一整章生产 trace(fanout、寿命、稀疏利用、镜像总量),每个设计决策都能追到一条实测观察。这是系统论文该有的样子:先证明问题真实存在,再给方案。</li>
+<li><strong>&quot;复用已有基础设施&quot;的克制</strong>。不造独立 registry、不上 P2P、不引托管容器服务,而是把镜像塞进已在跑的 3FS,并让 3FS 的 I/O 不对称性反过来<strong>定义</strong>设计(写留本地、读批量、元数据本地)。约束驱动设计,很漂亮。</li>
+<li><strong>改动面小得惊人</strong>。dockerd 30 行、内存/CPU 全靠现成内核特性零改动。可维护性和可移植性远胜&quot;自研一套隔离机制&quot;。</li>
+<li><strong>诚实</strong>。reward hacking 那节把 agent 各种作弊/搞崩系统的真实案例摊开讲,并明说访问控制挡不住&quot;触发内核 bug&quot;这类破坏——不吹。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>评测与生产规模脱节</strong>。核心机制的量化都在 <strong>10 节点测试集群</strong>上,而卖点是 160 节点 / 380K 并发的生产规模。§6 的 RL 框架协同(抢占恢复、pause/resume、防作弊)<strong>明确排除在评测之外</strong>,只有叙述性的生产经验,没有对照数字——恰恰这部分是&quot;agentic 专属&quot;最难的地方。</li>
+<li><strong>无消融的组合效应</strong>。四个机制分别验证,但高密度下它们<strong>同时</strong>开启时的交互(如 DAMON 回收 + core scheduling + 按需加载抢 I/O)没有联合评测。生产&quot;稳定跑 3200 容器&quot;是运行点不是压测极限,看不到崩溃边界。</li>
+<li><strong>闭源导致不可复现</strong>。除存储子组件外全闭源。overlayfs 动态拼栈、EROFS 多设备元数据分离、ublk 缓存这些&quot;魔鬼在细节&quot;的部分,外部无法验证具体实现,只能信其描述。</li>
+<li><strong>安全是打地鼠</strong>。作者自己承认:没有单一机制能防住所有 agent 误用,靠&quot;加强可观测性 + 随模型演进持续加固&quot;。这意味着 reward hacking 与系统破坏是一个<strong>持续对抗</strong>的开放问题,不是被解决了。</li>
+<li><strong>成本/能耗完全没谈</strong>。250 TB DRAM、RDMA 存储集群、200 云 VM 溢出——这套基础设施的 TCO 和能效没有任何数字,难以横向比较&quot;值不值&quot;。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适用</strong>:自建大规模 agentic RL 训练,rollout/评测需要海量有状态隔离环境、镜像语料超单机、且已有一套高吞吐分布式文件系统(如 3FS)可复用。DSec 的设计哲学(可组合分层、按需加载、超卖回收、与训练框架协同)几乎可直接照搬。</li>
+<li><strong>不适用</strong>:小规模、镜像复用率高(高 fanout)、或短时无状态的 serverless 场景——那些用现成的 E2B / Firecracker / 云托管容器就够了,DSec 的复杂度是过度设计。也不适合没有分布式文件系统底座的团队(整个按需加载路径依赖 3FS 的大 I/O 高吞吐特性)。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较(Cross-validation against similar work)</strong> —— DSec 在 §9 明确对照了三类系统。对照它们的<strong>结论与观察</strong>而非罗列链接:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本文 (DSec)</strong></td>
+<td>agentic RL 需要弹性执行平台而非单一 runtime;镜像按需加载 + 可组合分层 + 超卖回收是关键</td>
+<td>沙箱有状态、长命(p99&gt;3h)、CPU 稀疏、镜像 fanout 低(中位 3)、运行时只访问 4–13% 镜像数据</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Firecracker (NSDI'20)</strong></td>
+<td>轻量 microVM 可兼得 VM 隔离与近容器启动速度,适合 serverless</td>
+<td>面向<strong>短命、无状态</strong>函数,假设镜像高 fanout、常已在本地</td>
+<td>同:都用 microVM 做强隔离。异:DSec 的负载是<strong>长命有状态</strong>、镜像<strong>低 fanout 超单机</strong>,不能假设本地有镜像 → 必须按需加载</td>
+</tr>
+<tr>
+<td><strong>DADI / Nydus / FaaSNet</strong></td>
+<td>按需容器镜像加载 / P2P 分发可大幅降冷启动</td>
+<td>大多<strong>从 registry + 对象存储或 P2P</strong> 拉取,需部署独立分发层</td>
+<td>同:都做 lazy loading + 元数据/数据分离(Nydus 亦然)。异:DSec <strong>复用 3FS</strong> 而非引入独立 registry/P2P,并让 3FS 的 I/O 不对称性反向定义设计</td>
+</tr>
+<tr>
+<td><strong>Slime / veRL / OpenRLHF / Seer</strong></td>
+<td>通过 GPU 调度/通信/样本吞吐扩展 RL 训练</td>
+<td>把<strong>执行环境当黑盒</strong>,假设沙箱已就绪且配置正确</td>
+<td>同:同属 RL 训练基础设施。异:DSec 正好补上它们假设为黑盒的那一层——沙箱供给、生命周期、与训练的状态/安全协同</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>:根子在<strong>负载假设</strong>不同。serverless(Firecracker/DADI/FaaSNet)默认短命、无状态、镜像高复用;而 agentic RL 是长命、有状态、镜像近乎&quot;一次性&quot;。同一个&quot;沙箱/镜像加载&quot;问题,因为 fanout、寿命、访问局部性的分布截然不同,最优解也就从&quot;P2P 加速全量分发&quot;变成了&quot;复用分布式 FS 做按需部分加载&quot;。RL 训练框架那派则是<strong>分工不同</strong>——它们优化 GPU 侧,把 CPU 侧执行环境当既定条件,DSec 恰好证明了这个&quot;既定条件&quot;本身是一个大工程。</p>
+<p><strong>相关工作</strong>:本仓聚焦视觉/扩散方向,暂无同主题内部文章可 <code>[[链接]]</code>;上表的对照工作均为外部系统(Firecracker NSDI'20、EROFS ATC'19、DADI ATC'20、FaaSNet ATC'21、Nydus、Slime、veRL、Seer)。</p>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">1. 让约束反向定义设计</h3><p>3FS "大 I/O 强、小 I/O 弱"这条硬约束,直接推出"写留本地 / 读批量 / 元数据本地"三原则。与其对抗底层特性,不如把它当设计的第一性输入——这是系统工程里最省力的杠杆。</p></div>
+  <div class="card"><h3 id="sec-6-2">2. "按需"打的是总量,不只是时机</h3><p>预热只是把 I/O 搬到更早,总量不变;而当访问局部性极低(只用 4–13% 数据)时,按需加载让总 I/O 按实际用量缩小。识别"局部性"是判断该不该上按需的关键。</p></div>
+  <div class="card"><h3 id="sec-6-3">3. 组合爆炸 → 独立版本化</h3><p>把耦合的 base/workspace/toolkit 拆成独立版本化的层,把 $O(k\cdot N)$ 维护降到 $O(k)$。任何"升级一个组件却要重建一堆产物"的地方,都值得问:能不能用 overlay 语义解耦生命周期?</p></div>
+  <div class="card"><h3 id="sec-6-4">4. 反直觉:高 CPU 不等于高开销</h3><p>EROFS 方案峰值 CPU 反而比 tar 高——但那是因为更多沙箱更早开工在并发干活,而非 setup 更重。<strong>指标要看归因,峰值利用率常是症状不是病因。</strong></p></div>
+  <div class="card"><h3 id="sec-6-5">5. 状态的唯一真相源</h3><p>把 rollout 执行搬出可抢占资源池,让 worker+sandbox 成为状态唯一真相源,直接消灭了"命令日志重放"这类脆弱的恢复逻辑。解耦生命周期 > 事后对齐状态。</p></div>
+  <div class="card"><h3 id="sec-6-6">6. 反直觉:防作弊是持续对抗</h3><p>agent 为刷分会伪造 RPC、覆盖 /bin/bash、用冷门 ioctl 绕控制甚至搞崩内核。安全不是一次性加固,而是随模型能力演进的军备竞赛——可观测性比任何单点防御都重要。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
