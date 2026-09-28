@@ -471,6 +471,15 @@
       "url": "papers/self-forcing-2025/index.html"
     },
     {
+      "id": "papers/self-play-zero-2026",
+      "type": "paper",
+      "slug": "self-play-zero-2026",
+      "title": "Self-Play Pretraining with Zero Data：让模型从「零数据」里长出预训练",
+      "date": "2026-09-24",
+      "tldr": "能不能让语言模型**从随机初始化出发、不看任何自然数据**，自己造出对自己最有用的预训练数据？这篇论文给了一个概念验证：两个从零初始化的 Transformer 对弈——**生成器**写通用图灵机（Brainf*ck 变体）程序，程序执行吐出字节序列；**学习器**用标准交叉熵去预测这些字节。\n关键在生成器的奖励：不是\"序列多难预测\"，而是\"这个程序让学习器产生的梯度，是否和学习器近期的学习轨迹对齐\"（AdamW 预条件下的内积），从而把课程锁在学习器能力的**前沿**。结果：在文本/图像/语音/旋律/DNA/数学序列六类自然数据上，zero-shot 损失随自算力**幂律下降**，指数与直接在自然数据上训练相当；模型涌现出 in-context learning，生成器还自发\"发现\"了等差、斐波那契、几何等数列。作者用「可迁移的普适结构 vs 世界相关的偶然信息」二分给出了一个解释性 ansatz。\n",
+      "url": "papers/self-play-zero-2026/index.html"
+    },
+    {
       "id": "papers/sensenova-u1",
       "type": "paper",
       "slug": "sensenova-u1",
@@ -2882,6 +2891,110 @@
       "url": "concepts/autoregressive.html"
     },
     {
+      "id": "concepts/self-play",
+      "type": "concept",
+      "slug": "self-play",
+      "name": "self-play",
+      "has_file": false,
+      "url": "concepts/self-play.html"
+    },
+    {
+      "id": "concepts/synthetic-data",
+      "type": "concept",
+      "slug": "synthetic-data",
+      "name": "synthetic-data",
+      "has_file": false,
+      "url": "concepts/synthetic-data.html"
+    },
+    {
+      "id": "concepts/solomonoff-induction",
+      "type": "concept",
+      "slug": "solomonoff-induction",
+      "name": "solomonoff-induction",
+      "has_file": false,
+      "url": "concepts/solomonoff-induction.html"
+    },
+    {
+      "id": "concepts/universal-turing-machine",
+      "type": "concept",
+      "slug": "universal-turing-machine",
+      "name": "universal-turing-machine",
+      "has_file": false,
+      "url": "concepts/universal-turing-machine.html"
+    },
+    {
+      "id": "concepts/in-context-learning",
+      "type": "concept",
+      "slug": "in-context-learning",
+      "name": "in-context-learning",
+      "has_file": false,
+      "url": "concepts/in-context-learning.html"
+    },
+    {
+      "id": "concepts/curriculum-learning",
+      "type": "concept",
+      "slug": "curriculum-learning",
+      "name": "curriculum-learning",
+      "has_file": false,
+      "url": "concepts/curriculum-learning.html"
+    },
+    {
+      "id": "concepts/map-elites",
+      "type": "concept",
+      "slug": "map-elites",
+      "name": "map-elites",
+      "has_file": false,
+      "url": "concepts/map-elites.html"
+    },
+    {
+      "id": "concepts/expert-iteration",
+      "type": "concept",
+      "slug": "expert-iteration",
+      "name": "expert-iteration",
+      "has_file": false,
+      "url": "concepts/expert-iteration.html"
+    },
+    {
+      "id": "concepts/forward-mode-ad",
+      "type": "concept",
+      "slug": "forward-mode-ad",
+      "name": "forward-mode-ad",
+      "has_file": false,
+      "url": "concepts/forward-mode-ad.html"
+    },
+    {
+      "id": "concepts/epiplexity",
+      "type": "concept",
+      "slug": "epiplexity",
+      "name": "epiplexity",
+      "has_file": false,
+      "url": "concepts/epiplexity.html"
+    },
+    {
+      "id": "concepts/byte-level-modeling",
+      "type": "concept",
+      "slug": "byte-level-modeling",
+      "name": "byte-level-modeling",
+      "has_file": false,
+      "url": "concepts/byte-level-modeling.html"
+    },
+    {
+      "id": "repos/Maverick-Ansh/self-play-pretraining-zero-data",
+      "type": "repo",
+      "url": "https://github.com/Maverick-Ansh/self-play-pretraining-zero-data",
+      "host": "github.com",
+      "owner": "Maverick-Ansh",
+      "name": "self-play-pretraining-zero-data"
+    },
+    {
+      "id": "repos/amorehead/jvp_flash_attention",
+      "type": "repo",
+      "url": "https://github.com/amorehead/jvp_flash_attention",
+      "host": "github.com",
+      "owner": "amorehead",
+      "name": "jvp_flash_attention"
+    },
+    {
       "id": "concepts/moe",
       "type": "concept",
       "slug": "moe",
@@ -3867,12 +3980,12 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -3937,17 +4050,17 @@
     },
     {
       "from": "papers/colt-2026",
-      "to": "papers/thinking-visual-primitives-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/colt-2026",
       "to": "papers/rls-razor-2025",
       "kind": "cites"
     },
     {
       "from": "papers/colt-2026",
       "to": "papers/dapo-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/colt-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -4002,12 +4115,12 @@
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4157,17 +4270,17 @@
     },
     {
       "from": "papers/dataevolver-2026",
-      "to": "papers/ggt-100k-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/dataevolver-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/dataevolver-2026",
       "to": "papers/awm-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/dataevolver-2026",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -4227,12 +4340,12 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/diffusion-opd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -4352,7 +4465,7 @@
     },
     {
       "from": "papers/f-loss-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
@@ -4367,7 +4480,7 @@
     },
     {
       "from": "papers/f-loss-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -4467,12 +4580,12 @@
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/ferret-2023",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
-      "to": "papers/lisa-2023",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
@@ -4562,12 +4675,12 @@
     },
     {
       "from": "papers/flowinone-2026",
-      "to": "papers/jit-2025",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
       "from": "papers/flowinone-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/jit-2025",
       "kind": "cites"
     },
     {
@@ -4627,12 +4740,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -4717,12 +4830,12 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/krea-2-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/krea-2-2026",
       "kind": "cites"
     },
     {
@@ -4787,7 +4900,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -4797,7 +4910,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -4867,17 +4980,17 @@
     },
     {
       "from": "papers/jit-2025",
-      "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/jit-2025",
       "to": "papers/pixrestore-2026",
       "kind": "cites"
     },
     {
       "from": "papers/jit-2025",
       "to": "papers/asymflow-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/jit-2025",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -4997,12 +5110,12 @@
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/sefi-image-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -5252,12 +5365,12 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
@@ -5302,12 +5415,12 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/q-ground-2024",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
@@ -5382,17 +5495,17 @@
     },
     {
       "from": "papers/llada-image-2026",
+      "to": "papers/i1-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/llada-image-2026",
       "to": "papers/context-scaling-2026",
       "kind": "cites"
     },
     {
       "from": "papers/llada-image-2026",
       "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/llada-image-2026",
-      "to": "papers/i1-2026",
       "kind": "cites"
     },
     {
@@ -5532,12 +5645,12 @@
     },
     {
       "from": "papers/mfd-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mfd-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -5597,12 +5710,12 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -5612,7 +5725,7 @@
     },
     {
       "from": "papers/molmo-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -5662,12 +5775,12 @@
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -5772,12 +5885,12 @@
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/oftsr-2024",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/omgsr-2025",
-      "to": "papers/op4ksr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -5882,12 +5995,12 @@
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/ferret-2023",
+      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
-      "to": "papers/lisa-2023",
+      "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
@@ -5952,17 +6065,17 @@
     },
     {
       "from": "papers/paint-anything-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/paint-anything-2026",
       "to": "papers/bernini-2026",
       "kind": "cites"
     },
     {
       "from": "papers/paint-anything-2026",
       "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/paint-anything-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -6077,12 +6190,7 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/pixrestore-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/omgsr-2025",
       "kind": "cites"
     },
     {
@@ -6092,12 +6200,17 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "papers/omgsr-2025",
+      "to": "surveys/diffusion-sr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/oftsr-2024",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/pixrestore-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -6147,12 +6260,12 @@
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/q-ground-2024",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
@@ -6227,6 +6340,11 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
       "to": "papers/mambo-g-2025",
       "kind": "cites"
     },
@@ -6253,11 +6371,6 @@
     {
       "from": "papers/qwen-image-flash-2026",
       "to": "papers/flow-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -6327,22 +6440,22 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/rdm-2026",
       "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/self-flow-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rdm-2026",
       "to": "papers/qwen-image-flash-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/rdm-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
@@ -6392,12 +6505,12 @@
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rep-forcing-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "cites"
     },
     {
@@ -6551,6 +6664,86 @@
       "kind": "mentions"
     },
     {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/self-play",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/synthetic-data",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/solomonoff-induction",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/universal-turing-machine",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/scaling-laws",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/in-context-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/reinforcement-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/curriculum-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/map-elites",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/grpo",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/expert-iteration",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/forward-mode-ad",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/epiplexity",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "concepts/byte-level-modeling",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "repos/Maverick-Ansh/self-play-pretraining-zero-data",
+      "kind": "implements"
+    },
+    {
+      "from": "papers/self-play-zero-2026",
+      "to": "repos/amorehead/jvp_flash_attention",
+      "kind": "implements"
+    },
+    {
       "from": "papers/sensenova-u1",
       "to": "concepts/multimodal",
       "kind": "mentions"
@@ -6647,12 +6840,12 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -6662,7 +6855,7 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
@@ -6912,12 +7105,12 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
@@ -7037,12 +7230,12 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/krea-2-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
@@ -7317,12 +7510,12 @@
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/q-ground-2024",
+      "to": "papers/molmo-2024",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-benchmarks-2024",
-      "to": "papers/molmo-2024",
+      "to": "papers/q-ground-2024",
       "kind": "covers"
     },
     {
@@ -7387,12 +7580,12 @@
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/thinking-visual-primitives-2026",
+      "to": "papers/locate-anything-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/vlm-grounding-2025",
-      "to": "papers/locate-anything-2026",
+      "to": "papers/thinking-visual-primitives-2026",
       "kind": "covers"
     },
     {
@@ -7732,7 +7925,7 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/latent-to-pixel-2026",
+      "to": "papers/asymflow-2026",
       "kind": "covers"
     },
     {
@@ -7742,12 +7935,12 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/l2p-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/l2p-2026",
+      "to": "papers/latent-to-pixel-2026",
       "kind": "covers"
     },
     {

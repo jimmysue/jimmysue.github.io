@@ -57,6 +57,16 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-24</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/self-play-zero-2026/index.html">Self-Play Pretraining with Zero Data：让模型从「零数据」里长出预训练</a></h3>
+  <p class="post-card__tldr">能不能让语言模型**从随机初始化出发、不看任何自然数据**，自己造出对自己最有用的预训练数据？这篇论文给了一个概念验证：两个从零初始化的 Transformer 对弈——**生成器**写通用图灵机（Brainf*ck 变体）程序，程序执行吐出字节序列；**学习器**用标准交叉熵去预测这些字节。
+关键在生成器的奖励：不是&quot;序列多难预测&quot;，而是&quot;这个程序让学习器产生的梯度，是否和学习器近期的学习轨迹对齐&quot;（AdamW 预条件下的内积），从而把课程锁在学习器能力的**前沿**。结果：在文本/图像/语音/旋律/DNA/数学序列六类自然数据上，zero-shot 损失随自算力**幂律下降**，指数与直接在自然数据上训练相当；模型涌现出 in-context learning，生成器还自发&quot;发现&quot;了等差、斐波那契、几何等数列。作者用「可迁移的普适结构 vs 世界相关的偶然信息」二分给出了一个解释性 ansatz。
+</p>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-10</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/lingbot-video-2026/index.html">LingBot-Video: 把 MoE 搬进视频扩散——为具身智能从零 scale 的稀疏 DiT 世界模型</a></h3>

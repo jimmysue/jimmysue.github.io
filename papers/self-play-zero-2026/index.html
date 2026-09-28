@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Self-Play Pretraining with Zero Data：让模型从「零数据」里长出预训练</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 程序空间：一台「每个字符串都能跑」的图灵机</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 核心：学习进度奖励（本文最关键的一步）</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 RL 目标：Solomonoff 先验 + GRPO + Expert Iteration</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 程序池：fresh + mutation + replay，用 MAP-Elites 保多样性</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 六类自然模态上的「普适 zero-shot 缩放律」</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 「有通用程序空间」还不够，「自适应课程」才是关键</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 涌现 in-context learning，且生成器&quot;发现&quot;数学数列</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 一个解释性 ansatz：偶然信息 vs 普适结构</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+    <li class="h3"><a href="#sec-6-1">1. 把"前沿课程"操作化成梯度对齐</a></li>
+    <li class="h3"><a href="#sec-6-2">2. 同一切向量 → 用 forward-mode AD 批量算方向导数</a></li>
+    <li class="h3"><a href="#sec-6-3">3. 把动作空间设计成"永不失败"</a></li>
+    <li class="h3"><a href="#sec-6-4">4. 反直觉点：奖励"难度"会被随机噪声黑掉</a></li>
+    <li class="h3"><a href="#sec-6-5">5. 反直觉点：普适 ≠ 最优</a></li>
+    <li class="h3"><a href="#sec-6-6">6. 数据 = 偶然信息 + 普适结构</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Self-Play Pretraining with Zero Data：让模型从「零数据」里长出预训练</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-24</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-24</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Aditya Cowsik, Kfir Dolev, Michael Y. Li, G. Bruno De Luca, Nourya Cohen, Noah D. Goodman, Yoav Levine</span> · <span class="post-meta__venue">arXiv 2026 (Independent · Tel Aviv University · Stanford · LAPTh)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.30063">arXiv:2609.30063</a> · <a class="post-meta__link" href="https://github.com/Maverick-Ansh/self-play-pretraining-zero-data">代码</a> · <a class="post-meta__link" href="https://github.com/amorehead/jvp_flash_attention">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/self-play.html">self-play</a> <a class="concept-chip" href="../../concepts/synthetic-data.html">synthetic-data</a> <a class="concept-chip" href="../../concepts/solomonoff-induction.html">solomonoff-induction</a> <a class="concept-chip" href="../../concepts/universal-turing-machine.html">universal-turing-machine</a> <a class="concept-chip" href="../../concepts/scaling-laws.html">scaling-laws</a> <a class="concept-chip" href="../../concepts/in-context-learning.html">in-context-learning</a> <a class="concept-chip" href="../../concepts/reinforcement-learning.html">reinforcement-learning</a> <a class="concept-chip" href="../../concepts/curriculum-learning.html">curriculum-learning</a> <a class="concept-chip" href="../../concepts/map-elites.html">map-elites</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/expert-iteration.html">expert-iteration</a> <a class="concept-chip" href="../../concepts/forward-mode-ad.html">forward-mode-ad</a> <a class="concept-chip" href="../../concepts/epiplexity.html">epiplexity</a> <a class="concept-chip" href="../../concepts/byte-level-modeling.html">byte-level-modeling</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-overview.png" alt="Self-Play Pretraining with Zero Data 总览图：生成器写通用图灵机程序，学习器预测程序输出字节，生成器奖励是学习器梯度与近期参数变化的对齐度，右下角展示 zero-shot 自然数据损失随自算力幂律下降与涌现 ICL">
+  <figcaption>
+    <strong>Fig. 1</strong> — 全局总览。<strong>(上)</strong> 生成器 $g_\phi$ 提出程序，程序在通用图灵机（Brainf*ck 变体）上执行产生字节序列，学习器 $\pi_\theta$ 用 next-token prediction 学习这些字节。外部自然数据（文本 / 图像）<em>不用于训练</em>，两个模型都从随机初始化开始。<strong>(中)</strong> 生成器奖励 $r_i=|\langle g_i,\Delta\theta_i\rangle|$：程序诱导的学习器梯度 $g_i$ 与学习器近期参数移动 $\Delta\theta_i$ 的对齐度——把课程锁在学习器能力的前沿。<strong>(左下)</strong> 图像 / 文本 / 旋律的 zero-shot 验证损失随有效自算力幂律下降。<strong>(右下)</strong> 学习器在完全 held-out 的任务上涌现出 in-context learning。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>目标</h3><p>不看任何自然数据，从随机初始化把「有用的预训练数据」当作一个可搜索空间，让算力（而非人类知识）成为扩展的唯一瓶颈。</p></div>
+  <div class="card"><h3>搜索空间</h3><p>通用图灵机（Brainf*ck 变体 + 10 个宏）上的全体程序——任何可计算的数据生成过程原则上都能被表示。灵感来自 Solomonoff 归纳。</p></div>
+  <div class="card"><h3>驱动力</h3><p>生成器用 RL 学一个「学习进度奖励」：奖励那些让学习器在<strong>近期学习方向上</strong>继续进步的程序，形成自适应课程。</p></div>
+  <div class="card"><h3>验证</h3><p>纯迁移测试——生成器和学习器都没碰过自然数据，却在 6 类自然模态上得到与自然数据训练相当的幂律缩放指数 + 涌现 ICL。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>现代语言模型的进步靠的是「在更多数据上预训练」。但这些数据仍然是<strong>替模型策划好</strong>的：大规模数据清洗、数据配比设计、手工设计的合成生成器——处处是人类注入的归纳偏置，而数据的总量最终受限于「人类知识」这个天花板。</p>
+<p>作者问了一个更激进的问题：<strong>能不能把 Bitter Lesson 推广到训练数据本身？</strong> 即让模型自己学会生成对自己最有用的数据，从而开出一条「只靠算力就能持续变强」的自足路径。</p>
+<p>这篇论文提出的答案是 <strong>Self-Play Pretraining with Zero Data (SPZD)</strong>，一个从零数据预训练的自对弈算法。它把「造数据」形式化成<strong>在全体可计算结构的空间里搜索</strong>：</p>
+<ul>
+<li>用一台<strong>通用图灵机</strong>当底座，让合成数据空间尽可能富有表达力、尽可能少注入领域偏置——任何可计算的数据生成过程都能写成一个程序。</li>
+<li>但这个空间大得吓人，而且只有极小一部分程序能产出对学习器有用的序列；更麻烦的是，「什么有用」会随学习器变强而<strong>漂移</strong>。</li>
+<li>所以自对弈是自然的：不预先指定什么结构有用，而让生成器在训练中<strong>发现</strong>哪些程序此刻对学习器最有用。</li>
+</ul>
+<p>这把整套方法放进了<strong>普适预测 (universal prediction)</strong> 的谱系里——当假设类包含所有可计算数据生成过程、且学习器有无限算力时，归纳是可能的（Solomonoff）。SPZD 想做的，是这套理论的一个<strong>高效、可计算的近似</strong>。</p>
+<p>核心假设：自对弈能发现一批<strong>普适的预测规律</strong>（复制、递归、层次组合……），这些规律独立于任何单一数据集的「偶然信息」（具体的事实、符号、模态），因此能跨数据生成过程迁移到自然数据上。</p>
+<div class="term-grid">
+  <div class="card"><h4>Solomonoff 归纳</h4><p>理想化的普适预测：对一个序列，按「能生成它的最短程序」赋予最高概率（先验 $2^{-|p|}$，越短的程序权重越大）。不可计算，但给了"用程序长度衡量结构"的理论标尺。</p></div>
+  <div class="card"><h4>通用图灵机 (UTM)</h4><p>这里是一台 Brainf*ck 变体：8 条单字符指令操作一条字节纸带 + 循环 + 读 / 写字节。任何可计算过程都能写成它的程序。</p></div>
+  <div class="card"><h4>生成器 / 学习器</h4><p>两个结构相同的 decoder-only Llama。生成器 $g_\phi$ 是"程序上的语言模型"（用 RL 训）；学习器 $\pi_\theta$ 是"字节上的语言模型"（用交叉熵训）。</p></div>
+  <div class="card"><h4>学习进度奖励</h4><p>生成器的奖励信号：一个程序诱导的学习器梯度，与学习器"最近走过的方向"有多对齐。对齐 = 这个程序在教学习器它正在学的东西。</p></div>
+  <div class="card"><h4>偶然 vs 普适信息</h4><p>作者把自然数据里的预测信息拆成两块：<em>偶然信息 $D_c$</em>（某个世界特有的事实）与<em>普适结构 $D_u$</em>（跨多种生成过程共享的结构，如复制 / 递归）。自对弈只能增加 $D_u$。</p></div>
+  <div class="card"><h4>Epiplexity</h4><p>Finzi 等人提出的「结构量」度量：一个算力受限的观察者能从数据里榨出多少结构。用来验证生成器随训练确实在产出越来越多结构。</p></div>
+  <div class="card"><h4>MAP-Elites</h4><p>一种质量-多样性算法：把程序按"描述子"（循环深度 × 长度）分到 36 个 niche，每个 niche 只留 top-8，保证突变不只盯着最高奖励程序。</p></div>
+  <div class="card"><h4>BPB (bits/byte)</h4><p>字节级建模的损失单位：预测下一个字节的平均比特数。均匀猜 256 种字节 = 8 BPB，越低越好。全篇的 y 轴。</p></div>
+</div>
+<blockquote>
+<p>⚠️ <strong>代码来源说明</strong>：本文作者<strong>未公开官方训练代码</strong>（只释放了自对弈发现的程序清单 <code>hits.jsonl</code>）。本文所有代码引用来自一个高质量的<strong>第三方复现</strong> <a href="https://github.com/Maverick-Ansh/self-play-pretraining-zero-data">github.com/Maverick-Ansh/self-play-pretraining-zero-data</a>——它的每个模块 docstring 都逐句引用了论文的对应小节，甚至从作者释放的 <code>hits.jsonl</code> 反推了论文没写死的常数（如纸带长度）。引用它是为了给论文主张一个<strong>具体可执行的锚点</strong>；凡是复现自行补齐 / 与论文可能有出入的地方，我都会明确标注。凡标「等价伪代码」的块是从论文散文重构、非逐字。</p>
+</blockquote>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>一轮自对弈（round <span class="math inline">\(e\)</span>）分三步：</p>
+<ol>
+<li><strong>程序生成</strong>：从生成器采样 <span class="math inline">\(N\)</span> 个程序 <span class="math inline">\(\{x_i\}_{i=1}^N \sim g_\phi\)</span>。</li>
+<li><strong>执行</strong>：每个程序在 UTM 上跑，配一条随机输入纸带 <span class="math inline">\(\omega_i\)</span>，得到字节输出 <span class="math inline">\(y_i = U(x_i,\omega_i)\)</span>。</li>
+<li><strong>更新</strong>：学习器对这批输出走一步梯度（标准 next-token 交叉熵）；生成器走一步 policy gradient（用学习进度奖励），外加对已有 / 突变程序的 SFT（防遗忘 + 促探索）。</li>
+</ol>
+<h3 id="sec-2-1">2.1 程序空间：一台「每个字符串都能跑」的图灵机</h3>
+<p>生成器的搜索空间是 Brainf*ck 变体的程序。字母表 <span class="math inline">\(\mathcal{A}=\{\texttt{&lt; &gt; + - [ ] , .}\}\)</span>（8 条原语）+ 10 个宏（Table 4，如 <code>Z=[-]</code> 清零、<code>R=[-&gt;+&lt;]</code> 搬运到右邻）+ 终止符 <code>F</code>，共 19 个 token。程序 <span class="math inline">\(x\in\mathcal{A}^{\le L}\)</span> 在 UTM 上配随机纸带 <span class="math inline">\(\omega\)</span> 执行：</p>
+<div class="math block">
+\[y = U(x,\omega) \in \{0,\dots,255\}^T\]
+</div>
+<p class="math-translation">—— 翻译: 给程序 $x$ 一条随机初始纸带 $\omega$，机器吐出的前 $T$ 个字节就是学习器的一条训练样本。随机纸带让「同一个程序」能表示「一个输出分布」而非单一序列。</p>
+<p>设计的精髓是<strong>每个字符串都可执行、且必定终止</strong>：语法上唯一可能出错的是括号不匹配——直接当 no-op 处理；纸带是环形的（指针移出边界回绕），单元值 mod 256；跑到步数上限 / 程序尾 / 第 <span class="math inline">\(T\)</span> 个字节，三者取先到者停机，早停后用 0 填充。<strong>没有任何异常路径</strong>——这对「把程序当 RL 动作空间」至关重要：生成器采样出的任何 token 串都是一个合法动作。</p>
+<p>下面是复现里的 UTM 解释器核心循环，逐条对应上面的语义：</p>
+<p class="code-source">repo/spp/machine.py:L120-L165 — 忠实第三方复现：jit 编译的 Brainf*ck 解释器，环形纸带 + mod 256 + 括号不匹配当 no-op + 早停零填充</p>
+<pre><code class="language-python">@njit(cache=True, parallel=True)
+def _run(ops, starts, seeds, T, max_steps, tape_cells, out, n_out, steps_used, depth_max):
+    N = starts.shape[0] - 1
+    jump = np.empty(ops.shape[0], dtype=np.int64)
+    for p in prange(N):
+        lo, hi = starts[p], starts[p + 1]
+        _match(ops, lo, hi, jump)                 # 括号配对；不匹配的 jump=-1 → 被当 no-op
+        tape = np.zeros(tape_cells, dtype=np.int64)
+        rng = np.uint64(seeds[p])
+        ptr, pc, steps, n, depth, dmax = 0, lo, 0, 0, 0, 0
+        while pc &lt; hi and steps &lt; max_steps and n &lt; T:   # 三个停机条件
+            op = ops[pc]
+            if op == 0:   ptr = (ptr + 1) % tape_cells    # '&gt;' 环形右移
+            elif op == 1: ptr = (ptr - 1) % tape_cells    # '&lt;' 环形左移
+            elif op == 2: tape[ptr] = (tape[ptr] + 1) % MODULUS   # '+' mod 256
+            elif op == 3: tape[ptr] = (tape[ptr] - 1) % MODULUS   # '-'
+            elif op == 4: out[p, n] = tape[ptr]; n += 1   # '.' 发射一个字节
+            elif op == 5:                                  # ',' 从随机纸带 w 读一个字节
+                rng, r = _splitmix(rng); tape[ptr] = r &amp; np.uint64(255)
+            elif op == 6 and jump[pc] &gt;= 0:                # '[' 进入或跳过循环
+                if tape[ptr] == 0: pc = jump[pc]
+                else: depth += 1; dmax = max(dmax, depth)
+            elif op == 7 and jump[pc] &gt;= 0:                # ']' 回跳或离开
+                if tape[ptr] != 0: pc = jump[pc]
+                else: depth -= 1
+            pc += 1; steps += 1
+        n_out[p] = n; steps_used[p] = steps; depth_max[p] = dmax
+</code></pre>
+<p>注意 <code>depth_max</code>：程序运行时的<strong>最大动态循环深度</strong>会被记下来——它是后面 MAP-Elites 分 niche 的描述子之一。这是&quot;执行行为&quot;而非&quot;源码文本&quot;的特征，很聪明。</p>
+<h3 id="sec-2-2">2.2 核心：学习进度奖励（本文最关键的一步）</h3>
+<p>生成器的奖励必须能<strong>在没有任何外部反馈下</strong>识别「有用结构」。一个朴素想法是奖励「难预测的序列」（越难 loss 越高）——但这有致命漏洞：往一个本来可预测的序列里注入随机字节，就能让它任意变难，却毫无可学结构。</p>
+<p>作者的解法：<strong>奖励一个程序，当它建立在学习器已经学到的东西之上</strong>。直觉是——可复用的结构会让学习信号<strong>累积</strong>，而学不会的怪癖不会。具体地，用一个「回看窗口」定义学习器的近期参数移动，再看新程序的梯度是否与之对齐：</p>
+<div class="math block">
+\[p(e)=\lfloor e/2\rfloor,\qquad \delta\theta_e=\theta_{p(e)}-\theta_e\]
+</div>
+<div class="math block">
+\[r_i = \big|\,\langle\, \nabla_\theta \mathcal{L}(y_i;\theta_e),\; P_e\odot\delta\theta_e\,\rangle\,\big|,\qquad P_e=\frac{\mathrm{lr}}{\sqrt{\hat v_e}+\epsilon}\]
+</div>
+<p class="math-translation">—— 翻译: $\delta\theta_e$ 是学习器从"半程 checkpoint" $\theta_{\lfloor e/2\rfloor}$ 到现在走过的参数位移——它代表"学习器最近在往哪个方向学"。$P_e$ 是从 AdamW 优化器状态里取出的对角预条件（每个参数的有效步长）。奖励 = 程序 $i$ 诱导的学习器梯度，在这个 AdamW 内积下，与"最近学习方向"的对齐幅度。</p>
+<p>这个奖励精确地把课程锁在<strong>前沿</strong>：</p>
+<ul>
+<li><strong>已掌握的程序</strong> → 梯度近乎为零 → 奖励低（没得学了）。</li>
+<li><strong>学不会 / 无关的程序</strong> → 梯度与学习方向不对齐 → 奖励低（学了也白学）。</li>
+<li><strong>既没掌握、又延续已有能力方向的程序</strong> → 高奖励。</li>
+</ul>
+<p>回看窗口取 <span class="math inline">\(\lfloor e/2\rfloor\)</span>（而非上一轮）是为了：让需要很久才显现的信号有时间累积，用增长的窗口平滑短期波动，同时让早期错误最终被遗忘。</p>
+<p><strong>工程精髓——forward-mode AD (JVP)</strong>：注意方向 <span class="math inline">\(v=P\odot\delta\theta\)</span> 对池子里<strong>所有程序都一样</strong>，变的只是每个程序的梯度。反向模式要对每个程序各跑一次 backward（<span class="math inline">\(N\)</span> 次）才能拿到 per-example 梯度；而前向模式把这个<strong>唯一的切向量</strong> <span class="math inline">\(v\)</span> 一次推过前向过程，直接吐出整个方向导数向量 <span class="math inline">\([\langle\nabla\mathcal{L}_1,v\rangle,\dots]\)</span>。这就是为什么作者要专门实现一个 JVP flash-attention 核（论文脚注指向 <code>github.com/amorehead/jvp_flash_attention</code>）。</p>
+<p class="code-source">repo/spp/reward.py:L58-L91 — 忠实第三方复现：用 torch.func.jvp 一次前向算出整个池子的学习进度奖励（Eq. 2）</p>
+<pre><code class="language-python">def preconditioner(opt, model):
+    &quot;&quot;&quot;P = lr / (sqrt(v_hat) + eps)，逐参数从 torch AdamW 状态里取出。&quot;&quot;&quot;
+    P = {}
+    for group in opt.param_groups:
+        b2, eps, lr = group[&quot;betas&quot;][1], group[&quot;eps&quot;], group[&quot;lr&quot;]
+        for p in group[&quot;params&quot;]:
+            st = opt.state.get(p)
+            if not st: return None                       # 第 1 步前还没有优化器状态
+            v_hat = st[&quot;exp_avg_sq&quot;] / (1 - b2 ** float(st[&quot;step&quot;]))
+            P[id(p)] = lr / (v_hat.sqrt() + eps)
+    return {n: P[id(p)] for n, p in model.named_parameters()}
+
+def rewards(model, opt, snaps, e, X, n_out, chunk=64, signed=False):
+    P = preconditioner(opt, model)
+    _, past = snaps.lookback(e)                            # theta_{floor(e/2)}
+    if P is None or past is None:
+        return torch.zeros(X.shape[0], device=X.device)    # 头几轮 delta_theta=0 → 奖励 0
+    params = {n: p.detach() for n, p in model.named_parameters()}
+    v = {n: P[n] * (past[n] - params[n]) for n in params}  # v = P ⊙ delta_theta，对全池共享
+    out = []
+    for lo in range(0, X.shape[0], chunk):
+        f = lambda prm: seq_losses(model, prm, X[lo:lo+chunk], n_out[lo:lo+chunk])
+        _, dL = jvp(f, (params,), (v,))                    # 一次前向拿到一批 &lt;grad L_i, v&gt;
+        out.append(dL)
+    r = torch.cat(out).float()
+    return r if signed else r.abs()
+</code></pre>
+<p>绝对值很重要：Table 5 的消融显示，去掉绝对值（<code>signed</code>）会变差——「负向对齐」也是有用结构的信号（见 §4）。</p>
+<h3 id="sec-2-3">2.3 RL 目标：Solomonoff 先验 + GRPO + Expert Iteration</h3>
+<p>生成器用一个 <strong>KL 正则的期望奖励</strong>目标训练：</p>
+<div class="math block">
+\[J_{\mathrm{RL}}(\phi)=\mathbb{E}_{x\sim g_\phi}[r(x)]-\beta\,\mathrm{KL}(g_\phi\,\|\,g_0),\qquad g_0(x)=|\mathcal{A}|^{-\ell(x)}\]
+</div>
+<p class="math-translation">—— 翻译: 最大化期望奖励，同时用 KL 把策略拉住不要离先验 $g_0$ 太远。$g_0$ 是"均匀先验"：每个 token 等概率，程序概率随长度指数衰减——正是 Solomonoff 先验 $2^{-|p|}$ 的可计算类比（越短的程序先验越高）。生成器初始化就在 $g_0$ 附近。</p>
+<p>因为 vanilla policy gradient 方差大，用 <strong>GRPO</strong>（batch 级）估计优势，并对回放（off-policy）样本做序列级重要性比校正：</p>
+<div class="math block">
+\[A_i=\frac{r_i-\bar r_e}{\sigma_{r,e}+\epsilon}-\beta\big(\log g_\phi(x_i)-\log g_0(x_i)\big),\qquad \rho_i=\frac{g_\phi(x_i)}{g_{\phi_{\text{old},i}}(x_i)}\]
+</div>
+<div class="math block">
+\[\mathcal{L}_{\mathrm{PG}}(\phi)=-\frac{1}{|\mathcal{B}_e\setminus\mathcal{B}_e^{\text{mut}}|}\sum_{i}\mathrm{stopgrad}(\rho_i)\,\log g_\phi(x_i)\,\mathrm{stopgrad}(A_i)\]
+</div>
+<p class="math-translation">—— 翻译: 优势 = 奖励在本轮池内的标准化 z-score，再减去 KL 惩罚项。$\rho_i$ 是重要性比：新策略下这个程序的概率 / 它当初被采样时的概率——回放的旧程序靠它纠偏（新鲜样本 $\rho_i=1$）。突变程序被排除（它们没有良定义的采样概率）。</p>
+<p>再加一个 <strong>Expert Iteration</strong>（reward-weighted SFT）项防止遗忘：把高奖励程序按归一化权重 <span class="math inline">\(w_i=[r_i]_+/\sum_j[r_j]_+\)</span> 蒸馏回生成器。总目标 <span class="math inline">\(\mathcal{L}_{\text{generator}}=\mathcal{L}_{\mathrm{PG}}+\lambda_{\mathrm{EI}}\mathcal{L}_{\mathrm{EI}}\)</span>（<span class="math inline">\(\lambda_{\mathrm{EI}}=1\)</span>）。</p>
+<p class="code-source">repo/spp/selfplay.py:L106-L130 — 忠实第三方复现：一步生成器更新，GRPO 优势 + 重要性比 + Expert Iteration（Eqs. 3-5）</p>
+<pre><code class="language-python">def generator_step(gen, opt, scaler, bodies, kind, lp_old, charged, r, cfg):
+    lp = G.logprob(gen, bodies, cfg.max_body)                    # log g_phi(x)，带梯度
+    with torch.no_grad():
+        lg0 = torch.as_tensor(log_g0(charged), ...)             # log g0(x) = -l(x) log|A|
+        A = (r - r.mean()) / (r.std() + 1e-8) - cfg.beta * (lp.detach() - lg0)   # GRPO 优势
+        log_rho = (lp.detach() - lp_old).clamp(-20, 20)         # 序列级重要性比（截断）
+        rho = torch.where(kind_t == 0, torch.ones_like(log_rho), log_rho.exp())  # 新鲜样本 rho=1
+        w = r.clamp(min=0); w = w / w.sum() if w.sum() &gt; 0 else w                # EI 权重
+    pg = kind_t != 1                                             # 突变行不进 PG 项
+    L_pg = -(rho * lp * A)[pg].mean()
+    L_ei = -(w * lp).sum()
+    loss = L_pg + cfg.lambda_ei * L_ei
+    ...  # backward + AdamW step
+</code></pre>
+<p>值得注意的一个细节（复现里 <code>torch.nn.init.zeros_(gen.lm_head.weight)</code>）：生成器的输出头初始化为<strong>全零</strong>，于是初始策略在每个位置都是字母表上的均匀分布，即<strong>精确等于 <span class="math inline">\(g_0\)</span></strong>——「初始化在 <span class="math inline">\(g_0\)</span> 附近」被做成了精确相等。</p>
+<h3 id="sec-2-4">2.4 程序池：fresh + mutation + replay，用 MAP-Elites 保多样性</h3>
+<p>每轮的程序池 <span class="math inline">\(\mathcal{B}_e=\mathcal{B}_e^{\text{fresh}}\,\dot\cup\,\mathcal{B}_e^{\text{mut}}\,\dot\cup\,\mathcal{B}_e^{\text{replay}}\)</span>：新鲜采样负责全局探索，突变负责局部精炼，回放负责保住早期发现的结构。学习器对<strong>三类都训</strong>。</p>
+<p>突变用 <strong>MAP-Elites</strong>：每个程序按两个描述子分 niche——(i) 最大动态循环深度（0–8，更深的截到最后一档），(ii) 程序体长度（分桶 ≤8/16/32/&gt;32），共 <span class="math inline">\(9\times4=36\)</span> 个 niche。只有拿到正奖励的程序才进档，每个 niche 留 top-8；存储的奖励每轮衰减 0.97（让新程序能替换掉过时的精英）；突变父代在<strong>占用的 niche 之间均匀</strong>选，而非在全体程序间均匀——保住深嵌套等稀有结构行为的代表性。</p>
+<p class="code-source">repo/spp/pool.py:L26-L58 — 忠实第三方复现：MAP-Elites 档案，按 (循环深度 × 长度) 分 36 niche，每 niche top-8，奖励衰减 0.97（App. G）</p>
+<pre><code class="language-python">class Archive:
+    def __init__(self, per_niche=8, decay=0.97):
+        self.cells, self.k, self.decay = {}, per_niche, decay
+    def step_decay(self):
+        for c in self.cells.values():
+            for b in c: c[b] *= self.decay              # 奖励衰减，过时精英会被替换
+    def add(self, bodies, rewards, depths):
+        for b, r, d in zip(bodies, rewards, depths):
+            if r &lt;= 0: continue                          # 只有正奖励程序进档
+            cell = self.cells.setdefault(niche(d, len(b)), {})   # niche = f(循环深度, 长度)
+            if r &gt; cell.get(b, -1.0): cell[b] = float(r)
+            if len(cell) &gt; self.k: del cell[min(cell, key=cell.get)]  # 每 niche 只留 top-8
+    def mutants(self, n, rng, max_body):
+        occupied = [c for c in self.cells.values() if c]
+        out = []
+        for _ in range(n):
+            cell = occupied[rng.integers(len(occupied))]  # 在占用 niche 间均匀选父代
+            parents = list(cell)
+            out.append(mutate(parents[rng.integers(len(parents))], rng, max_body))
+        return out
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<h3 id="sec-3-1">3.1 六类自然模态上的「普适 zero-shot 缩放律」</h3>
+<p>核心实验：从随机初始化用自对弈训不同规模的 Transformer，然后<strong>zero-shot</strong>（不做任何梯度更新）在 held-out 的自然数据上测。对每个数据集，在 (模型规模 × 自对弈轮数 × ensemble 大小) 上构造 compute-optimal 前沿，拟合 <span class="math inline">\(L(C)=E+A\,C^{-\alpha}\)</span>。</p>
+<p><strong>结果：跨文本、图像、旋律、音频、语音、代码，单一家族的自对弈模型都表现出可预测的幂律改善</strong>，指数与直接在自然数据上训练相当（甚至略高，见 Fig 1 左下角：图像 <span class="math inline">\(\alpha=0.066\)</span>、文本 <span class="math inline">\(\alpha=0.123\)</span>、旋律 <span class="math inline">\(\alpha=0.249\)</span>）。关键是——这些全是 zero-shot，<strong>训练中从未加入任何自然数据的梯度</strong>。</p>
+<p>各模态拟合指数（Table 2，<span class="math inline">\(L(C)=A\,C^{-b}+E\)</span>）与文献对比：</p>
+<table>
+<thead>
+<tr>
+<th>模态 / 数据集</th>
+<th>本文 <span class="math inline">\(b\)</span></th>
+<th>文献 <span class="math inline">\(b\)</span></th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文本 (DCLM)</td>
+<td>0.123</td>
+<td>0.048–0.099</td>
+<td>略高于文献</td>
+</tr>
+<tr>
+<td>图像 (CIFAR-10, HWC 交错)</td>
+<td>0.145</td>
+<td>0.065–0.10</td>
+<td>略高</td>
+</tr>
+<tr>
+<td>图像 (CIFAR-10, 像素)</td>
+<td>0.066</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td>音频 8-bit PCM</td>
+<td>0.260</td>
+<td>0.12–0.14</td>
+<td>明显更高</td>
+</tr>
+<tr>
+<td>音频 16-bit PCM</td>
+<td>0.141</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr>
+<td>旋律 (Mutopia MIDI)</td>
+<td>0.249</td>
+<td>—</td>
+<td>最陡之一</td>
+</tr>
+<tr>
+<td>数学 (Metamath set.mm)</td>
+<td>0.129</td>
+<td>0.17</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>DNA (8-symbol)</strong></td>
+<td><strong>0.435</strong></td>
+<td><strong>0.01–0.06</strong></td>
+<td><strong>异常地高——见 §5 存疑</strong></td>
+</tr>
+<tr>
+<td>代码 (C source)</td>
+<td>0.116</td>
+<td>0.17</td>
+<td></td>
+</tr>
+<tr>
+<td>代码 (Python)</td>
+<td>0.113</td>
+<td>—</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-3-2">3.2 「有通用程序空间」还不够，「自适应课程」才是关键</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-modality-scaling.png" alt="8 个模态子图，每个对比自对弈（青）、从固定通用先验采样（橙）、PCFG 预训练（紫）三条曲线随算力的损失下降">
+  <figcaption>
+    <strong>Fig. 2</strong> — 自对弈 vs 两个固定合成分布。<span style="color:#2a9d8f">■ 自对弈</span>；<span style="color:#e76f51">■ 从固定「通用先验」采样程序</span>（Solomonoff 式 i.i.d. 采样，不自适应）；<span style="color:#6a4c93">■ PCFG 预训练</span>（手工设计的层次 / 组合结构，特别适合语言）。<strong>固定通用先验缩放得非常慢</strong>——说明"能访问通用程序空间"本身不够，必须学会"往空间的哪里分配训练算力"。<strong>PCFG 在文本 / 代码上更强</strong>（它的归纳偏置天然匹配语言），但在图像 / 音乐 / 语音等非语言模态上被自对弈大幅超越。自对弈是唯一在全部 6 类模态上都可预测缩放的方法。</figcaption>
+</figure>
+<p>这是最有说服力的对照：两个基线和自对弈<strong>共享同一个程序空间</strong>，唯一区别是采样分布是否自适应。固定通用先验（<span class="math inline">\(g_0\)</span> i.i.d. 采样）缩放极慢——证明<strong>自适应课程是主因</strong>，而非「通用空间」本身。而 PCFG（一个特化的固定先验）在语言上反超自对弈——说明<strong>普适 ≠ 对某一模态最优</strong>：自适应买来的是广度，特化买来的是深度。</p>
+<h3 id="sec-3-3">3.3 涌现 in-context learning，且生成器&quot;发现&quot;数学数列</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-icl.png" alt="三列子图（Self-play / Universal prior / PCFG），每列 6 条曲线对应 reverse-string/stack/assoc/sum/max/min 六个 ICL 任务的准确率随 in-context 样本数 m 的变化">
+  <figcaption>
+    <strong>Fig. 4</strong> — ICL 行为对比。学习器<strong>不做任何梯度更新 / 微调</strong>，纯靠上下文里的 $m$ 个示例推断任务。<strong>自对弈</strong>在全部 6 个 held-out 任务（reverse string / stack / associative recall / sum / max / min）上都随 $m$ 增长逼近满分。<strong>固定通用先验</strong>几乎没有有效 ICL。<strong>PCFG</strong> 只在 associative recall 上强，其余弱。</figcaption>
+</figure>
+<ul>
+<li>
+<p><strong>ICL 涌现</strong>（Fig 4）：自对弈学习器在 6 个完全 held-out 的任务上都涌现出 in-context learning——包括动态索引（reverse string）、模拟上下文无关文法（stack）、上下文检索（associative recall）、以及在上下文里学会数学关系（sum/max/min）。固定通用先验几乎学不会，PCFG 只会 associative recall。Fig 5 还给了 SUM 任务的可解释轨迹：模型先输出先验里最常见的字节 → 开始复制 → 短暂过度自信后崩溃、熵升高 → 4 个示例后学会加低 4 位 → 8 个示例后学会高 4 位 → 锁定正确策略。</p>
+</li>
+<li>
+<p><strong>发现数学结构</strong>（Table 1/3）：生成器在自对弈中自发写出输出为<strong>可辨识数列</strong>的程序——等差（round 0）、几何（round 256）、斐波那契 / 二次 / 三次（round 512）。作为对照，从固定通用先验里均匀采样 <span class="math inline">\(1.64\times10^8\)</span> 个程序，除等差外<strong>一个非等差数列家族都没出现</strong>（期望首现轮数 <span class="math inline">\(\gt 53{,}000\)</span>）。这是自对弈能高效定位普适数据的一个直接机制证据。</p>
+</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig3-curriculum.png" alt="左图 epiplexity 随生成器训练终点 g_T 上升；右图 text/images/audio 的验证 BPB 随 g_T 下降">
+  <figcaption>
+    <strong>Fig. 3</strong> — 后期 generator checkpoint 提供的是「新增」而非「重复」的训练价值。对每个训练终点 $T$，用它前后的 16 个快照采样固定语料，从零训一个 1M 学习器。<strong>(左)</strong> epiplexity（学习器收敛前累积的超额训练损失，即"结构含量"）随 $T$ 稳步上升——后期 checkpoint 写的语料含更多结构。<strong>(右)</strong> 在 text/images/audio 上的 OOD 验证 BPB 随 $T$ 下降。两图合起来说明后期课程在丰富而非重复。
+  </figcaption>
+</figure>
+<ul>
+<li><strong>自对弈 = 廉价的 pre-pretraining</strong>（Fig 6 / App. A）：把自对弈 checkpoint 当作自然数据训练的初始化（&quot;warm start&quot;），在 DCLM/CIFAR-10/ESC-50 上都比从零训练更快到达同一损失水平（ESC-50: 320M vs 496M tokens；CIFAR-10: 421M vs 588M）。不过训练后期差距会明显收窄——最清晰的收益是<strong>加速</strong>，而非最终损失。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/fig6-pre-pretraining.png" alt="三个子图 DCLM/CIFAR-10/ESC-50，蓝线从零训练、橙线自对弈 warm start 的验证 BPB 随 token 数下降，橙线始终更早到达每个损失水平">
+  <figcaption>
+    <strong>Fig. 6</strong> — 自对弈作为 pre-pretraining 加速自然数据训练。24.4M 模型在三类字节编码模态上，从随机初始化（蓝）与从自对弈 checkpoint（橙）分别训练。最左点（token=0）是任何自然数据训练前的验证损失——对 warm start 即其 zero-shot 迁移值。橙线在整个训练过程中都**先于**蓝线到达每个损失水平，但后期两者收窄。</figcaption>
+</figure>
+<h3 id="sec-3-4">3.4 一个解释性 ansatz：偶然信息 vs 普适结构</h3>
+<p>为什么「不加自然数据」也能有幂律缩放？作者把 Chinchilla 的数据项拆成两块资源：</p>
+<div class="math block">
+\[L = E + \frac{A}{N^\alpha} + \frac{B}{D_c^\beta} + \frac{C}{D_u^\gamma}\]
+</div>
+<p class="math-translation">—— 翻译: 在标准 Chinchilla 损失 $E+A/N^\alpha+B/D^\beta$ 的基础上，把"数据"拆成偶然信息 $D_c$（世界特有的事实）和普适结构 $D_u$（跨过程共享的结构）两项。</p>
+<p>在自对弈里 <span class="math inline">\(D_c\)</span> 恒为零（没碰自然数据），被吸收进常数 <span class="math inline">\(E'\)</span>；只有 <span class="math inline">\(D_u(T)\propto T^\eta\)</span> 随自算力增长。代入得：</p>
+<div class="math block">
+\[L = E' + \frac{A}{N^\alpha} + \frac{C'}{T^{\gamma\eta}}\]
+</div>
+<p class="math-translation">—— 翻译: 于是即使没加自然数据，自然数据损失也能随自对弈算力 $T$ 幂律下降——代价是一个更大的不可约误差 $E'$（因为 $D_c$ 永远补不上）。这正是实验观察到的形式。</p>
+<p>进一步假设自然数据同时按 <span class="math inline">\(D_c\propto D^\nu, D_u\propto D^\mu\)</span> 增长，则标准数据缩放指数 <span class="math inline">\(\beta_{\text{obs}}\approx\min\{\beta\nu,\gamma\mu\}\)</span>——作者据此谨慎推测：<strong>学习普适结构可能解释了「扩自然数据」收益里的相当一部分</strong>。这是一个 ansatz（假设性框架），不是严格证明。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ol>
+<li>
+<p><strong>架构与 tokenization</strong>：学习器和生成器是<strong>结构相同</strong>的 decoder-only Llama。字节级 tokenization，固定 256 词表——因为 UTM 产出原始字节，且这能做「模态无关」的下一字节预测评测。程序行前缀 <code>S</code>、输出行前缀 <code>O</code>。生成器采样时 logits 被 mask 到 19 个合法 token（8 指令 + 10 宏 + <code>F</code>）；学习器输出可以是任意字节。（<code>repo/spp/model.py</code>, <code>repo/spp/generator.py:L26-L60</code>）</p>
+</li>
+<li>
+<p><strong>强制终止的巧思</strong>：程序位置到达长度上限 <span class="math inline">\(L\)</span> 时，唯一允许的 token 是 <code>F</code>——所以「封顶的程序」的最后那个 <code>F</code> 在 <span class="math inline">\(g_\phi\)</span> 和 <span class="math inline">\(g_0\)</span> 下概率都是 1，不计入描述长度。「每个程序都终止」被做成了精确的、概率可算的事实。</p>
+</li>
+<li>
+<p><strong>回看快照的内存管理</strong>：<span class="math inline">\(\delta\theta\)</span> 需要 <span class="math inline">\(\theta_{\lfloor e/2\rfloor}\)</span>。每轮都存是 <span class="math inline">\(O(e)\)</span> 内存，所以复现每 8 轮存一个快照，取 <span class="math inline">\(\le\lfloor e/2\rfloor\)</span> 的最新那个；更早的快照（<span class="math inline">\(\lfloor e/2\rfloor\)</span> 只增不减）直接丢。（<code>repo/spp/reward.py</code> <code>Snapshots</code>）</p>
+</li>
+<li>
+<p><strong>奖励消融印证了设计</strong>（Table 5，本文最有信息量的消融）：</p>
+</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>消融</th>
+<th>改了什么</th>
+<th>效果</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>None（本文）</strong></td>
+<td><span class="math inline">\(\theta_{\text{past}}=\theta_{\lfloor e/2\rfloor}\)</span> 的规范奖励</td>
+<td><strong>最好 / 接近最好</strong></td>
+<td>多数数据集上方差也更低</td>
+</tr>
+<tr>
+<td><code>uniform</code></td>
+<td>去掉生成器，i.i.d. 均匀程序</td>
+<td>大幅变差</td>
+<td>自适应课程是主因</td>
+</tr>
+<tr>
+<td><code>signed</code></td>
+<td>去掉绝对值</td>
+<td>变差</td>
+<td>「负向对齐」也是有用信号</td>
+</tr>
+<tr>
+<td><code>shuffle</code></td>
+<td>池内打乱奖励</td>
+<td>差很多</td>
+<td>仅靠奖励的边际分布不足以驱动进步</td>
+</tr>
+<tr>
+<td><code>last_step</code></td>
+<td><span class="math inline">\(\theta_{\text{past}}=\theta_{e-1}\)</span>（只回看一步）</td>
+<td>变差</td>
+<td>回看大窗口有价值（平滑短期波动）</td>
+</tr>
+<tr>
+<td><code>loss_delta</code></td>
+<td>用真实 loss 差 <span class="math inline">\(L_i(\theta_{\text{pre}})-L_i(\theta_{\text{post}})\)</span></td>
+<td>更差</td>
+<td>一阶梯度奖励比有限差分更 informative</td>
+</tr>
+<tr>
+<td><code>negate</code></td>
+<td>翻转奖励符号</td>
+<td>比随机初始化还差</td>
+<td>反证：奖励确实系统性偏好更好的程序</td>
+</tr>
+</tbody>
+</table>
+<p><code>negate</code> 那一行尤其漂亮：如果把奖励取反后模型比随机初始化还烂，说明原奖励<strong>确实</strong>在全局上偏好「更好」的程序，而不是碰运气。</p>
+<ol start="5">
+<li>
+<p><strong>纸带长度是论文没写死、复现反推的</strong>（重要 caveat）：论文只说「有限内存」，没给纸带单元数。复现作者用作者释放的 <code>hits.jsonl</code>（6143 个确定性程序的首字节记录）反推：128 单元能复现全部记录但 35/5955 个等差纸带在回绕后离开递推；2048 单元复现全部首字节；4096 单元让全部等差保持但漏 3 条向左回绕的记录。<strong>没有单一环形尺寸能复现每一条记录</strong>——所以作者的纸带不是&quot;单一尺寸的朴素环形数组&quot;。复现取 2048，只在 0.5% 头会回绕的程序上与作者不符。这是一个<strong>论文未充分描述、影响可复现性</strong>的点。</p>
+</li>
+<li>
+<p><strong>规模很小</strong>：所有实验模型 <strong>&lt; 25M 参数、4K 上下文</strong>。固定 34.36B token 训练预算（因为用短 warmup + 常数 lr，任一中间 checkpoint 等价于&quot;在该 token 预算处停下的一次 run&quot;，一条长 run 就能回溯性地构造缩放律）。各规模训 <span class="math inline">\(K\)</span> 个独立种子做 ensemble——<strong>ensemble 是有用的</strong>（单模型更弱）。</p>
+</li>
+<li>
+<p><strong>超参选择碰了自然数据</strong>（诚实的泄漏）：因为纯合成目标没有明显的选超参标准，作者用 DCLM+DNA 上的验证损失做模型选择信号。<strong>&quot;limited leakage through hyperparameter selection, but natural data are never used for gradient updates.&quot;</strong> 即：梯度层面是零数据，但超参选择层面不是严格零数据。</p>
+</li>
+</ol>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>概念上干净的迁移实验</strong>：tabula rasa（两个模型都随机初始化、训练零自然数据）让「zero-shot 迁移到自然数据」成为对&quot;普适结构能否从算力里凭空长出来&quot;的干净检验。这个实验设计本身就是贡献。</li>
+<li><strong>奖励设计有洞见且被消融充分支撑</strong>：学习进度奖励（梯度-轨迹对齐 + AdamW 预条件）避开了「奖励难度」的退化模式，Table 5 的 7 行消融（尤其 <code>negate</code>、<code>shuffle</code>）把它钉得很实。</li>
+<li><strong>机制证据到位</strong>：不只给缩放曲线，还给出「生成器远早于均匀采样发现数列」（Table 1）+「ICL 可解释轨迹」（Fig 5）+「epiplexity 随训练上升」（Fig 3）三条独立证据，支撑&quot;确实在产出可迁移结构&quot;这一因果主张。</li>
+<li><strong>工程上认真</strong>：为了让 per-program 奖励可算，专门上 forward-mode AD（JVP flash-attention），而不是 <span class="math inline">\(N\)</span> 次 backward。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>规模是最大的问号</strong>：全部 &lt; 25M 参数、4K 上下文。作者自己把&quot;这些结果能否在更大模型上持续&quot;列为最紧迫的未知。小模型上「普适结构是瓶颈」很可能不代表大模型的真实制约。</li>
+<li><strong>DNA 指数 0.435 极其可疑</strong>：文献 DNA 缩放指数是 0.01–0.06，本文高出<strong>近一个数量级</strong>。这大概率是评测口径差异（本文 DNA benchmark 是 8 符号压缩字母表、255 符号窗口，天然易压）而非真实的&quot;自对弈在 DNA 上特别强&quot;。论文把它标为&quot;exceptional case&quot;但解释偏轻。这类跨设置的指数对比（Table 2）整体要谨慎读。</li>
+<li><strong>&quot;Zero Data&quot; 有星号</strong>：超参选择用了 DCLM+DNA 验证损失。梯度层面确实零数据，但完整 pipeline 不是严格 zero——标题的强主张需要这个脚注。</li>
+<li><strong>算力换数据是否划算，未正面回答</strong>：这是&quot;用算力替代数据&quot;的极端点，但没有和&quot;直接花同样算力在自然数据上训&quot;做等算力对比。pre-pretraining 的加速收益在训练后期还会收窄（Fig 6）。</li>
+<li><strong>可复现性</strong>：官方未放训练代码，且关键常数（纸带长度）论文没写清、需从释放的 hits 反推、且无单一尺寸能完全吻合。本文的代码结论全部依赖第三方复现。</li>
+<li><strong>语言上打不过特化先验</strong>：PCFG 在文本 / 代码上反超（Fig 2）——&quot;普适&quot;的代价是对任一具体模态都不是最优。作为通用预训练替代品，这是硬伤。</li>
+<li><strong>成本</strong>：每轮都要对整个程序池算一次 JVP 前向 + 学习器一步 + 生成器一步，还要维护 MAP-Elites 档案和回放库——per-round 开销不低。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>适合</strong>：研究「合成 / 算法数据能教会模型什么普适结构」；给数据稀缺模态（低资源语言、稀有信号）做廉价的 pre-pretraining warm start；把 curriculum learning 里的&quot;前沿&quot;用一个可算的梯度对齐信号来操作化。</li>
+<li><strong>不适合</strong>：当作现成的、能替代自然数据预训练的生产方法（规模未验证、语言上打不过特化先验、等算力性价比未知）；需要&quot;偶然信息&quot;（世界事实）的任务——普适预训练<strong>原理上</strong>补不了这一块。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p><strong>交叉验证比较 (Cross-validation against similar work)</strong> — 这篇处在「用算法 / 合成数据做普适预训练」和「自对弈 / 内在动机课程」两条线的交点，挑 4 篇最相关的对照结论与观察：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>核心结论</th>
+<th>关键观察</th>
+<th>与本文的异 / 同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本文 (SPZD)</strong></td>
+<td>从零数据 + 自适应 RL 课程，可在 6 类自然模态上得到与自然数据相当的 zero-shot 幂律缩放</td>
+<td>固定通用先验缩放极慢；生成器远早于均匀采样发现数列</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Bloem 2025《Universal pre-training by iterated random computation》(arXiv 2506.20057)</td>
+<td>从零自然数据、用<strong>迭代随机计算</strong>产序列训练，也能随规模改善 zero-shot 预测</td>
+<td>分布是<strong>固定、非自适应</strong>的</td>
+<td><strong>同</strong>: 都主张算法数据能凭空长出可迁移结构。<strong>异</strong>: 本文把分布做成 RL 自适应课程；本文的 Fig 2 正好证明&quot;固定分布缩放慢&quot;，即本文相对它的增量就是自适应性</td>
+</tr>
+<tr>
+<td>Grau-Moya et al. 2024《Learning universal predictors》(arXiv 2401.14953)</td>
+<td>在 UTM 采样程序的输出上训神经网络，可摊销 Solomonoff 式普适预测，迁移到 held-out 算法过程</td>
+<td>程序分布<strong>固定</strong>（从 UTM 先验采样）</td>
+<td><strong>同</strong>: 同样用 UTM 程序输出当训练数据、同样引 Solomonoff。<strong>异</strong>: 他们不自适应、主要测算法过程；本文联合学习分布并测更广的自然模态 + 拟合缩放律</td>
+</tr>
+<tr>
+<td>Zhao et al. 2025《Absolute Zero》(arXiv 2505.03335)</td>
+<td>自对弈 + 零（人类）数据也能提升推理</td>
+<td>从<strong>预训练 LLM</strong> 出发、聚焦代码 / 推理任务、用可验证奖励</td>
+<td><strong>同</strong>: &quot;zero data&quot; 自对弈的旗号一致。<strong>异</strong>: 本文是<strong>预训练本身</strong>（从随机初始化、学字节级预测），不是在已预训练模型上做推理微调</td>
+</tr>
+<tr>
+<td>Poesia et al. 2024《Formal math from intrinsic motivation》(arXiv 2407.00695)</td>
+<td>内在动机（学习进度式奖励）能从零驱动形式数学的课程</td>
+<td>领域限定在形式数学</td>
+<td><strong>同</strong>: 都用&quot;学习进度&quot;当内在奖励、都从零训。<strong>异</strong>: 本文的奖励是梯度-轨迹对齐（可算、模态无关），且目标是通用字节预测而非单一形式域</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧的可能成因</strong>：这几篇结论方向一致（算法 / 合成数据能教普适结构），差异主要来自三处设置——(1) <strong>分布是否自适应</strong>（Bloem/Grau-Moya 固定 vs 本文 RL 学习），这解释了缩放速度差异；(2) <strong>起点</strong>（从零 vs 从预训练模型），决定了是&quot;预训练替代&quot;还是&quot;后训练增强&quot;；(3) <strong>评测口径</strong>（算法过程 vs 广谱自然模态 vs 推理基准），决定了指数能否直接横向比——本文 Table 2 与文献指数的对比就因这一点需打折扣（尤其 DNA）。</p>
+<p><strong>相关工作 (Related work)</strong></p>
+<ul>
+<li>Finzi et al. 2026《From entropy to epiplexity》(arXiv 2601.03220) — 本文用它的 epiplexity 度量验证生成器产出结构随训练增加。</li>
+<li>Papadimitriou &amp; Jurafsky 2020《Learning music helps you read》— 非语言 / 形式结构预训练迁移到语言的早期证据。</li>
+<li>Hu et al. 2025《Pre-training on formal languages imparts linguistic biases》— 形式语言预训练注入语言学偏置。</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-6-1">1. 把"前沿课程"操作化成梯度对齐</h3><p>「教学习器它<em>正在</em>学的方向上的新东西」可以不靠启发式，而用一个可算的信号：新样本梯度与学习器近期参数位移在 AdamW 内积下的对齐度。这个奖励在任何自生成课程 / 主动学习里都可复用。</p></div>
+  <div class="card"><h3 id="sec-6-2">2. 同一切向量 → 用 forward-mode AD 批量算方向导数</h3><p>当你要对一大批样本算"梯度在同一个方向上的投影"（如影响函数、课程打分），别做 N 次 backward——用 JVP 一次前向拿到整个向量。工程上省一个数量级。</p></div>
+  <div class="card"><h3 id="sec-6-3">3. 把动作空间设计成"永不失败"</h3><p>用 Brainf*ck 变体当 RL 动作空间的关键是：任意 token 串都合法、都终止、都有界。想把"程序 / 结构"当 RL 动作，先消灭所有异常路径，采样器才不会浪费在无效动作上。</p></div>
+  <div class="card"><h3 id="sec-6-4">4. 反直觉点：奖励"难度"会被随机噪声黑掉</h3><p>直觉上该奖励"难预测的序列"，但注入随机字节就能免费造难度。真正该奖励的是"可学的进步"而非"难度"——这个陷阱在很多 curiosity / hard-example mining 里都存在。</p></div>
+  <div class="card"><h3 id="sec-6-5">5. 反直觉点：普适 ≠ 最优</h3><p>特化的固定先验（PCFG）在语言上反超普适自适应搜索。自适应买广度、特化买深度——做通用系统时别默认"更普适就更好"。</p></div>
+  <div class="card"><h3 id="sec-6-6">6. 数据 = 偶然信息 + 普适结构</h3><p>把"数据缩放收益"拆成"世界事实 $D_c$"和"跨过程结构 $D_u$"两项资源，是理解"为什么不同分布的合成数据也能帮预训练"的好透镜——合成数据主要在补 $D_u$。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
