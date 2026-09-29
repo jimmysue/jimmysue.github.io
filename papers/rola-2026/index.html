@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h3"><a href="#sec-1-1">术语速查</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 旋转低秩线性分支(核心公式)</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 设计一:RoPE 放在非线性外面(RoPE Outside the Activation)</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 设计二:截断旋转频率表(Rank Truncation)</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 分布感知门控融合</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 机制验证:只有 outside-RoPE 同时&quot;位置感知 + 平移不变&quot;</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 rank 到 64 保真度饱和</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 生成质量:90% 稀疏逼近稠密,2.63× 加速</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 消融:SiLU 最优,rank 单调,outside 唯一正确</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-21</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-21</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Zekun Zhang, Yixiang Cai, Yuxi Liu, Tengxu Sun, Tianle Liu, Zhoutong Wu, Haoyu Li, Baole Ai, Ang Wang, Jiamang Wang, Lin Qu, Kun Yuan</span> · <span class="post-meta__venue">arXiv 2026 (Peking University · Tsinghua · Alibaba Group)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.06712">arXiv:2609.06712</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/linear-attention.html">linear-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/gated-fusion.html">gated-fusion</a> <a class="concept-chip" href="../../concepts/rms-norm.html">rms-norm</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture.png" alt="RoLA 架构总览：(a) 稠密 3D-RoPE 注意力分解为稀疏 top-k spikes + 残差背景；(b) 用稀疏分支+旋转低秩分支+门控替换预训练 DiT 块的稠密注意力，单阶段全量微调、零新位置嵌入、复用截断骨干 RoPE；(c) 旋转低秩分支（Q/K 归一化→低秩投影 P_q/P_k→SiLU→截断 3D RoPE→全局上下文 C=ΣkVᵀ→RMSNorm）与分布感知门控融合（O_s/r + g·O_lr 再乘回 r，gate bias<0 初始近稀疏基线）">
+  <figcaption>
+    <strong>Fig. 2</strong> — 架构总览。<strong>(a)</strong> 稠密 3D-RoPE 注意力可看成「稀疏 top-k 尖峰 + 平滑残差背景」——这个分解 RoLA 沿用前人、不算贡献。<strong>(b)</strong> 只替换预训练 DiT 块的稠密注意力:稀疏分支 + 旋转低秩分支 + 门控,<em>单阶段全量微调、零新位置嵌入、复用截断的骨干 RoPE</em>。<strong>(c)</strong> RoLA 的真正贡献在低秩分支的<strong>形式</strong>:Q/K 先归一化 → 低秩投影 $P_q,P_k$(rank-r)→ SiLU → <strong>截断 3D RoPE(在 SiLU 之后!)</strong>→ 全局上下文 $C=\sum \tilde k v^\top$ → RMSNorm;门控融合 $O=(O_s/r + g\cdot O_{lr})\,r$,门偏置初始化为负数,起点几乎是纯稀疏基线。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>矛盾</h3><p><strong>RoPE 两难</strong>:线性注意力要「与 query 无关、可复用的全局摘要」,3D-RoPE 要「位置相关的旋转」。先旋转再过非线性 → 二者不对易 → 摘要被绝对位置污染。</p></div>
+  <div class="card"><h3>解法</h3><p>把 RoPE 放到非线性<strong>外面</strong>(先 SiLU、再旋转)+ 复用预训练 RoPE 频率表的前 r 个坐标(r=64)。真正的跨 token 线性聚合 + 相对几何,零新位置参数。</p></div>
+  <div class="card"><h3>验证</h3><p>outside-RoPE 的位置核紧贴全注意力带状衰减,shift 残差 $1.8\times10^{-5}$(inside $3.7\times10^{-1}$);rank 到 64 保真度饱和(cos 0.93)。</p></div>
+  <div class="card"><h3>结果</h3><p>Wan2.1-14B-720P 90% 稀疏:VBench 逼近稠密、端到端 2.63×(H100)。是 <a href="../sparkdiffusion-2026/index.html">SparkDiffusion</a> 的默认稀疏模块。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>视频 DiT 的稠密时空自注意力是 <span class="math inline">\(O(L^2)\)</span>,序列一长(<span class="math inline">\(L\gtrsim 10^4\)</span>)就成推理瓶颈。<strong>稀疏注意力</strong>只算一小撮 query–key 交互来降本,但激进稀疏会丢掉「弱但整体重要」的长程上下文,损伤语义一致性、运动连贯、场景布局。于是有了<strong>稀疏–线性混合(sparse-linear hybrid)</strong>:给稀疏局部分支旁边挂一条便宜的<strong>全局线性分支</strong>,把丢掉的全局上下文捞回来(SLA、SALAD 等)。</p>
+<p>线性注意力便宜的关键在于:它能算一个<strong>与 query 无关的全局摘要</strong> <span class="math inline">\(C=\sum_q \phi(k_q)v_q^\top\)</span>,<strong>一次算好、所有 query 复用</strong>——这就把 <span class="math inline">\(O(L^2)\)</span> 降成 <span class="math inline">\(O(L)\)</span>。但视频 DiT 用 <strong>3D RoPE</strong> 编码位置:它把 head 维切给时/空三个轴,用<strong>位置相关的正交旋转</strong> <span class="math inline">\(R(p)\)</span> 表达相对几何。RoPE 的好处是相对性(公式 (1)):</p>
+<div class="math block">
+\[s_{p,q} = \tfrac{1}{\sqrt{d_h}}\langle R(p)q_p, R(q)k_q\rangle = \tfrac{1}{\sqrt{d_h}}\langle q_p, R(q-p)k_q\rangle\]
+</div>
+<p class="math-translation">—— 翻译:$p$ 位置的 query 和 $q$ 位置的 key 之间的注意力分数,只依赖它们的<strong>相对偏移</strong> $q-p$(因为两个旋转拼起来变成一个"差"的旋转)。这是 RoPE 的灵魂——用绝对位置的旋转,表达出相对位置的几何。</p>
+<p>矛盾就在这儿。论文管它叫 <strong>RoPE Dilemma(RoPE 两难)</strong>:</p>
+<blockquote>
+<p>如果按常规把 RoPE 塞进线性分支——先旋转再过非线性 <span class="math inline">\(\phi\)</span>,形成 key 侧摘要 <span class="math inline">\(\sum_q \phi(R(q)k_q)v_q^\top\)</span>——<strong>当 <span class="math inline">\(\phi\)</span> 是逐点非线性时,旋转和非线性一般不对易</strong>,摘要就会以&quot;无法干净地吸收进相对偏移&quot;的方式依赖绝对位置。于是<strong>你没法同时既保住相对旋转几何、又维持一个可复用的线性时间摘要</strong>。</p>
+</blockquote>
+<p>已有的绕法(RoPeSLR)是:干脆<strong>不做跨 token 聚合</strong>,把全局分支换成「逐 token 坐标 MLP + 可学习的绝对位置嵌入」,用绝对坐标去<strong>模仿</strong>相对衰减。能用,但两个代价:(1) 相对衰减是&quot;模仿&quot;出来的,不是全局分支本身表达的;(2) 丢了可复用的线性注意力视角,还多引入位置参数。</p>
+<p>于是 RoLA 问了个更窄的问题:<strong>能不能造一个真正的线性全局分支,同时兼容 3D 相对位置结构?</strong></p>
+<div class="glossary">
+<h3 id="sec-1-1">术语速查</h3>
+<dl>
+<dt>3D RoPE(三维旋转位置编码)</dt><dd>把注意力 head 维切给时间/高/宽三个轴,每个 token 按其时空坐标做一个块对角正交旋转 $R(p)$。旋转的正交性让注意力分数只依赖相对偏移 $q-p$。</dd>
+<dt>linear attention(线性注意力)</dt><dd>把 $\text{softmax}(QK^\top)V$ 近似成 $\phi(Q)(\phi(K)^\top V)$,先算 $K^\top V$ 的全局摘要再乘 $Q$,复杂度从 $O(L^2)$ 降到 $O(L)$。关键前提:那个摘要**与 query 无关、可复用**。</dd>
+<dt>RoPE Dilemma(RoPE 两难)</dt><dd>本文命名的核心矛盾:线性注意力要「可复用摘要」、RoPE 要「位置相关旋转」;先旋转再过非线性,二者不对易,摘要被绝对位置污染。</dd>
+<dt>sparse-linear hybrid(稀疏–线性混合)</dt><dd>稀疏局部分支(抓高能尖峰)+ 线性全局分支(捞回被稀疏丢掉的平滑背景),门控融合。RoLA 属于这类,创新在全局分支的形式。</dd>
+<dt>outside/inside activation(非线性外/内)</dt><dd>指 RoPE 旋转相对逐点非线性 $\phi$ 的先后。inside = 先旋转再 $\phi$(污染);outside = 先 $\phi$ 再旋转(RoLA 的选择,保相对几何)。</dd>
+<dt>shift-invariance(平移不变 / shift 残差)</dt><dd>把一对 (query,key) 整体平移同样的偏移,注意力分数应不变(因为只看相对偏移)。shift 残差越接近 0,说明分支只依赖相对位置、不泄漏绝对位置。</dd>
+<dt>block-sparse(块稀疏)</dt><dd>把注意力矩阵切块,只算一小撮高能块。RoLA 的稀疏分支沿用现成 SLA/VMoBA,不是它的贡献。</dd>
+<dt>genuine cross-token routing(真正的跨 token 路由)</dt><dd>全局分支真的在 token 之间聚合信息($C=\sum_q \tilde k_q v_q^\top$),而不是像 RoPeSLR 那样用逐 token 坐标 MLP 伪造全局效应。</dd>
+</dl>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>RoLA 把注意力拆成两条互补分支:<strong>块稀疏分支</strong>(抓高能语义尖峰,沿用现成 SLA/VMoBA,不是贡献)+ <strong>旋转低秩线性分支</strong>(重建平滑全局背景,是贡献)。作者反复强调:「稀疏 + 低秩」这个分解本身是前人的,<strong>RoLA 的贡献是低秩分支的形式</strong>——两个精确到位的设计选择。</p>
+<h3 id="sec-2-1">2.1 旋转低秩线性分支(核心公式)</h3>
+<p>设 <span class="math inline">\(q_p^n=\text{norm}_q(q_p)\)</span>、<span class="math inline">\(k_q^n=\text{norm}_k(k_q)\)</span> 是主路归一化、<strong>未旋转</strong>的 query/key。低秩分支算:</p>
+<div class="math block">
+\[\tilde q_p = R_r(p)\,\text{SiLU}(P_q q_p^n),\quad \tilde k_q = R_r(q)\,\text{SiLU}(P_k k_q^n)\]
+</div>
+<div class="math block">
+\[C = \sum_{q=1}^{L} \tilde k_q v_q^\top \in \mathbb{R}^{r\times d_h},\quad O_p^{lr} = \text{RMSNorm}(\tilde q_p^\top C)\]
+</div>
+<p class="math-translation">—— 翻译:先用 $P_q,P_k$(rank-r 投影)把 $q,k$ 压到 r 维、过 SiLU,<strong>然后</strong>才旋转 $R_r$(注意顺序!);$C=\sum_q \tilde k_q v_q^\top$ 是把所有 key–value 压成一个 $r\times d_h$ 的「全局摘要矩阵」,<strong>每 head 只算一次</strong>;每个 query 用 $\tilde q_p^\top C$ 去读它,复杂度 $O(Lrd_h)$,对 $L$ 线性。value $v_q$ 不旋转。</p>
+<p>有<strong>两个</strong>地方和标准线性注意力/RoPeSLR 都不同:(1) 旋转 <span class="math inline">\(R_r\)</span> 只作用在<strong>低秩特征</strong>上(不是整个 head 维);(2) 旋转在<strong>非线性 SiLU 之后</strong>。下面两小节分别讲清这两个选择。</p>
+<h3 id="sec-2-2">2.2 设计一:RoPE 放在非线性外面(RoPE Outside the Activation)</h3>
+<p>这是全文的题眼。RoLA 先做低秩投影 + SiLU,<strong>再</strong>旋转。动机是一句极干净的「职责分离」:</p>
+<blockquote>
+<p>非线性低秩映射负责抽<strong>与位置无关的内容特征</strong>,RoPE 只当一个<strong>纯相对位置算子</strong>。当旋转在非线性之后,全局上下文 <span class="math inline">\(C\)</span> 照样能累加一次、被所有 query 复用;位置效应只在 query <strong>读出</strong> <span class="math inline">\(C\)</span> 时才出现。</p>
+</blockquote>
+<p>反过来,如果先旋转再过非线性,旋转和逐点激活不对易,位置信息在全局聚合<strong>之前</strong>就和内容纠缠,key 侧摘要就会依赖绝对位置(附录 B.3 给了个&quot;无法精确因子化&quot;的阻碍论证)。</p>
+<p>代码里这个顺序一目了然——<code>F.silu(proj)</code> 在前,<code>_apply_rope_rank</code> 在后:</p>
+<p class="code-source">repo/sparkdiffusion/networks/wan_rola_attention.py:L366-L391 — 低秩分支:SiLU 在前、RoPE 在后(outside activation)</p>
+<pre><code class="language-python">def _lowrank_attn(self, q_normed_bhld, k_normed_bhld, v_bhld, freqs):
+    # 1) 低秩投影 + 非线性 —— φ(P_q q^n),抽&quot;位置无关的内容特征&quot;
+    q_lr = F.silu(self.proj_q(q_normed_bhld))  # [B, H, L, rank]
+    k_lr = F.silu(self.proj_k(k_normed_bhld))  # [B, H, L, rank]
+
+    # 2) RoPE 在 SiLU 之后 —— R_r 只当&quot;相对位置算子&quot;,不与非线性纠缠
+    q_lr = self._apply_rope_rank(q_lr, freqs)
+    k_lr = self._apply_rope_rank(k_lr, freqs)
+
+    # 3) 全局摘要 C = Σ k̃ vᵀ 累加一次;q̃ᵀC 对 L 线性,所有 query 复用同一个 C
+    c = k_lr.transpose(-2, -1) @ v_bhld  # [B, H, rank, D]
+    out = q_lr @ c                        # [B, H, L, D]
+    return F.rms_norm(out, [out.shape[-1]])
+</code></pre>
+<p>机制实验(§3)直接量化了这个选择的对错:outside 顺序的位置核<strong>紧贴全注意力的带状相对衰减</strong>、shift 残差近零;inside 顺序泄漏绝对位置。<strong>这不是&quot;消融里略好&quot;,而是&quot;只有这一个顺序在结构上正确&quot;。</strong></p>
+<h3 id="sec-2-3">2.3 设计二:截断旋转频率表(Rank Truncation)</h3>
+<p>投影后的特征只有 <span class="math inline">\(r\)</span> 维(<span class="math inline">\(r=64\ll d_h=128\)</span>)。RoPE 作用在 2D 旋转对上,所以低秩分支只能承载 <span class="math inline">\(r/2\)</span> 个旋转对,<strong>装不下完整的 <span class="math inline">\(d_h\)</span> 维频率表</strong>。RoLA 的做法:<strong>直接复用预训练 RoPE 频率表在骨干原生排序下的前 <span class="math inline">\(r\)</span> 个坐标</strong>(即 <span class="math inline">\(r/2\)</span> 个完整旋转对),不重排、不重学、不加任何位置参数。</p>
+<p>代码里就是 <code>rope_dim = min(r // 2, freqs.shape[-1])</code> 一句——只取前 <span class="math inline">\(r/2\)</span> 个频率,其余维度不旋转:</p>
+<p class="code-source">repo/sparkdiffusion/networks/wan_rola_attention.py:L344-L364 — 截断 RoPE:只旋转前 r/2 个坐标对,复用骨干 freqs</p>
+<pre><code class="language-python">r = self.rola_rank
+rope_dim = min(r // 2, freqs.shape[-1])     # 只取前 r/2 个旋转对
+freqs_r = freqs[:L, :rope_dim].to(x.dtype)  # 复用骨干原生 freqs,不重排不重学
+cos, sin = torch.cos(freqs_r), torch.sin(freqs_r)
+
+x_rot = x[..., : 2 * rope_dim]                        # 前 2*rope_dim 维参与旋转
+x1, x2 = x_rot.unflatten(-1, (-1, 2)).unbind(-1)      # 交错配对 (x0,x1),(x2,x3)...
+out = torch.empty_like(x_rot)
+out[..., 0::2] = x1 * cos - x2 * sin                  # 标准 2D 旋转
+out[..., 1::2] = x1 * sin + x2 * cos
+if 2 * rope_dim &lt; r:                                  # rank 富余的尾部不旋转,直接拼回
+    out = torch.cat([out, x[..., 2 * rope_dim:]], dim=-1)
+</code></pre>
+<p>为什么 <span class="math inline">\(r=64\)</span> 够?直觉是:全局分支主要建模平滑可压缩的背景,其位置结构能被一个缩减的旋转子空间抓住。§3 的保真度扫描证实:cos 相似度到 <span class="math inline">\(r=64\)</span> 就饱和(温度轴 0.55→0.80→0.93,高度轴 0.19→0.60→0.93)。</p>
+<h3 id="sec-2-4">2.4 分布感知门控融合</h3>
+<p>稀疏输出 <span class="math inline">\(O^s\)</span> 和全局低秩输出 <span class="math inline">\(O^{lr}\)</span> 融合前要做方差稳定。用一个<strong>逐 token 标量门</strong> <span class="math inline">\(g=\sigma(XW_g+b_g)\in(0,1)^{L\times1}\)</span>,并用稀疏输出的 RMS 作为逐 token 尺度参考:</p>
+<div class="math block">
+\[r_p = \sqrt{\tfrac{1}{d_h}\sum_i (O^s_{p,i})^2 + \epsilon},\quad O_p = \left(\tfrac{O^s_p}{r_p} + g_p\, O^{lr}_p\right) r_p\]
+</div>
+<p class="math-translation">—— 翻译:门只是一个标量,只调低秩分支的<strong>幅度</strong>、不改它的通道方向。$r_p$ 是稀疏输出的 RMS——除以它把稀疏分支归一化,加上门控的全局修正后再乘回去,还原原始 token 尺度。门偏置 $b_g$ 初始化为负,所以模块起点几乎是纯稀疏基线,低秩贡献在微调中逐渐引入。</p>
+<p>代码里 <code>gate_bias</code> 初始化 <code>-1.946</code>(<span class="math inline">\(\sigma(-1.946)\approx0.125\)</span>)正是这个&quot;负偏置、初始近稀疏&quot;:</p>
+<p class="code-source">repo/sparkdiffusion/networks/wan_rola_attention.py:L261-L269 — 新参数 Θ_new 初始化:proj kaiming、gate 零权重+负偏置</p>
+<pre><code class="language-python">self.proj_q = nn.Linear(h, r, bias=False)   # P_q
+self.proj_k = nn.Linear(h, r, bias=False)   # P_k
+self.gate_proj = nn.Linear(h, 1, bias=False)                  # W_g
+self.gate_bias = nn.Parameter(torch.full((1, num_heads, 1, 1), -1.946))  # b_g &lt; 0
+
+nn.init.kaiming_uniform_(self.proj_q.weight, a=math.sqrt(5))
+nn.init.kaiming_uniform_(self.proj_k.weight, a=math.sqrt(5))
+nn.init.zeros_(self.gate_proj.weight)        # 门权重零初始化 → 起点纯稀疏
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<h3 id="sec-3-1">3.1 机制验证:只有 outside-RoPE 同时&quot;位置感知 + 平移不变&quot;</h3>
+<p>这是 RoLA 最有说服力的部分——不靠下游指标,直接在真实 Wan Q/K 特征上量化位置核。</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-positional-kernels.png" alt="四联位置核热图：全注意力呈清晰带状相对衰减；outside-RoPE 低秩分支紧贴这个带状模式；inside-RoPE 仍有结构但扭曲了相对几何；no-RoPE 塌成近乎均匀的位置盲响应">
+  <figcaption>
+    <strong>Fig. 3</strong> — 内容受控的位置核(温度切片)。从左到右:全注意力、outside-RoPE(本文)、inside-RoPE、no-RoPE。<strong>只有 outside 紧贴全注意力的带状相对衰减</strong>;inside 仍有结构但扭曲了相对几何;去掉 RoPE 则塌成近乎均匀的位置盲响应。
+  </figcaption>
+</figure>
+<p>Table 2 把它量化成两个数:一个分支要保相对位置,应该<strong>既对相对偏移有非平凡依赖(offset range 大)、又对整体平移几乎不变(shift 残差近零)</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>RoPE 顺序</th>
+<th>Shift 残差 ↓</th>
+<th>Offset range(位置感知)</th>
+<th>行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No RoPE</td>
+<td>0.0</td>
+<td>0.0</td>
+<td>位置盲</td>
+</tr>
+<tr>
+<td>Inside activation</td>
+<td><span class="math inline">\(3.7\times10^{-1}\)</span></td>
+<td>0.47</td>
+<td><strong>泄漏绝对位置</strong></td>
+</tr>
+<tr>
+<td><strong>Outside activation(本文)</strong></td>
+<td><span class="math inline">\(\mathbf{1.8\times10^{-5}}\)</span></td>
+<td>0.47</td>
+<td><strong>相对 / 平移不变</strong></td>
+</tr>
+</tbody>
+</table>
+<p>outside 和 inside 有一样的 offset range(0.47,都位置感知),但 shift 残差差了<strong>四个数量级</strong>——inside 把绝对位置泄漏进了摘要,outside 没有。这就是 RoPE 两难的实证解决。</p>
+<h3 id="sec-3-2">3.2 rank 到 64 保真度饱和</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-rank-fidelity.png" alt="两联折线图：(a) 保留 rank r 的截断 RoPE 算子对全算子(r=128)的中心化余弦相似度，温度轴和高度轴都在 r=64 处逼近 1；(b) 中心化归一化 L2 误差在 r=64 处落到近零。红色虚线标注 r=64">
+  <figcaption>
+    <strong>Fig. 4</strong> — 截断 rank-$r$ RoPE 算子相对全算子($r=128$)的保真度。中心化余弦(左,↑)与归一化 $L_2$ 误差(右,↓)都在 $r=64$ 处饱和——这就是默认取 64 的依据:再往上到 128 只有边际提升。
+  </figcaption>
+</figure>
+<h3 id="sec-3-3">3.3 生成质量:90% 稀疏逼近稠密,2.63× 加速</h3>
+<p>Table 4:在 Wan2.1-1.3B(480p)和 14B(720p)上,匹配 90% 稀疏度,RoLA 在多数 VBench 维度和帧级保真(PSNR/SSIM/LPIPS)上<strong>同时优于 VSA、SLA、RoPeSLR</strong>,且延迟最低。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>方法</th>
+<th>SC↑</th>
+<th>IQ↑</th>
+<th>AQ↑</th>
+<th>PSNR↑</th>
+<th>LPIPS↓</th>
+<th>延迟↓</th>
+<th>稀疏</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>14B-720P</td>
+<td>Full(稠密)</td>
+<td>0.9698</td>
+<td>0.6996</td>
+<td>0.6319</td>
+<td>–</td>
+<td>–</td>
+<td>1075.7s</td>
+<td>0%</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td>VSA</td>
+<td>0.9010</td>
+<td>0.6012</td>
+<td>0.5998</td>
+<td>24.27</td>
+<td>0.130</td>
+<td>717.1s</td>
+<td>90%</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td>SLA</td>
+<td>0.9481</td>
+<td>0.6398</td>
+<td>0.6052</td>
+<td>26.02</td>
+<td>0.124</td>
+<td>601.0s</td>
+<td>90%</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td>RoPeSLR</td>
+<td>0.9601</td>
+<td>0.6627</td>
+<td>0.6102</td>
+<td>26.33</td>
+<td>0.118</td>
+<td>598.3s</td>
+<td>90%</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td><strong>RoLA</strong></td>
+<td><strong>0.9629</strong></td>
+<td><strong>0.6783</strong></td>
+<td><strong>0.6294</strong></td>
+<td><strong>28.65</strong></td>
+<td><strong>0.108</strong></td>
+<td><strong>409.3s</strong></td>
+<td>90%</td>
+</tr>
+</tbody>
+</table>
+<p>409.3s vs 稠密 1075.7s = 端到端 <strong>2.63×</strong>(H100,DiT 去噪部分)。尤其 PSNR 28.65 明显高于 RoPeSLR 的 26.33——<strong>真正的跨 token 路由比&quot;绝对坐标模仿&quot;更接近稠密输出</strong>,和 §3.1 的机制保真度一致。</p>
+<h3 id="sec-3-4">3.4 消融:SiLU 最优,rank 单调,outside 唯一正确</h3>
+<ul>
+<li><strong>激活函数</strong>(Table 6,用融合输出对稠密输出的对齐 rel-L2 度量,稀疏-only 基线是 0.612):SiLU 0.521 最低,GELU 0.522、ReLU 0.534、Tanh/Identity 0.525——<strong>平滑非线性有益</strong>,但差距不大,说明&quot;outside 顺序&quot;比&quot;具体用哪个非线性&quot;重要得多。</li>
+<li><strong>rank</strong>(Table 5):下游 VBench 随 rank 单调升到 64,之后边际——和算子保真度(Fig 4)完全同步。</li>
+<li><strong>RoPE 顺序</strong>(Table 2):只有 outside 同时满足两条件。</li>
+</ul>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<ol>
+<li>
+<p><strong>单阶段全量微调,不是两阶段</strong>(<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L278-L287</a>):新参数 <span class="math inline">\(\Theta_{new}=\{P_q,P_k,W_g,b_g\}\)</span>——proj kaiming 初始化、<span class="math inline">\(W_g\)</span> 零、<span class="math inline">\(b_g\)</span> 负;替换注意力模块后<strong>和骨干一起联合优化</strong>(骨干用小学习率),在标准 flow-matching 目标下训。这和 RoPeSLR 的两阶段策略不同(§E.1 讨论了理由)。注意代码里 <code>init_weights()</code> 专门重设这些参数,因为 <code>WanModel.init_weights()</code> 会用 xavier 覆盖所有 Linear——一个容易踩的初始化覆盖坑。</p>
+</li>
+<li>
+<p><strong>推理用两个融合 Triton kernel,按 even/odd 拆权重</strong>(§4.5):因为 RoPE 作用在偶/奇坐标对上,把每个投影权重<strong>离线拆成偶行和奇行</strong>,当成两个纯 2D matmul 处理,保持稠密矩阵乘、避免不规则索引。Kernel 1 累加 <span class="math inline">\(C_{even}=\sum \tilde k_q^{even}v_q^\top\)</span>、<span class="math inline">\(C_{odd}=\sum \tilde k_q^{odd}v_q^\top\)</span>;Kernel 2 形成 <span class="math inline">\(O_p^{lr}=\tilde q_p^{even}C_{even}+\tilde q_p^{odd}C_{odd}\)</span> 并做逐 token RMSNorm。论文声明这&quot;精确复现公式 (2)(3)&quot;。</p>
+</li>
+<li>
+<p><strong>RMSNorm 放在聚合之后</strong>(<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L391</a>):<code>F.rms_norm(out, ...)</code> 在 <span class="math inline">\(\tilde q^\top C\)</span> 之后,只做数值稳定;论文特意说明相对位置分析针对的是 <strong>pre-RMSNorm 的 logits</strong>,RMSNorm 只是读出通道上的稳定层,不影响相对几何结论。</p>
+</li>
+<li>
+<p><strong>value 不旋转</strong>(<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L388</a>):<span class="math inline">\(C=\tilde k^\top v\)</span> 里 <code>v_bhld</code> 直接用骨干 value,没有过 RoPE——只有 <span class="math inline">\(\tilde q,\tilde k\)</span> 带旋转,符合公式 (3) 里&quot;<span class="math inline">\(v_q\)</span> is not rotated&quot;。</p>
+</li>
+<li>
+<p><strong>训练/推理走不同稀疏 kernel</strong>(<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L293-L327</a>):训练用外部 SLA 的 BF16 精确 kernel(需环境变量 <code>SLA_SRC</code> 指向外部 checkout,没设直接 <code>RuntimeError</code>),推理走 <code>fused_forward</code> 里的自研 Triton 融合路径。<strong>这份开源代码不自带稀疏训练 kernel</strong>。</p>
+</li>
+</ol>
+<p><strong>paper↔code 说明(非矛盾)</strong>:RoLA 论文和 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a> 共用同一个 <code>SparkDiffusion</code> 仓库(同一 Alibaba 团队),<code>WanSelfAttentionRoLa</code> 就是两篇论文共享的实现。所以这里引的代码和 SparkDiffusion 那篇是同一份——RoLA 是&quot;架构&quot;,SparkDiffusion 是&quot;用这个架构 + 蒸馏 + FP8 的完整加速栈&quot;。没有独立的 RoLA 仓库(6 种代码发现策略全试过,论文本身只指向 SparkDiffusion repo)。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>诊断清晰、命名精准</strong>。&quot;RoPE Dilemma&quot;把一个真实但少被点破的结构性矛盾(旋转与非线性不对易)命名并形式化,是那种能进后续论文词汇表的概念。</li>
+<li><strong>机制验证比下游指标更硬</strong>。§3.1 不满足于&quot;VBench 高了&quot;,而是直接量化位置核的 shift 残差(<span class="math inline">\(1.8\times10^{-5}\)</span> vs <span class="math inline">\(3.7\times10^{-1}\)</span>,四个数量级)——把&quot;outside 顺序正确&quot;钉成可测量的物理性质,而非调参运气。</li>
+<li><strong>零新增位置参数</strong>。复用预训练 RoPE 频率表的前 r 个坐标,不引入 RoPeSLR 那样的可学习绝对位置嵌入——既省参数又保持和骨干同一几何尺度。</li>
+<li><strong>能力矩阵诚实</strong>(Table 1):明确列出 RoLA 相对 SLA/VSA/RoPeSLR 各占哪些格子,而不是笼统说&quot;更好&quot;。且反复声明&quot;稀疏+低秩分解不是我们的贡献&quot;、&quot;附录里的结构性 sanity check 不是理论保证&quot;——学术克制。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>只在两个 Wan 模型上验证</strong>。作者自己在 Limitations 里承认。对 HunyuanVideo、CogVideoX 等其他 3D-RoPE 骨干是否直接迁移,是开放问题。</li>
+<li><strong>附录的&quot;证明&quot;是 sanity check 不是定理</strong>。B.1/B.3/B.4 的命题被明确降格为&quot;设计动机&quot;,不提供端到端生成保证。诚实,但也意味着&quot;outside 顺序更好&quot;最终靠的是经验证据,不是理论必然。</li>
+<li><strong>r=64 与激活函数的收益都不大</strong>。Table 6 里 SiLU(0.521)和 GELU(0.522)几乎无差,rank 128 vs 64 也只边际提升——说明真正决定成败的是那个二元的&quot;outside vs inside&quot;顺序,而参数选择的裕度很宽(既是优点也说明可调空间有限)。</li>
+<li><strong>加速倍数是&quot;稀疏架构&quot;级别,不是&quot;完整栈&quot;级别</strong>。2.63× 是 RoLA 单独的贡献;要拿到 SparkDiffusion 那种 265×,还得叠上少步蒸馏和 FP8。RoLA 解决的是&quot;表达能力&quot;,不是&quot;终端质量&quot;(见延伸阅读)。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>用</strong>:你在做视频 DiT 的稀疏–线性混合,且骨干带 3D RoPE,想要一条真正跨 token、保相对几何、不加位置参数的全局补偿分支。</li>
+<li><strong>不用</strong>:你要 training-free 的即插即用稀疏(RoLA 需要微调);或你的瓶颈是&quot;极端稀疏下终端质量崩&quot;而非&quot;全局上下文表达&quot;——那是 SparkDiffusion 的 high-sparsity trap 要解决的问题,RoLA 只提供架构底座。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p>RoLA 是&quot;稀疏–低秩补偿&quot;这条线里,专门解决&quot;全局分支怎么和 3D-RoPE 兼容&quot;的一环。把它和最相关的几篇的<strong>结论/立场</strong>并排交叉验证,能看清它在设计空间里的确切位置:</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>全局分支怎么做</th>
+<th>相对位置怎么来</th>
+<th>位置参数</th>
+<th>对 RoLA 的关系</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RoLA(本文)</strong></td>
+<td>真正跨 token 线性聚合 <span class="math inline">\(C=\sum\tilde k v^\top\)</span>,RoPE 在非线性外</td>
+<td>复用截断 3D-RoPE,<strong>分支本身表达</strong></td>
+<td><strong>零新增</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>RoPeSLR</strong> [14]</td>
+<td><strong>放弃</strong>跨 token 聚合,逐 token 坐标 MLP</td>
+<td>可学习<strong>绝对</strong>位置嵌入<strong>模仿</strong>相对衰减</td>
+<td>额外引入</td>
+<td>RoLA 的直接前身,被 RoLA 在机制保真度上超越(PSNR 28.65 vs 26.33)</td>
+</tr>
+<tr>
+<td><strong>SLA</strong> [25]</td>
+<td>特征图线性注意力 + proj_l 补偿</td>
+<td>无 RoPE-aware 设计(×相对)</td>
+<td>零</td>
+<td>有真跨 token,但全局分支不保相对几何</td>
+</tr>
+<tr>
+<td><strong>VSA / FastWan</strong> [27]</td>
+<td>纯稀疏,<strong>无</strong>全局补偿</td>
+<td>—</td>
+<td>零</td>
+<td>激进稀疏下丢长程上下文,RoLA 就是来补这块</td>
+</tr>
+<tr>
+<td><a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a></td>
+<td><strong>用 RoLA 当稀疏模块</strong></td>
+<td>同 RoLA</td>
+<td>同 RoLA</td>
+<td>上层:RoLA 解表达,SparkDiffusion 加蒸馏+FP8 解终端质量与速度</td>
+</tr>
+</tbody>
+</table>
+<p>分歧的可能成因:RoPeSLR 用绝对坐标 MLP &quot;模仿&quot;相对衰减,本质是把一个<strong>相对</strong>量用<strong>绝对</strong>表示去逼近,永远差一层;RoLA 直接让分支的成对交互是相对偏移的函数(靠 outside-RoPE),所以机制保真度更高、生成也更接近稠密。SLA 有真跨 token 聚合但不做 RoPE-aware,在 3D-RoPE 视频上就丢了相对几何这一维——这正是 Table 1 能力矩阵里 SLA 在&quot;Relative-aware global path&quot;列打 × 的原因。</p>
+<ul>
+<li>上层完整加速栈(RoLA + trajectory-mixed 蒸馏 + FP8,单卡 265×):<a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>。</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<ul>
+<li><strong>&quot;算子顺序&quot;可以是一等的设计变量</strong>。RoLA 的全部威力来自一个看似平凡的决定:非线性和旋转谁先谁后。很多架构里&quot;归一化/位置编码/非线性/投影&quot;的<strong>相对顺序</strong>被当成无所谓的细节,但当其中两个操作<strong>不对易</strong>时,顺序就决定了某个想要的不变性(这里是相对位置)能不能被保住。设计新模块时,值得专门问一句:我这几个算子两两对易吗?不对易的那对,顺序选对了吗?</li>
+<li><strong>反直觉点:线性注意力和 RoPE 的冲突,不在&quot;线性&quot;,在&quot;可复用摘要&quot;</strong>。天真会以为问题是线性注意力表达力不够;RoLA 点破真正的张力是&quot;query 无关的可复用摘要&quot; vs &quot;位置相关的旋转&quot;——一旦看清是这两个<strong>属性</strong>在打架,解法(把位置效应推迟到读出时)就自然浮现。<strong>先把矛盾拆到属性层面,再找解</strong>。</li>
+<li><strong>机制级验证 &gt; 下游指标</strong>。与其只报&quot;VBench 高了 0.5&quot;,不如构造一个能直接测量&quot;你声称的性质&quot;的探针(这里是位置核的 shift 残差)。可测量的物理性质(<span class="math inline">\(1.8\times10^{-5}\)</span> vs <span class="math inline">\(3.7\times10^{-1}\)</span>)比综合分数更能说明&quot;为什么&quot;有效,也更难被调参运气蒙混。</li>
+<li><strong>&quot;复用预训练结构&quot;往往比&quot;新学一个&quot;更省更稳</strong>。RoLA 不学新的位置编码,直接截断复用骨干的 RoPE 频率表——零新增参数、和骨干同几何尺度、微调更稳。当你要给预训练模型加一个需要&quot;位置感/尺度感&quot;的新分支时,先看看能不能复用它已经学好的那套,而不是并行再学一套去对齐。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

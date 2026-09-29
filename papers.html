@@ -47,8 +47,25 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>论文</h1>
-<p class="page__intro">共 61 篇论文精读。</p>
+<p class="page__intro">共 62 篇论文精读。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-29</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sparkdiffusion-2026/index.html">SparkDiffusion：识别「高稀疏陷阱」，把视频扩散在单卡上加速 265×</a></h3>
+  <p class="post-card__tldr">视频扩散 Transformer 的算力全被长时空序列上的注意力吃掉了。补偿式稀疏注意力（稀疏分支 + 低秩分支）能把注意力稀疏度推到 90%，但再往上推到 95%/97% 就会掉进一个坑：**step-local 训练损失（flow matching）还在稳稳下降，而最终生成出来的视频却结构崩坏、语义漂移、马赛克化**——作者把它命名为 **high-sparsity trap（高稀疏陷阱）**。
+诊断结论很干脆：这是**监督信号**的问题，不是表达能力的问题。用「oracle 探针」把稀疏学生在一小段采样步上的速度替换成稠密教师的速度，发现**只修高噪声（结构生成）那几步就能消掉绝大部分终端误差，修低噪声那几步几乎没用**。附录 C 用一个 Hilbert 空间的线性代数把它讲透：终端误差 $\Psi=\langle e, s\rangle$ 是逐步误差的**带符号、按敏感度加权**的和，而 step-local 损失 $L=\tfrac12\lVert e\rVert^2$ 只看**幅度**——两者看同一个残差的方式根本不同。
+于是 SparkDiffusion 给出一个分阶段配方：**① 短暂稀疏预热**（把稠密骨干适配成一个粗糙的先验）→ **② trajectory-mixed 蒸馏**（高噪声段用 PCM 一致性锚结构、低噪声段用 DMD 分布匹配补细节，3 步学生）→ **③ FP8 W8A8 量化 + 融合 kernel**（把省下的 FLOPs 兑现成真实墙钟加速）。结果：Wan2.1-T2V-14B-720P 在单张 RTX 5090 上端到端 **265×**（H100 220×），97% 稀疏度下 VBench 仍逼近稠密；1.3B-480P 一条视频 1.3 秒去噪完。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/block-sparse-attention.html">block-sparse-attention</a>
+      <span class="tag-chip tag-chip--more">+11 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -93,6 +110,23 @@
       <a class="tag-chip" href="concepts/sandbox.html">sandbox</a>
       <a class="tag-chip" href="concepts/microvm.html">microvm</a>
       <span class="tag-chip tag-chip--more">+8 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rola-2026/index.html">RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</a></h3>
+  <p class="post-card__tldr">视频 DiT 里「稀疏 + 线性」的混合注意力想用一条便宜的线性分支捞回稀疏分支丢掉的全局上下文,但撞上一个结构性矛盾——**RoPE 两难(RoPE Dilemma)**:线性注意力要求一个「与 query 无关、能复用的全局摘要」$C=\sum_q \phi(k_q)v_q^\top$,而 3D-RoPE 用「位置相关的旋转」编码相对几何;**如果先旋转再过非线性 $\phi$,旋转和非线性不对易,摘要就会被绝对位置污染**,既保不住相对几何、又丢了可复用性。
+已有做法(RoPeSLR)绕开矛盾:干脆不做跨 token 聚合,改用「逐 token 坐标 MLP + 可学习的绝对位置嵌入」去模仿相对衰减——但这既丢了真正的线性全局路由,又额外引入位置参数。RoLA 的解法极简却关键:**把 RoPE 放到非线性外面(先 SiLU 低秩投影、再旋转)**,这样全局摘要照样累加一次、被所有 query 复用,位置效应只在 query 读出时出现;再**复用预训练 RoPE 频率表的前 r 个坐标**(r=64,即 r/2 个旋转对)匹配低秩瓶颈,不引入任何新位置参数。
+机制实验直接验证:outside-activation 的位置核**紧贴全注意力的带状相对衰减**,shift 残差 $1.8\times10^{-5}$(inside 是 $3.7\times10^{-1}$,泄漏绝对位置);rank 到 64 时保真度饱和。生成上 Wan2.1-14B-720P 在 90% 稀疏度下 VBench 逼近稠密、端到端 2.63×。RoLA 正是 [[sparkdiffusion-2026]] 默认采用的稀疏模块。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/linear-attention.html">linear-attention</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 <div class="post-card post-card--paper">
@@ -148,23 +182,6 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-09-19</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/sparkdiffusion-2026/index.html">SparkDiffusion：识别「高稀疏陷阱」，把视频扩散在单卡上加速 265×</a></h3>
-  <p class="post-card__tldr">视频扩散 Transformer 的算力全被长时空序列上的注意力吃掉了。补偿式稀疏注意力（稀疏分支 + 低秩分支）能把注意力稀疏度推到 90%，但再往上推到 95%/97% 就会掉进一个坑：**step-local 训练损失（flow matching）还在稳稳下降，而最终生成出来的视频却结构崩坏、语义漂移、马赛克化**——作者把它命名为 **high-sparsity trap（高稀疏陷阱）**。
-诊断结论很干脆：这是**监督信号**的问题，不是表达能力的问题。用「oracle 探针」把稀疏学生在一小段采样步上的速度替换成稠密教师的速度，发现**只修高噪声（结构生成）那几步就能消掉绝大部分终端误差，修低噪声那几步几乎没用**。附录 C 用一个 Hilbert 空间的线性代数把它讲透：终端误差 $\Psi=\langle e, s\rangle$ 是逐步误差的**带符号、按敏感度加权**的和，而 step-local 损失 $L=\tfrac12\lVert e\rVert^2$ 只看**幅度**——两者看同一个残差的方式根本不同。
-于是 SparkDiffusion 给出一个分阶段配方：**① 短暂稀疏预热**（把稠密骨干适配成一个粗糙的先验）→ **② trajectory-mixed 蒸馏**（高噪声段用 PCM 一致性锚结构、低噪声段用 DMD 分布匹配补细节，3 步学生）→ **③ FP8 W8A8 量化 + 融合 kernel**（把省下的 FLOPs 兑现成真实墙钟加速）。结果：Wan2.1-T2V-14B-720P 在单张 RTX 5090 上端到端 **265×**（H100 220×），97% 稀疏度下 VBench 仍逼近稠密；1.3B-480P 一条视频 1.3 秒去噪完。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
-      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
-      <a class="tag-chip" href="concepts/block-sparse-attention.html">block-sparse-attention</a>
-      <span class="tag-chip tag-chip--more">+11 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-09-05</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/llada-image-2026/index.html">LLaDA-Image：用完全开源配方从零训一个 6B 强图像生成器（技术报告精读 + 代码交叉验证）</a></h3>
@@ -178,21 +195,6 @@
       <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
       <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
       <span class="tag-chip tag-chip--more">+9 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-08-24</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/pixrestore-2026/index.html">PixRestore：扔掉 VAE 和 T2I 先验，从零训一个像素空间 DiT 做统一图像修复</a></h3>
-  <p class="post-card__tldr">港理工 VCLab 的统一图像修复（UIR）工作。核心主张：为 UIR 适配大 T2I 潜空间扩散模型是走了弯路——VAE 会丢掉修复最在意的细节，开放式生成先验会造出与输入不一致的伪影，十亿级骨干 + MLLM + MoE + VAE 编解码则纯属浪费算力。PixRestore 反其道而行：无 VAE、不用 T2I 预训练，直接在 patch 化的 RGB 像素上从零做 flow matching。为了适应不同退化，它用冻结的 DINOv2 多层特征作条件，并训一个「相似度引导的自适应层路由」——用 LQ–HQ 特征相似度当老师，可靠的层融合成 dense 条件（Eq 5），不可靠的层反而加大 HQ 特征监督（Eq 6）。最后把多步模型固定 t=1、配 DINO 特征判别器蒸成一步生成器。结果：约 50M 参数、单步推理、44ms，在 8 类退化上整体保真度/感知质量/退化去除都拿到最优或次优，算力只有 FoundIR-v2 的 1/181、Flux-IR 的 1/1209。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-restoration.html">image-restoration</a>
-      <a class="tag-chip" href="concepts/unified-image-restoration.html">unified-image-restoration</a>
-      <a class="tag-chip" href="concepts/pixel-diffusion.html">pixel-diffusion</a>
-      <span class="tag-chip tag-chip--more">+8 more</span>
   </div>
 </div>
 </div>
