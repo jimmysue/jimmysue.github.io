@@ -635,7 +635,7 @@ model.requires_grad_(False)                       # 整个 DINOv2 冻结
 <li><strong>&quot;从纯噪声还是从中间时刻起步&quot; 的分歧本质是任务信息丢失程度。</strong> OMGSR 面对超分（LQ 已含大量结构），从中间时刻注入能少走冤枉路；PixRestore 面对 8 类退化（有些如重度低光信息丢失严重），统一从 t=1 起步更通用但更依赖条件（LQ 拼接 + DINO 引导）把信息带回来。</li>
 <li><strong>都用 GAN，但判别的位置不同。</strong> OMGSR/OFTSR 在像素/latent 上判别，PixRestore 在<strong>冻结 DINO 特征</strong>上判别——后者更省、更稳，但上限受 DINO 表达力约束。</li>
 </ol>
-<p>对这一整片&quot;像素 vs latent、一步生成&quot;的全景，可参考本站的 <a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a> 调研。</p>
+<p>对这一整片&quot;像素 vs latent、一步生成&quot;的全景，可参考本站的 <a class="wiki-link" data-slug="diffusion-sr-2026" href="../../surveys/diffusion-sr-2026/index.html">diffusion-sr-2026</a> 调研。</p>
 <h3 id="sec-6-3">研究启发（可迁移的套路）</h3>
 <ul>
 <li><strong>&quot;老师偷看 GT、学生只看输入&quot;的软标签蒸馏，是把&quot;训练时可算、推理时不可算&quot;的量落地的通用套路。</strong> 这里老师用 LQ–HQ 相似度算层权重（Eq 3），学生只看 LQ 学（Eq 4）。任何&quot;有个理想信号但推理时拿不到&quot;的场景（如需要 GT 的自适应权重、需要未来帧的调度）都能套这个模式。</li>

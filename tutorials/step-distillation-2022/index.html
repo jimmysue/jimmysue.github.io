@@ -901,7 +901,7 @@ for it in range(201):
 <p><strong>视频是它的下一站</strong>:CausVid、Self-Forcing 都把 DMD 当核心引擎,治自回归视频生成的 exposure bias 与步数问题——详见 §7。</p>
 </li>
 <li>
-<p><strong>2025 谱系与选型:DMD 之后的四条岔路。</strong> DMD2 之后,&quot;分布匹配 / 少步蒸馏&quot;迅速分化出一批变体。下表把 <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">Krea 2 技术报告</a> 在做时间步蒸馏选型时<strong>点名比较过</strong>的几个并排放在一起:</p>
+<p><strong>2025 谱系与选型:DMD 之后的四条岔路。</strong> DMD2 之后,&quot;分布匹配 / 少步蒸馏&quot;迅速分化出一批变体。下表把 <a class="wiki-link" data-slug="krea-2-2026" href="../../papers/krea-2-2026/index.html">Krea 2 技术报告</a> 在做时间步蒸馏选型时<strong>点名比较过</strong>的几个并排放在一起:</p>
 <table>
 <thead>
 <tr>
@@ -986,7 +986,7 @@ for it in range(201):
 </ul>
 </li>
 <li>
-<p><strong>一个真实选型样本(Krea 2)。</strong> <a class="wiki-link" data-slug="krea-2-2026" href="../krea-2-2026/index.html">Krea 2</a> 在 DMD / DMD2 / Decoupled DMD / π-Flow / APT / TDM 里<strong>最终选了 TDM</strong>,理由很能代表工业落地的口味(报告原话转述):要&quot;简单可调、超参少&quot;——这一刀直接排除了 GAN 类(APT,以及 DMD2 的 GAN 分支)和 π-Flow(它要把模型改成多步预测、结构改动大);剩下能同时满足 <strong>data-free + 灵活多步 + 低超参</strong> 的就是 TDM。换句话说,前沿团队选蒸馏方法时,&quot;少踩坑、好调、不动主模型结构&quot;的权重,往往高于&quot;论文里 FID 低 0.x&quot;。</p>
+<p><strong>一个真实选型样本(Krea 2)。</strong> <a class="wiki-link" data-slug="krea-2-2026" href="../../papers/krea-2-2026/index.html">Krea 2</a> 在 DMD / DMD2 / Decoupled DMD / π-Flow / APT / TDM 里<strong>最终选了 TDM</strong>,理由很能代表工业落地的口味(报告原话转述):要&quot;简单可调、超参少&quot;——这一刀直接排除了 GAN 类(APT,以及 DMD2 的 GAN 分支)和 π-Flow(它要把模型改成多步预测、结构改动大);剩下能同时满足 <strong>data-free + 灵活多步 + 低超参</strong> 的就是 TDM。换句话说,前沿团队选蒸馏方法时,&quot;少踩坑、好调、不动主模型结构&quot;的权重,往往高于&quot;论文里 FID 低 0.x&quot;。</p>
 <blockquote>
 <p>⚠️ <strong>披露</strong>:本块对 Decoupled DMD / π-Flow / APT 的一句话概括来自其<strong>标题 / 摘要 + Krea 2 报告的转述</strong>,非逐篇精读;DMD / DMD2 / TDM 的机制则与 6.3 一致、可追溯到公式。若要把其中某个做成像本节 DMD2 一样<strong>经 diff 逐行验证的可复跑章节</strong>,需联网克隆其官方仓库(当前网络不通,暂未做)。</p>
 </blockquote>

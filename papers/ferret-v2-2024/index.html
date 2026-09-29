@@ -300,7 +300,7 @@ image_feature = torch.cat((base_image_feature, image_feature), dim=0)   # 全局
 <p>把三篇放进一条线看最清楚。</p>
 </blockquote>
 <ul>
-<li><strong>输入侧分辨率主线</strong>:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>(混合区域表示,固定 336px,框输出)→ <strong>Ferret-v2</strong>(any-res + CLIP/DINOv2 双编码器 + 三阶段,高分辨率密集感知)→ <strong>Ferret-UI / Ferret-UI 2</strong>(<code>2404.05719</code> / <code>2410.18967</code>,把 any-res 配方下放到<strong>手机/多平台 UI 屏幕</strong>,喂养了 GUI agent grounding 方向,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
+<li><strong>输入侧分辨率主线</strong>:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">Ferret</a>(混合区域表示,固定 336px,框输出)→ <strong>Ferret-v2</strong>(any-res + CLIP/DINOv2 双编码器 + 三阶段,高分辨率密集感知)→ <strong>Ferret-UI / Ferret-UI 2</strong>(<code>2404.05719</code> / <code>2410.18967</code>,把 any-res 配方下放到<strong>手机/多平台 UI 屏幕</strong>,喂养了 GUI agent grounding 方向,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../../tutorials/vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
 <li><strong>和 LISA 的对偶仍在</strong>:v2 把&quot;圈哪问哪&quot;的输入做到了高分辨率,但输出依旧是坐标框;<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">LISA</a> 那条&quot;<code>&lt;SEG&gt;</code>→SAM 出掩码&quot;的输出侧主线与之正交。真正两头都做到像素级的是 GLaMM / Sa2VA。</li>
 <li><strong>更大的潮流</strong>:any-resolution + 多编码器后来成为高分辨率 MLLM 的<strong>标配</strong>——LLaVA-NeXT、InternVL、Qwen2-VL 等都走了&quot;切块 + 保留全局缩略图&quot;的路子。Ferret-v2 是这股潮流里把它和<strong>区域指代/定位</strong>结合得最早、最系统的工作之一。</li>
 </ul>
@@ -308,7 +308,7 @@ image_feature = torch.cat((base_image_feature, image_feature), dim=0)   # 全局
 <ul>
 <li>前作:<a class="wiki-link" data-slug="ferret-2023" href="../ferret-2023/index.html">ferret-2023</a>(混合区域表示 + 空间感知视觉采样器,本文的底座)。</li>
 <li>输出侧对偶:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">lisa-2023</a>(文本→掩码,<code>&lt;SEG&gt;</code> embedding-as-mask)。</li>
-<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 GUI/UI 线)。</li>
+<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../../tutorials/vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 GUI/UI 线)。</li>
 </ul>
 <section class="comments" data-pagefind-ignore>
   <h2>讨论 / Comments</h2>

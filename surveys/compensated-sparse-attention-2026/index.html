@@ -120,7 +120,7 @@
 <li><strong>统一稀疏-线性（按块路由）</strong> —— <code>SLA</code>（2509）→ <code>SLA2</code>（2602）：不并联，而是把每个注意力块<strong>三分类</strong>，路由到「精确 / 线性 / 丢弃」。</li>
 <li><strong>并联线性/低秩补偿（本调研的核心语义）</strong> —— <code>SALAD</code>（2601，ReLU 线性分支）→ <code>RoPeSLR</code>（2605，低秩 + 可学习 3D PE）→ <code>RoLA</code>（2609，秩截断旋转低秩）。这三篇是「稀疏 + 补偿分支」最纯粹的实例。</li>
 <li><strong>训练无关的补偿 / 稀疏（对照轴）</strong> —— <code>SVG</code>/<code>SVG2</code>（2502/2505）纯 profiling 稀疏、<code>SVG-EAR</code>（2603）无参数质心补偿。不微调，稀疏度和加速都更保守。</li>
-<li><strong>家族的「诊断者」</strong> —— <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（2609）：直接采用 RoLA 作稀疏模块，但发现补偿家族在 97% 处集体掉进 <strong>high-sparsity trap</strong>，把问题从架构重新定位到监督。</li>
+<li><strong>家族的「诊断者」</strong> —— <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（2609）：直接采用 RoLA 作稀疏模块，但发现补偿家族在 97% 处集体掉进 <strong>high-sparsity trap</strong>，把问题从架构重新定位到监督。</li>
 </ul>
 <p>一个反复出现的关系值得先点破:<strong>RoPeSLR、RoLA、SparkDiffusion 出自同一课题组</strong>（Kun Yuan 团队，北大 Melon Group + Alibaba），是同一条研究线的三级火箭；而 SLA→SLA2 出自另一条线（Jintao Zhang，清华 thu-ml + Berkeley）。两条线在「RoPE 两难」上给出了互斥的解法（§4）。</p>
 <blockquote>
@@ -197,7 +197,7 @@
 <li><strong>SLA2（arxiv:2602.12675, 2026-02）✅</strong> —— SLA 的续作:把三分类的阈值换成<strong>可学习路由器</strong>、稀疏/线性用可学习比例融合,并叠加 <strong>QAT 低比特注意力</strong>。视频 DiT 上做到 <strong>97% 稀疏 / 18.6× 注意力加速</strong>。是 SLA 线向「更高稀疏 + 量化」的推进,和 SparkDiffusion 的 FP8 思路在低比特上撞车。</li>
 <li><strong>SVG-EAR（arxiv:2603.08982, ECCV 2026）✅</strong> —— <strong>训练无关</strong>的补偿:语义聚类后用<strong>质心近似</strong>被跳过的块(无参数线性补偿),并用「误差感知路由」按 error-to-cost 比而非注意力质量选块。Wan2.2 / HunyuanVideo 上 <strong>1.77× / 1.93×</strong>,PSNR 29.759 / 31.043。它证明补偿的直觉在 training-free 设定也成立,但稀疏度和加速比明显保守于需微调的 SALAD/RoLA。</li>
 <li><strong>SVG / SVG2（arxiv:2502.01776 / 2505.18875）✅</strong> —— 训练无关的<strong>纯稀疏</strong>(非补偿):SVG 按 spatial/temporal head 在线 profiling(CogVideoX/HunyuanVideo 上 2.28×/2.33×),SVG2 用语义聚类 + 排列把关键 token 排成连续块(HunyuanVideo 2.3× / Wan2.1 1.8×)。代码 <a href="https://github.com/svg-project/Sparse-VideoGen"><code>svg-project/Sparse-VideoGen</code></a>。它们是「不补偿、纯稀疏 profiling」的对照组。</li>
-<li><strong><a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（arxiv:2609.23153, 2026-09）</strong> —— 家族的诊断者与集大成者。直接用 RoLA 作稀疏模块,但发现补偿家族在 <strong>97%</strong> 处集体失效:step-local 训练损失在降、终端生成质量在崩(<strong>high-sparsity trap</strong>)。用 oracle 探针定位到「高噪声结构生成阶段」注入误差,证明这是<strong>监督问题</strong>(step-local 看不见终端可见误差),补救靠 trajectory-mixed 蒸馏而非更强的补偿分支。它把整条补偿线的<strong>天花板</strong>给标了出来。</li>
+<li><strong><a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（arxiv:2609.23153, 2026-09）</strong> —— 家族的诊断者与集大成者。直接用 RoLA 作稀疏模块,但发现补偿家族在 <strong>97%</strong> 处集体失效:step-local 训练损失在降、终端生成质量在崩(<strong>high-sparsity trap</strong>)。用 oracle 探针定位到「高噪声结构生成阶段」注入误差,证明这是<strong>监督问题</strong>(step-local 看不见终端可见误差),补救靠 trajectory-mixed 蒸馏而非更强的补偿分支。它把整条补偿线的<strong>天花板</strong>给标了出来。</li>
 </ul>
 <h2 id="sec-3">3. 平行对比</h2>
 <table>
@@ -327,7 +327,7 @@
 <h3 id="sec-4-2">矛盾（点名冲突的数字/主张）</h3>
 <ul>
 <li><strong>RoPE 两难的解法互斥,且出自同组</strong>。RoPeSLR(2605)判定标准线性注意力<strong>不可救</strong>,必须弃用、改注入可学习 3D PE;RoLA(2609)偏偏<strong>保留</strong>线性注意力,只把旋转移到非线性之后就号称解决,且<strong>零额外位置参数</strong>。两篇同一课题组、相隔 4 个月、对同一问题给出相反的架构选择。可能的调和:RoLA 的「旋转在 <span class="math inline">\(\phi\)</span> 之后」在数学上确实恢复了相对几何(旋转是可分解的线性算子),几何上比 RoPeSLR 的「学出来的近似衰减」更干净;RoPeSLR 更早、可能在 RoLA 的分解技巧被发现前就绕道了。<strong>这是一处真实的技术演进,不是谁错——但两篇论文没有正面互引对比,读者需自己拼。</strong> 而 SALAD(2601)更早,干脆没深究交换性,直接加 3D RoPE 靠训练兜——这在 90% 或许够,但在更高稀疏可能正是它没验证极端区间的原因。</li>
-<li><strong>「近无损」的稀疏度天花板互相打架</strong>。SLA(2509)称 95% 稀疏仍持平、baseline 在 85-89% 就崩;SLA2(2602)推到 97%。但 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>(2609,同期,且直接用 RoLA)用 oracle 探针实测:<strong>97% 处 step-local 损失照样收敛,但终端视频结构崩坏</strong>。这不是数字打架而是<strong>口径打架</strong>——SLA 系的「持平」多以 VBench/PSNR 等指标衡量单点或短窗,SparkDiffusion 指出这些 step-local / 单步指标<strong>看不见</strong>沿采样轨迹累积的终端误差。同一稀疏度(97%),一个说「行」一个说「不行」,分歧根源是<strong>监督/度量口径</strong>:补偿分支修的是「表达能力」,而 97% 的失效是「监督信号」的缺失。<strong>这是全调研最重要的矛盾</strong>,也是 SparkDiffusion 的核心贡献。</li>
+<li><strong>「近无损」的稀疏度天花板互相打架</strong>。SLA(2509)称 95% 稀疏仍持平、baseline 在 85-89% 就崩;SLA2(2602)推到 97%。但 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>(2609,同期,且直接用 RoLA)用 oracle 探针实测:<strong>97% 处 step-local 损失照样收敛,但终端视频结构崩坏</strong>。这不是数字打架而是<strong>口径打架</strong>——SLA 系的「持平」多以 VBench/PSNR 等指标衡量单点或短窗,SparkDiffusion 指出这些 step-local / 单步指标<strong>看不见</strong>沿采样轨迹累积的终端误差。同一稀疏度(97%),一个说「行」一个说「不行」,分歧根源是<strong>监督/度量口径</strong>:补偿分支修的是「表达能力」,而 97% 的失效是「监督信号」的缺失。<strong>这是全调研最重要的矛盾</strong>,也是 SparkDiffusion 的核心贡献。</li>
 <li><strong>加速比不可横向比,却常被并列引用</strong>。VSA 的「6×」是注意力 kernel、SLA 的「13.7×」是注意力 kernel、RoLA 的「2.63×」是 14B-720P 端到端、SALAD 的「1.72×」是 1.3B 端到端。把它们放同一句话里比大小是错误的——注意力提速 ≠ 端到端提速(端到端还含 VAE、文本编码器、非注意力层),骨干规模和分辨率也天差地别。</li>
 </ul>
 <h3 id="sec-4-3">启发（这组工作合起来告诉研究者什么）</h3>
@@ -348,7 +348,7 @@
 <li><strong>白地一:补偿家族只在 Wan 系充分验证</strong>。RoLA/SALAD/SLA 几乎都在 Wan2.1/2.2 上跑;对 HunyuanVideo(RoPeSLR/SVG 有部分)、CogVideoX、以及未来的 DiT 骨干,补偿分支的最优秩、门控初始化是否迁移,是开放问题。</li>
 <li><strong>白地二:训练无关补偿的上限没探到底</strong>。SVG-EAR 证明无参数质心补偿在 training-free 下能到 1.9×,但稀疏度远未逼近微调方案的 90-97%。「训练无关能到多高稀疏」是一个有实用价值的开放问题——若能免微调到 90%,部署成本会再降一个台阶。</li>
 <li><strong>白地三:补偿分支的秩/门控随「稀疏度」自适应,尚无人做</strong>。所有工作的补偿分支容量是固定超参;但直觉上稀疏度越高、补偿分支该越强。一个随稀疏度(甚至随噪声等级)调节秩和门的补偿分支,可能把单点最优推向全区间最优——这恰好呼应 SparkDiffusion「高噪声段最需要补」的诊断。</li>
-<li><strong>与 LLM 稀疏是两条独立演化线</strong>。<a class="wiki-link" data-slug="deepseek-v4-2026" href="../deepseek-v4-2026/index.html">deepseek-v4-2026</a> 的 DSA/CSA 走「压缩 KV + top-k 选择 + 滑窗」,赌的是「长上下文里大部分 KV 可压缩/可跳过」;视频扩散补偿家族赌的是「稀疏丢的背景可被低秩线性摘要捞回」。两者都在对抗 <span class="math inline">\(O(L^2)\)</span>,但归纳偏置不同(选择 vs 摘要),交叉借鉴(如把低秩补偿用到 LLM、把压缩选择用到视频)是尚未被系统探索的方向。</li>
+<li><strong>与 LLM 稀疏是两条独立演化线</strong>。<a class="wiki-link" data-slug="deepseek-v4-2026" href="../../papers/deepseek-v4-2026/index.html">deepseek-v4-2026</a> 的 DSA/CSA 走「压缩 KV + top-k 选择 + 滑窗」,赌的是「长上下文里大部分 KV 可压缩/可跳过」;视频扩散补偿家族赌的是「稀疏丢的背景可被低秩线性摘要捞回」。两者都在对抗 <span class="math inline">\(O(L^2)\)</span>,但归纳偏置不同(选择 vs 摘要),交叉借鉴(如把低秩补偿用到 LLM、把压缩选择用到视频)是尚未被系统探索的方向。</li>
 </ul>
 <h2 id="sec-7">7. 参考文献</h2>
 <p>均为本轮联网核对的 arxiv 条目(前缀即年月):</p>
@@ -361,7 +361,7 @@
 <li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>.</li>
 <li>SVG-EAR — <em>Parameter-Free Linear Compensation for Sparse Video Generation via Error-aware Routing</em>, ECCV 2026, <a href="https://arxiv.org/abs/2603.08982">arxiv:2603.08982</a>.</li>
 <li>Sparse VideoGen — <em>Accelerating Video Diffusion Transformers with Spatial-Temporal Sparsity</em>, <a href="https://arxiv.org/abs/2502.01776">arxiv:2502.01776</a>; Sparse VideoGen2 — <em>Semantic-Aware Permutation</em>, <a href="https://arxiv.org/abs/2505.18875">arxiv:2505.18875</a>. 代码 <a href="https://github.com/svg-project/Sparse-VideoGen">svg-project/Sparse-VideoGen</a>.</li>
-<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>. 本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>. 代码 <a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a>.</li>
+<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>. 本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>. 代码 <a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a>.</li>
 </ol>
 <section class="comments" data-pagefind-ignore>
   <h2>讨论 / Comments</h2>

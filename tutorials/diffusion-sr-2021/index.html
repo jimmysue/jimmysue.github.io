@@ -443,7 +443,7 @@ print(loss.item(), G.weight.grad.norm().item())
 <h3 id="sec-4-1">4.1 直觉</h3>
 <p>§3 的分数蒸馏需要一个多步老师把学生&quot;教&quot;成一步。这一节走的是另一条路：<strong>根本不要老师</strong>。</p>
 <p>先问一个被前面所有方法忽略的问题：当我们把 LQ 图编码进 latent 空间，这张 LQ latent 到底&quot;长得像&quot;扩散过程里的哪一帧？标准扩散从 <span class="math inline">\(t=999\)</span> 的纯高斯噪声起步，一路去噪到 <span class="math inline">\(t=0\)</span> 的干净图。可 LQ 既不是纯噪声（它明明保留了大量结构），也不是干净 HQ（它糊、缺高频）——它其实卡在半路上，最像调度表里某个<strong>中间时刻 <span class="math inline">\(t^*\)</span></strong> 的带噪 latent。</p>
-<p>打个比方：修复一张旧照片，你不会把它当白纸从头重画（浪费已有信息），也不会当它已经完好（那还修什么）。它就停在&quot;修了一半&quot;的状态——找到那个最像它的时刻，从那儿直接出发，一步到位。OMGSR 的做法就是用信噪比（SNR）把这个 <span class="math inline">\(t^*\)</span> 算出来，把 LQ latent 注入到 <span class="math inline">\(t^*\)</span>，让扩散模型做<strong>一次</strong>去噪，整套训练用 GAN 监督——生成器就是扩散模型本身，判别器盯着输出像不像真 HQ。详见 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a>。</p>
+<p>打个比方：修复一张旧照片，你不会把它当白纸从头重画（浪费已有信息），也不会当它已经完好（那还修什么）。它就停在&quot;修了一半&quot;的状态——找到那个最像它的时刻，从那儿直接出发，一步到位。OMGSR 的做法就是用信噪比（SNR）把这个 <span class="math inline">\(t^*\)</span> 算出来，把 LQ latent 注入到 <span class="math inline">\(t^*\)</span>，让扩散模型做<strong>一次</strong>去噪，整套训练用 GAN 监督——生成器就是扩散模型本身，判别器盯着输出像不像真 HQ。详见 <a class="wiki-link" data-slug="omgsr-2025" href="../../papers/omgsr-2025/index.html">omgsr-2025</a>。</p>
 <p>这条路线的妙处在于&quot;省&quot;得彻底：分数蒸馏（§3）要把 LQ 当成 <span class="math inline">\(t=0\)</span> 的近似干净图、靠 VSD 反复纠偏，而中间时刻注入直接承认 LQ 本就是&quot;带噪的半成品&quot;，把它放回它本该在的位置，让扩散模型干它最擅长的事——去噪。注入点选得越准，留给模型补的活就越少，一步前向也就越靠谱。</p>
 <figure><img class="zoomable" src="figures/sec4-midtimestep.png" alt="中间时刻注入动机"><figcaption>LQ latent 的信噪比落在扩散调度的中间时刻 t*，既非纯噪声（t=999）也非干净图（t=0）；从 t* 一步去噪即可，无需从纯噪声走完全程。</figcaption></figure>
 <h3 id="sec-4-2">4.2 最小 demo</h3>
@@ -523,7 +523,7 @@ print("一步重建 L1 误差:", (x0_hat - hq_latent).abs().mean().item())
 </code></pre>
 <p>对照 §4.3：<code>SNR1 = signal_power / noise_power</code> 正是 <span class="math inline">\(\text{SNR}(t)=\bar\alpha_t/(1-\bar\alpha_t)\)</span> 乘上信号能量 <span class="math inline">\(\mathbb{E}[x^2]\)</span>（<code>sqrt_alphas_cumprod_t**2</code><span class="math inline">\(=\bar\alpha_t\)</span>）；<code>SNR2</code> 是 LQ 实测信噪比 <span class="math inline">\(\mathbb{E}[x^2]/\mathbb{E}[(z_{\text{LQ}}-x)^2]\)</span>；<code>loss = |SNR1 - SNR2|</code> 即匹配目标，外层对全数据集累加后取 <code>argmin</code> 得 <span class="math inline">\(t^*\)</span>（见 <code>mid_timestep_sd.py:L99-L100</code>）。训练时把这个固定的 <code>mid_timestep</code> 注入 UNet，一步反演 <code>denoised_latent = (lq_latent - √(1-ᾱ)·model_pred) / √ᾱ</code>（<code>train/train_omgsr_s.py:L432-L435</code>），再交给判别器算 GAN 损失——这就是 §4.3 公式落地的完整链路。</p>
 <blockquote>
-<p>注：OP4KSR 把同一思路推到<strong>一步 + 无分块 4K</strong>，并治理由全分辨率一步前向诱发的周期格子伪影（RoPE 位置编码降频 + 周期损失）。OP4KSR 官方代码未放出，此处机制据论文描述，代码引用只取其直接前身 OMGSR。延伸阅读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>。</p>
+<p>注：OP4KSR 把同一思路推到<strong>一步 + 无分块 4K</strong>，并治理由全分辨率一步前向诱发的周期格子伪影（RoPE 位置编码降频 + 周期损失）。OP4KSR 官方代码未放出，此处机制据论文描述，代码引用只取其直接前身 OMGSR。延伸阅读 <a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a>。</p>
 </blockquote>
 <h3 id="sec-4-5">4.5 洞察</h3>
 <ul>
@@ -915,9 +915,9 @@ for nd in [Need(False, 50, False, True),
 <li>SR3 — <em>Image Super-Resolution via Iterative Refinement</em>, Saharia et al., 2021. <a href="https://arxiv.org/abs/2104.07636">arxiv:2104.07636</a> ·【seminal】</li>
 <li>StableSR — <em>Exploiting Diffusion Prior for Real-World Image Super-Resolution</em>, Wang et al., IJCV 2024. <a href="https://arxiv.org/abs/2305.07015">arxiv:2305.07015</a></li>
 <li>OSEDiff — <em>One-Step Effective Diffusion Network for Real-World Image Super-Resolution</em>, Wu et al., NeurIPS 2024. <a href="https://arxiv.org/abs/2406.08177">arxiv:2406.08177</a></li>
-<li>OMGSR — <em>You Only Need One Mid-timestep Guidance for Real-World Image Super-Resolution</em>, 2025. <a href="https://arxiv.org/abs/2508.08227">arxiv:2508.08227</a> · 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a></li>
-<li>OP4KSR — <em>One-Step Patch-Free 4K Super-Resolution with Periodic Artifact Suppression</em>, 2026. <a href="https://arxiv.org/abs/2605.13457">arxiv:2605.13457</a> · 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a> ·（官方代码未放出）</li>
-<li>OFTSR — <em>One-Step Flow for Image Super-Resolution with Tunable Fidelity-Realism Trade-offs</em>, 2024. <a href="https://arxiv.org/abs/2412.09465">arxiv:2412.09465</a> · 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></li>
+<li>OMGSR — <em>You Only Need One Mid-timestep Guidance for Real-World Image Super-Resolution</em>, 2025. <a href="https://arxiv.org/abs/2508.08227">arxiv:2508.08227</a> · 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../../papers/omgsr-2025/index.html">omgsr-2025</a></li>
+<li>OP4KSR — <em>One-Step Patch-Free 4K Super-Resolution with Periodic Artifact Suppression</em>, 2026. <a href="https://arxiv.org/abs/2605.13457">arxiv:2605.13457</a> · 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a> ·（官方代码未放出）</li>
+<li>OFTSR — <em>One-Step Flow for Image Super-Resolution with Tunable Fidelity-Realism Trade-offs</em>, 2024. <a href="https://arxiv.org/abs/2412.09465">arxiv:2412.09465</a> · 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../../papers/oftsr-2024/index.html">oftsr-2024</a></li>
 <li>ODTSR — <em>One-Step Diffusion Transformer for Controllable Real-World Image Super-Resolution</em>, CVPR 2026. <a href="https://arxiv.org/abs/2511.17138">arxiv:2511.17138</a></li>
 </ul>
 <p><strong>视频侧</strong></p>

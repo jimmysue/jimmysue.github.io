@@ -104,7 +104,7 @@
 <p>本调研覆盖 2024–2026 年扩散超分（diffusion super-resolution）的图像与视频两条线，主线只有一条：<strong>把扩散先验从「多步随机采样」压缩成「一步确定性前向」</strong>，并将其从图像迁移到视频的时序与流式场景。读者默认为 CV/ML 从业者，下文不解释什么是扩散、超分、注意力。</p>
 <ul>
 <li><strong>时间窗</strong>：以一步图像超分的元年（OSEDiff/SinSR，2024）为起点，到 2026 上半年的视频一步化与流式工作。</li>
-<li><strong>取舍</strong>：聚焦「一步化机制」这条可比较的主轴；多步先验范式（SR3/StableSR）仅作为对照基线。配套的原理精讲见本站教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../diffusion-sr-2021/index.html">diffusion-sr-2021</a>，本页只做调研对比、不做推导。</li>
+<li><strong>取舍</strong>：聚焦「一步化机制」这条可比较的主轴；多步先验范式（SR3/StableSR）仅作为对照基线。配套的原理精讲见本站教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../../tutorials/diffusion-sr-2021/index.html">diffusion-sr-2021</a>，本页只做调研对比、不做推导。</li>
 <li><strong>证据强度</strong>：所有 arxiv 号、年份、venue 均<strong>本次联网核实</strong>；标 ✅。SeedVR 原作仅给 venue + 仓库（arxiv 号本次未核实，不臆造）。代码交叉验证（§5）只列<strong>本次实际打开并比对过的函数</strong>。</li>
 </ul>
 <blockquote>
@@ -121,7 +121,7 @@
 <li>代码：<a href="https://github.com/cswry/OSEDiff">cswry/OSEDiff</a> · <code>osediff.py:distribution_matching_loss</code>。</li>
 </ul>
 <p>怎么做的：LQ 图经 VAE 编码成 latent，直接作为 UNet 在<strong>一个固定时间步</strong>的输入，一次前向 + 一步 scheduler 出 latent，再解码——全程无迭代、无随机噪声起点。训练时这个一步学生（UNet+VAE 挂 LoRA）由重建损失（L2+LPIPS）兜底、再加 VSD 正则：在学生输出的加噪 latent 上，取一个<strong>冻结预训练 UNet</strong>（real score，带 CFG 放大）与一个<strong>在线 LoRA UNet</strong>（fake score，实时拟合学生当前分布）的预测之差当梯度，把学生分布推向预训练真实分布。三个设计决定值得注意：(1) 用 LQ 当起点而非纯噪声，消去采样随机性、利于保真；(2) VSD 只作正则项（<code>lambda_vsd</code> 压住），让重建主导，避免一步学生跑飞；(3) fake-score 必须用在线 LoRA，否则跟不上每步都在变的学生分布。代价是质量被 teacher（SD 先验）的天花板锁死。</p>
-<p><strong>OMGSR (2025, arxiv:2508.08227)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a></p>
+<p><strong>OMGSR (2025, arxiv:2508.08227)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="omgsr-2025" href="../../papers/omgsr-2025/index.html">omgsr-2025</a></p>
 <ul>
 <li>核心贡献：指出一步化的关键不是蒸馏，而是把 LQ 注入到 SNR 算出的「中间时刻 t*」。</li>
 <li>方法：用信噪比匹配离线求全局 t*，在 t* 处一步去噪，整套 GAN 训练（判别器=DINOv3-ConvNeXt），无 teacher。</li>
@@ -129,7 +129,7 @@
 <li>代码：<a href="https://github.com/wuer5/OMGSR">wuer5/OMGSR</a> · <code>mid_timestep/mid_timestep_sd.py</code>。</li>
 </ul>
 <p>怎么做的：把一步化的问题重述为「LQ 该注入到扩散调度的哪一帧」。OMGSR 先<strong>离线</strong>在整个训练集上扫所有时刻，用信噪比匹配——令调度的理论 SNR(t)=ᾱ_t/(1-ᾱ_t)·E[x²] 与 LQ 实测 SNR=E[x²]/E[(LQ−HQ)²] 的差最小——取 argmin 得到一个全局固定的 t*（SD2.1 上 ≈273）。推理时把 LQ latent 当作 t* 处的带噪 latent，做<strong>一步</strong>去噪。训练是 GAN：生成器就是扩散 UNet（LoRA 微调），判别器是 DINOv3-ConvNeXt 多级头，监督来自 GT + 判别器，<strong>没有 teacher</strong>；另有 LRR 损失（LoRA 微调 VAE 编码器）把 LQ latent 进一步拉向 t* 的带噪 HQ latent。设计取舍：注入到 t*（而非 t=999 纯噪声或 t=0 干净图）让一步要补的距离最短；GAN（无 teacher）把质量上限从「贴近 SD」解放出来，代价是 GAN 训练更难稳，故堆了 GT+判别器+LRR 多项联合。</p>
-<p><strong>OP4KSR (2026, arxiv:2605.13457)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></p>
+<p><strong>OP4KSR (2026, arxiv:2605.13457)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a></p>
 <ul>
 <li>核心贡献：第一个「一步 + 无分块」真实世界 4K 超分，并根治一步全图前向诱发的周期格子伪影。</li>
 <li>方法：F16 压缩 VAE 让 4K 单卡可跑 + 中间时刻一步微调（继承 OMGSR）+ RoPE 基频 10000→100（RFR）+ 自相关周期损失。</li>
@@ -137,7 +137,7 @@
 <li>代码：官方未放出（机制据论文）。</li>
 </ul>
 <p>怎么做的：把 OMGSR 的「中间时刻一步 GAN」推到全分辨率 4K 且不分块。三步：(1) 用 UltraFlux 的 F16 极压缩 VAE 把 4096×4096 的显存压到单卡可跑；(2) 借中间时刻对齐把 Flux 微调成一步前向（GAN 式，非师生蒸馏）；(3) 治理一步全图前向诱发的周期 32 像素格子伪影——作者把病因拆成两层：RoPE 相位坍缩（θ=10000 太大，相邻 token 不可分）与 2×2 打包后 unpack 把通道当空间，对症下两味药：RoPE 基频 10000→100（RFR）+ 基于自相关的周期性损失（L_AP）。设计取舍：无分块避免了拼缝，但把位置编码在超大尺寸上的混叠暴露出来——省下的分块步骤以新伪影的形式还回来，必须专门治理。</p>
-<p><strong>OFTSR (2024, arxiv:2412.09465)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a></p>
+<p><strong>OFTSR (2024, arxiv:2412.09465)</strong> — ✅ 本站精读 <a class="wiki-link" data-slug="oftsr-2024" href="../../papers/oftsr-2024/index.html">oftsr-2024</a></p>
 <ul>
 <li>核心贡献：一步 flow 超分，且保真-逼真可调。</li>
 <li>方法：在一步 flow 模型上做可调的 fidelity-realism trade-off。</li>
@@ -441,7 +441,7 @@
 <li>InfVSR — <em>Breaking Length Limits of Generic VSR</em> (2025). <a href="https://arxiv.org/abs/2510.00948">arxiv:2510.00948</a></li>
 <li>Stream-DiffVSR — <em>Low-Latency Streamable VSR via Auto-Regressive Diffusion</em> (2025). <a href="https://arxiv.org/abs/2512.23709">arxiv:2512.23709</a></li>
 </ul>
-<p><strong>本站相关</strong>：教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../diffusion-sr-2021/index.html">diffusion-sr-2021</a>（原理精讲）；精读 <a class="wiki-link" data-slug="omgsr-2025" href="../omgsr-2025/index.html">omgsr-2025</a>、<a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>、<a class="wiki-link" data-slug="oftsr-2024" href="../oftsr-2024/index.html">oftsr-2024</a>。</p>
+<p><strong>本站相关</strong>：教程 <a class="wiki-link" data-slug="diffusion-sr-2021" href="../../tutorials/diffusion-sr-2021/index.html">diffusion-sr-2021</a>（原理精讲）；精读 <a class="wiki-link" data-slug="omgsr-2025" href="../../papers/omgsr-2025/index.html">omgsr-2025</a>、<a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a>、<a class="wiki-link" data-slug="oftsr-2024" href="../../papers/oftsr-2024/index.html">oftsr-2024</a>。</p>
 <section class="comments" data-pagefind-ignore>
   <h2>讨论 / Comments</h2>
   <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>

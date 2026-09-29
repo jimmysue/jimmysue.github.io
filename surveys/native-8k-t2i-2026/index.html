@@ -174,7 +174,7 @@
 <li>代码：Stable Cascade 底座（论文未在摘要点名，但基于其高压缩 latent）。</li>
 </ul>
 <p>怎么做的：UltraPixel 押注<strong>级联 + 语义引导</strong>。关键设计是<strong>用低分辨率图的富语义表征在去噪后段引导整张高分辨率图</strong>——直觉是「高分辨率图的全局布局早就由低分辨率决定了，高分辨率阶段只需补细节」，于是高分辨率分支可以极轻（&lt;3% 参数）。INR 提供<strong>连续</strong>上采样，让同一模型吐 1K/2K/4K/6K 而不需要为每档单独训。权衡：级联天然引入「低分辨率决定的布局无法在高分辨率修正」的锁定效应，且 6K 已是它公开的上限——<strong>再往 8K 级联，误差累积和显存都会失控</strong>。UltraPixel 是「半原生」的代表：高分辨率阶段确实训练过，但强依赖低分辨率引导，不是纯粹的 8K 端到端。</p>
-<p><strong>L2P / AsymFlow（arxiv:2605.12013 / 2605.12964，本仓库已精读）</strong> — ✅ verified（见 <a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a>、<a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a>、对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a>）</p>
+<p><strong>L2P / AsymFlow（arxiv:2605.12013 / 2605.12964，本仓库已精读）</strong> — ✅ verified（见 <a class="wiki-link" data-slug="l2p-2026" href="../../papers/l2p-2026/index.html">l2p-2026</a>、<a class="wiki-link" data-slug="asymflow-2026" href="../../papers/asymflow-2026/index.html">asymflow-2026</a>、对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../../papers/latent-to-pixel-2026/index.html">latent-to-pixel-2026</a>）</p>
 <ul>
 <li>核心贡献：把预训练 LDM 的知识<strong>迁移到像素空间</strong>，8 卡训出<strong>原生 4K 单步扩散</strong>，并解锁 <strong>8K zero-shot 外推</strong>。</li>
 <li>方法：L2P 拆掉 VAE、用 16×16 大 patch 打 token，冻结 LDM 中间层 + Detailer Head，训练数据是源 LDM 自生成的 20k 合成图；AsymFlow 不动架构、重设 velocity 参数化把 latent flow 数学 lift 成像素 flow。</li>
@@ -182,7 +182,7 @@
 <li>代码：见本仓库精读页。</li>
 </ul>
 <p>怎么做的：L2P 的关键洞察是「从零训像素扩散是灾难性 cold start，但可以<strong>从已经平滑的 LDM 流形上做轻量迁移</strong>」。它把 VAE 换成大 patch（16×16）直接打像素成 token——这样内存瓶颈从 VAE 解码转到 patch 化，反而更省。原生分辨率仍是 4K，但因为<strong>像素空间没有 VAE 的固定下采样率约束</strong>，它能在推理时把 patch 网格外推到 8K 而不崩（zero-shot 8K）。这是「原生 4K + 免训练 8K」的混合体：8K 那一档<strong>没有训练过</strong>，属于外推，所以本文归它为「4K 原生、8K 外推」。<strong>这恰恰印证了本文主论点——即使是最新的像素空间工作，8K 也只能靠外推拿到，没人在 8K 上真训。</strong></p>
-<p><strong>OP4KSR（arxiv:2605.13457，本仓库已精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a>）</strong> — ✅ verified</p>
+<p><strong>OP4KSR（arxiv:2605.13457，本仓库已精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a>）</strong> — ✅ verified</p>
 <ul>
 <li>核心贡献：一步、无分块的真实世界 <strong>4K 超分</strong>（不是 T2I 生成，但常和 T2I 拼成「先生成后放大」管线）。</li>
 <li>方法：UltraFlux 的 F16 极压缩 VAE 把 4096² 显存压到单卡 + 中间时刻对齐把 Flux 微调成一步前向。</li>
@@ -416,9 +416,9 @@
 <li><strong>HiWave</strong>: Training-Free High-Resolution Image Generation via Wavelet-Based Diffusion Sampling — arxiv:2506.20452 · <a href="https://arxiv.org/abs/2506.20452">https://arxiv.org/abs/2506.20452</a></li>
 <li><strong>PixelRush</strong>: Ultra-Fast, Training-Free High-Resolution Image Generation via One-step Diffusion — arxiv:2602.12769 · <a href="https://arxiv.org/abs/2602.12769">https://arxiv.org/abs/2602.12769</a></li>
 <li><strong>Scale-DiT</strong>: Ultra-High-Resolution Image Generation with Hierarchical Local Attention — arxiv:2510.16325 · <a href="https://arxiv.org/abs/2510.16325">https://arxiv.org/abs/2510.16325</a></li>
-<li><strong>L2P</strong>: 把 LDM 潜在知识搬到像素空间，8 卡原生 4K — arxiv:2605.12013 · 本仓库精读 <a class="wiki-link" data-slug="l2p-2026" href="../l2p-2026/index.html">l2p-2026</a></li>
-<li><strong>AsymFlow</strong> (Latent→Pixel 迁移) — arxiv:2605.12964 · 本仓库精读 <a class="wiki-link" data-slug="asymflow-2026" href="../asymflow-2026/index.html">asymflow-2026</a> / 对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></li>
-<li><strong>OP4KSR</strong>: 一步、无分块的 4K 超分 — arxiv:2605.13457 · 本仓库精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../op4ksr-2026/index.html">op4ksr-2026</a></li>
+<li><strong>L2P</strong>: 把 LDM 潜在知识搬到像素空间，8 卡原生 4K — arxiv:2605.12013 · 本仓库精读 <a class="wiki-link" data-slug="l2p-2026" href="../../papers/l2p-2026/index.html">l2p-2026</a></li>
+<li><strong>AsymFlow</strong> (Latent→Pixel 迁移) — arxiv:2605.12964 · 本仓库精读 <a class="wiki-link" data-slug="asymflow-2026" href="../../papers/asymflow-2026/index.html">asymflow-2026</a> / 对比 <a class="wiki-link" data-slug="latent-to-pixel-2026" href="../../papers/latent-to-pixel-2026/index.html">latent-to-pixel-2026</a></li>
+<li><strong>OP4KSR</strong>: 一步、无分块的 4K 超分 — arxiv:2605.13457 · 本仓库精读 <a class="wiki-link" data-slug="op4ksr-2026" href="../../papers/op4ksr-2026/index.html">op4ksr-2026</a></li>
 <li><strong>HiDream-O1-Image</strong>: Natively Unified Image Generative Foundation Model (pixel-native, 2K) — arxiv:2605.11061 · <a href="https://arxiv.org/abs/2605.11061">https://arxiv.org/abs/2605.11061</a></li>
 <li><strong>Seedream 4.0</strong>: Toward Next-generation Multimodal Image Generation (原生 4K) — arxiv:2509.20427 · <a href="https://arxiv.org/abs/2509.20427">https://arxiv.org/abs/2509.20427</a></li>
 <li><strong>HunyuanImage 3.0</strong> Technical Report — arxiv:2509.23951 · <a href="https://arxiv.org/abs/2509.23951">https://arxiv.org/abs/2509.23951</a></li>

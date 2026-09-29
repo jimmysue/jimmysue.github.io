@@ -134,7 +134,7 @@
 </aside>
 
 <p>视频扩散 Transformer 每一个采样步都要在整条时空 token 序列上做一次全注意力，序列长度动辄十万级，<span class="math inline">\(O(L^2)\)</span> 的开销是端到端延迟的头号来源。过去一年半里，一条清晰的技术主线在此成型：<strong>用块稀疏砍掉大部分注意力计算，再挂一条 <span class="math inline">\(O(L)\)</span> 的线性/低秩补偿分支把丢掉的全局背景捞回来</strong>——这就是「补偿式稀疏注意力」。它把可用稀疏度从 90% 推向 97%，但也在 97% 处撞到一个更深的天花板。</p>
-<p>这篇教程把这条线从头讲透：不是罗列论文，而是沿着「<strong>为什么这么设计、推导里的非显然关键步、代码落在哪几行、失效边界在哪</strong>」展开。读者假设为熟悉注意力 / 扩散 / 损失函数的 CV/ML 同行。每一节走同一套螺旋：<strong>直觉定位 → 真实形状可跑的最小 demo → 完整推导 → 真实仓库代码逐行对照 → 设计洞察</strong>。想先要一张全景对比表（各方法的稀疏度 / 加速 / 机制差异 / 代码交叉验证），见配套调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>；本教程负责把机制<strong>讲透</strong>，调研页负责把家族<strong>摆开对比</strong>。</p>
+<p>这篇教程把这条线从头讲透：不是罗列论文，而是沿着「<strong>为什么这么设计、推导里的非显然关键步、代码落在哪几行、失效边界在哪</strong>」展开。读者假设为熟悉注意力 / 扩散 / 损失函数的 CV/ML 同行。每一节走同一套螺旋：<strong>直觉定位 → 真实形状可跑的最小 demo → 完整推导 → 真实仓库代码逐行对照 → 设计洞察</strong>。想先要一张全景对比表（各方法的稀疏度 / 加速 / 机制差异 / 代码交叉验证），见配套调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../../surveys/compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>；本教程负责把机制<strong>讲透</strong>，调研页负责把家族<strong>摆开对比</strong>。</p>
 <h2 id="sec-1">1. 瓶颈与朴素稀疏为何崩</h2>
 <h3 id="sec-1-1">1.1 直觉</h3>
 <p>Video DiT 的采样成本几乎全压在自注意力上：每一个去噪步都要对整条展平的时空 token 序列做一次全局自注意力，而一段几秒的高分辨率视频，patch 化后 <span class="math inline">\(L\)</span> 轻松突破 10 万。<span class="math inline">\(O(L^2)\)</span> 的注意力矩阵随分辨率、帧数平方级膨胀，直接主导端到端延迟，去噪步数越多这个乘子越吓人。块稀疏是最自然的省法：把 <span class="math inline">\(L\times L\)</span> 的注意力矩阵沿 query/key 维切成连续块，只对&quot;高能&quot;块精确算注意力，其余整块跳过——按块而非按 token，是为了贴合 GPU 的分块访存与矩阵乘布局。</p>
@@ -817,8 +817,8 @@ print("static clip 比例:", (x.abs() > s_sta * FP8_MAX).float().mean().item())
 <li>SALAD — <em>Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer</em>, <a href="https://arxiv.org/abs/2601.16515">arxiv:2601.16515</a>（并联 ReLU 线性分支 + 标量门，§3/§4）</li>
 <li>RoPeSLR — <em>3D RoPE-driven Sparse-LowRank Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2605.20659">arxiv:2605.20659</a>（RoPE 两难解法一，§5）</li>
 <li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>（RoPE 两难解法二，SparkDiffusion 默认稀疏模块，§3/§4/§5）</li>
-<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>（high-sparsity trap 诊断 + trajectory-mixed 蒸馏 + FP8，§6/§7；本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>）</li>
-<li>相邻：SLA2 [arxiv:2602.12675]、SVG-EAR [arxiv:2603.08982]、Sparse VideoGen [arxiv:2502.01776] / SVG2 [arxiv:2505.18875]——见调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>。</li>
+<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>（high-sparsity trap 诊断 + trajectory-mixed 蒸馏 + FP8，§6/§7；本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>）</li>
+<li>相邻：SLA2 [arxiv:2602.12675]、SVG-EAR [arxiv:2603.08982]、Sparse VideoGen [arxiv:2502.01776] / SVG2 [arxiv:2505.18875]——见调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../../surveys/compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>。</li>
 </ul>
 <p><strong>代码仓库（本教程代码 verbatim 引自，行号经 sed 核对）</strong></p>
 <ul>

@@ -381,7 +381,7 @@ self.config.im_region_fea_token = tokenizer.convert_tokens_to_ids([DEFAULT_REGIO
 <p><strong>A. Apple 直系</strong></p>
 <ul>
 <li><strong>Ferret-v2</strong>(<code>2404.07973</code>,COLM24):三个升级——<strong>any-resolution</strong>(保宽高比切片,替掉固定 336px)、<strong>多粒度视觉编码</strong>(CLIP 之外加 DINOv2 抓细粒度)、三阶段训练。把 Ferret 推到高分辨率密集感知。</li>
-<li><strong>Ferret-UI</strong>(<code>2404.05719</code>,ECCV24):把 Ferret 搬到<strong>手机 UI 屏幕</strong>,加 &quot;any resolution&quot; 子图切分放大小图标/文字,配 UI 任务指令集(控件分类、图标识别、OCR、找控件、点击目标定位),报告超过 GPT-4V 的 UI 能力。这条线后来喂养了整个 <strong>GUI agent grounding</strong> 方向(SeeClick、ScreenSpot、UI-TARS,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
+<li><strong>Ferret-UI</strong>(<code>2404.05719</code>,ECCV24):把 Ferret 搬到<strong>手机 UI 屏幕</strong>,加 &quot;any resolution&quot; 子图切分放大小图标/文字,配 UI 任务指令集(控件分类、图标识别、OCR、找控件、点击目标定位),报告超过 GPT-4V 的 UI 能力。这条线后来喂养了整个 <strong>GUI agent grounding</strong> 方向(SeeClick、ScreenSpot、UI-TARS,见 <a class="wiki-link" data-slug="vlm-grounding-2025" href="../../tutorials/vlm-grounding-2025/index.html">vlm-grounding-2025</a>)。</li>
 <li><strong>Ferret-UI 2</strong>(<code>2410.18967</code>):从手机推广到 <strong>iPhone/Android/iPad/Web/AppleTV 五平台</strong>,自适应高分辨率 + GPT-4o set-of-mark 数据生成,跨平台迁移。</li>
 </ul>
 <p><strong>B. 输入区域 + 输出掩码(双向 grounding)</strong>——补 Ferret&quot;只输出框&quot;的短板</p>
@@ -397,7 +397,7 @@ self.config.im_region_fea_token = tokenizer.convert_tokens_to_ids([DEFAULT_REGIO
 <h3 id="sec-5-5">Further reading</h3>
 <ul>
 <li>输出侧对偶:<a class="wiki-link" data-slug="lisa-2023" href="../lisa-2023/index.html">lisa-2023</a>(文本→掩码,<code>&lt;SEG&gt;</code> embedding-as-mask)。</li>
-<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 Shikra/Kosmos-2/GUI 线)、<a class="wiki-link" data-slug="q-ground-2024" href="../q-ground-2024/index.html">q-ground-2024</a>。</li>
+<li>本站相关:<a class="wiki-link" data-slug="vlm-grounding-2025" href="../../tutorials/vlm-grounding-2025/index.html">vlm-grounding-2025</a>(视觉-语言 grounding 教程,含 Shikra/Kosmos-2/GUI 线)、<a class="wiki-link" data-slug="q-ground-2024" href="../q-ground-2024/index.html">q-ground-2024</a>。</li>
 <li>综述与清单:<code>github.com/mc-lan/Awesome-MLLM-Segmentation</code>。</li>
 </ul>
 <section class="comments" data-pagefind-ignore>
