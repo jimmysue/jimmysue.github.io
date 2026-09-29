@@ -94,17 +94,22 @@
     <li class="h3"><a href="#sec-4-1">一致（独立工作的收敛,是强信号）</a></li>
     <li class="h3"><a href="#sec-4-2">矛盾（点名冲突的数字/主张）</a></li>
     <li class="h3"><a href="#sec-4-3">启发（这组工作合起来告诉研究者什么）</a></li>
-    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
-    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
-    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+    <li class="h2"><a href="#sec-5">5. T2I / 高分辨率图像侧：稀疏注意力的另一种形态</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 线性注意力当「主力」（不是补偿分支）</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 局部 / 窗口注意力</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 真·块稀疏（图像侧最接近视频那一族的）</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 为什么图像侧偏「线性/局部」而非「块稀疏 + 补偿」</a></li>
+    <li class="h2"><a href="#sec-6">6. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-7">7. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-8">8. 参考文献</a></li>
   </ul>
 </nav>
 <main data-pagefind-body>
 <h1>补偿式稀疏注意力：视频扩散的「稀疏分支 + 低秩/线性补偿」家族调研</h1>
 <aside class="post-meta">
   <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-29</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-09-29</span></div>
-  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/thu-ml/SLA">代码</a> · <a class="post-meta__link" href="https://github.com/hao-ai-lab/FastVideo">代码</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a> · <a class="post-meta__link" href="https://github.com/svg-project/Sparse-VideoGen">代码</a></div>
-  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/linear-attention.html">linear-attention</a> <a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/thu-ml/SLA">代码</a> · <a class="post-meta__link" href="https://github.com/hao-ai-lab/FastVideo">代码</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a> · <a class="post-meta__link" href="https://github.com/svg-project/Sparse-VideoGen">代码</a> · <a class="post-meta__link" href="https://github.com/NVlabs/Sana">代码</a> · <a class="post-meta__link" href="https://github.com/Huage001/CLEAR">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/linear-attention.html">linear-attention</a> <a class="concept-chip" href="../../concepts/window-attention.html">window-attention</a> <a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/high-resolution-generation.html">high-resolution-generation</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a></div>
 </aside>
 
 <h2 id="sec-1">1. 概述与范围</h2>
@@ -113,7 +118,7 @@
 <div class="math block">
 \[\tilde A \;=\; \underbrace{A_M(Q,K,V)}_{\text{稀疏分支：高能语义块}} \;+\; \underbrace{g\odot \mathrm{Proj}\big(C_\psi(Q,K,V)\big)}_{\text{补偿分支：线性/低秩全局摘要}}\]
 </div>
-<p>稀疏分支抓「显著的成对交互」，补偿分支抓「弥散的背景上下文」，一个门控 <span class="math inline">\(g\)</span>（几乎都初始化成近零）融合两者。这条线在 <strong>2025-05 到 2026-09</strong> 的一年半里密集成型，本调研覆盖其中 5 篇载重工作 + 若干相邻工作。</p>
+<p>稀疏分支抓「显著的成对交互」，补偿分支抓「弥散的背景上下文」，一个门控 <span class="math inline">\(g\)</span>（几乎都初始化成近零）融合两者。这条线在 <strong>2025-05 到 2026-09</strong> 的一年半里密集成型，本调研覆盖其中 5 篇载重工作 + 若干相邻工作；另在 <strong>§5 设一节 T2I / 高分辨率图像侧的跨域对照</strong>，说明图像侧为何走上「线性化 / 局部化」而非「块稀疏 + 补偿」的不同路线。</p>
 <h3 id="sec-1-1">这条线的谱系（时间轴 + 分类脊柱）</h3>
 <ul>
 <li><strong>纯可训练块稀疏（无补偿分支）</strong> —— <code>VSA</code>（2505）：确立了「粗选块→细算块」的块稀疏计算范式和硬件高效 kernel，是整个家族复用的地基，但它自己没有线性/低秩补偿分支。</li>
@@ -332,7 +337,90 @@
 </ul>
 <h3 id="sec-4-3">启发（这组工作合起来告诉研究者什么）</h3>
 <p>补偿式稀疏注意力作为<strong>架构手段</strong>已经成熟:90% 稀疏近无损是可复现的、门控设计有共识、RoPE 兼容有(至少两种)可行解。但整条线撞到了一个<strong>它自己解决不了的天花板</strong>——补偿分支能恢复「表达能力」,却不能提供「终端对齐的监督」;95%→97% 的失效,SparkDiffusion 证明是监督问题,要靠蒸馏而非更强的补偿。所以<strong>下一步不在补偿分支本身,而在「稀疏架构 × 少步蒸馏」如何联合</strong>(见 §6 白地)。</p>
-<h2 id="sec-5">5. 代码交叉验证</h2>
+<h2 id="sec-5">5. T2I / 高分辨率图像侧：稀疏注意力的另一种形态</h2>
+<p>视频那条线（§2–§4）走「块稀疏 + 补偿分支」，前提是序列长 <span class="math inline">\(L\)</span> 达十万级、<span class="math inline">\(O(L^2)\)</span> 灾难性。<strong>T2I 的账完全不同</strong>：标准分辨率（如 1024²）的 latent 只有约 1k–4k token，全注意力并不贵，补偿式稀疏几乎无用武之地。压力只在<strong>高分辨率（2K/4K/8K）<strong>才回来——4096² 在 8× VAE 下约 26 万 token。而在这个区间，图像侧社区给出的答案与视频</strong>分道扬镳</strong>，分三类。（作为跨域对照，本节各工作按「相邻工作」层级处理：只做引用核对 + 机制一句话，不逐篇配图；纵深见 <a class="wiki-link" data-slug="native-8k-t2i-2026" href="../native-8k-t2i-2026/index.html">native-8k-t2i-2026</a>。）</p>
+<h3 id="sec-5-1">5.1 线性注意力当「主力」（不是补偿分支）</h3>
+<ul>
+<li><strong>Sana（ICLR 2025 oral，arxiv:2410.10629）✅</strong> — 把 DiT 里<strong>全部</strong> vanilla attention 换成线性注意力 + DC-AE 32× 压缩，原生 4K。本站 <a class="wiki-link" data-slug="native-8k-t2i-2026" href="../native-8k-t2i-2026/index.html">native-8k-t2i-2026</a> 已收录并做过源码交叉验证。</li>
+<li><strong>CLEAR（NeurIPS 2025，arxiv:2412.16112）✅</strong> — 把预训练 DiT（FLUX）的注意力<strong>卷积式局部化</strong>成线性复杂度；只用 10k 自采样本、10k 步微调蒸出线性学生，8K 下注意力计算降 <strong>99.5%</strong>、加速 <strong>6.3×</strong>。代码 <a href="https://github.com/Huage001/CLEAR">Huage001/CLEAR</a>。</li>
+<li><strong>LinFusion（arxiv:2409.02097）✅</strong> — 「1 GPU, 1 Minute, 16K Image」：一个归一化感知、非因果的广义线性注意力，<strong>免训练</strong>替换 Stable Diffusion 的自注意力，零样本跨分辨率到 16K，且兼容 ControlNet / IP-Adapter / LoRA。</li>
+</ul>
+<p>对照视频族：线性注意力在视频里只是<strong>补偿配角</strong>，在高分辨率 T2I 里却常常是<strong>整个注意力</strong>（主角）。为什么能当主角，见 5.4。</p>
+<h3 id="sec-5-2">5.2 局部 / 窗口注意力</h3>
+<ul>
+<li><strong>Scale-DiT（arxiv:2510.16325）✅</strong> — 窗口注意力 + 低分辨率全局锚点，4K 几乎不需高分辨率训练数据、延伸到 8K。本站 <a class="wiki-link" data-slug="native-8k-t2i-2026" href="../native-8k-t2i-2026/index.html">native-8k-t2i-2026</a> 已收录。</li>
+<li>CLEAR 的 conv-like 局部窗口同属此类——「局部化」是高分辨率 T2I 的另一条主线，且常与「线性化」合流（局部窗口内做线性/精确注意力）。</li>
+</ul>
+<h3 id="sec-5-3">5.3 真·块稀疏（图像侧最接近视频那一族的）</h3>
+<ul>
+<li><strong>ElasticDiT（arxiv:2605.15684，2026-05）✅</strong> — <strong>Shift Sparse Block Attention（SSBA）</strong>，面向移动端高分辨率 T2I（SD3 / FLUX 系底座），平均 <strong>84.16% 稀疏度</strong>，HPS 32.87、GenEval 66.93→73.62。这是图像侧最贴近视频「块稀疏」范式的一篇（但机制是 shift 块稀疏，非补偿分支）。</li>
+<li><strong>PAROAttention（arxiv:2506.16054，2025-06）✅</strong> — <strong>pattern-aware 重排</strong>：把多样的注意力模式统一成<strong>硬件友好的块状模式</strong>，再叠加稀疏（密度 ~20–30%）+ 量化（INT8/INT4），<strong>图像与视频通吃</strong>，端到端 1.9–2.7×。它和 SparkDiffusion 的「稀疏×量化」在同一路数上。</li>
+<li><strong>Re-ttention（arxiv:2505.22918）</strong> — 「超稀疏视觉生成」，靠注意力统计重塑把稀疏度推到极高，覆盖图像与视频；定位偏训练无关的统计类稀疏。</li>
+</ul>
+<h3 id="sec-5-4">5.4 为什么图像侧偏「线性/局部」而非「块稀疏 + 补偿」</h3>
+<ul>
+<li><strong>图像注意力图是高秩的。</strong> CLEAR 明确把 high-rank attention maps 列为线性化的核心难点。视频的关键交互在时空上高度局部、天然块稀疏友好（§2.2 实测仅 8% critical）；而单张图的注意力更弥散、缺少时间冗余，硬做块稀疏「保留 3% 块」收益有限。于是图像侧要么<strong>局部化</strong>（承认交互主要在邻域）、要么<strong>线性化</strong>（用全局摘要替代逐对打分）、要么把 token 数从上游<strong>压下来</strong>（Sana 的 DC-AE 32×），而不是视频那套「稀疏块 + 补偿分支」。</li>
+<li><strong>免训练可行性更高。</strong> LinFusion / Scale-DiT 表明图像侧可以<strong>零/免训练</strong>换上线性或窗口注意力就跨到 16K / 8K；视频侧因时序一致性约束几乎都要微调甚至蒸馏（微调配方见配套教程 <a class="wiki-link" data-slug="compensated-attention-2025" href="../../tutorials/compensated-attention-2025/index.html">compensated-attention-2025</a>）。这条差异的根源仍是「图像没有时间轴要维持一致」。</li>
+<li><strong>补偿家族本就覆盖图像。</strong> SLA、SparkDiffusion 自称面向 &quot;Diffusion Transformers / visual generation&quot;，图像是其适用域的一部分——只是<strong>杀手级压力场景是视频</strong>（<span class="math inline">\(L\)</span> 大三个数量级），所以这些论文的实验重心压在视频上，图像更多作为「顺带也支持」。</li>
+</ul>
+<p>跨域对照一表（图像侧，均已核对；数字为各自论文自报，硬件/底座不同、横向不可比）：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>机制</th>
+<th>是否需训练</th>
+<th>任务 / 分辨率</th>
+<th>代表数字</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sana</strong></td>
+<td>线性注意力（全替换）+ DC-AE 32×</td>
+<td>自训底座</td>
+<td>T2I 原生 4K</td>
+<td>4K &lt; 20s</td>
+</tr>
+<tr>
+<td><strong>CLEAR</strong></td>
+<td>conv-like 局部线性化（蒸馏）</td>
+<td>10k 样本 / 10k 步微调</td>
+<td>T2I 到 8K（FLUX）</td>
+<td>注意力 −99.5%，8K 6.3×</td>
+</tr>
+<tr>
+<td><strong>LinFusion</strong></td>
+<td>广义线性注意力替换 SD</td>
+<td><strong>免训练</strong></td>
+<td>T2I 到 16K</td>
+<td>1 GPU / 1 min / 16K</td>
+</tr>
+<tr>
+<td><strong>Scale-DiT</strong></td>
+<td>窗口注意力 + 低分辨率锚点</td>
+<td>免高分辨率数据</td>
+<td>T2I 4K / 8K</td>
+<td>8K &lt; 2min</td>
+</tr>
+<tr>
+<td><strong>ElasticDiT</strong></td>
+<td>Shift Sparse Block Attention</td>
+<td>微调（移动端）</td>
+<td>T2I 高分辨率</td>
+<td>84.16% 稀疏</td>
+</tr>
+<tr>
+<td><strong>PAROAttention</strong></td>
+<td>块状重排 + 稀疏 + 量化</td>
+<td>需校准 / 微调</td>
+<td>图像 + 视频</td>
+<td>密度 20–30%，1.9–2.7×</td>
+</tr>
+</tbody>
+</table>
+<p>一句话小结：<strong>视频靠「块稀疏 + 补偿」，是被 <span class="math inline">\(O(L^2)\)</span> 逼出来的；图像侧在高分辨率才遇到同样的墙，但因注意力高秩、无时间冗余，主流答案是「线性化 / 局部化 / 上游压 token」，块稀疏反而是少数派（ElasticDiT / PAROAttention）。</strong> 两域共享「线性注意力」这一块积木，却把它放在了不同的位置——视频当补偿、图像当主力。</p>
+<h2 id="sec-6">6. 代码交叉验证</h2>
 <p>对有公开仓库的工作,定位其载重机制的实现函数并核对与论文一致:</p>
 <ul>
 <li><strong>SLA(thu-ml/SLA)✅ 一致</strong>。<code>sparse_linear_attention/core.py</code> 的 <code>forward</code>(约 L70-99):<code>get_block_map(q,k,topk_ratio=...)</code> 做块打分与选择,<code>_attention.apply(...)</code> 算稀疏分支 <code>o_s</code>,<code>calc_linear(feature_map_q(q), feature_map_k(k), v)</code> 算线性分支 <code>o_l</code>,最后 <code>o_l = self.proj_l(o_l); o = (o_s + o_l)</code>——<strong>精确对应论文 <span class="math inline">\(O=O^s+\mathrm{Proj}(O^l)\)</span></strong>。<code>topk=0.2</code> 即「1−稀疏度」,证实了「保留 20% 块」的口径。</li>
@@ -341,7 +429,7 @@
 <li><strong>SVG/SVG-EAR(svg-project/Sparse-VideoGen)</strong> —— 仓库含 SVG1&amp;2;SVG-EAR 为 ECCV 2026,核对时未确认其代码是否已并入该仓,故不对 SVG-EAR 的具体函数下断言(诚实标注:<strong>未开仓/未核</strong>)。</li>
 <li><strong>SALAD、RoPeSLR</strong> —— 核对时<strong>未见公开仓库</strong>,故无法代码交叉验证;其数字仅以论文自报值列出。</li>
 </ul>
-<h2 id="sec-6">6. 启发与白地</h2>
+<h2 id="sec-7">7. 启发与白地</h2>
 <ul>
 <li><strong>补偿是「表达能力」的补丁,不是「监督」的补丁——这是全领域最该记住的一条</strong>。补偿分支能让 90% 稀疏的模型有能力表达全局上下文,但 SparkDiffusion 证明:当稀疏推到 97%,残留误差落在 step-local 训练梯度<strong>看不见</strong>的方向上,再强的补偿分支也修不掉。凡是「代理损失 ≠ 最终目标」的加速工作(稀疏、量化、少步),都该先问:我修的是能力还是监督?</li>
 <li><strong>RoPE × 线性注意力的兼容性,已经从「隐患」升级为「一等公民设计约束」</strong>。RoPeSLR/RoLA 两种解法说明:任何想在带旋转位置编码的 DiT 上挂线性/低秩分支的工作,都必须显式处理「旋转与非线性不可交换」——要么把旋转移到非线性之外(RoLA),要么弃用线性注意力改注入可学习 PE(RoPeSLR)。SALAD 式「直接加、靠训练兜」在更高稀疏度是隐患。这是一条可直接迁移到图像 DiT、甚至语言模型线性注意力的设计教训。</li>
@@ -350,7 +438,7 @@
 <li><strong>白地三:补偿分支的秩/门控随「稀疏度」自适应,尚无人做</strong>。所有工作的补偿分支容量是固定超参;但直觉上稀疏度越高、补偿分支该越强。一个随稀疏度(甚至随噪声等级)调节秩和门的补偿分支,可能把单点最优推向全区间最优——这恰好呼应 SparkDiffusion「高噪声段最需要补」的诊断。</li>
 <li><strong>与 LLM 稀疏是两条独立演化线</strong>。<a class="wiki-link" data-slug="deepseek-v4-2026" href="../../papers/deepseek-v4-2026/index.html">deepseek-v4-2026</a> 的 DSA/CSA 走「压缩 KV + top-k 选择 + 滑窗」,赌的是「长上下文里大部分 KV 可压缩/可跳过」;视频扩散补偿家族赌的是「稀疏丢的背景可被低秩线性摘要捞回」。两者都在对抗 <span class="math inline">\(O(L^2)\)</span>,但归纳偏置不同(选择 vs 摘要),交叉借鉴(如把低秩补偿用到 LLM、把压缩选择用到视频)是尚未被系统探索的方向。</li>
 </ul>
-<h2 id="sec-7">7. 参考文献</h2>
+<h2 id="sec-8">8. 参考文献</h2>
 <p>均为本轮联网核对的 arxiv 条目(前缀即年月):</p>
 <ol>
 <li>VSA — <em>Faster Video Diffusion with Trainable Sparse Attention</em>, ICML 2025, <a href="https://arxiv.org/abs/2505.13389">arxiv:2505.13389</a>. 代码 <a href="https://github.com/hao-ai-lab/FastVideo">hao-ai-lab/FastVideo</a>.</li>
@@ -362,6 +450,16 @@
 <li>SVG-EAR — <em>Parameter-Free Linear Compensation for Sparse Video Generation via Error-aware Routing</em>, ECCV 2026, <a href="https://arxiv.org/abs/2603.08982">arxiv:2603.08982</a>.</li>
 <li>Sparse VideoGen — <em>Accelerating Video Diffusion Transformers with Spatial-Temporal Sparsity</em>, <a href="https://arxiv.org/abs/2502.01776">arxiv:2502.01776</a>; Sparse VideoGen2 — <em>Semantic-Aware Permutation</em>, <a href="https://arxiv.org/abs/2505.18875">arxiv:2505.18875</a>. 代码 <a href="https://github.com/svg-project/Sparse-VideoGen">svg-project/Sparse-VideoGen</a>.</li>
 <li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>. 本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>. 代码 <a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a>.</li>
+</ol>
+<p><strong>T2I / 高分辨率图像侧（§5 对照，均已核对）</strong></p>
+<ol start="10">
+<li>Sana — <em>Efficient High-Resolution Image Synthesis with Linear Diffusion Transformers</em>, ICLR 2025 oral, <a href="https://arxiv.org/abs/2410.10629">arxiv:2410.10629</a>. 代码 <a href="https://github.com/NVlabs/Sana">NVlabs/Sana</a>. 纵深见 <a class="wiki-link" data-slug="native-8k-t2i-2026" href="../native-8k-t2i-2026/index.html">native-8k-t2i-2026</a>。</li>
+<li>CLEAR — <em>Conv-Like Linearization Revs Pre-Trained Diffusion Transformers Up</em>, NeurIPS 2025, <a href="https://arxiv.org/abs/2412.16112">arxiv:2412.16112</a>. 代码 <a href="https://github.com/Huage001/CLEAR">Huage001/CLEAR</a>。</li>
+<li>LinFusion — <em>1 GPU, 1 Minute, 16K Image</em>, <a href="https://arxiv.org/abs/2409.02097">arxiv:2409.02097</a>.</li>
+<li>Scale-DiT — <em>Ultra-High-Resolution Image Generation with Hierarchical Local Attention</em>, <a href="https://arxiv.org/abs/2510.16325">arxiv:2510.16325</a>. 纵深见 <a class="wiki-link" data-slug="native-8k-t2i-2026" href="../native-8k-t2i-2026/index.html">native-8k-t2i-2026</a>。</li>
+<li>ElasticDiT — <em>Efficient Diffusion Transformers via Elastic Architecture and Sparse Attention for High-Resolution Image Generation on Mobile Devices</em>, <a href="https://arxiv.org/abs/2605.15684">arxiv:2605.15684</a>.</li>
+<li>PAROAttention — <em>Pattern-Aware ReOrdering for Efficient Sparse and Quantized Attention in Visual Generation Models</em>, <a href="https://arxiv.org/abs/2506.16054">arxiv:2506.16054</a>.</li>
+<li>Re-ttention — <em>Ultra Sparse Visual Generation via Attention Statistical Reshape</em>, <a href="https://arxiv.org/abs/2505.22918">arxiv:2505.22918</a>.</li>
 </ol>
 <section class="comments" data-pagefind-ignore>
   <h2>讨论 / Comments</h2>
