@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>SparkDiffusion：识别「高稀疏陷阱」，把视频扩散在单卡上加速 265×</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h3"><a href="#sec-1-1">术语速查</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 补偿式稀疏注意力（RoLA）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 诊断：终端误差是逐步误差的「带符号加权和」</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 Trajectory-mixed 蒸馏</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 FP8 量化 + 融合 kernel</a></li>
+    <li class="h2"><a href="#sec-3">3. 结论 (Key findings)</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 端到端 265×，且质量逼近稠密</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 少步蒸馏没有牺牲多样性</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 消融坐实「陷阱是监督问题」</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 FP8 几乎零质量损失</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节 (Implementation notes)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判性总结 (Critical assessment)</a></li>
+    <li class="h3"><a href="#sec-5-1">Strengths</a></li>
+    <li class="h3"><a href="#sec-5-2">Limitations / open questions</a></li>
+    <li class="h3"><a href="#sec-5-3">When to use / not use</a></li>
+    <li class="h3"><a href="#sec-5-4">延伸阅读 (Further reading)</a></li>
+    <li class="h2"><a href="#sec-6">6. 研究启发 (Transferable takeaways)</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>SparkDiffusion：识别「高稀疏陷阱」，把视频扩散在单卡上加速 265×</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-19</strong></span> · <span class="post-meta__paper-date">论文日期: 2026-09-19</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Yuxi Liu, Haoyu Li, Zekun Zhang, Tengxu Sun, Yixiang Cai, Jiayong Li, Yifei Xia, Tianle Liu, Baole Ai, Ang Wang, Jiamang Wang, Lin Qu, Kai Zhang, Kun Yuan, Bin Cui</span> · <span class="post-meta__venue">arXiv 2026 (Peking University · Tsinghua · Alibaba Group)</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2609.23153">arXiv:2609.23153</a> · <a class="post-meta__link" href="https://sparkdiffusion.github.io/">项目页</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/few-step-distillation.html">few-step-distillation</a> <a class="concept-chip" href="../../concepts/consistency-distillation.html">consistency-distillation</a> <a class="concept-chip" href="../../concepts/distribution-matching-distillation.html">distribution-matching-distillation</a> <a class="concept-chip" href="../../concepts/fp8-quantization.html">fp8-quantization</a> <a class="concept-chip" href="../../concepts/fused-kernels.html">fused-kernels</a> <a class="concept-chip" href="../../concepts/terminal-alignment.html">terminal-alignment</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig9-framework.png" alt="SparkDiffusion 框架总览：阶段0 教师与数据准备，阶段1 稀疏预热（稀疏分支+补偿分支+门控，得到粗糙流形先验），阶段2 trajectory-mixed 蒸馏（t=1 到 t_crossover 高噪声用一致性/流匹配锚结构与多样性，t_crossover 到 0 低噪声用分布匹配补细节与保真），阶段3 FP8 量化+融合 kernel">
+  <figcaption>
+    <strong>Fig. 9</strong> — 框架总览（对应正文 §2）。四段流水线，每一段消费上一段的 checkpoint：<strong>①稀疏预热</strong>把稠密骨干适配成补偿式稀疏结构，用 step-local flow matching 训出一个「粗糙流形先验」（Multi-step sparse）；<strong>②trajectory-mixed 蒸馏</strong>把采样轨迹在噪声 crosspoint 处切开——高噪声段用一致性/流匹配保结构与多样性、低噪声段用分布匹配（带 Critic）补终端细节，得到 3 步的 few-step 学生；<strong>③FP8 + 融合 kernel</strong>把权重离线量化成 FP8、激活运行时逐 token 动态量化，用融合 Triton kernel 把省下的 FLOPs 兑现成真实加速。底部四个 ↓ 是四个乘性加速来源：稀疏度↓FLOPs、蒸馏↓步数、FP8↓带宽、融合↓kernel 开销。
+  </figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>问题</h3><p>视频扩散推理成本被长时空注意力主导。补偿式稀疏注意力能到 90%，但 95%/97% 处出现「训练损失在降、生成质量在崩」的诡异现象。</p></div>
+  <div class="card"><h3>诊断</h3><p><strong>high-sparsity trap</strong>：终端误差主要在<strong>高噪声结构生成阶段</strong>被注入。step-local 监督（flow matching）看不见它，terminal-aligned 监督能修它。</p></div>
+  <div class="card"><h3>配方</h3><p>三阶段：稀疏预热（粗先验）→ trajectory-mixed 蒸馏（PCM 锚高噪声 + DMD 补低噪声，3 步）→ FP8 W8A8 + 融合 kernel。</p></div>
+  <div class="card"><h3>结果</h3><p>Wan2.1-T2V-14B-720P：RTX 5090 端到端 <strong>265×</strong>、H100 220×；97% 稀疏 VBench 逼近稠密；1.3B-480P 一条视频 1.3s。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>视频扩散 Transformer（video DiT）跑一次要在<strong>每一个采样步</strong>上对整条长时空 token 序列做注意力，<span class="math inline">\(O(L^2)\)</span> 的开销随分辨率和帧数爆炸。稀疏注意力的思路是「只算一小部分 query–key 块」，但朴素稀疏一旦推到很高稀疏度就会丢全局上下文、结构崩坏。<strong>补偿式稀疏注意力</strong>（compensated sparse attention）给稀疏分支旁边挂一条轻量的线性 / 低秩分支去捞回被丢掉的全局上下文——这类方法（SLA、SALAD、RoPeSLR 等）能把稀疏度做到 90% 左右。</p>
+<p>关键的经济账在这里：块稀疏注意力只算 <span class="math inline">\(1-s\)</span> 比例的块，算力大致随 <span class="math inline">\(1-s\)</span> 线性缩。把稀疏度从 90% 拉到 97%，保留的块从 10% 掉到 3%——<strong>稀疏分支的计算量降到原来的约 30%</strong>。这直接换成端到端延迟：Wan2.1-T2V-14B-720P 3 步推理，光是 90%→97% 这一步就把延迟从 H100 的 10.5s 降到 8.0s、RTX 5090 的 23.7s 降到 18.0s（额外 1.31–1.32×）。<strong>但前提是「质量能在极端稀疏下活下来」。</strong></p>
+<p>现实是活不下来。作者观察到一个反直觉现象：一个 97% 稀疏的模型，推理很快、step-local 训练损失也收敛得漂漂亮亮，<strong>但它吐出来的视频依然结构断裂、语义漂移、马赛克纹理、时序闪烁</strong>。他们把这个「在 step-local 监督下收敛、却在终端失败」的区域命名为 <strong>high-sparsity trap</strong>。</p>
+<figure>
+  <img class="zoomable" src="figures/fig6-quality-collapse.png" alt="Wan2.1-T2V-14B-480P 在 80%/90%/95%/97% 注意力稀疏度下的视频帧对比：Dense 到 90% 基本保持，95% 开始人物面部与结构畸变，97% 出现明显马赛克与结构崩坏">
+  <figcaption>
+    <strong>Fig. 6</strong> — 质量随稀疏度的坍缩（同一 step-local 训练配方）。80%、90% 与稠密几乎无差；到 <strong>95%</strong> 人物结构开始畸变，<strong>97%</strong> 出现明显马赛克化与结构崩坏。注意：这些模型的<em>训练损失都收敛良好</em>——坍缩发生在「损失看不见」的地方。
+  </figcaption>
+</figure>
+<p>中心问题于是变成：<strong>视觉生成器能否在 90%+ 稀疏度下保住质量，并把这种稀疏度真正兑现成墙钟加速？</strong></p>
+<div class="glossary">
+<h3 id="sec-1-1">术语速查</h3>
+<dl>
+<dt>flow matching（流匹配 / step-local 监督）</dt><dd>扩散训练目标：在噪声等级 $t$ 上让模型预测的速度场 $F_\theta(x_t,t)$ 逼近路径速度 $\epsilon-x_0$。它是 <strong>step-local</strong> 的——只管单步速度对不对，不直接约束多步组合出来的终端样本。</dd>
+<dt>terminal error（终端误差）</dt><dd>稀疏学生和稠密教师在<em>相同初始噪声</em>下、各自跑完整个采样轨迹后，最终输出之间的配对 MSE（本文多在 latent 空间度量）。它反映稀疏引入的误差，而非 CFG 或步数差异。</dd>
+<dt>terminal-aligned（终端对齐监督）</dt><dd>监督目标在噪声 $t$ 处由「$t$ 之后的轨迹」构造（一致性目标指向噪声区间终点、分布匹配指向全局终端 $\hat x_0$），从而约束「$t$ 处的预测如何与轨迹其余部分组合」。与 step-local 相对。</dd>
+<dt>block sparsity（块稀疏）</dt><dd>把注意力矩阵沿 query/key 切成连续块，跳过其中比例为 $s$ 的块不算。本文「稀疏度」= 不被稀疏分支计算的块比例。</dd>
+<dt>compensated sparse attention（补偿式稀疏注意力）</dt><dd>$\tilde A = A_M + g_\gamma\odot C_\psi$：高能稀疏分支 $A_M$ 抓显著语义交互，轻量补偿分支 $C_\psi$（线性 / 低秩 / 池化）捞回被丢掉的全局上下文，门控 $g$（初始化近零）融合两者。</dd>
+<dt>PCM（Phased Consistency Model，一致性蒸馏）</dt><dd>一类少步蒸馏目标，逼学生沿教师轨迹自洽。保结构、保运动、保 seed 级多样性，但不直接对齐终端分布。</dd>
+<dt>DMD（Distribution Matching Distillation，分布匹配蒸馏）</dt><dd>用一个可训练的 fake-score「Critic」把学生样本分布拉向教师分布。补细节、对齐终端，但 mode-seeking，会丢 seed 级多样性。</dd>
+<dt>NFE / CFG-free</dt><dd>NFE = 模型前向次数。稠密基线 50 步 + classifier-free guidance = 每步两次前向 → NFE=100；SparkDiffusion 3 步且无 CFG → NFE=3。</dd>
+<dt>FP8 W8A8 (E4M3)</dt><dd>权重和激活都量化到 8-bit 浮点（E4M3 格式，1 符号 4 指数 3 尾数）做 GEMM。本文权重离线逐通道静态量化、激活运行时逐 token 动态量化。</dd>
+</dl>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>SparkDiffusion 由<strong>两个 post-training 阶段 + 一个部署步</strong>组成（见 Fig. 9）。它不从头训练，而是把一个预训练稠密 video DiT 逐步改造成一个高稀疏、少步、低精度的快速生成器。下面按「稀疏架构 → 诊断的数学 → 蒸馏 → FP8」四块讲。</p>
+<h3 id="sec-2-1">2.1 补偿式稀疏注意力（RoLA）</h3>
+<p>默认稀疏模块用 RoLA。稀疏分支 <span class="math inline">\(O_s = A_M(Q,K,V)\)</span> 只在选中的少量 query–key 块上算精确 softmax 注意力。补偿分支用骨干的 pre-attention 归一化 <span class="math inline">\(q,k\)</span>，做低秩投影 + 逐点非线性 + 截断的 3D RoPE 旋转：</p>
+<div class="math block">
+\[\tilde q_i = R_r(p_i)\,\phi(P_q q_i^{\text{norm}}),\quad
+\tilde k_j = R_r(p_j)\,\phi(P_k k_j^{\text{norm}}),\quad
+C=\sum_j \tilde k_j v_j^\top,\quad
+O_{lr,i} = \text{RMSNorm}(\tilde q_i^\top C)\]
+</div>
+<p class="math-translation">—— 翻译：把每个 token 的 $q,k$ 从 head_dim 压到 rank（默认 64）维、过一个 SiLU、再只旋转前 $r$ 个 RoPE 坐标；然后 $C=\sum_j\tilde k_j v_j^\top$ 是一个 rank×d 的「全局摘要矩阵」，$\tilde q_i^\top C$ 就是线性注意力（把 $\sum_j (\tilde q_i^\top\tilde k_j)v_j$ 重排成先算 $KV$ 再乘 $Q$，从而对序列长度线性）。这条分支专门补稀疏分支丢掉的背景上下文。</p>
+<p>一个逐 token 的门控 <span class="math inline">\(g_i\)</span>（初始化近零）融合两条分支：</p>
+<div class="math block">
+\[O_i = O_{s,i} + g_i\, r_i\, O_{lr,i}\]
+</div>
+<p class="math-translation">—— 翻译：$r_i$ 是稀疏输出 $O_{s,i}$ 的 RMS（把补偿量缩放到和稀疏输出同量级），$g_i=\sigma(\text{gate\_proj}(x)+b)$。门控偏置初始化成 $-1.946$，$\sigma(-1.946)\approx0.125$——所以模块一开始几乎就是纯稀疏分支，只在「需要」的地方才慢慢打开补偿路径。</p>
+<p>低秩分支在代码里逐行可对上：投影 → SiLU → 截断 RoPE → 线性注意力 → RMSNorm。</p>
+<p class="code-source">repo/sparkdiffusion/networks/wan_rola_attention.py:L366-L391 — 低秩补偿分支：对应 O_lr 的公式</p>
+<pre><code class="language-python">def _lowrank_attn(self, q_normed_bhld, k_normed_bhld, v_bhld, freqs):
+    # Project head_dim → rank
+    q_lr = F.silu(self.proj_q(q_normed_bhld))  # [B, H, L, rank]   φ(P_q q^norm)
+    k_lr = F.silu(self.proj_k(k_normed_bhld))  # [B, H, L, rank]   φ(P_k k^norm)
+
+    # Apply truncated RoPE after activation  ——  R_r(·)，只用前 r 个旋转坐标
+    q_lr = self._apply_rope_rank(q_lr, freqs)
+    k_lr = self._apply_rope_rank(k_lr, freqs)
+
+    # Linear attention: O = Q_lr (K_lr^T V)   ——  先算 C=K^T V，再 Q C，对 L 线性
+    c = k_lr.transpose(-2, -1) @ v_bhld  # [B, H, rank, D]   C = Σ_j k̃_j v_j^T
+    out = q_lr @ c                        # [B, H, L, D]
+    return F.rms_norm(out, [out.shape[-1]])
+</code></pre>
+<p>门控融合同样是公式的直译，且 <code>gate_bias</code> 初始化 <code>-1.946</code> 就是「初始近零门」的实现细节：</p>
+<p class="code-source">repo/sparkdiffusion/networks/wan_rola_attention.py:L517-L525 — 门控融合：对应 O_i = O_s + g_i r_i O_lr</p>
+<pre><code class="language-python">x_bhld = x.view(b, s, n, d).transpose(1, 2)            # [B, H, L, D]
+gate_logits = self.gate_proj(x_bhld) + self.gate_bias  # [B, H, L, 1]
+gate = torch.sigmoid(gate_logits)                      # g_i，初始 σ(-1.946)≈0.125
+
+if o_s is not None:
+    o_s_scale = (o_s.pow(2).mean(dim=-1, keepdim=True) + 1e-5).sqrt()  # r_i = RMS(O_s)
+    fused = o_s.float() / o_s_scale.float() + gate * o_l.float()       # O_s/r_i + g·O_lr
+    out_bhld = (fused * o_s_scale.float()).to(o_l.dtype)               # ×r_i → O_s + g·r_i·O_lr
+</code></pre>
+<h3 id="sec-2-2">2.2 诊断：终端误差是逐步误差的「带符号加权和」</h3>
+<p>这是全文最漂亮的一块。作者先用一个 <strong>oracle 探针</strong>做实验定位：固定初始噪声，把稀疏学生在<strong>一小段连续采样步</strong>上的速度替换成稠密教师的速度（&quot;fix&quot;），其余步保持稀疏，看终端误差怎么变。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-oracle-probe.png" alt="Oracle 探针三联图：(a) 终端 latent NMSE，修高噪声5步（黄）显著低于修低噪声5步（红），差 3.4×；(b) 时序一致性增益，高噪声修复接近稠密教师虚线；(c) 感知质量增益，高噪声修复 +0.020。横轴为 80%-97% 稀疏度">
+  <figcaption>
+    <strong>Fig. 4</strong> — 高稀疏陷阱的根源在高噪声结构误差。$\sigma$ 是流匹配噪声等级。(a) 到稠密参考输出的终端误差（latent MSE↓）：在 97% 稀疏度，<strong>修最高噪声的 5 步（黄）几乎消掉全部终端误差，修最低噪声的 5 步（红）几乎没用</strong>——同样是 5 步预算，差出 3.4×（米色带）；28 步的更宽高噪声窗几乎全恢复。(b,c) 相对未修正稀疏模型的增益（虚线=稠密教师）。学生和教师都带 CFG，替换的是「带引导的速度」，从而把稀疏误差和 CFG-removal 效应分离开。
+  </figcaption>
+</figure>
+<p>结论：<strong>结构误差是在高噪声结构生成阶段被注入的</strong>，然后被后续步放大。为什么 step-local 损失看不见它？附录 C 用一个刻意简化的线性代理讲清了机制。设 Euler 采样器、仿射参考速度场、仿射终端读出 <span class="math inline">\(R(x)=c^\top x\)</span>，逐步速度误差 <span class="math inline">\(e=(e_0,\dots,e_{N-1})\)</span>。**Pairing 恒等式（Lemma C.1）**给出终端误差：</p>
+<div class="math block">
+\[\Psi \;=\; R(x_N)-R(x_N^\star)\;=\; h\sum_{k=0}^{N-1} s_k^\top e_k \;=\;\langle e, s\rangle_h,
+\qquad s_k := \Pi_{k+1}^\top c\]
+</div>
+<p class="math-translation">—— 翻译：终端误差不是「误差幅度的和」，而是「每一步误差 $e_k$ 按<strong>终端敏感度</strong> $s_k$ 加权、<strong>带符号</strong>地累加」。$s_k$ 度量「在第 $k$ 步注入一个小扰动，最终输出会动多少」——由采样器和参考场决定，跟模型参数无关。</p>
+<p>对比两个目标看的东西：</p>
+<div class="math block">
+\[L(a)=\tfrac12\lVert e\rVert_h^2 \;\text{只看}\; \lVert e_k\rVert_2^2,
+\qquad
+\Psi(a)=\langle e, s\rangle_h \;\text{看带符号和}\; h\sum_k s_k^\top e_k\]
+</div>
+<p class="math-translation">—— 翻译：step-local 损失 $L$ 丢掉了符号和传播信息，只看每步误差的平方幅度；终端误差 $\Psi$ 看的是带符号的加权和。于是两个模型可以有<strong>完全相同的 step-local 损失、却有完全不同的终端输出</strong>：一个的逐步误差方向一致、会累加（coherent，$\Psi$ 大），另一个的误差正负震荡、会抵消（$\Psi\approx0$）。Prop. C.3 还证明：在恒定敏感度下，交替符号能让终端误差归零而所有 $\lVert e_k\rVert$ 不变——幅度损失<strong>根本区分不了「累加」和「抵消」</strong>。</p>
+<p>再加上 <strong>Prop. C.6</strong>：step-local 训练只能移除残差在「可训练子空间 <span class="math inline">\(\mathcal U\)</span>」内的分量 <span class="math inline">\(P_{\mathcal U}e_0\)</span>，留下正交剩余 <span class="math inline">\(P_{\mathcal U^\perp}e_0\)</span>；在 step-local 最优点，损失梯度已经归零，但终端误差不必归零——这部分剩余<strong>对 step-local 梯度不可见，却终端可见</strong>。而 terminal-aligned 信号能通过<strong>同一批可训练参数</strong>在一阶上削掉这个终端可见的投影（Cor. C.7），代价只是二阶的 step-local 次优。这就从数学上解释了 Fig. 4 的实验，并直接推出补救方案要「terminal-aligned」。</p>
+<p>作者诚实地标注了边界：<strong>稀疏度本身不是这个证明里的数学对象</strong>。分析的输入假设是「高稀疏训练留下的残差是（i）非零、（ii）与终端敏感度 coherent 对齐而非零均值抖动、（iii）部分落在可训练方向之外」——他们<strong>没有证明</strong>激进稀疏化一定产生这样的残差。结论是条件式的：<strong>如果</strong>留下这样的残差，<strong>那么</strong> step-local 训练修不掉它的终端可见部分，而 terminal-aligned 能修。</p>
+<h3 id="sec-2-3">2.3 Trajectory-mixed 蒸馏</h3>
+<p>补救因此是 terminal-aligned 的少步蒸馏。但 Stage-2 要同时满足两个要求：(1) 逃离陷阱需要 terminal-aligned 信号——一致性和分布匹配都算 terminal-aligned；(2) 二者在 fidelity–diversity 轴上失败方向相反：纯 DMD mode-seeking 丢多样性，纯一致性跟着教师轨迹却从不对齐终端分布。</p>
+<p>作者采用 CrossDistill 的 <strong>trajectory-mixed</strong> 调度：把采样轨迹在噪声 crosspoint 处切开，<strong>高噪声段用 PCM 风格一致性</strong>（保结构、运动、多样性），<strong>低噪声段用 DMD 风格分布匹配</strong>（锐化细节、修终端可见误差）。3 步学生 = 1 个高噪声 PCM 步 + 2 个低噪声 DMD 步。这个分工正对应 §2.2 的诊断：终端可见误差发源于高噪声结构生成，所以高噪声步锚在教师粗轨迹上、低噪声步供给终端对齐的修正。</p>
+<p>代码里 crosspoint 是 <code>joint_boundary_rf = 0.875</code>，3 步的反向时间表是 <code>[0.933781, 0.875, 0.608979]</code>，用 step index 把每步判成 high / low 区，从而路由到「一致性」还是「分布匹配」的更新：</p>
+<p class="code-source">repo/sparkdiffusion/models/t2v_model_distill.py:L92-L94, L526-L527 — 轨迹切分：crosspoint 与 high/low 区判定</p>
+<pre><code class="language-python"># --- config: 轨迹在噪声 crosspoint=0.875 处切开，step_index 2 为界 ---
+joint_boundary_rf: float = 0.875          # t_crossover（噪声等级）
+joint_boundary_step_index: int = 2        # 前 2 步为高噪声段
+joint_backward_timesteps: list = [0.933781, 0.875, 0.608979]  # 3-step 反向时间表
+
+def _joint_region_for_num_steps(self, num_steps: int):
+    # num_steps ≤ 2 → &quot;high&quot;（PCM 一致性，锚结构/多样性）
+    #           &gt; 2 → &quot;low&quot;（DMD 分布匹配，补细节/保真）
+    return &quot;high&quot; if num_steps &lt;= self.config.joint_boundary_step_index else &quot;low&quot;
+</code></pre>
+<blockquote>
+<p><strong>MoE 骨干的处理</strong>：Wan2.2 是 mixture-of-experts，不同 expert group 专门负责不同噪声区间。SparkDiffusion 对每个 expert group <strong>在它自己的噪声区间上单独预热 + 蒸馏</strong>，再量化——代码里体现为 <code>net</code>/<code>net_low</code>、<code>net_teacher</code>/<code>net_teacher_low</code>、<code>fake_score</code>/<code>fake_score_low</code> 的高 / 低噪声双套网络。</p>
+</blockquote>
+<h3 id="sec-2-4">2.4 FP8 量化 + 融合 kernel</h3>
+<p>部署步把稀疏模型省下的 FLOPs 兑现成墙钟加速。作者把注意力和 FFN 里的线性投影量化到 <strong>W8A8 FP8 (E4M3)</strong>：<strong>权重带离线校准一次的逐通道静态 scale，激活在运行时逐 token 动态 scale</strong>；归一化、门控、稀疏掩码选择保留 BF16。逐 token 激活量化被<strong>融合进一个自定义 kernel</strong>，让缩放和 cast 在一次内存遍历里完成。因为是少步采样，量化误差没多少空间累积——附录 B.2 显示 BF16→FP8 的 VBench 差 ≤0.1 分。</p>
+<p>代码里，激活量化是逐 token（逐行）amax → scale → cast，再交给 <code>torch._scaled_mm</code> 做 FP8 GEMM：</p>
+<p class="code-source">repo/sparkdiffusion/ops/quantization/fp8_linear.py:L57-L61, L144-L154 — 激活逐 token 动态量化 + FP8 scaled GEMM</p>
+<pre><code class="language-python">def quantize_activation_rowwise(x2):
+    &quot;&quot;&quot;Row-wise (per-token) FP8 activation quantization for a 2-D [M, K] tensor.&quot;&quot;&quot;
+    x_scale = x2.abs().amax(dim=1, keepdim=True).float() / _FP8_MAX + 1e-12  # [M,1] 逐 token
+    x_fp8 = (x2 / x_scale.to(x2.dtype)).to(_FP8_DTYPE)                       # E4M3
+    return x_fp8, x_scale
+# ... FP8Linear.forward:
+x_fp8, x_scale = quantize_activation_rowwise(x.reshape(-1, x.shape[-1]))
+y = torch._scaled_mm(x_fp8, self.weight_fp8.t(),
+                     scale_a=x_scale, scale_b=self.w_scale_t,   # 权重 scale 离线算好
+                     bias=self.bias, out_dtype=x.dtype, use_fast_accum=True)
+</code></pre>
+<p>论文说的「融合进单个 kernel」在 FFN 上体现为一个把 <strong>tanh-GELU 和量化融合</strong>的 Triton kernel——激活函数、amax 求 scale、cast 到 FP8 在一次遍历里全做完，省掉一次中间张量往返显存：</p>
+<p class="code-source">repo/sparkdiffusion/ops/quantization/fp8_linear.py:L64-L96 — 融合 tanh-GELU + 逐行 FP8 量化的 Triton kernel</p>
+<pre><code class="language-python">@triton.jit
+def _gelu_quant_rowwise_kernel(X, Xq, Xs, K, stride_xm, BLOCK_K: tl.constexpr):
+    &quot;&quot;&quot;Fuse tanh-approximation GELU with row-wise FP8 quantization.&quot;&quot;&quot;
+    row = tl.program_id(0).to(tl.int64)
+    x = tl.load(X + row * stride_xm + offs, mask=mask, other=0.0).to(tl.float32)
+    gelu = x * tl.sigmoid(1.5957691216057308 * (x + 0.044715 * x * x * x))  # tanh-GELU
+    scale = tl.max(tl.abs(gelu), axis=0) / 448.0 + 1e-12                    # 逐行 amax→scale
+    tl.store(Xs + row, scale)
+    tl.store(Xq + row * K + offs, (gelu / scale).to(tl.float8e4nv), mask=mask)  # 一次遍历出 FP8
+</code></pre>
+<h2 id="sec-3">3. 结论 (Key findings)</h2>
+<h3 id="sec-3-1">3.1 端到端 265×，且质量逼近稠密</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-latency-speedup.png" alt="SparkDiffusion 端到端延迟与加速：Wan2.1-T2V-1.3B-480P-90 在 RTX5090 1.3s/H100 0.6s（140×/153×）；14B-720P-97 18s/8s（265×/220×）；Wan2.2-A14B-720P-97 25.1s/8s（181×/189×）">
+  <figcaption>
+    <strong>Fig. 2</strong> — 端到端延迟（左，log 轴）与相对全注意力的加速（右）。后缀 90/97 是稀疏度。加速 = 完整 SparkDiffusion 栈（少步蒸馏 + 稀疏 + FP8）对稠密基线的延迟比。稠密基线 50 步 + CFG（NFE=100），SparkDiffusion 3 步 CFG-free（NFE=3）。
+  </figcaption>
+</figure>
+<p>三个乘性因子叠出 265×，作者用瀑布图把每一层贡献拆开：</p>
+<figure>
+  <img class="zoomable" src="figures/fig3-headline-265x.png" alt="265× 瀑布分解：稠密 4769s → +RoLA97%+融合Triton 1463s（3.3×）→ +CrossDistill 43.9s（33.3×）→ +FP8 GEMM 25.8s（1.7×）→ -CPU offload 23.5s（1.1×）→ +torch.compile 18.1s（1.3×），累计 265×">
+  <figcaption>
+    <strong>Fig. 3</strong> — 265× 的乘性分解（Wan2.1-T2V-14B-720P，RTX 5090）。稠密 4769s 起步：稀疏+融合 kernel 3.3×，few-step 蒸馏（50→3 步）是最大头 33.3×，FP8 GEMM 1.7×，CPU offload 1.1×，torch.compile 1.3×——累计 <strong>265×</strong>，最终 18.075s。可见「少步蒸馏」贡献远大于其余，而蒸馏能成立正是靠 §2 逃出了高稀疏陷阱。
+  </figcaption>
+</figure>
+<p>质量上（Table 2），在<strong>匹配的 90% 稀疏度</strong>下 SparkDiffusion 在 Wan2.1-T2V-14B-720P 上<strong>每一项指标都优于</strong> FastWan(VSA) 和 TurboDiffusion。推到 <strong>97%</strong>：VBench 83.15 / VBench-2.0 58.05，仍<strong>略高于</strong> 90% 的最强基线 TurboDiffusion（82.88 / 57.98），而延迟明显更低（RTX 5090 18.0s vs 25.3s）。1.3B-480P 上同 90% 稀疏度做到「质量更好 + 速度更快」双赢：VBench-2.0 55.85 最佳、延迟 1.3s（比基线快 1.5–2.2×）。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>方法</th>
+<th>稀疏</th>
+<th>VBench↑</th>
+<th>VBench-2.0↑</th>
+<th>5090 延迟↓</th>
+<th>H100 延迟↓</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>14B-720P</td>
+<td>Full（稠密 50 步）</td>
+<td>0%</td>
+<td>83.69</td>
+<td>60.20</td>
+<td>4769s</td>
+<td>1757s</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td>FastWan(VSA)</td>
+<td>90%</td>
+<td>82.72</td>
+<td>58.04</td>
+<td>54.1s</td>
+<td>20.5s</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td>TurboDiffusion</td>
+<td>90%</td>
+<td>82.88</td>
+<td>57.98</td>
+<td>25.3s</td>
+<td>16.0s</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td><strong>SparkDiffusion</strong></td>
+<td>90%</td>
+<td><strong>83.42</strong></td>
+<td><strong>59.36</strong></td>
+<td>23.7s</td>
+<td>10.5s</td>
+</tr>
+<tr>
+<td>14B-720P</td>
+<td><strong>SparkDiffusion</strong></td>
+<td>97%</td>
+<td>83.15</td>
+<td>58.05</td>
+<td><strong>18.0s</strong></td>
+<td><strong>8.0s</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-3-2">3.2 少步蒸馏没有牺牲多样性</h3>
+<p>DMD 类目标 mode-seeking、会丢 seed 级多样性，这是少步蒸馏的老问题。Table 3 用两个冻结视频编码器（V-JEPA 2、VideoMAE V2）度量同一 prompt、不同 seed 采样视频之间的平均成对距离（越大越多样，稠密为参考）。<strong>即便在 97% 稀疏度，SparkDiffusion 离稠密参考最近</strong>（V-JEPA2 Cos 0.087 / <span class="math inline">\(\ell_2\)</span> 23.04），而 90% 的少步基线丢掉了可见的一截多样性。这印证了 §2.3 的设计：<strong>高噪声一致性保住粗结构和多样性，低噪声分布匹配只补终端保真</strong>。</p>
+<h3 id="sec-3-3">3.3 消融坐实「陷阱是监督问题」</h3>
+<p>Stage-2 目标消融（Table 4，97% 稀疏、3 步、同一 Stage-1 预热起点）把因果链钉死了：</p>
+<table>
+<thead>
+<tr>
+<th>Stage-2 目标</th>
+<th>VBench↑</th>
+<th>VBench-2.0↑</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Full Attention（稠密 50 步）</td>
+<td>83.69</td>
+<td>60.20</td>
+</tr>
+<tr>
+<td>PCM only（纯一致性，3 步）</td>
+<td>81.94</td>
+<td>56.41</td>
+</tr>
+<tr>
+<td>DMD only（纯分布匹配，3 步）</td>
+<td>82.56</td>
+<td>57.38</td>
+</tr>
+<tr>
+<td><strong>CrossDistill（trajectory-mixed，3 步）</strong></td>
+<td><strong>83.15</strong></td>
+<td><strong>58.05</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>两个单目标都已经能捞回 97% 稀疏丢掉的大部分质量</strong>——直接证明「陷阱是监督问题」：任何 terminal-aligned 目标都能缓解它。但两个纯目标沿 fidelity–diversity 轴向相反方向失败（PCM 最弱、DMD 丢多样性），trajectory-mixed 取两段之长得到最好。配合 warm-up 消融（Fig. 10：短暂预热就够建立可用先验），坐实了分阶段原则。</p>
+<h3 id="sec-3-4">3.4 FP8 几乎零质量损失</h3>
+<p>Table 5：跨骨干和稀疏度，W8A8 FP8 相对 BF16 对手（同 3 步 CFG-free）<strong>VBench / VBench-2.0 最多变 0.07 分</strong>。因为少步采样让量化误差没空间累积，Fig. 2 的加速几乎零质量代价——正文所有 SparkDiffusion 数字都直接报在部署的 FP8 模型上。</p>
+<h2 id="sec-4">4. 实现细节 (Implementation notes)</h2>
+<p>这是一篇方法 + 系统交织的论文，工程细节是一等公民。挑几个从代码里读出来、论文正文一笔带过或没提的点：</p>
+<ol>
+<li>
+<p><strong>门控初始化 <span class="math inline">\(-1.946\)</span> 的确切含义</strong>（<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L264</a>）：<code>gate_bias = torch.full((1,num_heads,1,1), -1.946)</code>，<span class="math inline">\(\sigma(-1.946)\approx0.125\)</span>。注释直言「sparse dominates initially」。而且 <code>WanModel.init_weights()</code> 会用 xavier 覆盖所有 Linear，所以 RoLA 专门写了 <code>init_weights()</code>（L278-287）<strong>重新</strong>把 <code>proj_q/k</code> 设成 kaiming、<code>gate_proj</code> 设成零、<code>gate_bias</code> 填回 <span class="math inline">\(-1.946\)</span>——一个很容易踩的初始化覆盖坑。</p>
+</li>
+<li>
+<p><strong>Stage-1 预热的 teacher-velocity 变体是靠一个全局副作用实现的</strong>（<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L532-L542</a>）：预热时每层稀疏输出和「稠密注意力参考」做 MSE，通过类级 <code>RoLaTrainingContext.add_mse_loss</code> 累加。代码注释明确警告：<strong>这个副作用与 activation-checkpoint 重算不兼容</strong>（重算会让 MSE 子图跑两次、破坏 saved-tensor 记账 → CheckpointError），所以启用 Stage-1 MSE 时 finetune 模型<strong>关掉了梯度检查点</strong>。这是论文完全不会写、但复现必踩的坑。</p>
+</li>
+<li>
+<p><strong>稀疏 kernel 训练 / 推理走不同路径</strong>（<a href="repo/sparkdiffusion/networks/wan_rola_attention.py">wan_rola_attention.py:L293-L327, L396-L449</a>）：训练用外部 SLA 的 BF16 精确 kernel（有 backward），推理走 <code>fused_forward</code> 里 Alibaba 自研的 Triton 融合 kernel（<code>fused_qkv_gemm_rope</code> + <code>fused_sparse_attn</code> + <code>fused_lowrank</code> + <code>fused_gate</code>）。稀疏训练 kernel 依赖环境变量 <code>SLA_SRC</code> 指向外部 checkout，没设会直接 <code>RuntimeError</code>——即这份开源代码<strong>不自带稀疏训练 kernel</strong>。</p>
+</li>
+<li>
+<p><strong>FP8 转换是逐 transformer block staging 的</strong>（<a href="repo/sparkdiffusion/ops/quantization/fp8_linear.py">fp8_linear.py:L217-L302</a>）：<code>convert_dit_linears_to_fp8</code> 一次只把一个 block 搬到 GPU 量化再搬回源设备，<strong>全 BF16 模型永远不用一次性驻留 GPU</strong>——14B 模型单卡量化的必要工程。转换 FFN 两个 GEMM + 注意力 output proj + q/k/v + cross-attn，量化 GELU 后一层时替换成 <code>FP8LinearFusedGELU</code> 并把原 <code>nn.GELU</code> 换成 <code>nn.Identity</code>（避免 GELU 被算两次）。</p>
+</li>
+<li>
+<p><strong>激活为什么用动态而非静态量化</strong>（<a href="repo/sparkdiffusion/ops/quantization/fp8_linear.py">fp8_linear.py:L8-L11</a>）：注释解释——静态首批校准会「silently clip 后续某个激活范围更大的扩散步」，动态逐 token amax 虽然多一次 reduction 但不会静默削顶。这是对论文「activations scaled dynamically per token」一句话背后<strong>为什么</strong>的补充。</p>
+</li>
+</ol>
+<p><strong>paper↔code 一处措辞出入</strong>：论文说权重「carry static per-channel scales <strong>calibrated once offline</strong>」。代码里 <code>quantize_weight_rowwise</code>（L45-54）其实就是取权重本身的逐通道 amax——<strong>不需要任何数据校准</strong>（权重是已知常量，直接算 amax 即可）。所以「calibrated」用词略松：权重侧是无数据的 amax 量化，真正「动态」的只有激活侧。功能无误，只是叙述容易让人以为权重也过了校准集。</p>
+<h2 id="sec-5">5. 批判性总结 (Critical assessment)</h2>
+<h3 id="sec-5-1">Strengths</h3>
+<ul>
+<li><strong>诊断先于方法，且诊断本身是贡献</strong>。high-sparsity trap 的命名 + oracle 探针实验（Fig. 4）+ 附录 C 的 Hilbert 空间证明，构成一条「现象→定位→机制」的完整链条。<span class="math inline">\(\Psi=\langle e,s\rangle\)</span> vs <span class="math inline">\(L=\tfrac12\lVert e\rVert^2\)</span> 这个「符号 vs 幅度」的对比，是那种读完会记住的洞见。</li>
+<li><strong>数学诚实</strong>。附录 C 明确声明「稀疏度不是证明里的数学对象」，结论是条件式的，没有把「如果残差 coherent」偷换成「稀疏一定导致 coherent 残差」。这种自我设限在加速论文里少见。</li>
+<li><strong>加速是真墙钟、且可分解</strong>。265× 不是理论 FLOPs，是单卡实测，还用瀑布图（Fig. 3）把每个乘性因子拆开——读者能看清「少步蒸馏才是大头（33×），稀疏本身只 3.3×」。</li>
+<li><strong>代码质量高、系统细节完整</strong>。逐 block staging 量化、融合 GELU+quant kernel、训练 / 推理双 kernel 路径都在开源里，工程可复现度高于多数技术报告。</li>
+</ul>
+<h3 id="sec-5-2">Limitations / open questions</h3>
+<ul>
+<li><strong>方法本身是「组装」而非「发明」</strong>。稀疏模块用现成 RoLA、蒸馏用现成 CrossDistill、量化是标准 W8A8 FP8——SparkDiffusion 的原创性集中在<strong>诊断</strong>和<strong>分阶段的组装原则</strong>上，单个组件都不是新的。作者也坦承框架「对具体稀疏选择器、补偿分支、蒸馏目标 agnostic」。</li>
+<li><strong>诊断的普适性靠「同族」论证</strong>。作者说 RoLA 与 VSA / SLA 共享稀疏分支、只在补偿机制上不同，所以陷阱是全族现象（附录 D 复现）。但这仍是在「稀疏+补偿」这一类架构内的结论；对完全不同范式的稀疏（如训练无关的动态掩码）是否成立，没有正面验证。</li>
+<li><strong>crosspoint、loss 权重全用 CrossDistill 默认值</strong>，没有针对极端稀疏重新搜索。0.875 这个 crosspoint 对 90% 和 97% 是否都最优、是否该随稀疏度移动，论文没做敏感性分析。</li>
+<li><strong>只在 Wan 系列上验证</strong>。Wan2.1/2.2、T2V/I2V、480P/720P 覆盖不错，但都是 Wan 家族。对 HunyuanVideo、CogVideoX 等其他 DiT 骨干是否直接迁移，是开放问题。</li>
+<li><strong>AR 视频只是「兼容性论述」</strong>。§1 末尾说框架兼容自回归视频扩散（稀疏可限成因果窗、trajectory-mixed 作用在噪声轴可与 self-forcing 结合），但<strong>没有实验</strong>——这是承诺不是结果。</li>
+</ul>
+<h3 id="sec-5-3">When to use / not use</h3>
+<ul>
+<li><strong>用</strong>：你有一个已训练好的稠密 video DiT，想在单卡上把它压到少步 + 高稀疏 + 低精度做推理部署，且能接受一次两阶段 post-training（约 8250 步）。</li>
+<li><strong>不用</strong>：你在追求「稀疏架构本身」的新设计（该看 RoLA / SLA / RoPeSLR），或想要 training-free 的即插即用加速（这里需要蒸馏训练）。</li>
+</ul>
+<h3 id="sec-5-4">延伸阅读 (Further reading)</h3>
+<p>SparkDiffusion 的定位是「稀疏 + 少步蒸馏」的<strong>分阶段</strong>路线，正好与两条「联合 / 合并」路线形成对照。把三者的<strong>结论与观察</strong>放在一起交叉验证，比单看本文更能看清分歧在哪、为什么：</p>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>稀疏×蒸馏如何组合</th>
+<th>对多样性的观察</th>
+<th>对「陷阱」的立场</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SparkDiffusion（本文）</strong></td>
+<td><strong>顺序分阶段</strong>：稀疏预热→trajectory-mixed 蒸馏（PCM 高噪声 + DMD 低噪声）→FP8</td>
+<td>97% 稀疏仍<strong>最接近稠密</strong>多样性（Table 3），归功于高噪声一致性</td>
+<td>明确命名 high-sparsity trap，定位为<strong>高噪声监督缺失</strong></td>
+</tr>
+<tr>
+<td><strong>FastWan / VSA</strong> [35]</td>
+<td><strong>联合训练</strong>稀疏注意力 + DMD 蒸馏</td>
+<td>本文测得其<strong>丢失可见多样性</strong>（DMD mode-seeking）</td>
+<td>未区分高 / 低噪声监督；90% 稀疏为主</td>
+</tr>
+<tr>
+<td><strong>TurboDiffusion</strong> [31]</td>
+<td><strong>分别训练</strong> SLA 稀疏 + rCM 一致性，再<strong>合并参数更新</strong></td>
+<td>本文测得质量 / 多样性均次于分阶段</td>
+<td>未提出陷阱诊断；把稀疏和一致性当两个独立可加模块</td>
+</tr>
+</tbody>
+</table>
+<p>分歧的可能成因：FastWan 把 DMD 和稀疏耦在一起训，DMD 的 mode-seeking 会在训练早期就压掉多样性且无从挽回；TurboDiffusion 的「分别训练再合并参数」假设两种更新可线性叠加，但稀疏引入的<strong>高噪声结构误差</strong>恰恰不是低噪声一致性更新能覆盖的方向（正是 §2.2 的 <span class="math inline">\(\mathcal U^\perp\)</span> 剩余）。SparkDiffusion 把「建立稀疏先验」和「终端对齐」<strong>解耦成两个各带单一标准目标的顺序阶段</strong>，恰好绕开了这两个耦合陷阱——这也解释了为什么它在多样性上反而离稠密最近。</p>
+<ul>
+<li>自回归视频扩散的少步蒸馏与 train-test gap，见 <a class="wiki-link" data-slug="self-forcing-2025" href="../self-forcing-2025/index.html">self-forcing-2025</a>（本文 [5]，AR 扩展所依赖的 self-forcing 训练）。</li>
+<li>底层稀疏架构：RoLA [36]、RoPeSLR [12]（3D-RoPE 感知的 sparse+low-rank 结构，本文补偿分支的直接来源）、SLA [32]。</li>
+</ul>
+<h2 id="sec-6">6. 研究启发 (Transferable takeaways)</h2>
+<p>抛开视频扩散，这篇论文有几条能被别处偷走的套路：</p>
+<ul>
+<li><strong>「训练损失在降、终端指标在崩」是一个通用的报警信号，不是矛盾</strong>。任何「代理损失 ≠ 最终目标」的训练（RLHF 的 reward vs 真实偏好、检索器的对比损失 vs 下游 QA、任何 teacher-forcing vs 自回归推理），都可能存在「代理最优点上残留的、代理梯度不可见的终端误差」。SparkDiffusion 的方法论——<strong>先做 oracle 干预定位误差注入在哪个阶段，再证明代理梯度为什么看不见它</strong>——是可迁移的诊断范式。</li>
+<li><strong>「符号 vs 幅度」：平方损失会丢掉误差的相干结构</strong>。<span class="math inline">\(L\)</span> 只看 <span class="math inline">\(\lVert e_k\rVert^2\)</span>、<span class="math inline">\(\Psi\)</span> 看带符号加权和——这个区分适用于任何「逐步误差沿轨迹组合」的系统（多步推理链、扩散 / 流采样、RL 的 credit assignment）。一堆各自很小的误差如果<strong>方向一致</strong>，会在终端累加成大偏差；平方型监督对此完全盲视。</li>
+<li><strong>反直觉点：加速的「大头」往往不在你以为的地方</strong>。Fig. 3 里稀疏（97%！）只贡献 3.3×，少步蒸馏才是 33×。很多人做加速一头扎进稀疏 / 量化，但<strong>步数</strong>才是乘性因子里最大的一项——前提是你能让少步蒸馏在你的极端 setting 下不崩（这正是本文的价值）。做系统加速前，先把各因子的乘性上限估出来，别在小头上过度优化。</li>
+<li><strong>解耦「两个失败模式」= 两个各带单一目标的顺序阶段</strong>。当一个问题同时有「架构不适配」和「监督不对齐」两个病因时，与其设计一个复合损失同时治两个，不如<strong>串成两段、每段一个标准目标</strong>——每段都能收敛得干净，还避免了复合目标里的相互干扰（对照 TurboDiffusion 的「合并参数更新」为什么更差）。</li>
+<li><strong>量化里「动态 vs 静态」的选择要看分布会不会漂</strong>。扩散的不同噪声步激活范围差很多，静态首批校准会静默削顶后续步——所以激活用逐 token 动态、权重（常量）才用静态。凡是「不同阶段 / 不同输入激活分布显著不同」的模型，动态量化的鲁棒性收益值这一次 amax reduction。</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
