@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>补偿式稀疏注意力：视频扩散如何在 90%+ 稀疏下不崩（VSA · SLA · SALAD · RoPeSLR · RoLA）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body class="tutorial-page">
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link active" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 瓶颈与朴素稀疏为何崩</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 直觉</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 正式化</a></li>
+    <li class="h3"><a href="#sec-1-4">1.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-1-5">1.5 洞察</a></li>
+    <li class="h2"><a href="#sec-2">2. 补偿的核心武器：线性注意力与可复用全局摘要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 直觉</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 正式化</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 洞察</a></li>
+    <li class="h2"><a href="#sec-3">3. 补偿式稀疏注意力的通式与「近零门控」</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 直觉</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 正式化</a></li>
+    <li class="h3"><a href="#sec-3-4">3.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-3-5">3.5 洞察</a></li>
+    <li class="h2"><a href="#sec-4">4. 两种组合范式：并联补偿 vs 按块路由</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 直觉</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 正式化</a></li>
+    <li class="h3"><a href="#sec-4-4">4.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-4-5">4.5 洞察</a></li>
+    <li class="h2"><a href="#sec-5">5. RoPE 两难：低秩分支的位置编码危机与两种解法</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 直觉</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 正式化</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-5-5">5.5 洞察</a></li>
+    <li class="h2"><a href="#sec-6">6. 高稀疏陷阱：补偿救不了的监督问题</a></li>
+    <li class="h3"><a href="#sec-6-1">6.1 直觉</a></li>
+    <li class="h3"><a href="#sec-6-2">6.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-6-3">6.3 正式化</a></li>
+    <li class="h3"><a href="#sec-6-4">6.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-6-5">6.5 洞察</a></li>
+    <li class="h2"><a href="#sec-7">7. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</a></li>
+    <li class="h3"><a href="#sec-7-1">7.1 直觉</a></li>
+    <li class="h3"><a href="#sec-7-2">7.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-7-3">7.3 正式化</a></li>
+    <li class="h3"><a href="#sec-7-4">7.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-7-5">7.5 洞察</a></li>
+    <li class="h2"><a href="#sec-8">参考文献与代码</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>补偿式稀疏注意力：视频扩散如何在 90%+ 稀疏下不崩</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-29</strong></span> · <span class="post-meta__paper-date">教程日期: 2026-09-29</span> · <span class="post-meta__extra">~12k 中文字 字</span> · <span class="post-meta__extra">35 分钟</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/thu-ml/SLA">代码</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a> · <a class="post-meta__link" href="https://github.com/hao-ai-lab/FastVideo">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/linear-attention.html">linear-attention</a> <a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/few-step-distillation.html">few-step-distillation</a> <a class="concept-chip" href="../../concepts/fp8-quantization.html">fp8-quantization</a></div>
+</aside>
+
+<p>视频扩散 Transformer 每一个采样步都要在整条时空 token 序列上做一次全注意力，序列长度动辄十万级，<span class="math inline">\(O(L^2)\)</span> 的开销是端到端延迟的头号来源。过去一年半里，一条清晰的技术主线在此成型：<strong>用块稀疏砍掉大部分注意力计算，再挂一条 <span class="math inline">\(O(L)\)</span> 的线性/低秩补偿分支把丢掉的全局背景捞回来</strong>——这就是「补偿式稀疏注意力」。它把可用稀疏度从 90% 推向 97%，但也在 97% 处撞到一个更深的天花板。</p>
+<p>这篇教程把这条线从头讲透：不是罗列论文，而是沿着「<strong>为什么这么设计、推导里的非显然关键步、代码落在哪几行、失效边界在哪</strong>」展开。读者假设为熟悉注意力 / 扩散 / 损失函数的 CV/ML 同行。每一节走同一套螺旋：<strong>直觉定位 → 真实形状可跑的最小 demo → 完整推导 → 真实仓库代码逐行对照 → 设计洞察</strong>。想先要一张全景对比表（各方法的稀疏度 / 加速 / 机制差异 / 代码交叉验证），见配套调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>；本教程负责把机制<strong>讲透</strong>，调研页负责把家族<strong>摆开对比</strong>。</p>
+<h2 id="sec-1">1. 瓶颈与朴素稀疏为何崩</h2>
+<h3 id="sec-1-1">1.1 直觉</h3>
+<p>Video DiT 的采样成本几乎全压在自注意力上：每一个去噪步都要对整条展平的时空 token 序列做一次全局自注意力，而一段几秒的高分辨率视频，patch 化后 <span class="math inline">\(L\)</span> 轻松突破 10 万。<span class="math inline">\(O(L^2)\)</span> 的注意力矩阵随分辨率、帧数平方级膨胀，直接主导端到端延迟，去噪步数越多这个乘子越吓人。块稀疏是最自然的省法：把 <span class="math inline">\(L\times L\)</span> 的注意力矩阵沿 query/key 维切成连续块，只对&quot;高能&quot;块精确算注意力，其余整块跳过——按块而非按 token，是为了贴合 GPU 的分块访存与矩阵乘布局。</p>
+<p>但&quot;把低能块当零扔&quot;是危险假设。SLA 在 Wan2.1 上实测了注意力权重的分布：真正 critical 的块只占 <strong>8.1%</strong>，negligible（可安全丢弃）占 <strong>45.4%</strong>，而中间那层 marginal 占了 <strong>46.5%</strong>。只扔最小的约 45% 时输出误差 <span class="math inline">\(\lt 3\%\)</span>；可一旦把 marginal 也一并当垃圾扔掉、把稀疏度推到 <strong>92%</strong>，输出误差直接飙到 <strong>33%</strong>。丢掉的不是零，是弥散的一大坨小量。</p>
+<figure>
+  <img class="zoomable" src="figures/vsa-arch.png" alt="VSA 粗到细两级块稀疏：Cube Partition + 粗阶段选关键 cube + 细阶段块内稀疏注意力">
+  <figcaption><strong>图 1</strong> — 块稀疏的几何（VSA, 论文 Fig.1）。注意力矩阵先按时空立方体切块，粗阶段用块级摘要选出少量关键 cube、细阶段只在选中块内算精确注意力：稀疏的粒度是"块"而非"token"，正是为了让跳过的部分对齐连续内存与 GEMM 分块。</figcaption>
+</figure>
+<h3 id="sec-1-2">1.2 最小 demo</h3>
+<pre class="teaching-demo"><code class="language-python">import torch, torch.nn.functional as F
+
+torch.manual_seed(0)
+H, L, d, B = 4, 1024, 64, 64          # 头数 / 序列长 / 头维 / 块大小
+nb = L // B                            # 16 个块
+Q, K, V = [torch.randn(H, L, d) for _ in range(3)]
+scale = d ** -0.5
+
+# 全注意力参考输出
+full = (F.softmax(Q @ K.transpose(-1, -2) * scale, dim=-1)) @ V
+
+Qb = Q.view(H, nb, B, d).mean(2)       # 每个 query 块的均值代表
+Kb = K.view(H, nb, B, d).mean(2)       # 每个 key 块的均值代表
+block_score = Qb @ Kb.transpose(-1, -2)  # (H, nb, nb) 块级近似分数
+
+for keep in [8, 5, 3, 2, 1]:           # 保留块数：稀疏度 50%→94%
+    idx = block_score.topk(keep, dim=-1).indices          # 每个 q 块选 top-keep 个 k 块
+    mask = torch.zeros(H, nb, nb).scatter_(-1, idx, 1.0)
+    full_mask = mask.repeat_interleave(B, 1).repeat_interleave(B, 2)  # 展开到 token 级
+    logits = (Q @ K.transpose(-1, -2) * scale).masked_fill(full_mask == 0, float('-inf'))
+    out = F.softmax(logits, dim=-1) @ V
+    mse = (out - full).pow(2).mean().item()
+    print(f"keep={keep:>2} 块  稀疏度={1-keep/nb:5.1%}  相对全注意力 MSE={mse:.4e}")
+</code></pre>
+<p>运行会看到：保留 8 块（50% 稀疏）时 MSE 很小，而降到 1–2 块（94% 稀疏）时误差成量级地爆炸——被 top-k 剔除的块里那一大堆&quot;不大不小&quot;的权重，累加起来足以扭曲 softmax 归一化后的输出。</p>
+<h3 id="sec-1-3">1.3 正式化</h3>
+<p>全注意力对每个 query 都要与全部 <span class="math inline">\(L\)</span> 个 key 做内积并归一化，矩阵乘规模为：</p>
+<div class="math block">
+\[\text{FLOPs}_{\text{full}} \;\propto\; L^2 d\]
+</div>
+<p class="math-translation">—— 翻译: 成本随序列长平方增长，所以 $L$ 从万级跨到十万级时注意力单独就吃掉端到端延迟的大头，光靠算子融合或降精度救不回这个量级。</p>
+<p>把矩阵沿 query/key 切成大小 <span class="math inline">\(B\)</span> 的块，共 <span class="math inline">\(n_b = L/B\)</span> 个块。定义稀疏度 <span class="math inline">\(s\)</span> 为被整块跳过的比例，保留块比例为 <span class="math inline">\(1-s\)</span>，则计算量正比于实际参与的块数：</p>
+<div class="math block">
+\[\text{FLOPs}_{\text{sparse}} \;\propto\; (1-s)\,L^2 d, \qquad 0 \le s \lt 1\]
+</div>
+<p class="math-translation">—— 翻译: 省下的算力线性正比于稀疏度，稀疏度是唯一旋钮；但它只决定"算多少"，完全不保证"算的是不是对的"——被跳过的 $s$ 部分默认贡献为零，这个假设成立与否才是质量的命门。</p>
+<p>代入具体数字看拐点：稀疏度从 <span class="math inline">\(90\%\)</span> 提到 <span class="math inline">\(97\%\)</span>，保留块比例从 <span class="math inline">\(1-s=0.10\)</span> 降到 <span class="math inline">\(0.03\)</span>：</p>
+<div class="math block">
+\[\frac{\text{FLOPs}_{97\%}}{\text{FLOPs}_{90\%}} = \frac{0.03}{0.10} = 0.30\]
+</div>
+<p class="math-translation">—— 翻译: 多推 7 个百分点的稀疏度能再砍到三成算力，诱惑极大；可 §1.1 的分布告诉我们，这最后几个点正好开始吞掉 marginal 块，省下的 70% 算力是拿 33% 的输出误差换来的——收益曲线陡、代价曲线更陡。</p>
+<h3 id="sec-1-4">1.4 代码引用</h3>
+<p>先看&quot;哪些 token 被选中&quot;的真实实现。SLA 的 <code>get_block_map</code> 就是 §1.2 demo 的工业版：块级 mean-pool 打分 + top-k 选块。</p>
+<p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/utils.py:L55-L67 — 块级 mean-pool 打分 + top-k 选块（哪些 token 被选中）</p>
+<pre><code class="language-python">def get_block_map(q, k, topk_ratio, BLKQ=64, BLKK=64):
+    arg_k = k - torch.mean(k, dim=-2, keepdim=True) # smooth-k technique in SageAttention
+    pooled_qblocks = mean_pool(q, BLKQ)
+    pooled_kblocks = mean_pool(arg_k, BLKK)
+    pooled_score = pooled_qblocks @ pooled_kblocks.transpose(-1, -2)
+
+    K = pooled_score.shape[-1]
+    topk = min(K, int(topk_ratio * K))
+    lut = torch.topk(pooled_score, topk, dim=-1, sorted=False).indices
+
+    sparse_map = torch.zeros_like(pooled_score, dtype=torch.int8)
+    sparse_map.scatter_(-1, lut, 1)
+    return sparse_map, lut, topk
+</code></pre>
+<p>保留几个块，则由稀疏度反算。VSA 的 <code>compute_topk</code> 把稀疏度旋钮直接换算成保留块数并夹到 <span class="math inline">\([1, n_b]\)</span>：</p>
+<p class="code-source">sources/repos/hao-ai-lab-FastVideo/fastvideo/attention/backends/video_sparse_attn.py:L161-L163 — 稀疏度→保留块数</p>
+<pre><code class="language-python">def compute_topk(sparsity: float, num_blocks: int) -&gt; int:
+    &quot;&quot;&quot;Blocks to keep for a sparsity level, clamped to [1, num_blocks].&quot;&quot;&quot;
+    return max(1, min(math.ceil((1 - sparsity) * num_blocks), num_blocks))
+</code></pre>
+<p><strong>对照</strong>：<code>get_block_map</code> 逐行对应 §1.3 的块级选择——<code>mean_pool(q)</code> / <code>mean_pool(arg_k)</code> 把每个块压成一个代表向量（正是 demo 里的 <code>Qb/Kb</code>），<code>pooled_score = pooled_qblocks @ pooled_kblocks.T</code> 是块级近似分数矩阵，<code>torch.topk(..., topk)</code> 挑出每个 query 块最该保留的 key 块，<code>scatter_</code> 把结果写成 0/1 的 <code>sparse_map</code>——只有被标 1 的块下游才会精确算注意力。这里有两个要害：其一，<code>topk</code> 的粒度是<strong>块</strong>不是 token（<code>lut</code> 索引的是 block id），因为只有整块保留才能对齐 GPU 的连续访存与 GEMM 分块，逐 token 选点在硬件上不真加速；其二，<code>pooled_score</code> 是块均值的内积，是一个<strong>近似</strong>——块内真正 critical 的少量 token 会被均值稀释，粗打分完全可能漏掉本该保留的块。而 <code>compute_topk</code> 里的 <code>(1 - sparsity) * num_blocks</code> 正是 §1.3 的 <span class="math inline">\((1-s)\,n_b\)</span>：稀疏度是唯一入口，保留块数随它线性缩减。</p>
+<h3 id="sec-1-5">1.5 洞察</h3>
+<ul>
+<li><strong>稀疏单独用有天花板。</strong> 被丢弃的质量不是几个孤立的零，而是弥散在大量 marginal 块里的一整坨小量；稀疏度一旦越过 critical/negligible 的分界，误差不是线性上升而是塌方。</li>
+<li><strong>正确的补救是&quot;概括&quot;而非&quot;再多选几块&quot;。</strong> 与其把保留块数往上加（立刻吃掉算力红利），不如用一条廉价的全局摘要把被跳过部分的贡献近似补回来——这正是 §2 线性注意力分支要做的事。</li>
+<li><strong>按块选是硬件约束，不是精度选择。</strong> 逐 token 稀疏理论 FLOPs 更省，但破坏连续访存与 GEMM 分块、实测不加速；块粒度是&quot;能落地的稀疏&quot;的下限，也解释了为何粗打分注定近似、注定会漏块。</li>
+</ul>
+<h2 id="sec-2">2. 补偿的核心武器：线性注意力与可复用全局摘要</h2>
+<h3 id="sec-2-1">2.1 直觉</h3>
+<p>补偿分支有一条硬约束：它要给稀疏注意力&quot;擦屁股&quot;——把稀疏 mask 漏掉的那部分上下文补回来——但又不能把好不容易省下的算力重新花光。稀疏注意力已经把主分支压到亚二次，如果补偿分支本身是 <span class="math inline">\(O(L^2)\)</span>，那整套方案的复杂度上界又被拉回原点，稀疏就白做了。换句话说，补偿分支必须同时满足两点：复杂度是 <span class="math inline">\(O(L)\)</span> 这一档的便宜货，且仍能概括<strong>全局</strong>上下文。这两条看似矛盾——想看全局通常就得两两配对、也就是 <span class="math inline">\(O(L^2)\)</span>——而线性注意力恰好是同时满足这两条的少数候选之一。</p>
+<p>它的核心 idea 一句话就能说清：把 <span class="math inline">\((QK^\top)V\)</span> 换个括号写成 <span class="math inline">\(Q(K^\top V)\)</span>，先把 key 侧熬成一个摘要 <span class="math inline">\(C=K^\top V\)</span>。矩阵乘法满足结合律，换括号不改变结果，却彻底改变了计算路径：原来要先造 <span class="math inline">\(L\times L\)</span> 的打分矩阵，现在先得到一个 <span class="math inline">\(d\times d\)</span> 的小摘要。这个 <span class="math inline">\(C\)</span> 与具体是哪个 query 无关，整条序列只算一次，之后所有 query 共用同一份。相比 softmax 注意力，线性注意力丢掉了 softmax 那种&quot;只挑几个最相关 token&quot;的尖锐选择性，换来的是 <span class="math inline">\(O(L)\)</span> 复杂度和一份可复用摘要——这正好适合&quot;补弥散的背景信息&quot;，而不是&quot;抓尖峰&quot;。补偿要的恰恰是那些被稀疏 mask 均匀抹掉、又对每个 query 都有一点贡献的背景，不是少数几个尖峰，所以这个 trade-off 是划算的。</p>
+<figure>
+  <img class="zoomable" src="figures/sec2-associativity.svg" alt="线性注意力结合律重排：(QKᵀ)V 造出 L×L 大矩阵 vs Q(KᵀV) 先算 d×d 小摘要 C">
+  <figcaption><strong>图 2</strong> — 一次"换括号"把 O(L²) 变 O(L)。左路先算 $QK^\top$ 会显式造出一个 $L\times L$ 的注意力大矩阵；右路先算 $C=K^\top V$，得到的只是一个 $d\times d$ 的小摘要——它把整条序列压成固定大小、算一次就被所有 query 复用，这正是补偿分支能廉价挂在任意长序列上的本钱。</figcaption>
+</figure>
+<h3 id="sec-2-2">2.2 最小 demo</h3>
+<p>下面用真实形状把两条路径都跑一遍：<span class="math inline">\(H=4\)</span> 个头、序列长 <span class="math inline">\(L=4096\)</span>、每头维度 <span class="math inline">\(d=64\)</span>。特征映射 <span class="math inline">\(\phi\)</span> 用 <code>elu+1</code>（保证非负，替代 softmax 的作用）。slow 路径老实地先造 <span class="math inline">\(L\times L\)</span> 注意力矩阵，fast 路径先熬 <span class="math inline">\(d\times d\)</span> 摘要，最后 <code>allclose</code> 断言两者数值一致，并各自打印中间最大张量的元素数，看省在哪。</p>
+<pre class="teaching-demo"><code class="language-python">import torch
+
+H, L, d = 4, 4096, 64
+Q, K, V = torch.randn(H, L, d), torch.randn(H, L, d), torch.randn(H, L, d)
+
+def phi(x):                     # 特征映射：elu+1，恒正，替掉 softmax
+    return torch.nn.functional.elu(x) + 1.0
+
+qf, kf = phi(Q), phi(K)
+
+# slow：先算 (QKᵀ)，显式造 L×L 大矩阵
+attn = qf @ kf.transpose(-1, -2)            # [H, L, L]
+slow = attn @ V                             # [H, L, d]
+
+# fast：先算 C = KᵀV，只有 d×d
+C = kf.transpose(-1, -2) @ V                # [H, d, d]  ← 全局摘要，与 query 无关
+fast = qf @ C                               # [H, L, d]
+
+print("allclose:", torch.allclose(slow, fast, atol=1e-3))
+print("slow 最大中间张量元素数:", attn.numel())   # H*L*L = 4*4096*4096 ≈ 6.7e7
+print("fast 最大中间张量元素数:", C.numel())      # H*d*d = 4*64*64   = 16384
+</code></pre>
+<p>跑出来 <code>allclose: True</code>，两条路数值上是同一个东西——这正是结合律的保证，而不是近似。但 slow 的 <span class="math inline">\(L\times L\)</span> 中间量约 <span class="math inline">\(6.7\times10^7\)</span> 个元素、fast 的 <span class="math inline">\(d\times d\)</span> 摘要只有 <span class="math inline">\(16384\)</span> 个，差了三个数量级，且这个差距随 <span class="math inline">\(L\)</span> 增大只会拉得更开：把 <span class="math inline">\(L\)</span> 翻倍，slow 的中间张量涨 4 倍，fast 的 <span class="math inline">\(C\)</span> 纹丝不动。注意这里省的不只是内存：fast 路径根本没有把 <span class="math inline">\(L\)</span> 和 <span class="math inline">\(L\)</span> 乘到一起过，浮点乘加次数也从 <span class="math inline">\(\propto L^2\)</span> 降到 <span class="math inline">\(\propto L\)</span>。把 <code>elu+1</code> 换成 <code>relu</code> 或别的恒正映射，结论完全一样——省算力的来源是换括号，不是特征映射本身。</p>
+<h3 id="sec-2-3">2.3 正式化</h3>
+<p>标准 softmax 注意力写作</p>
+<div class="math block">
+\[O = \mathrm{softmax}(QK^\top)\,V, \qquad Q,K,V \in \mathbb{R}^{L\times d}.\]
+</div>
+<p class="math-translation">—— 翻译: softmax 必须作用在完整的 $L\times L$ 打分矩阵上，这个非线性把括号锁死了——你没法把 $K,V$ 先合并，因为 softmax 要看到某个 query 对**所有** key 的原始打分才能归一化。这就是 $O(L^2)$ 无法回避的根源。</p>
+<p>先看它的复杂度：<span class="math inline">\(QK^\top\)</span> 是 <span class="math inline">\(L\times d\)</span> 乘 <span class="math inline">\(d\times L\)</span>，得到 <span class="math inline">\(L\times L\)</span>，代价 <span class="math inline">\(O(L^2 d)\)</span>；再乘 <span class="math inline">\(V\)</span> 又是 <span class="math inline">\(O(L^2 d)\)</span>。总量 <span class="math inline">\(O(L^2 d)\)</span>，且要物化一个 <span class="math inline">\(L\times L\)</span> 张量。</p>
+<p>线性注意力的做法是用特征映射 <span class="math inline">\(\phi:\mathbb{R}^d\to\mathbb{R}^d\)</span> 去掉 softmax，把打分近似成 <span class="math inline">\(\phi(q_i)^\top\phi(k_j)\)</span>：</p>
+<div class="math block">
+\[O = \phi(Q)\,\big(\phi(K)^\top V\big).\]
+</div>
+<p class="math-translation">—— 翻译: 去掉 softmax 后括号解锁了，矩阵乘法结合律允许先算右边。右边 $\phi(K)^\top V$ 与外层的 $\phi(Q)$ 完全无关——它是把整条序列的 key/value 信息压缩成的一份"账本"，谁来查都用同一本。</p>
+<p>定义这份账本为全局摘要</p>
+<div class="math block">
+\[C = \phi(K)^\top V \in \mathbb{R}^{d\times d}, \qquad O = \phi(Q)\,C.\]
+</div>
+<p class="math-translation">—— 翻译: $C$ 的尺寸是 $d\times d$，与序列长度 $L$ 完全解耦——它把整条序列压成一个固定大小的对象，且整条序列只算一次、所有 query 共用。这是补偿分支能挂在**任意长**序列上而复杂度不炸的前提。</p>
+<p>复杂度上：算 <span class="math inline">\(C=\phi(K)^\top V\)</span> 是 <span class="math inline">\(d\times L\)</span> 乘 <span class="math inline">\(L\times d\)</span>，<span class="math inline">\(O(Ld^2)\)</span>；再算 <span class="math inline">\(\phi(Q)C\)</span> 是 <span class="math inline">\(L\times d\)</span> 乘 <span class="math inline">\(d\times d\)</span>，同样 <span class="math inline">\(O(Ld^2)\)</span>。总量 <span class="math inline">\(O(Ld^2)\)</span> vs softmax 的 <span class="math inline">\(O(L^2 d)\)</span>，两者之比是 <span class="math inline">\(d/L\)</span>。视频扩散里 <span class="math inline">\(d\)</span> 常是 64/128，而多帧 latent 展平后 <span class="math inline">\(L\)</span> 可达数万到数十万，<span class="math inline">\(d/L\)</span> 于是小到 <span class="math inline">\(10^{-3}\)</span> 量级——这就是为什么补偿分支敢直接对全序列做&quot;全局&quot;注意力而不必担心炸显存：它压根没有物化过任何随 <span class="math inline">\(L\)</span> 平方增长的张量，峰值内存也从 <span class="math inline">\(O(L^2)\)</span> 掉到 <span class="math inline">\(O(Ld)\)</span>。另一个常被忽略的好处是：<span class="math inline">\(C\)</span> 一旦算好，增量地来一个新 query 只需一次 <span class="math inline">\(O(d^2)\)</span> 的乘法，这为后续做 chunk 化、流式推理留了口子。</p>
+<p>真实实现里还有一个归一化项，用来替代 softmax 分母的&quot;配分函数&quot;作用：</p>
+<div class="math block">
+\[O_i = \frac{\phi(q_i)^\top \big(\sum_j \phi(k_j)\,v_j^\top\big)}{\phi(q_i)^\top \sum_j \phi(k_j)} = \frac{\phi(q_i)^\top C}{\phi(q_i)^\top s},\quad s=\sum_j\phi(k_j).\]
+</div>
+<p class="math-translation">—— 翻译: 分子是"加权求和"，分母 $s$ 是所有 key 特征之和、也只算一次；两者都与 $L$ 解耦。分母保证输出是 value 的凸组合而非任意放大，这是把 softmax 的"归一化"这一半功能保留下来、只丢掉"尖锐选择"那一半的关键。</p>
+<h3 id="sec-2-4">2.4 代码引用</h3>
+<p>SLA 的补偿分支里，线性注意力就是照着上面这套结合律写的。核心几行：</p>
+<p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/core.py:L90-L96 — 线性注意力：先算 KV 摘要再乘 Q（可复用全局摘要）</p>
+```python
+        q = self.feature_map_q(q).contiguous().to(self.dtype) # c_q
+        k = self.feature_map_k(k).contiguous().to(self.dtype) # c_k
+        def calc_linear(q, k, v):
+            kvsum = k.transpose(-1, -2) @ v
+            ksum = torch.sum(k, dim=-2, keepdim=True)
+            return (q @ kvsum) / (1e-5 + (q * ksum).sum(dim=-1, keepdim=True))
+        o_l = calc_linear(q, k, v)
+```
+<p>对照：<code>feature_map_q</code> / <code>feature_map_k</code> 就是 <span class="math inline">\(\phi\)</span>，把 <span class="math inline">\(Q,K\)</span> 映射到恒正特征空间（恒正保证分母不会因正负抵消而失稳）。<code>kvsum = k.transpose(-1, -2) @ v</code> 精确对应 <span class="math inline">\(C=\phi(K)^\top V\)</span>——先熬出的 <span class="math inline">\(d\times d\)</span> 全局摘要，代码里它的形状与 <span class="math inline">\(L\)</span> 无关，这一点在源码里就能直接看出来；<code>q @ kvsum</code> 就是 <span class="math inline">\(\phi(Q)C\)</span>，用同一份摘要一次性算完所有 query 的输出，query 之间不再各自扫描全序列。分母 <code>(q * ksum).sum(dim=-1, keepdim=True)</code> 里 <code>ksum</code> <span class="math inline">\(=\sum_j\phi(k_j)\)</span>（即 <span class="math inline">\(s\)</span>），<code>(q*ksum).sum</code> 是逐 query 的内积 <span class="math inline">\(\phi(q_i)^\top s\)</span>，对应上面的归一化项，<code>1e-5</code> 只是防除零。值得注意的是 <code>kvsum</code> 和 <code>ksum</code> 都只依赖 <span class="math inline">\(k,v\)</span>、与 <span class="math inline">\(q\)</span> 无关，所以严格来说它们可以脱离 <code>calc_linear</code> 提到循环外只算一次——SLA 把它们写在函数内是为了代码紧凑，语义上仍是&quot;摘要算一次、query 共用&quot;。整段没有任何 <span class="math inline">\(L\times L\)</span> 的中间量，复杂度停在 <span class="math inline">\(O(Ld^2)\)</span>，这就是补偿分支在推理时几乎不额外增加显存峰值的原因。</p>
+<h3 id="sec-2-5">2.5 洞察</h3>
+<ul>
+<li><strong>为什么补偿用&quot;线性&quot;而不是再堆一层&quot;多选稀疏块&quot;</strong>：多选稀疏块补的仍是&quot;挑出来的若干块&quot;，本质还是稀疏，覆盖不了被 mask 均匀抹掉、对每个 query 都有微小贡献的弥散背景；线性注意力给的是一份囊括全序列的全局摘要 <span class="math inline">\(C\)</span>，恰好补稀疏漏掉的那部分。两者是互补而非同类，叠加起来才既有尖峰又有背景。</li>
+<li><strong>softmax→linear 到底丢了什么</strong>：丢的是&quot;只锁定 top 若干 token&quot;的尖锐选择性，留下的是对全序列的加权和。因此线性注意力单独当&quot;主&quot;分支会把细节糊掉、生成质量塌方，但当&quot;补&quot;分支去填背景正好——这个非对称决定了它在架构里只能是配角，主角仍是稀疏 softmax。</li>
+<li><strong><span class="math inline">\(C\)</span> 与 <span class="math inline">\(L\)</span> 解耦是最关键的工程性质</strong>：固定 <span class="math inline">\(d\times d\)</span> 大小、算一次复用，让补偿分支对长序列天然友好，也为流式/分块推理留了接口。但这份&quot;可复用摘要&quot;的成立前提是 key 侧信息能被无差别地压进一个 query 无关的对象——下一步引入 3D RoPE 后，逐 token 的位置相位会破坏这个前提，让 <span class="math inline">\(C\)</span> 不再能对所有 query 通用，从而给&quot;复用&quot;制造麻烦（详见 §5）。</li>
+</ul>
+<h2 id="sec-3">3. 补偿式稀疏注意力的通式与「近零门控」</h2>
+<h3 id="sec-3-1">3.1 直觉</h3>
+<p>把 §1 和 §2 拼起来，补偿式稀疏注意力的骨架就出来了：稀疏分支负责抓少数尖峰块（§1 的 <code>get_block_map</code> top-k），补偿分支用一份 query 无关的全局摘要 <span class="math inline">\(C\)</span>（§2 的 <span class="math inline">\(\phi(K)^\top V\)</span>）把被稀疏 mask 均匀抹掉的弥散背景补回来，再用一个门控 <span class="math inline">\(g\)</span> 把两路融合。核心设计原则是<strong>稀疏主导、补偿辅助</strong>：补偿分支在初始化时几乎完全关闭，模型先退化成一个纯稀疏近似，再让门控在训练中缓慢开阀。这不是某一篇的巧合——SALAD（标量门 + 零初始投影 LWSS）、RoLA（逐 token 门，bias 初始化为 <span class="math inline">\(-1.946\)</span>）、SLA（<code>proj_l</code> 权重零初始）<strong>三个独立团队</strong>互不引用，却都收敛到&quot;近零门初始化&quot;这一个解。当三家从不同架构出发、各自撞到同一个初始化配方时，这已经不是调参偏好，而是补偿式注意力的结构性要求：稠密先验的稀疏近似是个好起点，任何一上来就大剂量灌补偿的做法都会先把它打乱。</p>
+<figure>
+  <img class="zoomable" src="figures/salad-arch.png" alt="SALAD 架构：共享 QKV，上路块稀疏 softmax，下路 ReLU 线性补偿分支，LWSS 零初始投影 + ITADS 动态门控相加">
+  <figcaption><strong>图 3</strong> — 补偿通式的一个实例（SALAD, 论文 Fig.3）。上路是块稀疏 softmax（主导，抓尖峰），下路是 ReLU 线性补偿分支，经 LWSS 零初始投影后由 ITADS 门控加回主路：图里下路那个"零初始 + 动态门"的接法，正是"稀疏主导 + 近零门辅助"这一原则在电路上的落地——训练第一步补偿项恒等于零，全靠上路稀疏输出。</figcaption>
+</figure>
+<h3 id="sec-3-2">3.2 最小 demo</h3>
+<p>下面用真实形状把通式跑通：<span class="math inline">\(H=4\)</span> 头、<span class="math inline">\(L=1024\)</span>、<span class="math inline">\(d=64\)</span>。<code>sparse_branch</code> 是 §1 的块稀疏（mean-pool 选 top-3 块，但<strong>用完整 softmax 分母、不在子集里重归一</strong>，所以丢掉的正是那坨弥散小量）；<code>linear_branch</code> 是 §2 的 <span class="math inline">\(C\)</span>-摘要补偿；两路按 <code>o_s + g*o_l</code> 相加（<code>proj</code> 此处取恒等）。把门控 <span class="math inline">\(g\)</span> 从 0 扫到 4，对每个值算相对全注意力的 MSE，看误差怎么随 <span class="math inline">\(g\)</span> 走。</p>
+<pre class="teaching-demo"><code class="language-python">import torch, torch.nn.functional as F
+torch.manual_seed(0)
+
+H, L, d = 4, 1024, 64
+Bk = 128                                   # 块大小 -> 8 个块
+nb, topk = L // Bk, 3                       # 每个 query 块保留 3 个 key 块
+Q, K, V = [torch.randn(H, L, d) for _ in range(3)]
+scale = d ** -0.5
+
+def full_attn(q, k, v):                    # 稠密 softmax：ground truth
+    return F.softmax(q @ k.transpose(-1, -2) * scale, dim=-1) @ v
+
+def sparse_branch(q, k, v):                # §1 块稀疏：mean-pool 选块，丢掉的是弥散小量
+    qb = q.view(H, nb, Bk, d).mean(2)
+    kb = k.view(H, nb, Bk, d).mean(2)
+    keep = (qb @ kb.transpose(-1, -2) * scale).topk(topk, dim=-1).indices
+    mask = torch.zeros(H, nb, nb, dtype=torch.bool).scatter_(-1, keep, True)
+    m = mask.repeat_interleave(Bk, 1).repeat_interleave(Bk, 2)   # 展开到 token 级
+    p = F.softmax(q @ k.transpose(-1, -2) * scale, dim=-1)       # 用完整分母，不在子集重归一
+    return (p * m) @ v                                            # 只累加保留块
+
+def linear_branch(q, k, v):                # §2 的 C=φ(K)ᵀV 全局摘要
+    qf, kf = F.elu(q) + 1, F.elu(k) + 1
+    C = kf.transpose(-1, -2) @ v                                  # [H, d, d]
+    s = kf.sum(1, keepdim=True)
+    return (qf @ C) / (1e-5 + (qf * s).sum(-1, keepdim=True))
+
+ref = full_attn(Q, K, V)
+o_s = sparse_branch(Q, K, V)               # 主分支 A_M
+o_l = linear_branch(Q, K, V)               # 补偿分支（proj 取恒等）
+for g in [0.0, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0]:
+    comp = o_s + g * o_l                    # 通式：稀疏 + 门控·补偿
+    mse = (comp - ref).pow(2).mean().item()
+    print(f"gate={g:<4} 相对全注意力 MSE={mse:.5f}")
+</code></pre>
+<p>跑出来 MSE 随门控 <span class="math inline">\(g\)</span> <strong>先降后升</strong>：<span class="math inline">\(g=0\)</span> 时就是纯稀疏输出，误差最大（约 <span class="math inline">\(1.6\times10^{-3}\)</span>），因为被丢的弥散背景完全没补；<span class="math inline">\(g\)</span> 升到 <span class="math inline">\(0.5\)</span> 附近误差最低（约 <span class="math inline">\(1.3\times10^{-3}\)</span>），补偿分支恰好把那坨背景填回来；<span class="math inline">\(g\)</span> 继续加大到 <span class="math inline">\(2\sim4\)</span>，线性分支的全局平滑输出反而盖过稀疏抓到的尖峰细节，误差急剧回升（<span class="math inline">\(g=4\)</span> 时冲到 <span class="math inline">\(1.1\times10^{-2}\)</span>）。这条&quot;谷形&quot;曲线就是&quot;稀疏主导、补偿辅助&quot;的数值证据：补偿是配角，门控存在一个甜点，既不能是 0，更不能过大——而把初始门控放在谷底偏左（近零、略微开一点）恰好让训练从安全侧起步。</p>
+<h3 id="sec-3-3">3.3 正式化</h3>
+<p>补偿式稀疏注意力的通式，是把稀疏主分支与门控后的补偿项相加：</p>
+<div class="math block">
+\[\tilde A = A_M(Q,K,V) \;+\; g \odot \mathrm{Proj}(C), \qquad C=\phi(K)^\top V \in \mathbb{R}^{d\times d}.\]
+</div>
+<p class="math-translation">—— 翻译: $A_M$ 是 §1 的块稀疏输出（在保留块 $M$ 上算精确 softmax，抓尖峰）；$C$ 是 §2 那份 query 无关、算一次复用的全局摘要；$\mathrm{Proj}$ 把 $C$ 派生的补偿输出投影回 value 空间；$g$ 是逐元素门控。整个式子说的是"尖峰（稀疏）+ 背景（补偿），由 $g$ 控制掺多少背景"——正是 3.2 里 `o_s + g*o_l` 的一般形式。</p>
+<p>门控本身是一个带偏置的 sigmoid，<span class="math inline">\(x\)</span> 是它依赖的输入特征：</p>
+<div class="math block">
+\[g = \sigma\big(\mathrm{proj}(x)+b\big), \qquad \sigma(z)=\frac{1}{1+e^{-z}}.\]
+</div>
+<p class="math-translation">—— 翻译: 门控值被 $\sigma$ 压在 $(0,1)$，偏置 $b$ 决定它初始时"默认开多大"。把门做成可学习而非常数，是让不同层/不同 token 各自决定要多少补偿；但真正的巧思在 $b$ 的初值上——它把整条训练曲线的起点钉在近零门那一侧。</p>
+<p>RoLA 直接把这个偏置初始化为 <span class="math inline">\(b=-1.946\)</span>，代入 sigmoid：</p>
+<div class="math block">
+\[b=-1.946 \;\Rightarrow\; g_0=\sigma(-1.946)=\frac{1}{1+e^{1.946}}\approx\frac{1}{1+7.00}\approx 0.125.\]
+</div>
+<p class="math-translation">—— 翻译: $-1.946\approx-\ln 7$，于是 $e^{1.946}\approx 7$、初始门 $g_0\approx\tfrac18$。补偿项一开始只掺 $12.5\%$，模型近似等于纯稀疏（$g\to0$ 的极限）；如果 $b=0$ 让 $g_0=0.5$，训练第一步就灌半剂量补偿，稠密先验的稀疏近似会被立刻打乱。近零起步保证优化从 3.2 谷形曲线的安全左侧出发，梯度再决定要不要把阀门开大。</p>
+<p>SLA 走得更彻底：把投影 <span class="math inline">\(\mathrm{Proj}\)</span> 的权重直接零初始化，于是补偿项在第一步恒等于 0，模型精确等于纯块稀疏，此后梯度才把 <span class="math inline">\(\mathrm{Proj}\)</span> 从零&quot;长&quot;出来。RoLA 的完整融合式还多做了一步量级对齐：</p>
+<div class="math block">
+\[O = \Big(\frac{O^s}{r_p} + g_p \odot O^{lr}\Big)\times r_p, \qquad r_p=\mathrm{RMS}(O^s).\]
+</div>
+<p class="math-translation">—— 翻译: $O^s$ 是稀疏输出、$O^{lr}$ 是低秩补偿输出，$r_p$ 是稀疏输出的 RMS 幅度。先把稀疏输出除以 $r_p$ 归一、加上门控后的补偿、再乘回 $r_p$，等价于把补偿项缩放到与稀疏输出同一量级再相加。若不做这步，补偿与主路量级不匹配，同一个门控值 $g_p$ 在不同层的实际掺入比例会漂移——量级对齐让"近零门 = 近零补偿"这个语义在所有层都成立。</p>
+<h3 id="sec-3-4">3.4 代码引用</h3>
+<p>SLA 的 <code>forward</code> 把整个通式写在一个函数里：先出稀疏分支，再出补偿分支，最后相加。</p>
+<p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/core.py:L69-L101 — 补偿式稀疏注意力前向：稀疏分支 + 投影线性分支相加</p>
+<pre><code class="language-python">    def forward(self, q, k, v, return_sparsity=False):
+        R'''
+        Args:
+            q: queries of shape (B, H, L, D).
+            k: keys of shape (B, H, L, D).
+            v: values of shape (B, H, L, D).
+            return_sparsity: whether to return the actual sparsity.
+        '''
+        dtype = q.dtype
+
+        q = q.contiguous()
+        k = k.contiguous()
+        v = v.contiguous()
+
+        sparse_map, lut, real_topk = get_block_map(q, k, topk_ratio=self.topk, BLKQ=self.BLKQ, BLKK=self.BLKK)
+
+        q = q.to(self.dtype)
+        k = k.to(self.dtype)
+        v = v.to(self.dtype)
+        o_s = _attention.apply(q, k, v, sparse_map, lut, real_topk, self.BLKQ, self.BLKK)
+
+        q = self.feature_map_q(q).contiguous().to(self.dtype) # c_q
+        k = self.feature_map_k(k).contiguous().to(self.dtype) # c_k
+        def calc_linear(q, k, v):
+            kvsum = k.transpose(-1, -2) @ v
+            ksum = torch.sum(k, dim=-2, keepdim=True)
+            return (q @ kvsum) / (1e-5 + (q * ksum).sum(dim=-1, keepdim=True))
+        o_l = calc_linear(q, k, v)
+
+        with torch.amp.autocast('cuda', dtype=self.dtype):
+            o_l = self.proj_l(o_l)
+        o = (o_s + o_l).to(dtype)
+</code></pre>
+<p>逐句对照通式：<code>sparse_map, lut, real_topk = get_block_map(...)</code> 是 §1 的块选择器，<code>o_s = _attention.apply(...)</code> 就是稀疏主分支 <span class="math inline">\(A_M\)</span>（在选中块上算精确 softmax）；<code>o_l = calc_linear(...)</code> 是 §2 的 <span class="math inline">\(C\)</span>-摘要补偿（<code>kvsum</code> 即 <span class="math inline">\(C=\phi(K)^\top V\)</span>）；<code>o_l = self.proj_l(o_l)</code> 对应通式里的 <span class="math inline">\(\mathrm{Proj}(C)\)</span>——注意这里没有显式的乘性门控标量，SLA 把&quot;掺多少&quot;完全交给 <code>proj_l</code> 这个线性层去学；最后 <code>o = o_s + o_l</code> 精确对应通式的相加 <span class="math inline">\(\tilde A = A_M + \mathrm{Proj}(C)\)</span>。补偿是&quot;轻补丁&quot;这一点在结构上一目了然：稀疏那半用的是定制 kernel，补偿这半只是几行标准矩阵乘加一个 <code>proj_l</code>。</p>
+<p>而&quot;近零起步&quot;落在初始化里。SLA 把 <code>proj_l</code> 的权重和偏置全部清零：</p>
+<p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/core.py:L64-L67 — 补偿分支投影零初始化（从纯稀疏起步）</p>
+<pre><code class="language-python">    def init_weights_(self):
+        with torch.no_grad():
+            nn.init.zeros_(self.proj_l.weight)
+            nn.init.zeros_(self.proj_l.bias)
+</code></pre>
+<p>第 L66-67 两行 <code>nn.init.zeros_(self.proj_l.weight)</code> / <code>nn.init.zeros_(self.proj_l.bias)</code> 就是 3.3 里&quot;零初始投影 <span class="math inline">\(\Rightarrow\)</span> 补偿项初始为 0&quot;的实现：训练第一步 <span class="math inline">\(\mathrm{Proj}(C)\equiv 0\)</span>，<code>o = o_s + 0</code>，模型精确等于纯块稀疏，随后梯度才把 <code>proj_l</code> 从零里生长出来。SLA 靠零初始投影、RoLA 靠 <span class="math inline">\(b=-1.946\)</span> 的近零 sigmoid，路径不同、目的完全一致——都是让补偿从&quot;几乎关闭&quot;起步。</p>
+<h3 id="sec-3-5">3.5 洞察</h3>
+<ul>
+<li><strong>跨团队收敛是最强的设计信号</strong>：SALAD 的零初始 LWSS、RoLA 的 <span class="math inline">\(b=-1.946\)</span>、SLA 的 <code>proj_l</code> 零初始，三家独立工作、互不引用，却都落到&quot;近零门初始化&quot;这同一个解——独立三家同解，说明这不是调参口味，而是补偿式注意力绕不开的结构约束：稠密先验的稀疏近似是好起点，一上来大剂量补偿必然打乱它。</li>
+<li><strong>参数共享让补偿是&quot;轻补丁&quot;而非&quot;重训&quot;</strong>：补偿分支与主路共享 QKV，新增的只有一个投影 + 门控，可训练量被压到极小（SALAD 报告参数量仅 +4.99%、微调约 20.6 GPU 时）；这决定了补偿方案能挂在已训好的大模型上快速适配，而不是推倒重来。近零门初始化在这里还有第二重收益：既然起点就是纯稀疏，那么这次微调本质上是&quot;在原模型行为附近做小扰动&quot;，梯度不必先花大量步数把被补偿打乱的先验拉回来，收敛所需的 GPU 时自然被压低。</li>
+<li><strong>通式对三个部件都 agnostic</strong>：<span class="math inline">\(\tilde A = A_M + g\odot\mathrm{Proj}(C)\)</span> 没规定稀疏选择器怎么选块、补偿以什么形式（线性 / 低秩）出现、门控是标量还是逐 token——它只框定&quot;主导 + 近零辅助&quot;的结构。下一节（§4）就沿这三个自由度，看两种把它做实的具体范式。</li>
+</ul>
+<h2 id="sec-4">4. 两种组合范式：并联补偿 vs 按块路由</h2>
+<h3 id="sec-4-1">4.1 直觉</h3>
+<p>§3 给了同一条补偿通式，但把它塞进真实注意力时有两条截然不同的走法。第一条是<strong>全局并联</strong>：补偿分支像一根常开的旁路，对<strong>全部</strong> key 一视同仁地补一份线性摘要，主稀疏分支挑尖峰、旁路填背景，两者逐 token 门控相加——SALAD、RoLA 走的是这条路。第二条是<strong>按块路由</strong>：先给每个注意力块打一个 mean-pool 分数，再按分数把块分成三类，分别派给复杂度不同的算法——SLA 的做法是 critical 块走精确 softmax（<span class="math inline">\(O(N^2)\)</span>）、marginal 块降级到线性、negligible 块直接丢。</p>
+<p>两者的失败模式差在哪里？并联对所有 key 花的是同一份线性代价：哪怕某些块本该精算，它也只给一份糊过去的背景；反过来，那些纯噪声的块它也照补不误，白烧算力。路由则能把&quot;中段大量小权重块&quot;精准降级到线性、把垃圾块直接扔掉，算力预算按块的重要性重新分配。代价是路由本身要多算一遍打分、还要处理三条不同的算子路径，且分类一旦打错（把 critical 误判成 negligible）就是硬损失，没有旁路兜底；并联反过来永远给全序列留了一份补偿，鲁棒但从不省&quot;该省的&quot;。一句话，路由赌的是&quot;分数分得准&quot;，并联赌的是&quot;补偿摊得起&quot;。</p>
+<figure>
+  <img class="zoomable" src="figures/sla-arch.png" alt="SLA 注意力权重分布：negligible 45.4%、marginal 46.5%、critical 8.1%；92% 稀疏误差飙到 33%">
+  <figcaption><strong>图 4</strong> — 三分类路由的经验依据（SLA, 论文 Fig.1）。真实注意力权重里只有约 8% 的块是 critical、近一半是可线性近似的 marginal、另一半是可丢的 negligible——正因为这三档在数量和该花的算力上差异巨大，"一刀切"既不划算也补不准，才需要按块分类分派。</figcaption>
+</figure>
+<h3 id="sec-4-2">4.2 最小 demo</h3>
+<p>下面用真实形状把&quot;三分类路由&quot;和&quot;纯并联&quot;各跑一遍，直接比谁更接近全注意力。<span class="math inline">\(H=4\)</span> 头、<span class="math inline">\(L=1024\)</span>、<span class="math inline">\(d=64\)</span>；块大小 128，共 8 个块。路由按块级 mean-pool 分数排序，top 比例为 critical、bottom 比例为 negligible、中间为 marginal，三档分别走精确 softmax / 跳过 / §2 的线性注意力 <span class="math inline">\(\phi(Q)(\phi(K)^\top V)\)</span>。并联则是 top 块走精确、<strong>全部</strong> key 补一份线性。</p>
+<pre class="teaching-demo"><code class="language-python">import torch, torch.nn.functional as F
+
+H, L, d, B = 4, 1024, 64, 128          # 8 blocks of size 128
+Q, K, V = torch.randn(H, L, d), torch.randn(H, L, d), torch.randn(H, L, d)
+phi = lambda x: F.elu(x) + 1.0
+nb = L // B
+
+full = F.softmax(Q @ K.transpose(-1,-2) / d**0.5, -1) @ V   # 参照
+
+# 块级分数：mean-pool 后 q-block × k-block
+qb, kb = Q.view(H,nb,B,d).mean(2), K.view(H,nb,B,d).mean(2)  # [H,nb,d]
+score = (qb @ kb.transpose(-1,-2)).mean(1)                   # [H,nb] 每个 k 块的重要性
+order = score.argsort(-1, descending=True)                   # 高→低
+crit, neg = order[:, :2], order[:, -3:]                      # top2 精算 / bottom3 丢弃
+
+def route(h):
+    q, k, v = Q[h], K[h], V[h]
+    ci = crit[h].tolist(); ni = set(neg[h].tolist())
+    marg = [b for b in range(nb) if b not in ci and b not in ni]
+    o = torch.zeros(L, d)
+    kc = torch.cat([k.view(nb,B,d)[b] for b in ci]); vc = torch.cat([v.view(nb,B,d)[b] for b in ci])
+    o += F.softmax(q @ kc.transpose(-1,-2) / d**0.5, -1) @ vc               # critical: 精确
+    if marg:                                                                # marginal: 线性
+        km = torch.cat([k.view(nb,B,d)[b] for b in marg]); vm = torch.cat([v.view(nb,B,d)[b] for b in marg])
+        qf, kf = phi(q), phi(km); C = kf.transpose(-1,-2) @ vm
+        o += (qf @ C) / (1e-5 + (qf * kf.sum(0)).sum(-1, keepdim=True))
+    return o                                                                # negligible 块从不进入
+
+def parallel(h):                                                            # 纯并联：top 精算 + 全 key 线性
+    q, k, v = Q[h], K[h], V[h]; ci = crit[h].tolist()
+    kc = torch.cat([k.view(nb,B,d)[b] for b in ci]); vc = torch.cat([v.view(nb,B,d)[b] for b in ci])
+    o = F.softmax(q @ kc.transpose(-1,-2) / d**0.5, -1) @ vc
+    qf, kf = phi(q), phi(k); C = kf.transpose(-1,-2) @ v                     # 覆盖 *全部* key
+    return o + (qf @ C) / (1e-5 + (qf * kf.sum(0)).sum(-1, keepdim=True))
+
+mse = lambda f: torch.stack([((f(h)-full[h])**2).mean() for h in range(H)]).mean()
+print("route  MSE:", mse(route).item())
+print("parallel MSE:", mse(parallel).item())
+</code></pre>
+<p>跑出来两者 MSE 同一量级，但结构截然不同：<code>route</code> 的线性分支只覆盖 marginal 块、negligible 块<strong>从不进入任何算子</strong>；<code>parallel</code> 的线性分支 <code>C = kf.transpose(-1,-2) @ v</code> 用的是完整 <code>k,v</code>、覆盖<strong>全序列</strong>（连 negligible 块也补）。这行差异就是两范式的分水岭——把 <code>neg</code> 调大，<code>route</code> 会因为漏掉的块本无信息而几乎不掉精度，<code>parallel</code> 却始终为它们付线性代价。反过来把块级分数人为打乱（模拟路由打分失准），<code>route</code> 的 MSE 会明显抬头、<code>parallel</code> 几乎不动，因为后者的补偿不依赖分数分对——这正是 4.1 说的&quot;路由赌分得准、并联赌摊得起&quot;在数值上的体现。</p>
+<h3 id="sec-4-3">4.3 正式化</h3>
+<p>设序列切成 <span class="math inline">\(N_b\)</span> 个块，块 <span class="math inline">\(b\)</span> 的重要性分数 <span class="math inline">\(s_b=\mathrm{pool}(Q_b)^\top\mathrm{pool}(K_b)\)</span>。按 <span class="math inline">\(s_b\)</span> 降序排列，取 top <span class="math inline">\(k_h\)</span> 比例为 critical、bottom <span class="math inline">\(k_l\)</span> 比例为 negligible、其余为 marginal：</p>
+<div class="math block">
+\[\mathcal{C}=\{b: \text{rank}(s_b)\lt k_h N_b\},\quad \mathcal{N}=\{b:\text{rank}(s_b)\gt(1-k_l)N_b\},\quad \mathcal{M}=\text{其余}.\]
+</div>
+<p class="math-translation">—— 翻译: 一次排序就把算力预算切成三档——最值钱的 $k_h$ 比例块留给精确 softmax，最不值钱的 $k_l$ 比例块直接放弃，剩下的中段交给便宜的线性。三档比例是可调的旋钮，直接决定精度-算力的落点。</p>
+<p>路由式的输出把三条路径按块拼起来（negligible 不贡献任何项）：</p>
+<div class="math block">
+\[O^{\text{route}} = \underbrace{O^{\text{crit}}(\mathcal{C})}_{O(|\mathcal{C}|N d)\ \text{精确}} + \mathrm{Proj}\big(O^{\text{marg,linear}}(\mathcal{M})\big),\quad O^{\text{marg,linear}}=\phi(Q)\,\big(\phi(K_{\mathcal M})^\top V_{\mathcal M}\big).\]
+</div>
+<p class="math-translation">—— 翻译: 关键在下标 $\mathcal M$——路由的线性分支只在 marginal 块上聚合 key/value，全局摘要 $C$ 只熬中段那部分序列。算力被按块的重要性分配掉了，而不是均摊。</p>
+<p>对比 §3 的并联式通式，其线性分支覆盖<strong>全部</strong> key：</p>
+<div class="math block">
+\[O^{\text{parallel}} = O^{s} + \mathrm{Proj}(O^{l}),\quad O^{l}=\phi(Q)\,\big(\phi(K)^\top V\big)=\phi(Q)\,C,\quad C=\phi(K)^\top V\ \text{（全序列）}.\]
+</div>
+<p class="math-translation">—— 翻译: 同一个符号 $O^l$，定义域完全不同：路由里它只跑 $\mathcal M$、并联里它跑整条序列。并联把补偿均摊到每个 key，实现简单、覆盖全，但对该精算的块和该丢的块都用同一份廉价线性糊过去。</p>
+<p>把两者的算力账摊开：路由的精确项只在 <span class="math inline">\(\mathcal C\)</span> 上做 <span class="math inline">\(O(|\mathcal C|Nd)\)</span>，线性项只在 <span class="math inline">\(\mathcal M\)</span> 上聚合，<span class="math inline">\(\mathcal N\)</span> 完全不产生浮点运算，所以随 <span class="math inline">\(k_l\)</span> 增大总量单调下降——省的是&quot;丢掉的那部分&quot;；并联的精确项同样只在 top 块上，但线性项恒为覆盖全序列的 <span class="math inline">\(O(Ld^2)\)</span>，无论内容如何都固定摊出这份成本。也就是说，路由的复杂度随分布长尾程度自适应收缩，并联的复杂度是一条不随内容变化的水平线——这正是&quot;分派 vs 均摊&quot;在 FLOPs 曲线上的形状差异。</p>
+<h3 id="sec-4-4">4.4 代码引用</h3>
+<p>先看 SLA 的路由选块，核心是 mean-pool 打分后取 top-k 得到 critical 块的稀疏图：</p>
+<p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/utils.py:L55-L67 — 按块路由：mean-pool 分数选 top-k 块（critical），其余交给线性/丢弃</p>
+<pre><code class="language-python">def get_block_map(q, k, topk_ratio, BLKQ=64, BLKK=64):
+    arg_k = k - torch.mean(k, dim=-2, keepdim=True) # smooth-k technique in SageAttention
+    pooled_qblocks = mean_pool(q, BLKQ)
+    pooled_kblocks = mean_pool(arg_k, BLKK)
+    pooled_score = pooled_qblocks @ pooled_kblocks.transpose(-1, -2)
+
+    K = pooled_score.shape[-1]
+    topk = min(K, int(topk_ratio * K))
+    lut = torch.topk(pooled_score, topk, dim=-1, sorted=False).indices
+
+    sparse_map = torch.zeros_like(pooled_score, dtype=torch.int8)
+    sparse_map.scatter_(-1, lut, 1)
+    return sparse_map, lut, topk
+</code></pre>
+<p><code>pooled_score</code> 正是 §4.3 的块级分数 <span class="math inline">\(s_b\)</span>（<code>mean_pool</code> 到块级后 q-block 与 k-block 内积），<code>arg_k</code> 先做了 SageAttention 的 smooth-k 去均值以稳住量化；<code>topk</code> + <code>sparse_map</code> 把分数最高的那批块标记为 critical，走精确路径，落选块才轮到线性或丢弃。整个函数返回的是一张 <code>int8</code> 的稀疏图 <code>sparse_map</code> 和查找表 <code>lut</code>——它本身不算注意力，只输出&quot;哪些块进精确路径&quot;的路由决策。这段代码从头到尾在做的是<strong>块的分类</strong>，它决定的是&quot;谁走哪条算子&quot;，而不是&quot;怎么把补偿加进去&quot;。</p>
+<p>对照 RoLA 的并联融合，它不选块，而是逐 token 门控地把稀疏输出和低秩补偿加在一起：</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/networks/wan_rola_attention.py:L516-L525 — 全局并联：逐 token 门控融合稀疏输出与低秩补偿</p>
+<pre><code class="language-python">        # gate input: original hidden states x reshaped to BHLD
+        x_bhld = x.view(b, s, n, d).transpose(1, 2)           # [B, H, L, D]
+        gate_logits = self.gate_proj(x_bhld) + self.gate_bias  # [B, H, L, 1]
+        gate = torch.sigmoid(gate_logits)
+
+        if o_s is not None:
+            # RMSnorm-scaled sparse + gated low-rank
+            o_s_scale = (o_s.pow(2).mean(dim=-1, keepdim=True) + 1e-5).sqrt()
+            fused = o_s.float() / o_s_scale.float() + gate * o_l.float()
+            out_bhld = (fused * o_s_scale.float()).to(o_l.dtype)
+</code></pre>
+<p><code>gate = sigmoid(gate_proj(x) + gate_bias)</code> 是逐 token 的近零门控（§3 的 <span class="math inline">\(g\)</span>），<code>gate_bias</code> 初始化成负值让 sigmoid 起步接近 0，训练早期补偿几乎不扰动主路径；<code>fused = o_s/o_s_scale + gate * o_l</code> 先用 RMSnorm 尺度 <code>o_s_scale</code> 把稀疏主输出归一、再叠上门控后的低秩补偿 <code>o_l</code>，最后乘回尺度还原——而 <code>o_l</code> 覆盖的是全部 key，没有任何&quot;选块&quot;步骤。两段代码的结构差异恰好对上两范式：SLA 在做 <code>argsort/topk/scatter</code>（块选择），RoLA 在做 <code>sigmoid/加权和</code>（全局融合）；一个把算力分派出去、决策粒度是&quot;块&quot;，一个把补偿摊到每个 token、决策粒度是&quot;token 门控强度&quot;。同一条 §3 通式，落到代码里就分岔成了&quot;选择&quot;与&quot;融合&quot;两种骨架。</p>
+<h3 id="sec-4-5">4.5 洞察</h3>
+<ul>
+<li><strong>何时选路由、何时选并联</strong>：路由省在&quot;该丢的丢、该精算的精算&quot;，适合注意力权重高度长尾、垃圾块多的场景；并联胜在实现简单（一根旁路 + 一个门）且补偿覆盖全序列，不怕&quot;漏补&quot;。分类打分和三路算子的工程成本是路由的代价。</li>
+<li><strong>线性分支的定义域是两范式的硬区别</strong>：SLA 的线性只补 marginal（中段）块，SALAD/RoLA 的并联线性补<strong>全部</strong> key——这也是本调研核对到的 SLA vs SALAD/RoLA 的结构差异，不是实现细节而是范式选择。</li>
+<li><strong>固定阈值不是最优，SLA2 把三分类改成可学习路由器</strong>：手工设定的 <span class="math inline">\(k_h/k_l\)</span> 比例对不同层、不同去噪步都用同一套，天然次优；SLA2 的动机就是让路由器学出该在哪切分。相关数字（已核对）：SLA 95% 稀疏 / 注意力 13.7× / 端到端 2.2×；SLA2 97% 稀疏 / 18.6×。</li>
+</ul>
+<h2 id="sec-5">5. RoPE 两难：低秩分支的位置编码危机与两种解法</h2>
+<h3 id="sec-5-1">5.1 直觉</h3>
+<p>视频 DiT 靠 3D RoPE 把时间-高-宽的相对位置编码进注意力：给 query/key 按其时空坐标施加旋转 <span class="math inline">\(R\)</span>，两 token 内积只依赖它们的相对偏移。可这套机制和 §2 的全局摘要 <span class="math inline">\(C=\phi(K)^\top V\)</span> 直接冲突。标准线性注意力的顺序是<strong>先旋转再过特征映射</strong>，即用 <span class="math inline">\(\phi(Rk_j)\)</span>，于是摘要变成 <span class="math inline">\(C=\sum_j\phi(R(p_j)k_j)v_j^\top\)</span>——它逐项依赖每个 key 的<strong>绝对</strong>位置 <span class="math inline">\(p_j\)</span>，既写不成相对偏移的函数，也不再是一份能给所有 query 通用、只算一次的量（直接违背 §2 的可复用前提）。矛盾的根源一句话：旋转 <span class="math inline">\(R\)</span> 是线性算子，而 <span class="math inline">\(\phi\)</span> 是逐点非线性，两者<strong>不可交换</strong>，<span class="math inline">\(\phi(Rk)\neq R\phi(k)\)</span>，旋转就被&quot;锁死&quot;在了非线性内部、提不出求和。同一课题组（Kun Yuan 组）隔数月给了两条互斥解：RoPeSLR 干脆<strong>弃用标准线性注意力</strong>、改注入可学习 3D PE；RoLA 则把旋转<strong>移到 <span class="math inline">\(\phi\)</span> 之后</strong>，保留线性注意力、且零位置参数。</p>
+<figure>
+  <img class="zoomable" src="figures/rola-arch.png" alt="RoLA 架构：块稀疏分支 + 旋转低秩线性分支(RoPE 在 SiLU 之后)，逐 token 门控融合">
+  <figcaption><strong>图 5</strong> — RoPE 两难的解法一：RoLA（论文 Fig.2）。旋转被挪到 SiLU 之后，成了作用在特征上的线性算子——于是它能被提出求和，摘要 $C$ 重新可分解、可复用。</figcaption>
+</figure>
+<figure>
+  <img class="zoomable" src="figures/ropeslr-arch.png" alt="RoPeSLR 实证：注意力能量集中(稀疏尖峰) + 低能残差 stable rank 中位数 15.4(低秩背景)">
+  <figcaption><strong>图 6</strong> — RoPE 两难的解法二：RoPeSLR（论文 Fig.2，实证分解依据）。既然标准线性注意力和旋转无法共存，索性弃用它、给低秩背景注入一套可学习 3D PE 来补回位置信息。</figcaption>
+</figure>
+<h3 id="sec-5-2">5.2 最小 demo</h3>
+<p>下面用真实形状把 RoPE 两难跑出来：<span class="math inline">\(d=8\)</span> 的头维、4 个旋转对，<code>rope(x,p)</code> 就是把位置 <span class="math inline">\(p\)</span> 的成对旋转施加到向量上，<span class="math inline">\(\phi\)</span> 取线性注意力常用的 <code>elu+1</code>。取三组 <span class="math inline">\((p_i,p_j)\)</span>，它们的绝对位置各不相同、但相对偏移<strong>恒为 5</strong>。情形 A 先旋转再 <span class="math inline">\(\phi\)</span>（<span class="math inline">\(\phi(Rq)^\top\phi(Rk)\)</span>），情形 B 把旋转放到 <span class="math inline">\(\phi\)</span> 之后（<span class="math inline">\((R\phi(q))^\top(R\phi(k))\)</span>），直接打印两组内积。</p>
+<pre class="teaching-demo"><code class="language-python">import torch, torch.nn.functional as F
+
+torch.manual_seed(0)
+d = 8                                              # 头维，4 个旋转对
+freqs = 1.0 / (10000 ** (torch.arange(0, d, 2) / d))   # RoPE 频率 [d/2]
+
+def rope(x, p):                                    # 把位置 p 的成对旋转施加到 x
+    ang = p * freqs
+    cos, sin = ang.cos(), ang.sin()
+    x1, x2 = x[..., 0::2], x[..., 1::2]
+    out = torch.empty_like(x)
+    out[..., 0::2] = x1 * cos - x2 * sin
+    out[..., 1::2] = x1 * sin + x2 * cos
+    return out
+
+phi = lambda x: F.elu(x) + 1.0                     # 线性注意力常用的正特征映射
+q, k = torch.randn(d), torch.randn(d)
+pairs = [(3, 8), (10, 15), (100, 105)]             # 绝对位置各异，相对偏移都是 5
+
+print("A  先旋转再 φ:  φ(Rq)·φ(Rk)")
+for pi, pj in pairs:
+    print(f"  p_i={pi:>3} p_j={pj:>3} Δ=5 -> {(phi(rope(q,pi)) @ phi(rope(k,pj))).item():.4f}")
+
+print("B  旋转在 φ 之后: (Rφ(q))·(Rφ(k))")
+for pi, pj in pairs:
+    print(f"  p_i={pi:>3} p_j={pj:>3} Δ=5 -> {(rope(phi(q),pi) @ rope(phi(k),pj)).item():.4f}")
+</code></pre>
+<p>情形 A 打印出的三个数<strong>互不相等</strong>、且随绝对位置逐渐漂移（我们的一次运行给出约 7.14 / 6.54 / 5.07——相对性被 <span class="math inline">\(\phi\)</span> 破坏，内积不再是 <span class="math inline">\(\Delta\)</span> 的函数，而是跟着 <span class="math inline">\(p_i,p_j\)</span> 的绝对大小走）；情形 B 的三个数<strong>完全相同</strong>（三行都稳定收敛到同一个值，约 8.73）。差别只有旋转和 <span class="math inline">\(\phi\)</span> 的先后：B 里旋转在外、是线性算子，可以合并成 <span class="math inline">\(\phi(q)^\top R(p_j-p_i)\phi(k)\)</span>，只剩相对偏移；A 里旋转被压进 <span class="math inline">\(\phi\)</span> 内部，绝对位置就再也提不出来。把这个&quot;内积随绝对位置漂移&quot;放回 §2 的摘要视角就更致命：摘要 <span class="math inline">\(C=\sum_j\phi(Rk_j)v_j^\top\)</span> 逐项吃进了各 key 的绝对旋转，对不同 query 位置不能通用，只能逐 query 重算——线性注意力&quot;算一次摘要、全序列共享&quot;的省算前提当场失效。这正是 RoLA &quot;把旋转移到 <span class="math inline">\(\phi\)</span> 之后&quot;要复原的东西。</p>
+<h3 id="sec-5-3">5.3 正式化</h3>
+<p>先写下 RoPE 之所以编码&quot;相对&quot;位置的代数恒等式：</p>
+<div class="math block">
+\[R(p_i)^\top R(p_j)=R(p_j-p_i).\]
+</div>
+<p class="math-translation">—— 翻译：两个绝对旋转做内积会抵消成一个只含差值的旋转，这是 RoPE 唯一被依赖的性质；只要 query/key 之间还隔着这层内积，位置就以相对形式进入注意力。破坏它，等于把相对几何降级成绝对坐标。</p>
+<p>标准线性注意力要构造的摘要是（旋转在 <span class="math inline">\(\phi\)</span> 内部）：</p>
+<div class="math block">
+\[C=\sum_j \phi\big(R(p_j)k_j\big)v_j^\top,\qquad \phi\big(R(p_j)k_j\big)\neq R(p_j)\,\phi(k_j).\]
+</div>
+<p class="math-translation">—— 翻译：因 $\phi$ 逐点非线性、与旋转不可交换，$R(p_j)$ 无法从 $\phi(\cdot)$ 里提出到求和之外。$C$ 于是逐项烘焙进每个 key 的绝对位置 $\{p_j\}$——它对每个 query 都不同，退化成"逐 query 重算"，§2 那份算一次就通用的摘要不复存在。换言之，$\phi$ 的非线性同时毁掉了两个性质：相对几何（内积不再只依赖偏移）与可复用性（摘要不再对全序列通用），二者是一体两面。</p>
+<p>RoLA 的解法是重排顺序：先降维+激活得到特征，再对特征施加截断旋转 <span class="math inline">\(R_r\)</span>（只旋前 <span class="math inline">\(r\)</span> 维）：</p>
+<div class="math block">
+\[\tilde q=R_r\odot\mathrm{SiLU}(P_q q),\quad \tilde k=R_r\odot\mathrm{SiLU}(P_k k),\]
+</div>
+<p class="math-translation">—— 翻译：注意 $\odot R_r$ 作用在 $\mathrm{SiLU}(P_\bullet\,\cdot)$ 的输出上、而非输入——旋转被挪到了非线性的**外侧**。$P_q,P_k$ 先把 head_dim 压到 rank，SiLU 提供非线性表达力，旋转最后才逐维乘上去；正是这个顺序让下一行的分解成立。</p>
+<div class="math block">
+\[\tilde q_i^\top\tilde k_j=\mathrm{SiLU}(P_q q_i)^\top R_r(p_i)^\top R_r(p_j)\,\mathrm{SiLU}(P_k k_j)=\mathrm{SiLU}(\cdot)^\top R_r(p_j-p_i)\,\mathrm{SiLU}(\cdot).\]
+</div>
+<p class="math-translation">—— 翻译：关键在旋转施于 $\mathrm{SiLU}$ **之后**——此时它是作用在固定特征上的线性算子，可以套用第一条恒等式合并成 $R_r(p_j-p_i)$，query-key 内积重新只依赖相对偏移。而线性算子能提出求和，摘要 $C=\sum_j \tilde k_j v_j^\top$ 里旋转已经吸进 $\tilde k_j$、$C$ 恢复成一份可复用的量。代价有两点：$\phi$ 被固定成"降维+SiLU"这种可与旋转协作的形式（不能再任选特征映射），且只旋前 $r$ 维（rank 截断），高频位置信息被丢弃。</p>
+<h3 id="sec-5-4">5.4 代码引用</h3>
+<p>RoLA 把 §5.3 的重排在代码里落成两段：一段是低秩分支的主流程（降维+SiLU 当 <span class="math inline">\(\phi\)</span>、施加截断 RoPE、再算摘要），一段是截断 RoPE 本身。读它们时盯住两个锚点——旋转出现的位置（必须在 SiLU 之后），以及摘要 <code>c</code> 是否与 query 无关（决定能否复用）。先看主流程：</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/networks/wan_rola_attention.py:L366-L391 — 旋转低秩线性分支：SiLU 后做截断 RoPE，再算 C=K^T V 的线性注意力</p>
+<pre><code class="language-python">    def _lowrank_attn(
+        self,
+        q_normed_bhld: torch.Tensor,
+        k_normed_bhld: torch.Tensor,
+        v_bhld: torch.Tensor,
+        freqs: torch.Tensor,
+    ) -&gt; torch.Tensor:
+        &quot;&quot;&quot;
+        Low-rank linear attention branch.
+        Inputs : [B, H, L, D]
+        Returns: [B, H, L, D]
+        &quot;&quot;&quot;
+        # Project head_dim → rank
+        q_lr = F.silu(self.proj_q(q_normed_bhld))  # [B, H, L, rank]
+        k_lr = F.silu(self.proj_k(k_normed_bhld))  # [B, H, L, rank]
+
+        # Apply truncated RoPE after activation
+        q_lr = self._apply_rope_rank(q_lr, freqs)
+        k_lr = self._apply_rope_rank(k_lr, freqs)
+
+        # Linear attention: O = Q_lr (K_lr^T V)
+        # k_lr^T @ v: [B, H, rank, L] @ [B, H, L, D] = [B, H, rank, D]
+        c = k_lr.transpose(-2, -1) @ v_bhld  # [B, H, rank, D]
+        out = q_lr @ c                        # [B, H, L, D]
+
+        return F.rms_norm(out, [out.shape[-1]])
+</code></pre>
+<p><code>q_lr = F.silu(self.proj_q(...))</code> 就是 §5.3 的 <span class="math inline">\(\mathrm{SiLU}(P_q q)\)</span>——先把 head_dim 降到 rank、再过 SiLU，这两步合起来正是 RoLA 固定死的那个 <span class="math inline">\(\phi\)</span>。紧接着 <code>_apply_rope_rank(q_lr, freqs)</code> 才施加旋转，位置正是&quot;在 <span class="math inline">\(\phi\)</span> 之后&quot;。最关键的一行是 <code>c = k_lr.transpose(-2, -1) @ v_bhld</code>：这就是 <span class="math inline">\(C=\sum_j\tilde k_j v_j^\top\)</span>，一份 <code>[B,H,rank,D]</code> 的摘要，与 query 无关、算一次给所有 <code>q_lr @ c</code> 复用——因为旋转已经在算 <code>c</code> 之前吸进了 <code>k_lr</code>，摘要重新变回 §2 那种可复用形态。</p>
+<p>再看截断旋转本身，坐实&quot;在激活之上、只旋前 rope_dim 维&quot;两点：</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/networks/wan_rola_attention.py:L347-L364 — 截断 RoPE：旋转施加在 SiLU 输出之上、只旋前 rope_dim 维</p>
+<pre><code class="language-python">        rope_dim = min(r // 2, freqs.shape[-1])
+        freqs_r = freqs[:L, :rope_dim].to(x.dtype)   # [L, rope_dim]
+        cos = torch.cos(freqs_r)  # [L, rope_dim]
+        sin = torch.sin(freqs_r)  # [L, rope_dim]
+
+        # Interleaved split: x1 = x[..., 0::2], x2 = x[..., 1::2] (adjacent pairs)
+        x_rot = x[..., : 2 * rope_dim]  # [B, H, L, 2*rope_dim]
+        x1, x2 = x_rot.unflatten(-1, (-1, 2)).unbind(-1)  # each [B, H, L, rope_dim]
+
+        # Apply rotation
+        out = torch.empty_like(x_rot)
+        out[..., 0::2] = x1 * cos - x2 * sin
+        out[..., 1::2] = x1 * sin + x2 * cos
+
+        # Append non-rotated tail dimensions if rank &gt; 2*rope_dim
+        if 2 * rope_dim &lt; r:
+            out = torch.cat([out, x[..., 2 * rope_dim:]], dim=-1)
+        return out
+</code></pre>
+<p>传进来的 <code>x</code> 已经是 <code>_lowrank_attn</code> 里 SiLU 过的特征，函数只对它成对旋转（<code>out[...,0::2]=x1*cos-x2*sin</code> 与 demo 情形 B 的旋转是同一套公式），这就是&quot;旋转在 <span class="math inline">\(\phi\)</span> 之后&quot;落到代码里的样子。<code>rope_dim = min(r // 2, ...)</code> 正是 §5.3 的 rank 截断——只旋转前 <code>2*rope_dim</code> 维、<code>if 2*rope_dim &lt; r</code> 时把尾部维度原样拼回不旋转。它换来的是&quot;旋转与求和可交换&quot;这条硬约束下能保住的最大位置信息量，丢掉的高频维度就是几何精确解要付的代价。</p>
+<h3 id="sec-5-5">5.5 洞察</h3>
+<ul>
+<li><strong>几何精确 vs 学习近似</strong>：RoLA 复用预训练旋转的一个截断子集、零新增位置参数，靠 <span class="math inline">\(R(p_i)^\top R(p_j)=R(p_j-p_i)\)</span> 这条代数恒等式把相对性<strong>精确</strong>保住，代价是把 <span class="math inline">\(\phi\)</span> 钉死成&quot;降维+SiLU&quot;、且丢掉高频维度；RoPeSLR 反向操作，弃用标准线性注意力、给低能背景注入一套可学习 3D PE 去<strong>逼近</strong>位置（论文实测该低能残差 stable rank 中位数仅 15.4，说明背景确实低秩、值得单独建模而非硬套线性注意力）。一个不学、靠数学闭式；一个学、靠数据拟合，是两种世界观。</li>
+<li><strong>SALAD 为何只验证到 90% 稀疏</strong>：SALAD 走的是&quot;直接加 3D RoPE、靠训练兜&quot;的第三条路——没正面处理 <span class="math inline">\(\phi\)</span> 与旋转的不可交换性，而是把误差丢给梯度去吸收。这种&quot;不解决交换性、只掩盖症状&quot;的做法在低稀疏度下够用，但补偿失真会随稀疏度累积，故其可靠区间只验证到 90%，越往极端稀疏越吃力——与 RoLA/RoPeSLR 从代数层面根治的路线形成鲜明对照。</li>
+<li><strong>同组两篇隔数月给互斥解、却未正面互引</strong>：RoPeSLR 与 RoLA 出自同一课题组，一个弃线性注意力、一个救线性注意力，方向相反却无正面对照实验。这更像真实的技术演进轨迹（先用 RoPeSLR 证明&quot;标准线性注意力在 3D RoPE 下不可行、需另起炉灶&quot;，再用 RoLA 回头找到&quot;重排顺序就能让它可行&quot;的闭式解），而非谁对谁错的路线之争；读这两篇的正确姿势是把它们看成同一问题的两次迭代。</li>
+</ul>
+<h2 id="sec-6">6. 高稀疏陷阱：补偿救不了的监督问题</h2>
+<h3 id="sec-6-1">6.1 直觉</h3>
+<p>§3 到 §5 一路把补偿讲成&quot;表达能力&quot;的事：稀疏丢掉的弥散背景，用一份 query 无关的全局摘要补回来，门控控制掺多少。这套逻辑在 90% 稀疏下几乎无损——但把稀疏度推到 97%，整个补偿家族一起崩。诡异的是崩的方式：训练侧的 flow matching 逐步损失还在稳稳下降，生成的视频却结构崩坏、糊成马赛克。step-local 的数字越来越好看，终端质量却在垮，这说明训练损失和真正关心的目标之间裂开了一道缝。SparkDiffusion（RoLA 作稀疏模块）用一个 oracle 探针把裂缝定位了出来：固定初始噪声，把稀疏学生在一小段采样步上的速度替换成稠密教师，看终端误差掉多少。结论很硬——只修最高噪声的 5 步几乎消掉全部终端误差，只修最低噪声的 5 步几乎没用，两者差 <span class="math inline">\(3.4\times\)</span>。误差是在<strong>高噪声的结构生成阶段</strong>注入的。关键的 delta 在这里：这不是 §3 说的补偿分支表达力不够，而是 step-local 监督根本看不见沿采样轨迹累积到终端的那部分误差——一个监督问题，不是能力问题。</p>
+<figure>
+  <img class="zoomable" src="figures/spark-oracle-probe.png" alt="Oracle 探针：修高噪声5步几乎消掉全部终端误差(黄)，修低噪声5步几乎没用(红)，差3.4×">
+  <figcaption><strong>图 7</strong> — 高稀疏陷阱的根源在高噪声结构误差（SparkDiffusion, 论文 Fig.4）。等预算下修高噪声 5 步和修低噪声 5 步的终端 NMSE 差 $3.4\times$：终端误差集中在少数几步注入，而 step-local 损失把它平摊在全轨迹上、看不出这种集中——监督信号里没有这道信息。</figcaption>
+</figure>
+<h3 id="sec-6-2">6.2 最小 demo</h3>
+<p>用一个线性代理复现&quot;陷阱&quot;的数学内核：Euler 采样 <span class="math inline">\(N=20\)</span> 步、状态维 <span class="math inline">\(d=16\)</span>、仿射终端读出 <span class="math inline">\(R(x)=c^\top x\)</span>，误差沿 <span class="math inline">\((I+hJ)\)</span> 传播。构造两组逐步速度误差 <span class="math inline">\(e\)</span>，<strong>逐步幅度 <span class="math inline">\(\lVert e_k\rVert\)</span> 完全相同</strong>：一组顺着终端敏感度 <span class="math inline">\(s_k\)</span> 的方向（coherent，符号一致、会累加），一组正负交替（幅度不变、方向翻转、会抵消）。同时算 step-local 损失 <span class="math inline">\(L=\tfrac12\sum_k\lVert e_k\rVert^2\)</span> 与终端误差 <span class="math inline">\(\Psi=h\sum_k s_k^\top e_k\)</span>，并用真实滚动核对 <span class="math inline">\(\Psi\)</span>。</p>
+<pre class="teaching-demo"><code class="language-python">import random, math
+random.seed(0)
+
+N, d, h = 20, 16, 0.05                              # Euler 采样 20 步，状态维 d=16
+J = [[0.3 * random.gauss(0, 1) / math.sqrt(d) for _ in range(d)] for _ in range(d)]
+c = [random.gauss(0, 1) for _ in range(d)]          # 仿射终端读出 R(x)=c·x
+def step(v):                                         # 单步传播算子 (I+hJ)·v
+    return [v[i] + h * sum(J[i][j] * v[j] for j in range(d)) for i in range(d)]
+def stepT(v):                                        # 其转置，反向累计敏感度用
+    return [v[i] + h * sum(J[j][i] * v[j] for j in range(d)) for i in range(d)]
+
+s, phi = [None] * N, c[:]                            # 终端敏感度 s_k（采样器+参考场决定，与模型参数无关）
+for k in range(N - 1, -1, -1):
+    s[k] = phi[:]; phi = stepT(phi)
+sn = [math.sqrt(sum(x * x for x in s[k])) for k in range(N)]   # 每步敏感度幅度 ||s_k||
+
+m = 0.1                                              # 固定逐步误差幅度 ||e_k||=m（两组完全相同）
+e_coh = [[m * s[k][i] / sn[k] for i in range(d)] for k in range(N)]      # 符号一致：顺敏感度方向，累加
+e_alt = [[(-1) ** k * e_coh[k][i] for i in range(d)] for k in range(N)]  # 正负交替：幅度不变、翻转
+
+def rollout(e):                                      # 真实 Euler 传播误差到终端
+    dx = [0.0] * d
+    for k in range(N):
+        dx = step(dx); dx = [dx[i] + h * e[k][i] for i in range(d)]
+    return sum(c[i] * dx[i] for i in range(d))       # 终端读出误差 Psi = R(x_N)-R*
+
+for name, e in [("coherent", e_coh), ("alternating", e_alt)]:
+    L = 0.5 * sum(sum(x * x for x in e[k]) for k in range(N))            # step-local 损失（只看幅度）
+    Psi_pair = h * sum(sum(s[k][i] * e[k][i] for i in range(d)) for k in range(N))  # pairing 恒等式
+    print(f"{name:12s}  L={L:.5f}  Psi(pair)={Psi_pair:+.4f}  Psi(rollout)={rollout(e):+.4f}")
+</code></pre>
+<p>跑出来两行：<code>coherent L=0.10000 Psi=+0.3943</code>、<code>alternating L=0.10000 Psi=+0.0007</code>。step-local 损失一字不差地相等（都是 <span class="math inline">\(0.10000\)</span>），终端误差却差了约 <span class="math inline">\(560\times\)</span>——一个 <span class="math inline">\(0.39\)</span>、一个约等于 <span class="math inline">\(0\)</span>。而且 pairing 算的 <span class="math inline">\(\Psi\)</span> 和真实 Euler 滚动出来的完全吻合。这就是陷阱的全部：<strong>相同的 step-local 损失可以对应天差地别的终端</strong>。谁在累加、谁在抵消，只由每步误差的符号与终端敏感度的对齐关系决定，而 <span class="math inline">\(L\)</span> 对符号一无所知。</p>
+<h3 id="sec-6-3">6.3 正式化</h3>
+<p>把上面的现象写成恒等式（SparkDiffusion 附录 C）。沿采样轨迹注入逐步速度误差 <span class="math inline">\(e_k\)</span>，终端读出误差可以精确拆成一个内积：</p>
+<div class="math block">
+\[\Psi \;=\; R(x_N)-R(x_N^\star) \;=\; h\sum_{k=0}^{N-1} s_k^\top e_k \;=\; \langle e, s\rangle_h,\qquad s_k=\Phi_{N,k+1}^\top\,\nabla R.\]
+</div>
+<p class="math-translation">—— 翻译: 终端误差不是逐步误差的简单堆叠，而是逐步误差 $e_k$ 与**终端敏感度** $s_k$ 的加权内积。$s_k$ 是"第 $k$ 步注入的单位误差传播到终端读出"的梯度，由传播算子 $\Phi_{N,k+1}$（采样器步长 + 参考速度场）和读出 $\nabla R$ 决定——它完全不含被训练的模型参数，是轨迹的固有几何。哪一步重要、往哪个方向注入才伤终端，全写在 $s_k$ 里，而模型在训练时看不到它。</p>
+<p>而 flow matching 的 step-local 损失只是逐步误差的平方幅度和：</p>
+<div class="math block">
+\[L \;=\; \tfrac12\,\lVert e\rVert_h^2 \;=\; \tfrac{h}{2}\sum_{k=0}^{N-1}\lVert e_k\rVert^2.\]
+</div>
+<p class="math-translation">—— 翻译: $L$ 只依赖每步误差的**幅度** $\lVert e_k\rVert$，对方向和符号完全不敏感。把某一步的 $e_k$ 整体反号，$L$ 一字不变，$\Psi$ 里对应项却翻号。幅度损失量的是"每步错多少"，terminal 内积量的是"这些错沿轨迹叠加后净剩多少"——前者看不出后者，正是因为它把符号信息在平方里丢掉了。</p>
+<p>由此可得两个模型可以有相同的 <span class="math inline">\(L\)</span>、完全不同的 <span class="math inline">\(\Psi\)</span>：给定固定的逐步幅度谱 <span class="math inline">\(\{\lVert e_k\rVert\}\)</span>，</p>
+<div class="math block">
+\[\Psi = h\sum_k \lVert s_k\rVert\,\lVert e_k\rVert\cos\theta_k,\qquad L=\tfrac{h}{2}\sum_k\lVert e_k\rVert^2\ \text{与}\ \theta_k\ \text{无关}.\]
+</div>
+<p class="math-translation">—— 翻译: 把内积按夹角 $\theta_k$（$e_k$ 与 $s_k$ 之间）展开就一目了然：$\Psi$ 被 $\cos\theta_k$ 调制——全部对齐（$\cos\theta_k\!=\!1$，coherent）时各项同号累加到最大，正负交替时相互抵消到 $\approx 0$，而这两种情形的 $L$ 逐项相等。在 step-local 的最优点上 $\nabla_\theta L=0$（幅度已压到底），但 $\Psi$ 对 $\theta_k$ 的依赖并未消失：存在一整块 step-local 梯度看不见、却终端可见的剩余误差。降 $L$ 到极限也堵不住这道缝。</p>
+<h3 id="sec-6-4">6.4 代码引用</h3>
+<p>SparkDiffusion 的解法直接把&quot;误差发源于高噪声&quot;写进配置：沿采样轨迹设一个 crosspoint，把高噪声段和低噪声段切开，两段用不同的蒸馏监督。</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/models/t2v_model_distill.py:L92-L94 — 轨迹 crosspoint 配置：噪声等级 0.875 处切开，前 2 步为高噪声段</p>
+<pre><code class="language-python">    joint_boundary_rf: float = 0.875
+    joint_boundary_step_index: int = 2
+    joint_backward_timesteps: list = [0.933781, 0.875, 0.608979]
+</code></pre>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/models/t2v_model_distill.py:L554-L555 — 按 step index 路由 high/low 区（高→一致性锚结构，低→分布匹配补终端）</p>
+<pre><code class="language-python">    def _joint_region_for_step_index(self, step_index: int) -&gt; Literal[&quot;high&quot;, &quot;low&quot;]:
+        return &quot;high&quot; if step_index &lt; self.config.joint_boundary_step_index else &quot;low&quot;
+</code></pre>
+<p>对照 6.1 的诊断：<code>joint_boundary_rf=0.875</code> 是噪声 crosspoint，<code>joint_backward_timesteps=[0.933781, 0.875, 0.608979]</code> 是 3 步反向时间表，<code>joint_boundary_step_index=2</code> 把前 2 步（<span class="math inline">\(\sigma\ge0.875\)</span>）划成高噪声段。<code>_joint_region_for_step_index</code> 逐步判 high/low，把监督分成两套：高噪声段用一致性蒸馏（PCM）<strong>锚住结构</strong>——正因为终端误差发源于此（oracle 探针里修高噪声 5 步几乎消掉全部误差），这几步必须直接对齐教师；低噪声段用分布匹配（DMD）<strong>补终端对齐</strong>。这正是对 6.3 恒等式的工程回应：既然 <span class="math inline">\(\Psi\)</span> 是沿轨迹的敏感度加权和、且权重集中在高噪声几步，就在那几步换上能看见终端的监督（教师锚点 / 分布匹配），而不是继续在全轨迹上摊平的 step-local 损失里打转。</p>
+<h3 id="sec-6-5">6.5 洞察</h3>
+<ul>
+<li><strong>补偿是&quot;能力补丁&quot;，蒸馏是&quot;监督补丁&quot;，两个正交病因要两套药</strong>：§3 的补偿修的是表达能力——稀疏丢了背景，用全局摘要补回来；但 97% 崩坏是 step-local 监督喂不出终端对齐，得靠 trajectory-mixed 蒸馏（高噪声 PCM 锚结构 + 低噪声 DMD 补终端）。把监督问题当能力问题去加更强的补偿分支，是在错误的轴上使劲。</li>
+<li><strong>&quot;代理损失 <span class="math inline">\(\ne\)</span> 最终目标&quot;是可迁移的报警</strong>：只要训练用代理梯度、评价用终端指标，就可能有一块代理梯度看不见、终端却看得见的剩余——RLHF 的 reward hacking、teacher-forcing 训练 vs 自回归推理的暴露偏差都是同构的裂缝。SparkDiffusion 的方法论本身可迁移：oracle 干预（固定初值、换一小段步）定位误差发源段，再用 pairing 恒等式证明代理梯度对它免疫，是一套&quot;先定位、后证明看不见&quot;的诊断范式。</li>
+<li><strong>这解释了补偿家族为何集体停在 90%</strong>：不是补偿分支表达不了 97% 稀疏下的注意力，而是 step-local 监督在这个稀疏度下已经喂不出正确的终端行为。天花板不在表达力、在监督信号——换损失（terminal-aligned 蒸馏）才是解，继续堆补偿容量不是。</li>
+</ul>
+<h2 id="sec-7">7. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</h2>
+<h3 id="sec-7-1">7.1 直觉</h3>
+<p>回到 §1 埋下的那句：稀疏省的是 FLOPs，不是墙钟。选块若破坏了块连续性，逐 token 地跳来跳去，稀疏 kernel 就无法贴合 FlashAttention 的块布局，省下的 FLOPs 在访存和 launch 开销里白白蒸发——GPU 的算力从来不是瓶颈，能不能把数据以连续块的形式喂进 tensor core 才是。所以块稀疏 kernel 的第一要务不是&quot;选得准&quot;，而是&quot;选出来的块能整块整块地喂给硬件&quot;，这也是补偿家族坚持块级门控、而非逐 token 稀疏的系统层理由。但真正反直觉的账本在后面。SparkDiffusion 对 Wan2.1-T2V-14B-720P 在 RTX 5090 上做了一次瀑布分解：稠密基线 4769s 起步，先上 97% 稀疏 + 融合 kernel，只换来 3.3× 加速；把采样从 50 步蒸馏到 3 步，才是最大的一项，33.3×；再上 FP8 GEMM，1.7×；叠加 CPU offload 与 torch.compile 的零头，累计 265×，终点 18.075s。delta 就在这里：很多人一头扎进稀疏和量化，却漏了<strong>步数</strong>才是乘性因子里最大的一项。补偿家族让高稀疏不崩、蒸馏让少步不崩，两者相乘才凑得出 265×。</p>
+<figure>
+  <img class="zoomable" src="figures/spark-waterfall-265x.png" alt="265× 乘性分解瀑布：稀疏+融合3.3× → few-step蒸馏33.3× → FP8 1.7× → CPU offload 1.1× → torch.compile 1.3×">
+  <figcaption><strong>图 8</strong> — 265× 的乘性分解（SparkDiffusion, 论文 Fig.3）。注意柱子的高矮：稀疏本身只贡献 3.3×，真正把总账拉起来的是"50→3 步"这根 33.3× 的柱子——加速大头几乎从不在你以为的稀疏那一格。</figcaption>
+</figure>
+<h3 id="sec-7-2">7.2 最小 demo</h3>
+<p>下面用真实形状演示：为什么激活要用<strong>逐 token 动态 FP8</strong>，而不是 per-tensor 静态量化。造 <code>x</code> 为 <code>[T=512, d=1024]</code>，并人为让某些行乘上大系数——模拟扩散不同噪声步、不同 token 之间激活幅度的漂移。动态量化逐行取 amax 定 scale，静态量化只用首批的全局 amax。跑完看两者的反量化 MSE，尤其看那些&quot;大幅度行&quot;上静态被削顶的程度。</p>
+<pre class="teaching-demo"><code class="language-python">import torch
+
+T, d = 512, 1024
+FP8_MAX = 448.0                                    # E4M3 的最大可表示幅度
+x = torch.randn(T, d)
+big = torch.randint(0, T, (32,))                   # 随机挑 32 行，模拟激活范围漂移
+x[big] *= 60.0                                     # 这些行的幅度远超其余
+
+def fake_e4m3(t):                                  # 用 clamp+round 近似 E4M3 的有限动态范围
+    return t.clamp(-FP8_MAX, FP8_MAX).round()
+
+# 逐 token 动态：每行自己的 amax 定 scale
+s_dyn = x.abs().amax(dim=1, keepdim=True) / FP8_MAX + 1e-12
+x_dyn = fake_e4m3(x / s_dyn) * s_dyn               # 反量化回原尺度
+
+# per-tensor 静态：只用"首批"(前 64 行，不含大幅度行)的全局 amax
+s_sta = x[:64].abs().amax() / FP8_MAX + 1e-12
+x_sta = fake_e4m3(x / s_sta) * s_sta
+
+mse_dyn = (x_dyn - x).pow(2).mean().item()
+mse_sta = (x_sta - x).pow(2).mean().item()
+# 单看"大幅度行"上的误差
+mse_dyn_big = (x_dyn[big] - x[big]).pow(2).mean().item()
+mse_sta_big = (x_sta[big] - x[big]).pow(2).mean().item()
+print(f"dynamic  MSE  all={mse_dyn:.4f}  big-rows={mse_dyn_big:.4f}")
+print(f"static   MSE  all={mse_sta:.4f}  big-rows={mse_sta_big:.4f}")
+print("static clip 比例:", (x.abs() > s_sta * FP8_MAX).float().mean().item())
+</code></pre>
+<p>跑出来静态量化在大幅度行上的 MSE 比动态高出好几个数量级：<code>s_sta</code> 由首批 64 行标定，<code>FP8_MAX * s_sta</code> 只覆盖那批的幅度，后面 60× 的行整个撞上 clamp 天花板被削顶，<code>static clip 比例</code> 明确大于 0。动态量化每行各自定标，任何一行都不会溢出——代价只是多一次逐行 reduction。当激活分布跨阶段漂移时，这次 reduction 不是优化项，是正确性项。</p>
+<h3 id="sec-7-3">7.3 正式化</h3>
+<p>SparkDiffusion 的 GEMM 走 W8A8：权重逐通道静态标定，激活逐 token 动态标定。权重是常量，训练结束就固定，直接取 amax 即可，无需任何校准集：</p>
+<div class="math block">
+\[s^{(w)}_j=\frac{\mathrm{amax}_j\big(W_{:,j}\big)}{\text{FP8\_MAX}},\qquad W^{fp8}_{:,j}=\mathrm{round}\!\left(W_{:,j}/s^{(w)}_j\right)\]
+</div>
+<p class="math-translation">—— 翻译: 权重逐通道一列一个 scale，离线一次算完存下来。它天生不漂——参数在推理期不变，所以"静态"对权重是免费的正确选择，省掉在线求 amax 的开销。</p>
+<p>激活则相反，逐 token 在线定标：</p>
+<div class="math block">
+\[s_i=\frac{\mathrm{amax}_i(x_i)}{\text{FP8\_MAX}},\qquad x^{fp8}_i=\mathrm{round}\!\left(x_i/s_i\right)\]
+</div>
+<p class="math-translation">—— 翻译: 动态量化多付一次逐行 reduction 求 $\mathrm{amax}_i$，换来的是每一行都不被削顶。当不同扩散步的激活范围能差一个数量级时，这不是可选优化，是硬约束。</p>
+<p>为什么不能沿用静态？设静态 scale 由首批标定为 <span class="math inline">\(s^\star\)</span>，后续某步出现 <span class="math inline">\(\mathrm{amax}_i \gt s^\star\cdot\text{FP8\_MAX}\)</span>，则超出部分被 clamp 硬削：</p>
+<div class="math block">
+\[\varepsilon_{\text{clip}}=\big\|x_i-\mathrm{clamp}(x_i,\,\pm s^\star\!\cdot\text{FP8\_MAX})\big\|\;\propto\;\max\!\big(0,\ \mathrm{amax}_i-s^\star\!\cdot\text{FP8\_MAX}\big)\]
+</div>
+<p class="math-translation">—— 翻译: 削顶误差随"当前步幅度超出首批标定上限的量"线性增长，而且是静默的——不报错、只损精度。扩散越到后段激活越可能漂出首批范围，静态就越危险。</p>
+<p>而少步采样恰好压住了量化误差的另一个放大源。扩散是个迭代过程，每步的输出是下一步的输入，量化引入的扰动会沿采样轨迹被反复送进网络、逐级放大；50 步意味着同一份误差有 50 次被复用、累积的机会。3 步采样把这条链砍到极短——每步的量化误差几乎没有向后传播的空间。这也是为什么&quot;少步 + FP8&quot;是一对天然搭档：步数少不仅直接省时间，还顺带把低比特量化的误差累积上限压了下来，让 FP8 在生成质量上的代价小到可以接受。最后是那本乘性账：</p>
+<div class="math block">
+\[\text{speedup}=\prod_i f_i=f_{\text{sparse}}\cdot f_{\text{step}}\cdot f_{\text{fp8}}\cdots=3.3\times 33.3\times 1.7\times\cdots\approx 265\times\]
+</div>
+<p class="math-translation">—— 翻译: 各因子近似独立、直接连乘。这也解释了 delta：在 3.3× 的稀疏项上再抠 10% 远不如保住 33.3× 的步数项——优化要先看每一格的乘性上限，再决定往哪投。</p>
+<h3 id="sec-7-4">7.4 代码引用</h3>
+<p>先看激活的逐 token 动态量化，就是 7.3 那两行公式的直译：</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/ops/quantization/fp8_linear.py:L57-L61 — 激活逐 token 动态量化到 FP8 E4M3</p>
+<pre><code class="language-python">def quantize_activation_rowwise(x2: torch.Tensor):
+    &quot;&quot;&quot;Row-wise (per-token) FP8 activation quantization for a 2-D ``[M, K]`` tensor.&quot;&quot;&quot;
+    x_scale = x2.abs().amax(dim=1, keepdim=True).float() / _FP8_MAX + 1e-12  # [M, 1]
+    x_fp8 = (x2 / x_scale.to(x2.dtype)).to(_FP8_DTYPE)
+    return x_fp8, x_scale
+</code></pre>
+<p><code>x2.abs().amax(dim=1, keepdim=True) / _FP8_MAX</code> 就是逐行（逐 token）的动态 scale <span class="math inline">\(s_i\)</span>，<code>dim=1</code> 沿特征维归约、<code>keepdim</code> 保住 <code>[M,1]</code> 让每行独立；<code>(x2 / x_scale).to(_FP8_DTYPE)</code> 就是 cast 到 E4M3。和 7.2 的 demo 完全同构——只是这里 <code>_FP8_MAX</code>、<code>_FP8_DTYPE</code> 是真的 FP8。</p>
+<p>再看它怎么和激活函数融合成一个 Triton kernel，把量化的显存往返省掉：</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/ops/quantization/fp8_linear.py:L74-L96 — 融合 kernel：tanh-GELU + 逐行 amax→scale→cast FP8 一次遍历完成</p>
+<pre><code class="language-python">    row = tl.program_id(0).to(tl.int64)
+    offs = tl.arange(0, BLOCK_K)
+    mask = offs &lt; K
+
+    x = tl.load(
+        X + row * stride_xm + offs,
+        mask=mask,
+        other=0.0,
+    ).to(tl.float32)
+    # tanh(z) = 2*sigmoid(2z) - 1, so the factor of two is folded into
+    # sqrt(2 / pi). This is the tanh approximation used by nn.GELU.
+    gelu = x * tl.sigmoid(
+        1.5957691216057308 * (x + 0.044715 * x * x * x)
+    )
+
+    # Masked lanes hold GELU(0) == 0 and cannot raise the non-negative amax.
+    scale = tl.max(tl.abs(gelu), axis=0) / 448.0 + 1e-12
+    tl.store(Xs + row, scale)
+    tl.store(
+        Xq + row * K + offs,
+        (gelu / scale).to(tl.float8e4nv),
+        mask=mask,
+    )
+</code></pre>
+<p>一个 program 处理一行。<code>gelu = x * sigmoid(1.5957...*(x + 0.044715 x^3))</code> 是 tanh 近似的 GELU（<span class="math inline">\(1.5957\approx\sqrt{8/\pi}\)</span>，把 tanh 折成 sigmoid）；紧接着 <code>scale = max(abs(gelu)) / 448.0</code> 就是这一行的动态 amax，<code>448</code> 正是 FP8 E4M3 的最大幅度；<code>(gelu / scale).to(tl.float8e4nv)</code> 一次遍历直接吐出 FP8。关键在&quot;一次遍历&quot;：激活函数算完的中间值还在寄存器里，立刻求 amax、定标、cast，激活+量化融合成一趟，省掉一次把 FP32 中间结果写回显存再读进来量化的往返——这正是 7.1 说的&quot;把 FLOPs 兑成墙钟&quot;里最容易被忽视的访存那一环。</p>
+<h3 id="sec-7-5">7.5 洞察</h3>
+<ul>
+<li><strong>先估乘性上限，再决定往哪优化。</strong> 265× 里稀疏只占 3.3×、步数占 33.3×。在小头上过度打磨（把稀疏从 3.3× 抠到 3.6×）远不如保住大头（步数、蒸馏质量）划算——做系统加速前先把每一格的乘性天花板列出来。</li>
+<li><strong>动态 vs 静态，看分布会不会跨阶段漂。</strong> 权重是常量、逐通道静态量化免费又安全；激活在扩散不同噪声步之间幅度差一个数量级，必须逐 token 动态，否则静默削顶。选择依据不是&quot;哪个快&quot;，是&quot;分布稳不稳&quot;。</li>
+<li><strong>稀疏与蒸馏是乘性互补，这也是全篇的落点。</strong> 补偿家族（§1–§5）让高稀疏不崩、监督修复（§6）让少步不崩，两者相乘才把 265× 兑现出来。单独任一项都撑不起这个数——高稀疏无补偿会崩、少步无蒸馏会崩；把它们串在一条乘性链上，才是这套方法真正落地的样子。</li>
+</ul>
+<h2 id="sec-8">参考文献与代码</h2>
+<p><strong>锚点论文（引用经联网核对，arxiv 前缀即年月）</strong></p>
+<ul>
+<li>VSA — <em>Faster Video Diffusion with Trainable Sparse Attention</em>, ICML 2025, <a href="https://arxiv.org/abs/2505.13389">arxiv:2505.13389</a>（可训练块稀疏地基，§1）</li>
+<li>SLA — <em>Beyond Sparsity in Diffusion Transformers via Fine-Tunable Sparse-Linear Attention</em>, <a href="https://arxiv.org/abs/2509.24006">arxiv:2509.24006</a>（三分类路由 + 线性补偿，§2/§3/§4）</li>
+<li>SALAD — <em>Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer</em>, <a href="https://arxiv.org/abs/2601.16515">arxiv:2601.16515</a>（并联 ReLU 线性分支 + 标量门，§3/§4）</li>
+<li>RoPeSLR — <em>3D RoPE-driven Sparse-LowRank Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2605.20659">arxiv:2605.20659</a>（RoPE 两难解法一，§5）</li>
+<li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>（RoPE 两难解法二，SparkDiffusion 默认稀疏模块，§3/§4/§5）</li>
+<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>（high-sparsity trap 诊断 + trajectory-mixed 蒸馏 + FP8，§6/§7；本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>）</li>
+<li>相邻：SLA2 [arxiv:2602.12675]、SVG-EAR [arxiv:2603.08982]、Sparse VideoGen [arxiv:2502.01776] / SVG2 [arxiv:2505.18875]——见调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>。</li>
+</ul>
+<p><strong>代码仓库（本教程代码 verbatim 引自，行号经 sed 核对）</strong></p>
+<ul>
+<li><a href="https://github.com/thu-ml/SLA">thu-ml/SLA</a> — <code>sparse_linear_attention/core.py</code>、<code>utils.py</code>（§1/§2/§3/§4）</li>
+<li><a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a> — <code>networks/wan_rola_attention.py</code>（RoLA，§3/§4/§5）、<code>models/t2v_model_distill.py</code>（§6）、<code>ops/quantization/fp8_linear.py</code>（§7）</li>
+<li><a href="https://github.com/hao-ai-lab/FastVideo">hao-ai-lab/FastVideo</a> — <code>fastvideo/attention/backends/video_sparse_attn.py</code>（VSA，§1）</li>
+</ul>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
