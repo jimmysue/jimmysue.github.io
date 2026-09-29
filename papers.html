@@ -69,6 +69,23 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-29</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rola-2026/index.html">RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</a></h3>
+  <p class="post-card__tldr">视频 DiT 里「稀疏 + 线性」的混合注意力想用一条便宜的线性分支捞回稀疏分支丢掉的全局上下文,但撞上一个结构性矛盾——**RoPE 两难(RoPE Dilemma)**:线性注意力要求一个「与 query 无关、能复用的全局摘要」$C=\sum_q \phi(k_q)v_q^\top$,而 3D-RoPE 用「位置相关的旋转」编码相对几何;**如果先旋转再过非线性 $\phi$,旋转和非线性不对易,摘要就会被绝对位置污染**,既保不住相对几何、又丢了可复用性。
+已有做法(RoPeSLR)绕开矛盾:干脆不做跨 token 聚合,改用「逐 token 坐标 MLP + 可学习的绝对位置嵌入」去模仿相对衰减——但这既丢了真正的线性全局路由,又额外引入位置参数。RoLA 的解法极简却关键:**把 RoPE 放到非线性外面(先 SiLU 低秩投影、再旋转)**,这样全局摘要照样累加一次、被所有 query 复用,位置效应只在 query 读出时出现;再**复用预训练 RoPE 频率表的前 r 个坐标**(r=64,即 r/2 个旋转对)匹配低秩瓶颈,不引入任何新位置参数。
+机制实验直接验证:outside-activation 的位置核**紧贴全注意力的带状相对衰减**,shift 残差 $1.8\times10^{-5}$(inside 是 $3.7\times10^{-1}$,泄漏绝对位置);rank 到 64 时保真度饱和。生成上 Wan2.1-14B-720P 在 90% 稀疏度下 VBench 逼近稠密、端到端 2.63×。RoLA 正是 [[sparkdiffusion-2026]] 默认采用的稀疏模块。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/linear-attention.html">linear-attention</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-09-28</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/self-play-zero-2026/index.html">Self-Play Pretraining with Zero Data：让模型从「零数据」里长出预训练</a></h3>
@@ -110,23 +127,6 @@
       <a class="tag-chip" href="concepts/sandbox.html">sandbox</a>
       <a class="tag-chip" href="concepts/microvm.html">microvm</a>
       <span class="tag-chip tag-chip--more">+8 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rola-2026/index.html">RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</a></h3>
-  <p class="post-card__tldr">视频 DiT 里「稀疏 + 线性」的混合注意力想用一条便宜的线性分支捞回稀疏分支丢掉的全局上下文,但撞上一个结构性矛盾——**RoPE 两难(RoPE Dilemma)**:线性注意力要求一个「与 query 无关、能复用的全局摘要」$C=\sum_q \phi(k_q)v_q^\top$,而 3D-RoPE 用「位置相关的旋转」编码相对几何;**如果先旋转再过非线性 $\phi$,旋转和非线性不对易,摘要就会被绝对位置污染**,既保不住相对几何、又丢了可复用性。
-已有做法(RoPeSLR)绕开矛盾:干脆不做跨 token 聚合,改用「逐 token 坐标 MLP + 可学习的绝对位置嵌入」去模仿相对衰减——但这既丢了真正的线性全局路由,又额外引入位置参数。RoLA 的解法极简却关键:**把 RoPE 放到非线性外面(先 SiLU 低秩投影、再旋转)**,这样全局摘要照样累加一次、被所有 query 复用,位置效应只在 query 读出时出现;再**复用预训练 RoPE 频率表的前 r 个坐标**(r=64,即 r/2 个旋转对)匹配低秩瓶颈,不引入任何新位置参数。
-机制实验直接验证:outside-activation 的位置核**紧贴全注意力的带状相对衰减**,shift 残差 $1.8\times10^{-5}$(inside 是 $3.7\times10^{-1}$,泄漏绝对位置);rank 到 64 时保真度饱和。生成上 Wan2.1-14B-720P 在 90% 稀疏度下 VBench 逼近稠密、端到端 2.63×。RoLA 正是 [[sparkdiffusion-2026]] 默认采用的稀疏模块。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video-diffusion.html">video-diffusion</a>
-      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
-      <a class="tag-chip" href="concepts/linear-attention.html">linear-attention</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 <div class="post-card post-card--paper">

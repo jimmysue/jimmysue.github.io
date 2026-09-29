@@ -57,7 +57,7 @@
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-29</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/rola-2026/index.html">RoLA：把 3D-RoPE 塞进线性注意力——解「RoPE 两难」的旋转低秩补偿分支</a></h3>
   <p class="post-card__tldr">视频 DiT 里「稀疏 + 线性」的混合注意力想用一条便宜的线性分支捞回稀疏分支丢掉的全局上下文,但撞上一个结构性矛盾——**RoPE 两难(RoPE Dilemma)**:线性注意力要求一个「与 query 无关、能复用的全局摘要」$C=\sum_q \phi(k_q)v_q^\top$,而 3D-RoPE 用「位置相关的旋转」编码相对几何;**如果先旋转再过非线性 $\phi$,旋转和非线性不对易,摘要就会被绝对位置污染**,既保不住相对几何、又丢了可复用性。

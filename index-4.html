@@ -49,6 +49,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-03</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/la-sr-2026/index.html">LA-SR: 一张照片里的「远处即 LR、近处即 HR」——把无配对超分搬进 CLIP 语言空间</a></h3>
+  <p class="post-card__tldr">真实世界超分的老大难是拿不到成对 HR-LR 数据, 合成退化 (bicubic / ISP) 又不像真的。LA-SR 的观察:同一张高清照片里, 远景因景深天然就是「真·LR」, 近景是 HR——用深度图就能从任意图里抠出真实退化的无配对 LR/HR 补丁。没有配对怎么监督? 把无配对超分重新定义在 CLIP 的语言空间里:用「内容文本」(BLIP 生成) 和「质量文本」({good}/{bad}) 作锚点, 两个对比损失——linguistic-content 保内容、linguistic-quality 拉画质, 训练 SR 网络产出「内容像输入、质量像 HR」的结果。在真实低质数据 (DRealSR/CameraFusion) 上感知指标 (CLIPIQA/MUSIQ/TOPIQ) 全面超过合成退化训练的 RealESRGAN 等。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/super-resolution.html">super-resolution</a>
+      <a class="tag-chip" href="concepts/real-world-sr.html">real-world-sr</a>
+      <a class="tag-chip" href="concepts/unpaired-learning.html">unpaired-learning</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
@@ -177,21 +192,6 @@ MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 
       <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
       <a class="tag-chip" href="concepts/video-super-resolution.html">video-super-resolution</a>
       <span class="tag-chip tag-chip--more">+7 more</span>
-  </div>
-</div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/diffusion-sr-2021/index.html">扩散超分全景：从多步先验到一步前向，再到视频流式</a></h3>
-  <p class="post-card__tldr">8 节螺旋系统讲透扩散超分（Diffusion Super-Resolution）的演化主线：把&quot;多步随机采样的强生成先验&quot;逐步压成&quot;一步确定性前向&quot;，再从图像扩展到视频的时序一致性与流式实时。地基是 SR3/StableSR 的&quot;冻结 SD 当先验、只学条件&quot;（§1–§2）；其上是三条一步化路线——分数蒸馏（OSEDiff/VSD，§3）、中间时刻注入+GAN 一步（OMGSR/OP4KSR，§4）；再转入视频：SeedVR 的 shifted-window 时空 DiT（§5）、视频一步化与时序一致（DLoRAL 双 LoRA / DOVE / DUO-VSR，§6）、流式/长视频/实时（FlashVSR 稀疏注意力 / InfVSR 因果 KV-cache / Stream-DiffVSR，§7），最后收敛到统一视角与选型白地（§8）。代码均 verbatim 引自 StableSR、OSEDiff、OMGSR、SeedVR、DLoRAL、FlashVSR 真实仓库（行号经 sed 核对）。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/video-super-resolution.html">video-super-resolution</a>
-      <span class="tag-chip tag-chip--more">+9 more</span>
   </div>
 </div>
 </div>

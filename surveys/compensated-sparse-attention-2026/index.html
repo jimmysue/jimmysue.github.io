@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>补偿式稀疏注意力：视频扩散的「稀疏分支 + 低秩/线性补偿」家族调研（VSA · SLA · SALAD · RoPeSLR · RoLA）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
+    <li class="h3"><a href="#sec-1-1">这条线的谱系（时间轴 + 分类脊柱）</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 VSA —— 纯可训练块稀疏的地基（无补偿分支）</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 SLA —— 把注意力块「三分类」而非并联</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 SALAD —— 并联 ReLU 线性分支,超廉价微调</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 RoPeSLR —— 命名「RoPE 两难」,用可学习 3D PE 注入救低秩分支</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 RoLA —— 把旋转移到非线性之外,SparkDiffusion 的默认模块</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 相邻工作（不并列,列出以定位边界）</a></li>
+    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
+    <li class="h3"><a href="#sec-4-1">一致（独立工作的收敛,是强信号）</a></li>
+    <li class="h3"><a href="#sec-4-2">矛盾（点名冲突的数字/主张）</a></li>
+    <li class="h3"><a href="#sec-4-3">启发（这组工作合起来告诉研究者什么）</a></li>
+    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>补偿式稀疏注意力：视频扩散的「稀疏分支 + 低秩/线性补偿」家族调研</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-09-29</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-09-29</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/thu-ml/SLA">代码</a> · <a class="post-meta__link" href="https://github.com/hao-ai-lab/FastVideo">代码</a> · <a class="post-meta__link" href="https://github.com/AlibabaResearch/SparkDiffusion">代码</a> · <a class="post-meta__link" href="https://github.com/svg-project/Sparse-VideoGen">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/compensated-sparse-attention.html">compensated-sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/low-rank-attention.html">low-rank-attention</a> <a class="concept-chip" href="../../concepts/linear-attention.html">linear-attention</a> <a class="concept-chip" href="../../concepts/video-diffusion.html">video-diffusion</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a></div>
+</aside>
+
+<h2 id="sec-1">1. 概述与范围</h2>
+<p>视频扩散 Transformer（video DiT）在每个采样步都要对整条时空 token 序列做全注意力，序列长度动辄 10 万+，<span class="math inline">\(O(L^2)\)</span> 的开销随分辨率和帧数爆炸,是端到端延迟的头号来源。加速的一条主线是<strong>块稀疏注意力</strong>：把注意力矩阵沿 query/key 切块，只精确计算一小部分「高能」块，跳过其余。问题是——朴素稀疏一旦推到很高稀疏度（保留块 &lt; 10%），就会丢掉全局上下文，出现结构崩坏、语义漂移、马赛克化。</p>
+<p><strong>补偿式稀疏注意力（compensated sparse attention）</strong> 就是对这个失效模式的回应：在稀疏分支旁边并联一条<strong>轻量的线性 / 低秩分支</strong>，用 <span class="math inline">\(O(L)\)</span> 的代价把稀疏分支丢掉的全局背景「捞」回来。形式上普遍写成</p>
+<div class="math block">
+\[\tilde A \;=\; \underbrace{A_M(Q,K,V)}_{\text{稀疏分支：高能语义块}} \;+\; \underbrace{g\odot \mathrm{Proj}\big(C_\psi(Q,K,V)\big)}_{\text{补偿分支：线性/低秩全局摘要}}\]
+</div>
+<p>稀疏分支抓「显著的成对交互」，补偿分支抓「弥散的背景上下文」，一个门控 <span class="math inline">\(g\)</span>（几乎都初始化成近零）融合两者。这条线在 <strong>2025-05 到 2026-09</strong> 的一年半里密集成型，本调研覆盖其中 5 篇载重工作 + 若干相邻工作。</p>
+<h3 id="sec-1-1">这条线的谱系（时间轴 + 分类脊柱）</h3>
+<ul>
+<li><strong>纯可训练块稀疏（无补偿分支）</strong> —— <code>VSA</code>（2505）：确立了「粗选块→细算块」的块稀疏计算范式和硬件高效 kernel，是整个家族复用的地基，但它自己没有线性/低秩补偿分支。</li>
+<li><strong>统一稀疏-线性（按块路由）</strong> —— <code>SLA</code>（2509）→ <code>SLA2</code>（2602）：不并联，而是把每个注意力块<strong>三分类</strong>，路由到「精确 / 线性 / 丢弃」。</li>
+<li><strong>并联线性/低秩补偿（本调研的核心语义）</strong> —— <code>SALAD</code>（2601，ReLU 线性分支）→ <code>RoPeSLR</code>（2605，低秩 + 可学习 3D PE）→ <code>RoLA</code>（2609，秩截断旋转低秩）。这三篇是「稀疏 + 补偿分支」最纯粹的实例。</li>
+<li><strong>训练无关的补偿 / 稀疏（对照轴）</strong> —— <code>SVG</code>/<code>SVG2</code>（2502/2505）纯 profiling 稀疏、<code>SVG-EAR</code>（2603）无参数质心补偿。不微调，稀疏度和加速都更保守。</li>
+<li><strong>家族的「诊断者」</strong> —— <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（2609）：直接采用 RoLA 作稀疏模块，但发现补偿家族在 97% 处集体掉进 <strong>high-sparsity trap</strong>，把问题从架构重新定位到监督。</li>
+</ul>
+<p>一个反复出现的关系值得先点破:<strong>RoPeSLR、RoLA、SparkDiffusion 出自同一课题组</strong>（Kun Yuan 团队，北大 Melon Group + Alibaba），是同一条研究线的三级火箭；而 SLA→SLA2 出自另一条线（Jintao Zhang，清华 thu-ml + Berkeley）。两条线在「RoPE 两难」上给出了互斥的解法（§4）。</p>
+<blockquote>
+<p><strong>验证说明（本调研的铁律）</strong>：下列每一个 arxiv 号、年份、稀疏度、加速比、质量分都经过本轮联网核对（✅ 标注）。arxiv 前缀即年月：<code>2505</code>=2025-05、<code>2509</code>=2025-09、<code>2601</code>=2026-01、<code>2605</code>=2026-05、<code>2609</code>=2026-09。速度数字来自各自论文的自报值，<strong>不同工作的硬件 / 骨干 / 稀疏度定义不同，横向不可直接比</strong>——§3 的矩阵按「工作自报」列出，§4 明确点出哪些数字不可比。</p>
+</blockquote>
+<h2 id="sec-2">2. 逐篇精要</h2>
+<h3 id="sec-2-1">2.1 VSA —— 纯可训练块稀疏的地基（无补偿分支）</h3>
+<p><strong>VSA: Faster Video Diffusion with Trainable Sparse Attention（ICML 2025, arxiv:2505.13389）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 第一个<strong>从头训练就可用</strong>、且真能兑现墙钟加速的视频 DiT 块稀疏注意力——粗到细两级、单一可微 kernel、无需事后 profiling。</li>
+<li>方法: 粗阶段把 token 按立方体（cube）池化成 tile 并算 tile 级注意力选出 top-k 关键 cube；细阶段只在选中的 cube 内做 token 级块稀疏注意力；粗输出与细输出各自过门控再相加。</li>
+<li>关键结果: 训练 FLOPs 降 <strong>2.53×</strong>（diffusion loss 不掉）；retrofit 到 Wan2.1 注意力提速 <strong>6×</strong>、端到端 <strong>31s→18s</strong>；维持 FlashAttention-3 的 <strong>85% MFU</strong>。</li>
+<li>代码: <a href="https://github.com/hao-ai-lab/FastVideo"><code>hao-ai-lab/FastVideo</code></a> — <code>fastvideo/attention/backends/video_sparse_attn.py</code>。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/vsa-arch.png" alt="VSA 架构：粗到细两级块稀疏注意力，Cube Partition + 粗阶段压缩注意力 + Top-k Cube 选择 + 细阶段稀疏注意力，粗/细输出各自门控相加">
+  <figcaption><strong>图 1</strong> — VSA 的粗到细两级流水线（论文 Fig. 1）。左：Cube Partition 把时空 token 分组成立方体；<strong>粗阶段</strong>压缩每个 cube 算 tile 级注意力得到粗输出 $O_c$，其注意力分数驱动 <strong>Top-k Cube 选择</strong>；<strong>细阶段</strong>只在选中的 cube 内做 token 级稀疏注意力得 $O_f$。关键设计：粗/细各带一个门（G-C / G-F）后相加——所以 VSA 的「粗输出」本身是被使用的池化注意力，而**不是**一条线性/低秩补偿分支。这正是它与后面 SALAD/RoLA 家族的分界：VSA 是 coarse+fine，不是 sparse+compensation。</figcaption>
+</figure>
+<p><strong>怎么做的</strong>：VSA 把长视频 token 按 <span class="math inline">\((4,4,4)\)</span> 的立方体划分,先在压缩后的 cube 表示上做一次廉价的全注意力(粗阶段),得到每个 cube 的重要性分数;然后 top-k 选出少数关键 cube,细阶段的稀疏注意力<strong>只在这些 cube 内</strong>按块计算。它的非显然设计有两处:第一,粗/细两条路径都保留并用可学习门控加权求和,粗路径充当一个「永远在线的低分辨率全局通道」,这让 VSA 在极端稀疏下不至于完全瞎——但这条粗通道是<strong>池化注意力</strong>而非线性注意力,复杂度仍随 cube 数增长,不是真正的 <span class="math inline">\(O(L)\)</span> 补偿。第二,整个 tile 选择被塞进单个可微 kernel、且严格贴合 FlashAttention 的块计算布局,这是它能把理论 FLOPs 兑现成 85% MFU 真实吞吐的关键——很多稀疏方法的选择逻辑破坏了块连续性,导致理论稀疏但实际不快。VSA 因此成为整个家族的<strong>性能地基</strong>:后续 SLA/RoLA 的稀疏分支 kernel 都沿用这种块稀疏布局。</p>
+<h3 id="sec-2-2">2.2 SLA —— 把注意力块「三分类」而非并联</h3>
+<p><strong>SLA: Beyond Sparsity in Diffusion Transformers via Fine-Tunable Sparse-Linear Attention（arxiv:2509.24006, 2025-09）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 不并联补偿分支,而是把注意力块<strong>动态三分类</strong>——critical / marginal / negligible——分别用精确、线性、丢弃三种算法处理,一个可微算子里统一,可微调。</li>
+<li>方法: 用 mean-pooling 预测压缩注意力权重给块打分;top <span class="math inline">\(k_h\%\)</span> 为 critical 走 <span class="math inline">\(O(N^2)\)</span> FlashAttention,中间 marginal 走 <span class="math inline">\(O(Nd^2)\)</span> 线性注意力,底部 <span class="math inline">\(k_l\%\)</span> negligible 直接跳过;输出 <span class="math inline">\(O=O^s+\mathrm{Proj}(O^l)\)</span>。</li>
+<li>关键结果: Wan2.1-1.3B 上注意力计算量降 <strong>95%（20× FLOPs）</strong>、注意力 kernel 提速 <strong>13.7×</strong>、端到端 <strong>2.2×</strong>;只需 <strong>2000 步</strong>微调(&lt; 0.1% 预训练成本);baseline 在 85-89% 稀疏就掉质量而 SLA 到 95% 仍持平。</li>
+<li>代码: <a href="https://github.com/thu-ml/SLA"><code>thu-ml/SLA</code></a> — <code>sparse_linear_attention/core.py</code>。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/sla-arch.png" alt="SLA 动机图:Wan2.1 注意力权重分布分为 negligible 45.4%、marginal 46.5%、critical 8.1%;右侧显示稀疏度 92% 时误差飙到 33%">
+  <figcaption><strong>图 2</strong> — SLA 的三分类动机（论文 Fig. 1）。左:Wan2.1 实测注意力权重按幅度分布——<strong>negligible</strong>（绿,45.4%,权重&lt; 1/100N,可丢）、<strong>marginal</strong>（黄,46.5%,权重 [1/100N, 1/N),量小但总和不可忽略）、<strong>critical</strong>（红,8.1%,权重&gt; 1/N,须精确算）。右:注意力输出误差随稀疏度——丢掉最小的 ~45% 几乎无损(误差&lt; 3%),但推到 92% 稀疏(只留 critical)误差飙到 **33%**。这张图正是「为什么需要补偿」的实证:被丢的 marginal 是**大量小贡献**而非零,把它们塞进线性注意力就能廉价补回——SLA 因此是**按块路由**而非**全局并联**。</figcaption>
+</figure>
+<p><strong>怎么做的</strong>：SLA 的出发点是「稀疏注意力扔掉的块并非全无贡献」——真实注意力谱是长尾的:少数块占大部分质量(critical),但中段有一大批各自很小、加起来不可忽略的块(marginal),只有尾部才真正接近零(negligible)。纯稀疏把 marginal 和 negligible 一起扔,于是在高稀疏度崩掉。SLA 的做法是先用 mean-pooling 得到一张低分辨率的块-块注意力图给每块打分,再按两个阈值 <span class="math inline">\(k_h,k_l\)</span> 把块路由到三条不同复杂度的计算路径,最后线性分支的输出过一个可学习投影 <span class="math inline">\(\mathrm{Proj}\)</span> 再加到稀疏输出上。非显然的设计取舍:(1) marginal 用<strong>线性注意力</strong>而非更粗的池化,是因为线性注意力能保留 token 级的 value 加权(只是丢了 softmax 的尖锐性),对「大量小贡献」的求和恰好够用;(2) 三分类的阈值是<strong>逐层动态</strong>的,不同层稀疏结构不同;(3) 它把「稀疏」和「线性」统一成一个可微算子,微调时梯度能同时流过两条路径,这是它只要 2000 步就能适配的原因。SLA 与并联式补偿(SALAD/RoLA)的本质区别在于:SLA 的线性分支只处理<strong>中段的块</strong>,而并联式补偿的线性分支覆盖<strong>全部</strong> key。</p>
+<h3 id="sec-2-3">2.3 SALAD —— 并联 ReLU 线性分支,超廉价微调</h3>
+<p><strong>SALAD: Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer（arxiv:2601.16515, 2026-01）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 在稀疏分支旁并联一条 <strong>ReLU 线性注意力补偿分支</strong>,用「稀疏主导、线性辅助」的标量门 + 零初始化投影,把微调成本压到极低。</li>
+<li>方法: 共享 Q/K/V/O 投影;线性分支 <span class="math inline">\(\mathrm{ReLU}(Q)(\mathrm{ReLU}(K)^\top V)\)</span> 带 3D RoPE;输出 <span class="math inline">\(O=O_s+\bar G\cdot\mathrm{Proj}(O_l)\)</span>,其中 <span class="math inline">\(\bar G\)</span> 是逐 token 门在序列上平均出的标量;只训练线性投影 + 门(<strong>+4.99% 参数</strong>)。</li>
+<li>关键结果: Wan2.1-1.3B 上 <strong>90% 稀疏 / 1.72× 加速</strong>,VBench 全项<strong>略高于</strong>全注意力(主体一致性 96.54 vs 95.88 等);微调只需 <strong>2000 段视频 / 1600 步 / 20.6 GPU 时</strong>——比 SLA 的 20000 段 / batch 64 便宜一个量级。</li>
+<li>代码: 论文未公开仓库(截至核对时)。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/salad-arch.png" alt="SALAD 架构:共享 QKV 投影,上路稀疏注意力,下路 ReLU 线性注意力,右侧 LWSS 零初始投影 + ITADS 动态门,门控相加后过输出投影">
+  <figcaption><strong>图 3</strong> — SALAD 的并联双分支 + 静动态缩放（论文 Fig. 3）。共享 $W_q,W_k,W_v$;上路是块稀疏 softmax(主导输出),下路是 $\mathrm{ReLU}$ 特征映射的线性注意力(全局混合)。右侧两个模块是核心设计:<strong>LWSS</strong> 是零初始化的 $d\times d$ 投影(让线性分支开局等于不存在),<strong>ITADS</strong> 是「通道混合→sigmoid→token 平均」得到的动态标量门 $G$。二者保证「稀疏主导、线性辅助」——这与 RoLA 的近零门初始化是同一设计直觉的独立实现。</figcaption>
+</figure>
+<p><strong>怎么做的</strong>：SALAD 的核心主张是「补偿只需要很便宜的一点」——预训练稠密模型已经学好了绝大部分,稀疏化只丢了全局背景那一小块,所以补偿分支不该抢戏。它把这个直觉落成两个机制:<strong>LWSS</strong>(Learnable Weight Static Scaling)是一个零初始化的投影层,意味着微调<strong>从纯稀疏注意力启动</strong>(线性分支初始贡献为零),训练过程只让它在必要处慢慢长出来;<strong>ITADS</strong>(Input-and-Timestep-Aware Dynamic Scaling)是一个依赖隐状态和时间步的标量门,在序列维度平均成一个 <span class="math inline">\([0,1]\)</span> 标量——注意它是<strong>逐样本/逐时间步一个标量</strong>,而不是逐 token 向量门,这是它比 RoLA 更省的地方(也更粗)。设计取舍:(1) 线性分支用 <strong>ReLU 而非 softmax 特征映射</strong>,配合 3D RoPE 直接加在 Q/K 上——SALAD 没有深究 RoPE 与非线性的交换问题(见 §4 的 RoPE 两难),而是赌「训练能兜住」;(2) 绝大多数参数共享,只有 +4.99% 可训练,加上零初始化,使得 20.6 GPU 时就能收敛——这是全家族<strong>微调成本最低</strong>的一篇,代价是它只验证到 90% 稀疏、没碰更极端的区间。</p>
+<h3 id="sec-2-4">2.4 RoPeSLR —— 命名「RoPE 两难」,用可学习 3D PE 注入救低秩分支</h3>
+<p><strong>RoPeSLR: 3D RoPE-driven Sparse-LowRank Attention for Efficient Diffusion Transformers（arxiv:2605.20659, 2026-05）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 明确提出 <strong>「RoPE 两难」</strong>——标准线性注意力破坏 3D RoPE 的相对位置结构,导致补偿分支在极端稀疏下失效;解法是弃用标准线性注意力,改用<strong>头级低秩参数化 + 可学习 3D 绝对位置注入</strong>来合成长程相对距离衰减。</li>
+<li>方法: 把注意力分解为「高频语义尖峰集(稀疏,<span class="math inline">\(O(L^{3/2})\)</span>)」+「极低秩背景连续统(<span class="math inline">\(O(d_h\log L)\)</span>)」;低秩分支不做 <span class="math inline">\(\phi(K)^\top V\)</span> 式线性注意力,而是注入可学习 3D PE 来保住相对位置几何。</li>
+<li>关键结果: 90% 稀疏;Wan2.1-1.3B 上 <strong>最多 10× 更少 FLOPs</strong>;HunyuanVideo-13B 上端到端 <strong>2.26×</strong>;VBench 平均掉 <strong>&lt; 1.3%</strong>;支持 100K+ token。</li>
+<li>代码: 论文未见公开仓库。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/ropeslr-arch.png" alt="RoPeSLR 实证:左为注意力能量集中曲线(少量 entry 占 90% 能量),右为低能残差的 stable rank 直方图(中位数 15.4)">
+  <figcaption><strong>图 4</strong> — RoPeSLR 的稀疏-低秩分解<strong>实证</strong>（论文 Fig. 2;该文无架构框图,方法以公式 + Algorithm 1 呈现）。左:HunyuanVideo 960 个 layer-head 上,注意力能量的累积占比曲线——极少量 entry 就跨过 90% 能量线,证明存在稀疏「高频尖峰集」。右:扣掉尖峰后的低能残差的 stable rank 直方图,**中位数仅 15.4**,证明背景是极低秩的连续统。这两张图正是 RoPeSLR「注意力 = 稀疏尖峰 + 低秩背景」这一分解前提的经验依据;其真正的管线(3D-PE 注入 → 每头 VMoBA 稀疏 + MLP 低秩补偿 → RMSNorm 门控融合)只在伪代码里。</figcaption>
+</figure>
+<p><strong>怎么做的</strong>：RoPeSLR 是本家族里第一篇把「为什么补偿分支在视频 DiT 上特别难」讲清楚的工作。症结是 3D RoPE:视频 DiT 靠旋转位置编码给 token 的时空相对位置编码,而线性注意力要复用一个 query 无关的全局摘要 <span class="math inline">\(C=\sum_j\phi(k_j)v_j^\top\)</span>——问题是当特征映射 <span class="math inline">\(\phi\)</span> 是逐点非线性时,旋转 <span class="math inline">\(R\)</span> 和 <span class="math inline">\(\phi\)</span> <strong>不可交换</strong>(<span class="math inline">\(\phi(Rk)\ne R\phi(k)\)</span>),于是摘要 <span class="math inline">\(C\)</span> 里烘焙进了每个 key 的<strong>绝对位置</strong> <span class="math inline">\(p_j\)</span>,再也无法表达成相对偏移 <span class="math inline">\(p_i-p_j\)</span> 的函数,相对位置几何丢失。RoPeSLR 的对策是<strong>根本不走标准线性注意力</strong>:它对低秩背景分支做头级低秩参数化,并显式注入一组<strong>可学习的 3D 绝对位置编码</strong>,让这条分支自己去学出长程的相对距离衰减规律。设计取舍:这条路不依赖 <span class="math inline">\(\phi\)</span> 与旋转的交换性(因为压根没用 <span class="math inline">\(\phi(Rk)\)</span> 那套),代价是引入了可学习 PE 参数、且「合成的相对衰减」是学出来的近似而非几何上精确的相对旋转。它对稀疏/低秩两支的复杂度给了明确的量级(<span class="math inline">\(O(L^{3/2})\)</span> 尖峰 + <span class="math inline">\(O(d_h\log L)\)</span> 背景),是家族里理论刻画最细的一篇(其 Algorithm 1 的管线是:3D-PE 注入 → 每头 VMoBA 稀疏分支 + MLP 低秩补偿分支 → RMSNorm + 逐 token 门控融合)。</p>
+<h3 id="sec-2-5">2.5 RoLA —— 把旋转移到非线性之外,SparkDiffusion 的默认模块</h3>
+<p><strong>RoLA: Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers（arxiv:2609.06712, 2026-09）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 对「RoPE 两难」的<strong>第二种解法</strong>——保留线性注意力,但把秩截断的 RoPE 旋转<strong>放到非线性 <span class="math inline">\(\phi\)</span> 之后</strong>作用在低秩特征上,从而在保住可复用全局摘要的同时恢复相对位置行为,零额外位置参数。</li>
+<li>方法: <span class="math inline">\(\tilde q=R_r(p)\odot\mathrm{SiLU}(P_q q^{\text{norm}})\)</span>,<span class="math inline">\(\tilde k=R_r(p)\odot\mathrm{SiLU}(P_k k^{\text{norm}})\)</span>,<span class="math inline">\(C=\sum_j\tilde k_j v_j^\top\)</span>,<span class="math inline">\(O_{lr}=\mathrm{RMSNorm}(\tilde q^\top C)\)</span>;逐 token 门 <span class="math inline">\(O=(O^s/r_p+g_p\odot O^{lr})\times r_p\)</span>;<span class="math inline">\(R_r\)</span> 只旋转前 <span class="math inline">\(r{=}64\)</span> 维。</li>
+<li>关键结果: 90% 稀疏;Wan2.1-14B-720P 上 <strong>1075.7s→409.3s(2.63×)</strong>,VBench 主体一致性 0.9629 vs 稠密 0.9698,PSNR <strong>28.65 vs SLA 26.33</strong>,LPIPS <strong>0.108 vs SLA 0.124</strong>;1.3B-480P <strong>50.9s→21.7s</strong>。</li>
+<li>代码: 无独立仓库,但其实现即 <a href="https://github.com/AlibabaResearch/SparkDiffusion"><code>AlibabaResearch/SparkDiffusion</code></a> 的 <code>networks/wan_rola_attention.py</code>。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/rola-arch.png" alt="RoLA:块稀疏分支 + 旋转低秩线性分支(SiLU 非线性之后再做秩截断 RoPE),逐 token 门融合">
+  <figcaption><strong>图 5</strong> — RoLA 的旋转低秩线性分支（论文主图）。与 RoPeSLR 同样面对「RoPE 两难」,但解法相反:RoLA <strong>保留</strong>线性注意力,只是把秩截断旋转 $R_r$ 放到 $\mathrm{SiLU}$ <strong>之后</strong>作用在低秩特征上——因为旋转在 $\phi$ 之外是线性算子,可以被线性注意力的求和分解出去,于是 $\tilde q_i^\top\tilde k_j$ 依赖 $R_r(p_i)^\top R_r(p_j)=R_r(p_j-p_i)$(相对!),而全局摘要 $C$ 仍可复用。零额外位置参数是它相对 RoPeSLR 的卖点。</figcaption>
+</figure>
+<p><strong>怎么做的</strong>：RoLA 和 RoPeSLR 出自同一课题组,面对同一个「RoPE 两难」,却给出了互斥的解法——这本身是本调研最有意思的对照。RoLA 不像 RoPeSLR 那样放弃线性注意力,而是<strong>动手术调整算子顺序</strong>:标准做法是先旋转再过特征映射 <span class="math inline">\(\phi(R\,k)\)</span>,旋转被困在非线性内部无法分解;RoLA 改成先把 <span class="math inline">\(q,k\)</span> 从 head_dim 投影到 rank(默认 64),过 SiLU,<strong>然后</strong>才施加只作用于前 <span class="math inline">\(r\)</span> 维的秩截断 RoPE <span class="math inline">\(R_r\)</span>。因为此时旋转是作用在 <span class="math inline">\(\phi\)</span> 输出之上的线性算子,它能被线性注意力的求和 <span class="math inline">\(\sum_j\)</span> 分解出去:<span class="math inline">\(\tilde q_i^\top\tilde k_j=\mathrm{SiLU}(P_q q_i)^\top R_r(p_i)^\top R_r(p_j)\mathrm{SiLU}(P_k k_j)\)</span>,而 <span class="math inline">\(R_r(p_i)^\top R_r(p_j)=R_r(p_j-p_i)\)</span> 只依赖相对偏移——相对位置几何被精确保住,且全局摘要 <span class="math inline">\(C=\sum_j\tilde k_j v_j^\top\)</span> 仍可跨 query 复用。融合用逐 token 门 <span class="math inline">\(g_p\)</span>,门偏置初始化 <span class="math inline">\(-1.946\)</span>(<span class="math inline">\(\sigma\approx0.125\)</span>),用稀疏输出的 RMS <span class="math inline">\(r_p\)</span> 把补偿量缩放到同量级。设计取舍:相比 RoPeSLR 的可学习 PE,RoLA <strong>零额外位置参数</strong>(直接复用预训练旋转调度的一个截断子集),几何上更「干净」,但只旋转前 <span class="math inline">\(r\)</span> 维意味着低秩瓶颈之外的方向没有位置感知——是一种刻意的近似。RoLA 被 SparkDiffusion 选作默认稀疏模块,也因此成为「high-sparsity trap」诊断的载体。</p>
+<h3 id="sec-2-6">2.6 相邻工作（不并列,列出以定位边界）</h3>
+<ul>
+<li><strong>SLA2（arxiv:2602.12675, 2026-02）✅</strong> —— SLA 的续作:把三分类的阈值换成<strong>可学习路由器</strong>、稀疏/线性用可学习比例融合,并叠加 <strong>QAT 低比特注意力</strong>。视频 DiT 上做到 <strong>97% 稀疏 / 18.6× 注意力加速</strong>。是 SLA 线向「更高稀疏 + 量化」的推进,和 SparkDiffusion 的 FP8 思路在低比特上撞车。</li>
+<li><strong>SVG-EAR（arxiv:2603.08982, ECCV 2026）✅</strong> —— <strong>训练无关</strong>的补偿:语义聚类后用<strong>质心近似</strong>被跳过的块(无参数线性补偿),并用「误差感知路由」按 error-to-cost 比而非注意力质量选块。Wan2.2 / HunyuanVideo 上 <strong>1.77× / 1.93×</strong>,PSNR 29.759 / 31.043。它证明补偿的直觉在 training-free 设定也成立,但稀疏度和加速比明显保守于需微调的 SALAD/RoLA。</li>
+<li><strong>SVG / SVG2（arxiv:2502.01776 / 2505.18875）✅</strong> —— 训练无关的<strong>纯稀疏</strong>(非补偿):SVG 按 spatial/temporal head 在线 profiling(CogVideoX/HunyuanVideo 上 2.28×/2.33×),SVG2 用语义聚类 + 排列把关键 token 排成连续块(HunyuanVideo 2.3× / Wan2.1 1.8×)。代码 <a href="https://github.com/svg-project/Sparse-VideoGen"><code>svg-project/Sparse-VideoGen</code></a>。它们是「不补偿、纯稀疏 profiling」的对照组。</li>
+<li><strong><a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>（arxiv:2609.23153, 2026-09）</strong> —— 家族的诊断者与集大成者。直接用 RoLA 作稀疏模块,但发现补偿家族在 <strong>97%</strong> 处集体失效:step-local 训练损失在降、终端生成质量在崩(<strong>high-sparsity trap</strong>)。用 oracle 探针定位到「高噪声结构生成阶段」注入误差,证明这是<strong>监督问题</strong>(step-local 看不见终端可见误差),补救靠 trajectory-mixed 蒸馏而非更强的补偿分支。它把整条补偿线的<strong>天花板</strong>给标了出来。</li>
+</ul>
+<h2 id="sec-3">3. 平行对比</h2>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>年月</th>
+<th>补偿机制</th>
+<th>稀疏×补偿关系</th>
+<th>是否微调</th>
+<th>RoPE 处理</th>
+<th>稀疏度</th>
+<th>自报加速</th>
+<th>骨干/分辨率</th>
+<th>代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>VSA</strong></td>
+<td>2505</td>
+<td>粗池化注意力(非线性/低秩)</td>
+<td>粗+细两级门控</td>
+<td>从头训练</td>
+<td>保留原 RoPE</td>
+<td>—</td>
+<td>注意力 6×,端到端 31→18s</td>
+<td>Wan2.1</td>
+<td>✅ FastVideo</td>
+</tr>
+<tr>
+<td><strong>SLA</strong></td>
+<td>2509</td>
+<td>线性(仅 marginal 块)</td>
+<td>按块三分类路由</td>
+<td>2000 步微调</td>
+<td>保留原 RoPE</td>
+<td>95%</td>
+<td>注意力 13.7×,端到端 2.2×</td>
+<td>Wan2.1-1.3B</td>
+<td>✅ thu-ml/SLA</td>
+</tr>
+<tr>
+<td><strong>SLA2</strong></td>
+<td>2602</td>
+<td>线性 + 低比特</td>
+<td>可学习路由 + QAT</td>
+<td>微调</td>
+<td>—</td>
+<td>97%</td>
+<td>注意力 18.6×</td>
+<td>Wan 系</td>
+<td>✅(SLA 仓)</td>
+</tr>
+<tr>
+<td><strong>SALAD</strong></td>
+<td>2601</td>
+<td>ReLU 线性并联分支</td>
+<td>全局并联,标量门</td>
+<td>20.6 GPU时</td>
+<td>3D RoPE 直接加,靠训练兜</td>
+<td>90%</td>
+<td>端到端 1.72×</td>
+<td>Wan2.1-1.3B</td>
+<td>✗</td>
+</tr>
+<tr>
+<td><strong>RoPeSLR</strong></td>
+<td>2605</td>
+<td>低秩 + 可学习 3D PE 注入</td>
+<td>全局并联(尖峰+背景)</td>
+<td>微调</td>
+<td><strong>弃用线性注意力</strong>,注入学习 PE</td>
+<td>90%</td>
+<td>FLOPs 10×,端到端 2.26×</td>
+<td>Wan2.1 / Hunyuan-13B</td>
+<td>✗</td>
+</tr>
+<tr>
+<td><strong>RoLA</strong></td>
+<td>2609</td>
+<td>旋转秩截断低秩线性</td>
+<td>全局并联,逐 token 门</td>
+<td>微调</td>
+<td><strong>RoPE 移到非线性之后</strong>,零参数</td>
+<td>90%</td>
+<td>端到端 2.63×</td>
+<td>Wan2.1-14B-720P</td>
+<td>✅(SparkDiffusion 仓)</td>
+</tr>
+<tr>
+<td><strong>SVG-EAR</strong></td>
+<td>2603</td>
+<td>质心近似(无参数)</td>
+<td>误差感知路由补偿</td>
+<td><strong>训练无关</strong></td>
+<td>保留原 RoPE</td>
+<td>—</td>
+<td>1.77×/1.93×</td>
+<td>Wan2.2 / Hunyuan</td>
+<td>✅(SVG 仓)</td>
+</tr>
+<tr>
+<td><strong>SVG/SVG2</strong></td>
+<td>2502/2505</td>
+<td>无(纯稀疏)</td>
+<td>profiling 稀疏</td>
+<td><strong>训练无关</strong></td>
+<td>保留原 RoPE</td>
+<td>—</td>
+<td>2.3× 级</td>
+<td>CogVideoX/Hunyuan/Wan</td>
+<td>✅ svg-project</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>判别性说明:<strong>「补偿机制」「稀疏×补偿关系」「RoPE 处理」三列是真正区分这些工作的轴</strong>;而「稀疏度」「加速」两列横向<strong>不可比</strong>(骨干、分辨率、硬件、稀疏度定义各不同——VSA 报注意力提速、RoLA 报 14B-720P 端到端、SALAD 报 1.3B),仅用于看各自量级。空值(—)表示论文未以该口径报告。</p>
+</blockquote>
+<h2 id="sec-4">4. 一致与矛盾</h2>
+<h3 id="sec-4-1">一致（独立工作的收敛,是强信号）</h3>
+<ul>
+<li><strong>门控普遍近零初始化,「稀疏主导、补偿辅助」是共识</strong>。SALAD 用零初始化投影(LWSS)+标量门,RoLA 用偏置 <span class="math inline">\(-1.946\)</span>(<span class="math inline">\(\sigma\approx0.125\)</span>)的逐 token 门,SLA 的线性分支过可学习投影从小值长起。三家独立落到同一设计:<strong>微调必须从「几乎纯稀疏」启动,让补偿分支只在必要处慢慢打开</strong>——否则补偿分支会在训练早期干扰已经学好的稠密先验。这种跨独立工作的收敛,比任何单篇的消融都更能说明这是对的。</li>
+<li><strong>补偿分支覆盖「大量小贡献」而非「漏掉的大头」</strong>。SLA 明确区分 critical(大头,精确算)和 marginal(大量小贡献,线性补),SALAD/RoLA 的线性分支同样是补弥散背景。全家族一致认为:<strong>稀疏丢的不是几个关键块,而是一片各自很小、加起来不可忽略的背景</strong>——这也是为什么线性/低秩(而非再选更多稀疏块)是对的补偿形式。</li>
+<li><strong>90% 稀疏「近无损」被多篇独立复现</strong>。SALAD、RoPeSLR、RoLA、SLA 各自在 Wan 系上报 90% 稀疏、VBench 掉幅 &lt; 1.3% 甚至持平。这个区间的结论是<strong>settled</strong> 的。</li>
+</ul>
+<h3 id="sec-4-2">矛盾（点名冲突的数字/主张）</h3>
+<ul>
+<li><strong>RoPE 两难的解法互斥,且出自同组</strong>。RoPeSLR(2605)判定标准线性注意力<strong>不可救</strong>,必须弃用、改注入可学习 3D PE;RoLA(2609)偏偏<strong>保留</strong>线性注意力,只把旋转移到非线性之后就号称解决,且<strong>零额外位置参数</strong>。两篇同一课题组、相隔 4 个月、对同一问题给出相反的架构选择。可能的调和:RoLA 的「旋转在 <span class="math inline">\(\phi\)</span> 之后」在数学上确实恢复了相对几何(旋转是可分解的线性算子),几何上比 RoPeSLR 的「学出来的近似衰减」更干净;RoPeSLR 更早、可能在 RoLA 的分解技巧被发现前就绕道了。<strong>这是一处真实的技术演进,不是谁错——但两篇论文没有正面互引对比,读者需自己拼。</strong> 而 SALAD(2601)更早,干脆没深究交换性,直接加 3D RoPE 靠训练兜——这在 90% 或许够,但在更高稀疏可能正是它没验证极端区间的原因。</li>
+<li><strong>「近无损」的稀疏度天花板互相打架</strong>。SLA(2509)称 95% 稀疏仍持平、baseline 在 85-89% 就崩;SLA2(2602)推到 97%。但 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>(2609,同期,且直接用 RoLA)用 oracle 探针实测:<strong>97% 处 step-local 损失照样收敛,但终端视频结构崩坏</strong>。这不是数字打架而是<strong>口径打架</strong>——SLA 系的「持平」多以 VBench/PSNR 等指标衡量单点或短窗,SparkDiffusion 指出这些 step-local / 单步指标<strong>看不见</strong>沿采样轨迹累积的终端误差。同一稀疏度(97%),一个说「行」一个说「不行」,分歧根源是<strong>监督/度量口径</strong>:补偿分支修的是「表达能力」,而 97% 的失效是「监督信号」的缺失。<strong>这是全调研最重要的矛盾</strong>,也是 SparkDiffusion 的核心贡献。</li>
+<li><strong>加速比不可横向比,却常被并列引用</strong>。VSA 的「6×」是注意力 kernel、SLA 的「13.7×」是注意力 kernel、RoLA 的「2.63×」是 14B-720P 端到端、SALAD 的「1.72×」是 1.3B 端到端。把它们放同一句话里比大小是错误的——注意力提速 ≠ 端到端提速(端到端还含 VAE、文本编码器、非注意力层),骨干规模和分辨率也天差地别。</li>
+</ul>
+<h3 id="sec-4-3">启发（这组工作合起来告诉研究者什么）</h3>
+<p>补偿式稀疏注意力作为<strong>架构手段</strong>已经成熟:90% 稀疏近无损是可复现的、门控设计有共识、RoPE 兼容有(至少两种)可行解。但整条线撞到了一个<strong>它自己解决不了的天花板</strong>——补偿分支能恢复「表达能力」,却不能提供「终端对齐的监督」;95%→97% 的失效,SparkDiffusion 证明是监督问题,要靠蒸馏而非更强的补偿。所以<strong>下一步不在补偿分支本身,而在「稀疏架构 × 少步蒸馏」如何联合</strong>(见 §6 白地)。</p>
+<h2 id="sec-5">5. 代码交叉验证</h2>
+<p>对有公开仓库的工作,定位其载重机制的实现函数并核对与论文一致:</p>
+<ul>
+<li><strong>SLA(thu-ml/SLA)✅ 一致</strong>。<code>sparse_linear_attention/core.py</code> 的 <code>forward</code>(约 L70-99):<code>get_block_map(q,k,topk_ratio=...)</code> 做块打分与选择,<code>_attention.apply(...)</code> 算稀疏分支 <code>o_s</code>,<code>calc_linear(feature_map_q(q), feature_map_k(k), v)</code> 算线性分支 <code>o_l</code>,最后 <code>o_l = self.proj_l(o_l); o = (o_s + o_l)</code>——<strong>精确对应论文 <span class="math inline">\(O=O^s+\mathrm{Proj}(O^l)\)</span></strong>。<code>topk=0.2</code> 即「1−稀疏度」,证实了「保留 20% 块」的口径。</li>
+<li><strong>RoLA(AlibabaResearch/SparkDiffusion)✅ 一致</strong>。<code>networks/wan_rola_attention.py</code>:<code>_lowrank_attn</code>(约 L366-391)按 <code>SiLU(proj_q(·))</code> → <code>_apply_rope_rank</code> → <code>c = k_lr^T @ v; out = q_lr @ c</code> → <code>rms_norm</code> 实现 <span class="math inline">\(C=\sum_j\tilde k_j v_j^\top\)</span> 的线性注意力,<strong>RoPE 确实在 SiLU 之后</strong>——对应论文的关键顺序主张。门控融合(约 L517-525):<code>gate = sigmoid(gate_proj(x)+gate_bias)</code>,<code>fused = o_s/o_s_scale + gate*o_l; out = fused*o_s_scale</code>——<strong>精确对应 <span class="math inline">\(O=(O^s/r_p+g_p\odot O^{lr})\times r_p\)</span></strong>,且 <code>gate_bias=-1.946</code> 落实「初始近零门」。</li>
+<li><strong>VSA(hao-ai-lab/FastVideo)✅ 一致</strong>。<code>fastvideo/attention/backends/video_sparse_attn.py</code>:<code>tile()</code>(约 L233-252)经 <code>scatter_into_tile_buf</code> 把 token 重排进 tile 缓冲(粗阶段的池化前置),<code>forward</code>(约 L268-295)按 <code>cur_topk</code> 选中 cube 后调 <code>video_sparse_attn_bshd</code>/<code>video_sparse_attn</code> kernel 做细阶段块稀疏——<strong>两级结构与论文 Fig.1 一致</strong>;真正的 mean-pool + tile 选择在 <code>fastvideo_kernel</code> 里(未展开,但接口口径吻合)。</li>
+<li><strong>SVG/SVG-EAR(svg-project/Sparse-VideoGen)</strong> —— 仓库含 SVG1&amp;2;SVG-EAR 为 ECCV 2026,核对时未确认其代码是否已并入该仓,故不对 SVG-EAR 的具体函数下断言(诚实标注:<strong>未开仓/未核</strong>)。</li>
+<li><strong>SALAD、RoPeSLR</strong> —— 核对时<strong>未见公开仓库</strong>,故无法代码交叉验证;其数字仅以论文自报值列出。</li>
+</ul>
+<h2 id="sec-6">6. 启发与白地</h2>
+<ul>
+<li><strong>补偿是「表达能力」的补丁,不是「监督」的补丁——这是全领域最该记住的一条</strong>。补偿分支能让 90% 稀疏的模型有能力表达全局上下文,但 SparkDiffusion 证明:当稀疏推到 97%,残留误差落在 step-local 训练梯度<strong>看不见</strong>的方向上,再强的补偿分支也修不掉。凡是「代理损失 ≠ 最终目标」的加速工作(稀疏、量化、少步),都该先问:我修的是能力还是监督?</li>
+<li><strong>RoPE × 线性注意力的兼容性,已经从「隐患」升级为「一等公民设计约束」</strong>。RoPeSLR/RoLA 两种解法说明:任何想在带旋转位置编码的 DiT 上挂线性/低秩分支的工作,都必须显式处理「旋转与非线性不可交换」——要么把旋转移到非线性之外(RoLA),要么弃用线性注意力改注入可学习 PE(RoPeSLR)。SALAD 式「直接加、靠训练兜」在更高稀疏度是隐患。这是一条可直接迁移到图像 DiT、甚至语言模型线性注意力的设计教训。</li>
+<li><strong>白地一:补偿家族只在 Wan 系充分验证</strong>。RoLA/SALAD/SLA 几乎都在 Wan2.1/2.2 上跑;对 HunyuanVideo(RoPeSLR/SVG 有部分)、CogVideoX、以及未来的 DiT 骨干,补偿分支的最优秩、门控初始化是否迁移,是开放问题。</li>
+<li><strong>白地二:训练无关补偿的上限没探到底</strong>。SVG-EAR 证明无参数质心补偿在 training-free 下能到 1.9×,但稀疏度远未逼近微调方案的 90-97%。「训练无关能到多高稀疏」是一个有实用价值的开放问题——若能免微调到 90%,部署成本会再降一个台阶。</li>
+<li><strong>白地三:补偿分支的秩/门控随「稀疏度」自适应,尚无人做</strong>。所有工作的补偿分支容量是固定超参;但直觉上稀疏度越高、补偿分支该越强。一个随稀疏度(甚至随噪声等级)调节秩和门的补偿分支,可能把单点最优推向全区间最优——这恰好呼应 SparkDiffusion「高噪声段最需要补」的诊断。</li>
+<li><strong>与 LLM 稀疏是两条独立演化线</strong>。<a class="wiki-link" data-slug="deepseek-v4-2026" href="../deepseek-v4-2026/index.html">deepseek-v4-2026</a> 的 DSA/CSA 走「压缩 KV + top-k 选择 + 滑窗」,赌的是「长上下文里大部分 KV 可压缩/可跳过」;视频扩散补偿家族赌的是「稀疏丢的背景可被低秩线性摘要捞回」。两者都在对抗 <span class="math inline">\(O(L^2)\)</span>,但归纳偏置不同(选择 vs 摘要),交叉借鉴(如把低秩补偿用到 LLM、把压缩选择用到视频)是尚未被系统探索的方向。</li>
+</ul>
+<h2 id="sec-7">7. 参考文献</h2>
+<p>均为本轮联网核对的 arxiv 条目(前缀即年月):</p>
+<ol>
+<li>VSA — <em>Faster Video Diffusion with Trainable Sparse Attention</em>, ICML 2025, <a href="https://arxiv.org/abs/2505.13389">arxiv:2505.13389</a>. 代码 <a href="https://github.com/hao-ai-lab/FastVideo">hao-ai-lab/FastVideo</a>.</li>
+<li>SLA — <em>Beyond Sparsity in Diffusion Transformers via Fine-Tunable Sparse-Linear Attention</em>, <a href="https://arxiv.org/abs/2509.24006">arxiv:2509.24006</a>. 代码 <a href="https://github.com/thu-ml/SLA">thu-ml/SLA</a>.</li>
+<li>SLA2 — <em>Sparse-Linear Attention with Learnable Routing and QAT</em>, <a href="https://arxiv.org/abs/2602.12675">arxiv:2602.12675</a>.</li>
+<li>SALAD — <em>Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer</em>, <a href="https://arxiv.org/abs/2601.16515">arxiv:2601.16515</a>.</li>
+<li>RoPeSLR — <em>3D RoPE-driven Sparse-LowRank Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2605.20659">arxiv:2605.20659</a>.</li>
+<li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>.</li>
+<li>SVG-EAR — <em>Parameter-Free Linear Compensation for Sparse Video Generation via Error-aware Routing</em>, ECCV 2026, <a href="https://arxiv.org/abs/2603.08982">arxiv:2603.08982</a>.</li>
+<li>Sparse VideoGen — <em>Accelerating Video Diffusion Transformers with Spatial-Temporal Sparsity</em>, <a href="https://arxiv.org/abs/2502.01776">arxiv:2502.01776</a>; Sparse VideoGen2 — <em>Semantic-Aware Permutation</em>, <a href="https://arxiv.org/abs/2505.18875">arxiv:2505.18875</a>. 代码 <a href="https://github.com/svg-project/Sparse-VideoGen">svg-project/Sparse-VideoGen</a>.</li>
+<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>. 本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>. 代码 <a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a>.</li>
+</ol>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
