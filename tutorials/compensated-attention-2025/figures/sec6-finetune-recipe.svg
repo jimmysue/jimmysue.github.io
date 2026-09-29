@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 470" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <rect x="0" y="0" width="940" height="470" rx="14" fill="#ffffff"/>
+  <text x="470" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#1f2328">补偿式稀疏注意力的微调配方：轻量后训练，不从头训</text>
+
+  <!-- input: pretrained dense DiT -->
+  <rect x="30" y="70" width="150" height="86" rx="8" fill="#eef2f5" stroke="#8c959f"/>
+  <text x="105" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#1f2328">预训练稠密 DiT</text>
+  <text x="105" y="126" text-anchor="middle" font-size="11.5" fill="#57606a">全注意力骨干</text>
+  <text x="105" y="144" text-anchor="middle" font-size="11.5" fill="#57606a">（已训好的先验）</text>
+
+  <!-- arrow -->
+  <text x="195" y="118" font-size="20" fill="#8c959f">→</text>
+
+  <!-- swap in compensated module -->
+  <rect x="220" y="60" width="185" height="106" rx="8" fill="#fff4e6" stroke="#d97706"/>
+  <text x="312" y="86" text-anchor="middle" font-size="13.5" font-weight="700" fill="#b45309">换上稀疏+补偿模块</text>
+  <text x="312" y="108" text-anchor="middle" font-size="11.5" fill="#7c4a03">稀疏分支 + 线性/低秩补偿</text>
+  <text x="312" y="126" text-anchor="middle" font-size="11.5" fill="#7c4a03">门控近零初始化</text>
+  <text x="312" y="150" text-anchor="middle" font-size="11" fill="#b45309" font-style="italic">初始 ≈ 纯稀疏（§3）</text>
+
+  <text x="418" y="118" font-size="20" fill="#8c959f">→</text>
+
+  <!-- what is trainable: two camps -->
+  <rect x="443" y="48" width="215" height="132" rx="8" fill="#f3f0ff" stroke="#7c3aed"/>
+  <text x="550" y="72" text-anchor="middle" font-size="13.5" font-weight="700" fill="#6d28d9">什么可训（两派）</text>
+  <text x="453" y="96" font-size="11.5" fill="#4c1d95">❄ 冻骨干 · 只训补偿参数</text>
+  <text x="463" y="113" font-size="10.5" fill="#6d28d9">SALAD +4.99% / Spark freeze-except-sparse</text>
+  <text x="453" y="136" font-size="11.5" fill="#4c1d95">🔥 小学习率整体微调</text>
+  <text x="463" y="153" font-size="10.5" fill="#6d28d9">RoLA：骨干 + Θ_new 联合优化</text>
+  <text x="453" y="172" font-size="10.5" fill="#dc2626" font-weight="700">都不是 LoRA</text>
+
+  <text x="670" y="118" font-size="20" fill="#8c959f">→</text>
+
+  <!-- output -->
+  <rect x="695" y="70" width="150" height="86" rx="8" fill="#d3f9d8" stroke="#1a7f37"/>
+  <text x="770" y="104" text-anchor="middle" font-size="14" font-weight="700" fill="#166534">稀疏+补偿模型</text>
+  <text x="770" y="126" text-anchor="middle" font-size="11.5" fill="#166534">90–97% 稀疏</text>
+  <text x="770" y="144" text-anchor="middle" font-size="11.5" fill="#166534">质量近稠密</text>
+
+  <!-- objective box (bottom, spanning) -->
+  <line x1="40" y1="212" x2="900" y2="212" stroke="#d0d7de" stroke-dasharray="4 4"/>
+  <text x="40" y="246" font-size="15" font-weight="700" fill="#0969da">训练目标：续用预训练的 flow-matching 速度损失（± 对齐稠密）</text>
+
+  <rect x="40" y="262" width="400" height="150" rx="8" fill="#ddf4ff" stroke="#0969da"/>
+  <text x="60" y="288" font-size="12.5" font-weight="700" fill="#0550ae">主损失 · flow matching（rectified/TrigFlow）</text>
+  <text x="60" y="312" font-size="12" fill="#1f2328" font-family="ui-monospace,monospace">x_t = cos(t)·x₀ + sin(t)·ε</text>
+  <text x="60" y="332" font-size="12" fill="#1f2328" font-family="ui-monospace,monospace">v_target = cos(t)·ε − sin(t)·x₀</text>
+  <text x="60" y="352" font-size="12" fill="#1f2328" font-family="ui-monospace,monospace">L_flow = ‖ v_pred − v_target ‖²</text>
+  <text x="60" y="384" font-size="11.5" fill="#0550ae">让模型重新学会把信息走补偿分支</text>
+  <text x="60" y="401" font-size="11.5" fill="#0550ae">——续用原目标，非新目标</text>
+
+  <text x="452" y="342" font-size="22" fill="#8c959f">+</text>
+
+  <rect x="480" y="262" width="420" height="150" rx="8" fill="#fef3f2" stroke="#cf222e"/>
+  <text x="500" y="288" font-size="12.5" font-weight="700" fill="#a40e26">可选侧损失 · 对齐稠密（Stage-1 MSE / teacher-velocity）</text>
+  <text x="500" y="312" font-size="12" fill="#1f2328" font-family="ui-monospace,monospace">L_align = Σ_layer ‖ O_sparse − O_dense ‖²</text>
+  <text x="500" y="336" font-size="11.5" fill="#a40e26">每层稀疏输出直接拉向同层稠密注意力输出</text>
+  <text x="500" y="356" font-size="12" fill="#1f2328" font-family="ui-monospace,monospace">L = L_flow + λ · L_align</text>
+  <text x="500" y="388" font-size="11.5" fill="#a40e26">数据：真实视频 latent，仅 2k–20k 段 / OpenVid 子集</text>
+  <text x="500" y="405" font-size="11.5" fill="#a40e26">成本：1600–2000 步、&lt; 0.1% 预训练、~20 GPU 时</text>
+
+  <text x="470" y="450" text-anchor="middle" font-size="12.5" fill="#57606a">一句话：拿已训好的稠密模型，换上近零门的补偿模块，用极小数据续跑几千步 flow matching，把补偿通路「打开」</text>
+</svg>

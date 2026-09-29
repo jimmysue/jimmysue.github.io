@@ -110,19 +110,25 @@
     <li class="h3"><a href="#sec-5-3">5.3 正式化</a></li>
     <li class="h3"><a href="#sec-5-4">5.4 代码引用</a></li>
     <li class="h3"><a href="#sec-5-5">5.5 洞察</a></li>
-    <li class="h2"><a href="#sec-6">6. 高稀疏陷阱：补偿救不了的监督问题</a></li>
+    <li class="h2"><a href="#sec-6">6. 补偿分支怎么微调：数据、目标与「只训补偿参数」</a></li>
     <li class="h3"><a href="#sec-6-1">6.1 直觉</a></li>
     <li class="h3"><a href="#sec-6-2">6.2 最小 demo</a></li>
     <li class="h3"><a href="#sec-6-3">6.3 正式化</a></li>
     <li class="h3"><a href="#sec-6-4">6.4 代码引用</a></li>
     <li class="h3"><a href="#sec-6-5">6.5 洞察</a></li>
-    <li class="h2"><a href="#sec-7">7. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</a></li>
+    <li class="h2"><a href="#sec-7">7. 高稀疏陷阱：补偿救不了的监督问题</a></li>
     <li class="h3"><a href="#sec-7-1">7.1 直觉</a></li>
     <li class="h3"><a href="#sec-7-2">7.2 最小 demo</a></li>
     <li class="h3"><a href="#sec-7-3">7.3 正式化</a></li>
     <li class="h3"><a href="#sec-7-4">7.4 代码引用</a></li>
     <li class="h3"><a href="#sec-7-5">7.5 洞察</a></li>
-    <li class="h2"><a href="#sec-8">参考文献与代码</a></li>
+    <li class="h2"><a href="#sec-8">8. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</a></li>
+    <li class="h3"><a href="#sec-8-1">8.1 直觉</a></li>
+    <li class="h3"><a href="#sec-8-2">8.2 最小 demo</a></li>
+    <li class="h3"><a href="#sec-8-3">8.3 正式化</a></li>
+    <li class="h3"><a href="#sec-8-4">8.4 代码引用</a></li>
+    <li class="h3"><a href="#sec-8-5">8.5 洞察</a></li>
+    <li class="h2"><a href="#sec-9">参考文献与代码</a></li>
   </ul>
 </nav>
 <main data-pagefind-body>
@@ -632,14 +638,127 @@ for pi, pj in pairs:
 <li><strong>SALAD 为何只验证到 90% 稀疏</strong>：SALAD 走的是&quot;直接加 3D RoPE、靠训练兜&quot;的第三条路——没正面处理 <span class="math inline">\(\phi\)</span> 与旋转的不可交换性，而是把误差丢给梯度去吸收。这种&quot;不解决交换性、只掩盖症状&quot;的做法在低稀疏度下够用，但补偿失真会随稀疏度累积，故其可靠区间只验证到 90%，越往极端稀疏越吃力——与 RoLA/RoPeSLR 从代数层面根治的路线形成鲜明对照。</li>
 <li><strong>同组两篇隔数月给互斥解、却未正面互引</strong>：RoPeSLR 与 RoLA 出自同一课题组，一个弃线性注意力、一个救线性注意力，方向相反却无正面对照实验。这更像真实的技术演进轨迹（先用 RoPeSLR 证明&quot;标准线性注意力在 3D RoPE 下不可行、需另起炉灶&quot;，再用 RoLA 回头找到&quot;重排顺序就能让它可行&quot;的闭式解），而非谁对谁错的路线之争；读这两篇的正确姿势是把它们看成同一问题的两次迭代。</li>
 </ul>
-<h2 id="sec-6">6. 高稀疏陷阱：补偿救不了的监督问题</h2>
+<h2 id="sec-6">6. 补偿分支怎么微调：数据、目标与「只训补偿参数」</h2>
 <h3 id="sec-6-1">6.1 直觉</h3>
+<p>前面五节把补偿模块的<strong>结构</strong>讲完了，但这些方法几乎都不从头训练——它们把一个<strong>已经训好的稠密 video DiT</strong> 改造成稀疏+补偿。这与 §1 的 VSA 是分水岭：VSA 从头预训练（代价按整机时算），而 SLA / SALAD / RoPeSLR / RoLA 这一族的卖点恰恰是<strong>极廉价的后训练适配</strong>。适配要回答三件具体的事：<strong>用什么数据、优化什么目标、动哪些参数</strong>。答案的共性很强：数据是<strong>真实视频的 VAE latent</strong>（不是蒸馏合成数据），量级只有 2k–20k 段、或 OpenVid-1M 的一个子集，比预训练小三到四个数量级；目标是<strong>续用预训练那套 flow-matching 速度损失</strong>，让模型在新结构下重新学会把信息路由到补偿分支；可训参数分两派——<strong>冻结骨干、只训新增补偿参数</strong>（SALAD 仅 +4.99%、SparkDiffusion 的 <code>freeze-except-sparse</code>），或<strong>给骨干一个很小的学习率做整体微调</strong>（RoLA）。三家都<strong>不用 LoRA</strong>——补偿参数本就极少，直接训比再套一层低秩适配器更直接。相对 VSA「从头学稀疏」，这一族赌的是「稠密先验已经够好，只需轻量适配把补偿通路打开」。</p>
+<figure>
+  <img class="zoomable" src="figures/sec6-finetune-recipe.svg" alt="微调配方：预训练稠密 DiT → 换上近零门的稀疏+补偿模块 → 冻骨干只训补偿参数 或 小学习率整体微调 → flow-matching 速度损失(±对齐稠密) → 稀疏+补偿模型">
+  <figcaption><strong>图 8</strong> — 补偿式稀疏注意力的通用微调配方。左→右是「拿稠密模型 → 换补偿模块（门近零，初始≈纯稀疏）→ 选择可训参数 → 续跑 flow-matching」的流水线；底部是目标函数：主损失是续用的 flow-matching 速度损失，可选叠加一个把每层稀疏输出直接拉向稠密注意力输出的 MSE 侧损失。整套只花 2k–20k 段真实视频 latent、几千步、约 20 GPU 时。</figcaption>
+</figure>
+<h3 id="sec-6-2">6.2 最小 demo</h3>
+<p>下面把「冻结骨干、只训补偿参数，用 flow-matching 速度损失跑一步」这个真实配方跑一遍。用一个含补偿分支的注意力模块（沿用前几节：稀疏输出用精确注意力占位、补偿分支是线性注意力、门控融合），把<strong>骨干投影冻结</strong>、只让补偿分支的 <code>proj</code>/<code>gate</code> 可训，然后在真实形状的 latent 上做一步 rectified-flow 更新，打印可训参数占比与损失。</p>
+<pre class="teaching-demo"><code class="language-python">import torch, torch.nn as nn, torch.nn.functional as F
+
+B, C, T, H, W, d = 2, 16, 4, 16, 16, 64          # 真实形状的视频 latent [B,C,T,H,W]
+L = T * H * W                                     # 展平后的 token 数
+
+class CompensatedAttn(nn.Module):
+    def __init__(self, d):
+        super().__init__()
+        self.qkv  = nn.Linear(d, 3 * d)           # 骨干（预训练来的）——将被冻结
+        self.proj = nn.Linear(d, d, bias=False)   # 补偿分支投影——可训，零初始
+        self.gate = nn.Linear(d, 1)               # 门控——可训
+        nn.init.zeros_(self.proj.weight)          # 零初始 → 初始等于纯稀疏（§3）
+        nn.init.constant_(self.gate.bias, -1.946) # 近零门
+    def forward(self, x):                         # x: [B, L, d]
+        q, k, v = self.qkv(x).chunk(3, dim=-1)
+        o_s = F.scaled_dot_product_attention(q, k, v)          # 稀疏分支占位（精确）
+        phi = lambda t: F.elu(t) + 1.0
+        o_l = phi(q) @ (phi(k).transpose(-1, -2) @ v)          # 线性补偿分支 O(L)
+        g = torch.sigmoid(self.gate(x))                        # 逐 token 门
+        return o_s + g * self.proj(o_l)                        # 稀疏 + 门×补偿
+
+net = CompensatedAttn(d)
+# —— 冻结骨干，只训补偿参数（freeze-except-sparse） ——
+for n, p in net.named_parameters():
+    p.requires_grad_(any(s in n for s in ("proj", "gate")))
+trainable = sum(p.numel() for p in net.parameters() if p.requires_grad)
+total = sum(p.numel() for p in net.parameters())
+print(f"可训参数 {trainable}/{total} = {100*trainable/total:.1f}%")   # 只有补偿分支
+
+x0 = torch.randn(B, L, d)                          # 干净 latent（展平）
+t  = torch.rand(B, 1, 1)                            # 每样本一个噪声等级
+eps = torch.randn_like(x0)
+xt  = torch.cos(t) * x0 + torch.sin(t) * eps        # TrigFlow 加噪 x_t
+x0_pred = net(xt)                                   # 模型在带噪输入上预测
+v_pred   = (torch.cos(t) * xt - x0_pred) / torch.sin(t)
+v_target = torch.cos(t) * eps - torch.sin(t) * x0   # flow-matching 速度目标
+loss = ((v_pred - v_target) ** 2).mean()
+loss.backward()
+print("flow-matching 速度损失:", round(loss.item(), 4),
+      "| 骨干 qkv 梯度:", net.qkv.weight.grad)       # None —— 骨干确实没被训
+</code></pre>
+<p>跑出来 <code>qkv.weight.grad</code> 是 <code>None</code>——骨干完全没参与反传，只有 <code>proj</code>/<code>gate</code> 拿到梯度，可训占比只有个位数百分比。这正是 SALAD「+4.99% 参数」和 SparkDiffusion Stage-1「freeze-except-sparse」在做的事：用续跑的 flow-matching 损失，只教模型「怎么用补偿分支」，而不动它已经学好的一切。</p>
+<h3 id="sec-6-3">6.3 正式化</h3>
+<p>微调的主目标是<strong>续用预训练的 flow-matching / rectified-flow 速度回归</strong>。以 SparkDiffusion 用的 TrigFlow 参数化为例，先在噪声等级 <span class="math inline">\(t\)</span> 处构造带噪 latent：</p>
+<div class="math block">
+\[x_t=\cos(t)\,x_0+\sin(t)\,\varepsilon,\qquad \varepsilon\sim\mathcal N(0,I).\]
+</div>
+<p class="math-translation">—— 翻译：$\cos/\sin$ 参数化让 $x_0$ 与噪声 $\varepsilon$ 的权重平方和恒为 1，等价于把信噪比编码进单个角度 $t$；这样一个标量 $t$ 就唯一决定了「加了多少噪」，微调时对 $t$ 均匀采样即覆盖全噪声区间。</p>
+<p>模型 <span class="math inline">\(F_\theta\)</span> 在 <span class="math inline">\(x_t\)</span> 上预测 <span class="math inline">\(\hat x_0\)</span>，据此还原速度并回归到解析目标：</p>
+<div class="math block">
+\[v_{\text{pred}}=\frac{\cos(t)\,x_t-\hat x_0}{\sin(t)},\quad v_{\text{target}}=\cos(t)\,\varepsilon-\sin(t)\,x_0,\quad \mathcal L_{\text{flow}}=\mathbb E_{t,\varepsilon}\big\lVert v_{\text{pred}}-v_{\text{target}}\big\rVert^2.\]
+</div>
+<p class="math-translation">—— 翻译：目标速度 $v_{\text{target}}$ 完全由 $(x_0,\varepsilon,t)$ 解析给出、与模型无关，所以这是一个**监督回归**而非对抗或蒸馏；关键在它是 **step-local** 的——只惩罚单个 $t$ 处的速度误差，不约束多步组合出的终端样本（这个性质正是 §7 高稀疏陷阱的伏笔）。</p>
+<p>在此之上，一部分方法叠加一个<strong>把稀疏输出直接对齐稠密输出</strong>的侧损失（SparkDiffusion 的 Stage-1 MSE、亦即 teacher-velocity 思路）：</p>
+<div class="math block">
+\[\mathcal L=\mathcal L_{\text{flow}}+\lambda\sum_{\ell}\big\lVert O^{\text{sparse}}_{\ell}-O^{\text{dense}}_{\ell}\big\rVert^2,\]
+</div>
+<p class="math-translation">—— 翻译：第二项在**每一层** $\ell$ 把稀疏+补偿的注意力输出拉向同层稠密注意力输出，等于给补偿分支一个逐层的「稠密老师」；它比只有终端 flow 损失收敛更快、更稳，但代价是要在训练时同时算一遍稠密注意力（仅训练期，推理不需要）。$\lambda$ 默认 1.0。</p>
+<p>可训参数则分两派，记补偿新增参数为 <span class="math inline">\(\Theta_{\text{new}}=\{P_q,P_k,W_g,b_g\}\)</span>：</p>
+<div class="math block">
+\[\text{只训补偿：}\ \min_{\Theta_{\text{new}}}\mathcal L,\ \ \theta_{\text{backbone}}\ \text{冻结};\qquad \text{整体微调：}\ \min_{\theta_{\text{backbone}},\Theta_{\text{new}}}\mathcal L,\ \ \text{lr}_{\text{backbone}}\ll\text{lr}_{\text{new}}.\]
+</div>
+<p class="math-translation">—— 翻译：左派（SALAD、SparkDiffusion Stage-1）只更新占比个位数的补偿参数，骨干一步不动，最省、最不易破坏先验；右派（RoLA）联合更新但给骨干一个极小学习率，容量更大、上限更高，代价是显存与过拟合风险。两派都不引入 LoRA 低秩适配器——因为 $\Theta_{\text{new}}$ 本身已经足够小。</p>
+<h3 id="sec-6-4">6.4 代码引用</h3>
+<p>SparkDiffusion 的微调模型把上面的目标原样落地。先看损失：flow-matching 速度损失 + 可选的 Stage-1 稀疏↔稠密 MSE 对齐。</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/models/t2v_model_finetune.py:L777-L789 — 微调目标：flow-matching 速度损失 + Stage-1 稀疏↔稠密 MSE 对齐</p>
+<pre><code class="language-python">        x0_pred = self.denoise_with_net(net, xt, t_trig, condition)
+        v_pred = (cos_t * xt - x0_pred) / sin_t
+        v_target = cos_t * eps - sin_t * x0_B_C_T_H_W
+        loss_per_sample = ((v_pred - v_target) ** 2).mean(dim=[1, 2, 3, 4])
+        loss = loss_per_sample * self.config.loss_scale
+
+        if enable_rola_mse:
+            rola_loss = RoLaTrainingContext.pop_mse_loss_mean()
+            if rola_loss is not None:
+                loss = loss + rola_loss * self.config.stage1_mse_weight
+            RoLaTrainingContext.set(enable_stage1_mse=False)
+
+        return loss_per_sample, loss
+</code></pre>
+<p><code>v_pred</code>/<code>v_target</code>/<code>loss_per_sample</code> 三行逐字对应 §6.3 的 <span class="math inline">\(v_{\text{pred}},v_{\text{target}},\mathcal L_{\text{flow}}\)</span>；<code>rola_loss</code> 是各层稀疏输出对稠密输出的 MSE（由 <code>RoLaTrainingContext</code> 在每层前向时累加、这里取均值），<code>loss + rola_loss * stage1_mse_weight</code> 就是 <span class="math inline">\(\mathcal L=\mathcal L_{\text{flow}}+\lambda\mathcal L_{\text{align}}\)</span>，<code>stage1_mse_weight</code> 即 <span class="math inline">\(\lambda\)</span>。注意它是 step-local 的逐样本速度 MSE——§7 会证明这正是它「看不见」终端误差的原因。</p>
+<p>再看「只训补偿参数」是怎么实现的：按名字匹配 <code>sparse_patterns</code>，命中的解冻、其余全部冻结。</p>
+<p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/models/t2v_model_finetune.py:L446-L458 — 只训补偿参数：冻结骨干、只解冻匹配 sparse_patterns 的参数</p>
+<pre><code class="language-python">    def _freeze_except_sparse_net(self, net, net_dict: LazyDict | None, branch_name: str):
+        patterns = self._resolve_sparse_patterns(net_dict)
+        for name, param in net.named_parameters():
+            if any(p in name for p in patterns):
+                param.requires_grad_(True)
+            else:
+                param.requires_grad_(False)
+        trainable = sum(p.numel() for p in net.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in net.parameters())
+        log.info(
+            f&quot;Stage1 freeze [{branch_name}]: {trainable:,} / {total:,} params trainable &quot;
+            f&quot;({100 * trainable / total:.2f}%)&quot;
+        )
+</code></pre>
+<p><code>sparse_patterns</code> 就是 RoLA 注册的可训参数名（<code>proj_q</code>/<code>proj_k</code>/<code>gate_proj</code>/<code>gate_bias</code>，见 §3）——命中即 <code>requires_grad_(True)</code>，其余 <code>requires_grad_(False)</code>。这段与 §6.2 demo 里「只让 <code>proj</code>/<code>gate</code> 可训」是同一件事的工程版；它打印的 <code>trainable/total</code> 百分比，对应 SALAD 报告的 +4.99%。</p>
+<h3 id="sec-6-5">6.5 洞察</h3>
+<ul>
+<li><strong>数据是「真实视频 latent」而非蒸馏合成数据，且极少</strong>：SALAD 用 2000 段 Mixkit（480×832×77）、1600 步、batch 8、约 20.6 GPU 时；SLA 用约 20000 段、batch 64、2000 步、&lt; 0.1% 预训练成本；RoLA 用 OpenVid-1M 的一个子集。目标是「让模型在新结构下续跑原任务」，所以喂真实数据续跑原损失即可，不需要教师采样出的合成轨迹。</li>
+<li><strong>两派可训策略对应两种风险偏好</strong>：冻骨干只训补偿（SALAD / SparkDiffusion Stage-1）几乎不可能破坏先验、最省，但补偿容量受限于那几层新参数；小学习率整体微调（RoLA）上限更高，但要防过拟合与先验漂移。<strong>都不用 LoRA</strong>——SALAD 实测 LoRA 即使在 63% 稀疏度也仍掉质量，因为要补的「全局背景」不是一个低秩残差能覆盖的方向。</li>
+<li><strong>近零门（§3）是「只训补偿」可行的前提</strong>：投影零初始 + 门偏置 <span class="math inline">\(-1.946\)</span> 让微调从「纯稀疏」平滑起步，梯度只需把补偿分支从零缓缓推开，不会一上来就冲乱冻结的骨干。但请记住这套目标是 <strong>step-local</strong> 的——下一节（§7）会证明：正是这个「只惩罚单步速度」的监督，在 97% 稀疏度下喂不出正确的终端结构，补偿分支再强也补不回来。</li>
+</ul>
+<h2 id="sec-7">7. 高稀疏陷阱：补偿救不了的监督问题</h2>
+<h3 id="sec-7-1">7.1 直觉</h3>
 <p>§3 到 §5 一路把补偿讲成&quot;表达能力&quot;的事：稀疏丢掉的弥散背景，用一份 query 无关的全局摘要补回来，门控控制掺多少。这套逻辑在 90% 稀疏下几乎无损——但把稀疏度推到 97%，整个补偿家族一起崩。诡异的是崩的方式：训练侧的 flow matching 逐步损失还在稳稳下降，生成的视频却结构崩坏、糊成马赛克。step-local 的数字越来越好看，终端质量却在垮，这说明训练损失和真正关心的目标之间裂开了一道缝。SparkDiffusion（RoLA 作稀疏模块）用一个 oracle 探针把裂缝定位了出来：固定初始噪声，把稀疏学生在一小段采样步上的速度替换成稠密教师，看终端误差掉多少。结论很硬——只修最高噪声的 5 步几乎消掉全部终端误差，只修最低噪声的 5 步几乎没用，两者差 <span class="math inline">\(3.4\times\)</span>。误差是在<strong>高噪声的结构生成阶段</strong>注入的。关键的 delta 在这里：这不是 §3 说的补偿分支表达力不够，而是 step-local 监督根本看不见沿采样轨迹累积到终端的那部分误差——一个监督问题，不是能力问题。</p>
 <figure>
   <img class="zoomable" src="figures/spark-oracle-probe.png" alt="Oracle 探针：修高噪声5步几乎消掉全部终端误差(黄)，修低噪声5步几乎没用(红)，差3.4×">
   <figcaption><strong>图 7</strong> — 高稀疏陷阱的根源在高噪声结构误差（SparkDiffusion, 论文 Fig.4）。等预算下修高噪声 5 步和修低噪声 5 步的终端 NMSE 差 $3.4\times$：终端误差集中在少数几步注入，而 step-local 损失把它平摊在全轨迹上、看不出这种集中——监督信号里没有这道信息。</figcaption>
 </figure>
-<h3 id="sec-6-2">6.2 最小 demo</h3>
+<h3 id="sec-7-2">7.2 最小 demo</h3>
 <p>用一个线性代理复现&quot;陷阱&quot;的数学内核：Euler 采样 <span class="math inline">\(N=20\)</span> 步、状态维 <span class="math inline">\(d=16\)</span>、仿射终端读出 <span class="math inline">\(R(x)=c^\top x\)</span>，误差沿 <span class="math inline">\((I+hJ)\)</span> 传播。构造两组逐步速度误差 <span class="math inline">\(e\)</span>，<strong>逐步幅度 <span class="math inline">\(\lVert e_k\rVert\)</span> 完全相同</strong>：一组顺着终端敏感度 <span class="math inline">\(s_k\)</span> 的方向（coherent，符号一致、会累加），一组正负交替（幅度不变、方向翻转、会抵消）。同时算 step-local 损失 <span class="math inline">\(L=\tfrac12\sum_k\lVert e_k\rVert^2\)</span> 与终端误差 <span class="math inline">\(\Psi=h\sum_k s_k^\top e_k\)</span>，并用真实滚动核对 <span class="math inline">\(\Psi\)</span>。</p>
 <pre class="teaching-demo"><code class="language-python">import random, math
 random.seed(0)
@@ -673,7 +792,7 @@ for name, e in [("coherent", e_coh), ("alternating", e_alt)]:
     print(f"{name:12s}  L={L:.5f}  Psi(pair)={Psi_pair:+.4f}  Psi(rollout)={rollout(e):+.4f}")
 </code></pre>
 <p>跑出来两行：<code>coherent L=0.10000 Psi=+0.3943</code>、<code>alternating L=0.10000 Psi=+0.0007</code>。step-local 损失一字不差地相等（都是 <span class="math inline">\(0.10000\)</span>），终端误差却差了约 <span class="math inline">\(560\times\)</span>——一个 <span class="math inline">\(0.39\)</span>、一个约等于 <span class="math inline">\(0\)</span>。而且 pairing 算的 <span class="math inline">\(\Psi\)</span> 和真实 Euler 滚动出来的完全吻合。这就是陷阱的全部：<strong>相同的 step-local 损失可以对应天差地别的终端</strong>。谁在累加、谁在抵消，只由每步误差的符号与终端敏感度的对齐关系决定，而 <span class="math inline">\(L\)</span> 对符号一无所知。</p>
-<h3 id="sec-6-3">6.3 正式化</h3>
+<h3 id="sec-7-3">7.3 正式化</h3>
 <p>把上面的现象写成恒等式（SparkDiffusion 附录 C）。沿采样轨迹注入逐步速度误差 <span class="math inline">\(e_k\)</span>，终端读出误差可以精确拆成一个内积：</p>
 <div class="math block">
 \[\Psi \;=\; R(x_N)-R(x_N^\star) \;=\; h\sum_{k=0}^{N-1} s_k^\top e_k \;=\; \langle e, s\rangle_h,\qquad s_k=\Phi_{N,k+1}^\top\,\nabla R.\]
@@ -689,7 +808,7 @@ for name, e in [("coherent", e_coh), ("alternating", e_alt)]:
 \[\Psi = h\sum_k \lVert s_k\rVert\,\lVert e_k\rVert\cos\theta_k,\qquad L=\tfrac{h}{2}\sum_k\lVert e_k\rVert^2\ \text{与}\ \theta_k\ \text{无关}.\]
 </div>
 <p class="math-translation">—— 翻译: 把内积按夹角 $\theta_k$（$e_k$ 与 $s_k$ 之间）展开就一目了然：$\Psi$ 被 $\cos\theta_k$ 调制——全部对齐（$\cos\theta_k\!=\!1$，coherent）时各项同号累加到最大，正负交替时相互抵消到 $\approx 0$，而这两种情形的 $L$ 逐项相等。在 step-local 的最优点上 $\nabla_\theta L=0$（幅度已压到底），但 $\Psi$ 对 $\theta_k$ 的依赖并未消失：存在一整块 step-local 梯度看不见、却终端可见的剩余误差。降 $L$ 到极限也堵不住这道缝。</p>
-<h3 id="sec-6-4">6.4 代码引用</h3>
+<h3 id="sec-7-4">7.4 代码引用</h3>
 <p>SparkDiffusion 的解法直接把&quot;误差发源于高噪声&quot;写进配置：沿采样轨迹设一个 crosspoint，把高噪声段和低噪声段切开，两段用不同的蒸馏监督。</p>
 <p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/models/t2v_model_distill.py:L92-L94 — 轨迹 crosspoint 配置：噪声等级 0.875 处切开，前 2 步为高噪声段</p>
 <pre><code class="language-python">    joint_boundary_rf: float = 0.875
@@ -701,20 +820,20 @@ for name, e in [("coherent", e_coh), ("alternating", e_alt)]:
         return &quot;high&quot; if step_index &lt; self.config.joint_boundary_step_index else &quot;low&quot;
 </code></pre>
 <p>对照 6.1 的诊断：<code>joint_boundary_rf=0.875</code> 是噪声 crosspoint，<code>joint_backward_timesteps=[0.933781, 0.875, 0.608979]</code> 是 3 步反向时间表，<code>joint_boundary_step_index=2</code> 把前 2 步（<span class="math inline">\(\sigma\ge0.875\)</span>）划成高噪声段。<code>_joint_region_for_step_index</code> 逐步判 high/low，把监督分成两套：高噪声段用一致性蒸馏（PCM）<strong>锚住结构</strong>——正因为终端误差发源于此（oracle 探针里修高噪声 5 步几乎消掉全部误差），这几步必须直接对齐教师；低噪声段用分布匹配（DMD）<strong>补终端对齐</strong>。这正是对 6.3 恒等式的工程回应：既然 <span class="math inline">\(\Psi\)</span> 是沿轨迹的敏感度加权和、且权重集中在高噪声几步，就在那几步换上能看见终端的监督（教师锚点 / 分布匹配），而不是继续在全轨迹上摊平的 step-local 损失里打转。</p>
-<h3 id="sec-6-5">6.5 洞察</h3>
+<h3 id="sec-7-5">7.5 洞察</h3>
 <ul>
 <li><strong>补偿是&quot;能力补丁&quot;，蒸馏是&quot;监督补丁&quot;，两个正交病因要两套药</strong>：§3 的补偿修的是表达能力——稀疏丢了背景，用全局摘要补回来；但 97% 崩坏是 step-local 监督喂不出终端对齐，得靠 trajectory-mixed 蒸馏（高噪声 PCM 锚结构 + 低噪声 DMD 补终端）。把监督问题当能力问题去加更强的补偿分支，是在错误的轴上使劲。</li>
 <li><strong>&quot;代理损失 <span class="math inline">\(\ne\)</span> 最终目标&quot;是可迁移的报警</strong>：只要训练用代理梯度、评价用终端指标，就可能有一块代理梯度看不见、终端却看得见的剩余——RLHF 的 reward hacking、teacher-forcing 训练 vs 自回归推理的暴露偏差都是同构的裂缝。SparkDiffusion 的方法论本身可迁移：oracle 干预（固定初值、换一小段步）定位误差发源段，再用 pairing 恒等式证明代理梯度对它免疫，是一套&quot;先定位、后证明看不见&quot;的诊断范式。</li>
 <li><strong>这解释了补偿家族为何集体停在 90%</strong>：不是补偿分支表达不了 97% 稀疏下的注意力，而是 step-local 监督在这个稀疏度下已经喂不出正确的终端行为。天花板不在表达力、在监督信号——换损失（terminal-aligned 蒸馏）才是解，继续堆补偿容量不是。</li>
 </ul>
-<h2 id="sec-7">7. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</h2>
-<h3 id="sec-7-1">7.1 直觉</h3>
+<h2 id="sec-8">8. 落地：把稀疏兑现成墙钟加速（FP8 + 融合 kernel）</h2>
+<h3 id="sec-8-1">8.1 直觉</h3>
 <p>回到 §1 埋下的那句：稀疏省的是 FLOPs，不是墙钟。选块若破坏了块连续性，逐 token 地跳来跳去，稀疏 kernel 就无法贴合 FlashAttention 的块布局，省下的 FLOPs 在访存和 launch 开销里白白蒸发——GPU 的算力从来不是瓶颈，能不能把数据以连续块的形式喂进 tensor core 才是。所以块稀疏 kernel 的第一要务不是&quot;选得准&quot;，而是&quot;选出来的块能整块整块地喂给硬件&quot;，这也是补偿家族坚持块级门控、而非逐 token 稀疏的系统层理由。但真正反直觉的账本在后面。SparkDiffusion 对 Wan2.1-T2V-14B-720P 在 RTX 5090 上做了一次瀑布分解：稠密基线 4769s 起步，先上 97% 稀疏 + 融合 kernel，只换来 3.3× 加速；把采样从 50 步蒸馏到 3 步，才是最大的一项，33.3×；再上 FP8 GEMM，1.7×；叠加 CPU offload 与 torch.compile 的零头，累计 265×，终点 18.075s。delta 就在这里：很多人一头扎进稀疏和量化，却漏了<strong>步数</strong>才是乘性因子里最大的一项。补偿家族让高稀疏不崩、蒸馏让少步不崩，两者相乘才凑得出 265×。</p>
 <figure>
   <img class="zoomable" src="figures/spark-waterfall-265x.png" alt="265× 乘性分解瀑布：稀疏+融合3.3× → few-step蒸馏33.3× → FP8 1.7× → CPU offload 1.1× → torch.compile 1.3×">
   <figcaption><strong>图 8</strong> — 265× 的乘性分解（SparkDiffusion, 论文 Fig.3）。注意柱子的高矮：稀疏本身只贡献 3.3×，真正把总账拉起来的是"50→3 步"这根 33.3× 的柱子——加速大头几乎从不在你以为的稀疏那一格。</figcaption>
 </figure>
-<h3 id="sec-7-2">7.2 最小 demo</h3>
+<h3 id="sec-8-2">8.2 最小 demo</h3>
 <p>下面用真实形状演示：为什么激活要用<strong>逐 token 动态 FP8</strong>，而不是 per-tensor 静态量化。造 <code>x</code> 为 <code>[T=512, d=1024]</code>，并人为让某些行乘上大系数——模拟扩散不同噪声步、不同 token 之间激活幅度的漂移。动态量化逐行取 amax 定 scale，静态量化只用首批的全局 amax。跑完看两者的反量化 MSE，尤其看那些&quot;大幅度行&quot;上静态被削顶的程度。</p>
 <pre class="teaching-demo"><code class="language-python">import torch
 
@@ -745,7 +864,7 @@ print(f"static   MSE  all={mse_sta:.4f}  big-rows={mse_sta_big:.4f}")
 print("static clip 比例:", (x.abs() > s_sta * FP8_MAX).float().mean().item())
 </code></pre>
 <p>跑出来静态量化在大幅度行上的 MSE 比动态高出好几个数量级：<code>s_sta</code> 由首批 64 行标定，<code>FP8_MAX * s_sta</code> 只覆盖那批的幅度，后面 60× 的行整个撞上 clamp 天花板被削顶，<code>static clip 比例</code> 明确大于 0。动态量化每行各自定标，任何一行都不会溢出——代价只是多一次逐行 reduction。当激活分布跨阶段漂移时，这次 reduction 不是优化项，是正确性项。</p>
-<h3 id="sec-7-3">7.3 正式化</h3>
+<h3 id="sec-8-3">8.3 正式化</h3>
 <p>SparkDiffusion 的 GEMM 走 W8A8：权重逐通道静态标定，激活逐 token 动态标定。权重是常量，训练结束就固定，直接取 amax 即可，无需任何校准集：</p>
 <div class="math block">
 \[s^{(w)}_j=\frac{\mathrm{amax}_j\big(W_{:,j}\big)}{\text{FP8\_MAX}},\qquad W^{fp8}_{:,j}=\mathrm{round}\!\left(W_{:,j}/s^{(w)}_j\right)\]
@@ -766,7 +885,7 @@ print("static clip 比例:", (x.abs() > s_sta * FP8_MAX).float().mean().item())
 \[\text{speedup}=\prod_i f_i=f_{\text{sparse}}\cdot f_{\text{step}}\cdot f_{\text{fp8}}\cdots=3.3\times 33.3\times 1.7\times\cdots\approx 265\times\]
 </div>
 <p class="math-translation">—— 翻译: 各因子近似独立、直接连乘。这也解释了 delta：在 3.3× 的稀疏项上再抠 10% 远不如保住 33.3× 的步数项——优化要先看每一格的乘性上限，再决定往哪投。</p>
-<h3 id="sec-7-4">7.4 代码引用</h3>
+<h3 id="sec-8-4">8.4 代码引用</h3>
 <p>先看激活的逐 token 动态量化，就是 7.3 那两行公式的直译：</p>
 <p class="code-source">sources/repos/AlibabaResearch-SparkDiffusion/sparkdiffusion/ops/quantization/fp8_linear.py:L57-L61 — 激活逐 token 动态量化到 FP8 E4M3</p>
 <pre><code class="language-python">def quantize_activation_rowwise(x2: torch.Tensor):
@@ -803,27 +922,27 @@ print("static clip 比例:", (x.abs() > s_sta * FP8_MAX).float().mean().item())
     )
 </code></pre>
 <p>一个 program 处理一行。<code>gelu = x * sigmoid(1.5957...*(x + 0.044715 x^3))</code> 是 tanh 近似的 GELU（<span class="math inline">\(1.5957\approx\sqrt{8/\pi}\)</span>，把 tanh 折成 sigmoid）；紧接着 <code>scale = max(abs(gelu)) / 448.0</code> 就是这一行的动态 amax，<code>448</code> 正是 FP8 E4M3 的最大幅度；<code>(gelu / scale).to(tl.float8e4nv)</code> 一次遍历直接吐出 FP8。关键在&quot;一次遍历&quot;：激活函数算完的中间值还在寄存器里，立刻求 amax、定标、cast，激活+量化融合成一趟，省掉一次把 FP32 中间结果写回显存再读进来量化的往返——这正是 7.1 说的&quot;把 FLOPs 兑成墙钟&quot;里最容易被忽视的访存那一环。</p>
-<h3 id="sec-7-5">7.5 洞察</h3>
+<h3 id="sec-8-5">8.5 洞察</h3>
 <ul>
 <li><strong>先估乘性上限，再决定往哪优化。</strong> 265× 里稀疏只占 3.3×、步数占 33.3×。在小头上过度打磨（把稀疏从 3.3× 抠到 3.6×）远不如保住大头（步数、蒸馏质量）划算——做系统加速前先把每一格的乘性天花板列出来。</li>
 <li><strong>动态 vs 静态，看分布会不会跨阶段漂。</strong> 权重是常量、逐通道静态量化免费又安全；激活在扩散不同噪声步之间幅度差一个数量级，必须逐 token 动态，否则静默削顶。选择依据不是&quot;哪个快&quot;，是&quot;分布稳不稳&quot;。</li>
-<li><strong>稀疏与蒸馏是乘性互补，这也是全篇的落点。</strong> 补偿家族（§1–§5）让高稀疏不崩、监督修复（§6）让少步不崩，两者相乘才把 265× 兑现出来。单独任一项都撑不起这个数——高稀疏无补偿会崩、少步无蒸馏会崩；把它们串在一条乘性链上，才是这套方法真正落地的样子。</li>
+<li><strong>稀疏与蒸馏是乘性互补，这也是全篇的落点。</strong> 补偿家族（§1–§5）让高稀疏不崩、监督修复（§7）让少步不崩，两者相乘才把 265× 兑现出来。单独任一项都撑不起这个数——高稀疏无补偿会崩、少步无蒸馏会崩；把它们串在一条乘性链上，才是这套方法真正落地的样子。</li>
 </ul>
-<h2 id="sec-8">参考文献与代码</h2>
+<h2 id="sec-9">参考文献与代码</h2>
 <p><strong>锚点论文（引用经联网核对，arxiv 前缀即年月）</strong></p>
 <ul>
 <li>VSA — <em>Faster Video Diffusion with Trainable Sparse Attention</em>, ICML 2025, <a href="https://arxiv.org/abs/2505.13389">arxiv:2505.13389</a>（可训练块稀疏地基，§1）</li>
-<li>SLA — <em>Beyond Sparsity in Diffusion Transformers via Fine-Tunable Sparse-Linear Attention</em>, <a href="https://arxiv.org/abs/2509.24006">arxiv:2509.24006</a>（三分类路由 + 线性补偿，§2/§3/§4）</li>
-<li>SALAD — <em>Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer</em>, <a href="https://arxiv.org/abs/2601.16515">arxiv:2601.16515</a>（并联 ReLU 线性分支 + 标量门，§3/§4）</li>
+<li>SLA — <em>Beyond Sparsity in Diffusion Transformers via Fine-Tunable Sparse-Linear Attention</em>, <a href="https://arxiv.org/abs/2509.24006">arxiv:2509.24006</a>（三分类路由 + 线性补偿，§2/§3/§4；微调 ~20k 段视频/2000 步，§6）</li>
+<li>SALAD — <em>Achieve High-Sparsity Attention via Efficient Linear Attention Tuning for Video Diffusion Transformer</em>, <a href="https://arxiv.org/abs/2601.16515">arxiv:2601.16515</a>（并联 ReLU 线性分支 + 标量门，§3/§4；微调 2000 段 Mixkit/1600 步/20.6 GPU 时/+4.99% 参数，§6）</li>
 <li>RoPeSLR — <em>3D RoPE-driven Sparse-LowRank Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2605.20659">arxiv:2605.20659</a>（RoPE 两难解法一，§5）</li>
-<li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>（RoPE 两难解法二，SparkDiffusion 默认稀疏模块，§3/§4/§5）</li>
-<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>（high-sparsity trap 诊断 + trajectory-mixed 蒸馏 + FP8，§6/§7；本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>）</li>
+<li>RoLA — <em>Rotary-Positioned Low-Rank Linear Attention for Efficient Diffusion Transformers</em>, <a href="https://arxiv.org/abs/2609.06712">arxiv:2609.06712</a>（RoPE 两难解法二，SparkDiffusion 默认稀疏模块，§3/§4/§5；OpenVid-1M 子集单阶段整体微调，§6）</li>
+<li>SparkDiffusion — <em>Mitigating the High-Sparsity Trap</em>, <a href="https://arxiv.org/abs/2609.23153">arxiv:2609.23153</a>（high-sparsity trap 诊断 + trajectory-mixed 蒸馏 + FP8，§7/§8；本站精读 <a class="wiki-link" data-slug="sparkdiffusion-2026" href="../../papers/sparkdiffusion-2026/index.html">sparkdiffusion-2026</a>）</li>
 <li>相邻：SLA2 [arxiv:2602.12675]、SVG-EAR [arxiv:2603.08982]、Sparse VideoGen [arxiv:2502.01776] / SVG2 [arxiv:2505.18875]——见调研页 <a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../../surveys/compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>。</li>
 </ul>
 <p><strong>代码仓库（本教程代码 verbatim 引自，行号经 sed 核对）</strong></p>
 <ul>
 <li><a href="https://github.com/thu-ml/SLA">thu-ml/SLA</a> — <code>sparse_linear_attention/core.py</code>、<code>utils.py</code>（§1/§2/§3/§4）</li>
-<li><a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a> — <code>networks/wan_rola_attention.py</code>（RoLA，§3/§4/§5）、<code>models/t2v_model_distill.py</code>（§6）、<code>ops/quantization/fp8_linear.py</code>（§7）</li>
+<li><a href="https://github.com/AlibabaResearch/SparkDiffusion">AlibabaResearch/SparkDiffusion</a> — <code>networks/wan_rola_attention.py</code>（RoLA，§3/§4/§5）、<code>models/t2v_model_finetune.py</code>（微调目标 + freeze-except-sparse，§6）、<code>models/t2v_model_distill.py</code>（§7）、<code>ops/quantization/fp8_linear.py</code>（§8）</li>
 <li><a href="https://github.com/hao-ai-lab/FastVideo">hao-ai-lab/FastVideo</a> — <code>fastvideo/attention/backends/video_sparse_attn.py</code>（VSA，§1）</li>
 </ul>
 <section class="comments" data-pagefind-ignore>
