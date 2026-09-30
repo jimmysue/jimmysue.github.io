@@ -31,6 +31,10 @@
   --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
           'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   --mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace;
+  /* Content column width. Coupled: the .toc hide breakpoint (§3) must be
+     ≥ content-width + 2×(230px toc + ~40px gaps) — media queries can't read
+     vars, so bump it by hand if you change this. */
+  --content-width: 920px;
 }
 
 :root[data-theme="dark"] {
@@ -75,7 +79,7 @@ body {
 }
 
 main {
-  max-width: 780px;
+  max-width: var(--content-width);
   margin: 0 auto;
   padding: 2rem 1.6rem 5rem;
 }
@@ -303,8 +307,8 @@ footer {
 .site-nav::after { content: ""; flex: 1 1 0; min-width: 0; }
 .site-nav > .site-nav__brand { order: 1; margin-right: auto; }
 .site-nav > .site-nav__links { order: 2; margin-left: auto; }
-.site-nav::before { order: 0; max-width: calc((100% - 780px) / 2); }
-.site-nav::after  { order: 3; max-width: calc((100% - 780px) / 2); }
+.site-nav::before { order: 0; max-width: calc((100% - var(--content-width)) / 2); }
+.site-nav::after  { order: 3; max-width: calc((100% - var(--content-width)) / 2); }
 
 .site-nav__brand {
   display: inline-flex;
@@ -600,7 +604,7 @@ footer {
 .toc {
   position: fixed;
   top: 5rem;
-  left: max(1.2rem, calc((100vw - 780px) / 2 - 260px));
+  left: max(1.2rem, calc((100vw - var(--content-width)) / 2 - 260px));
   width: 230px;
   max-height: calc(100vh - 8rem);
   overflow-y: auto;
@@ -640,7 +644,8 @@ footer {
 .toc a.active { color: var(--accent); border-left-color: var(--accent); }
 
 /* hide below 1280px: the fixed TOC would overlap the white main card (230px TOC vs (vw-780)/2 left gap) */
-@media (max-width: 1280px) { .toc { display: none; } }
+/* Hide breakpoint tracks --content-width (920px + toc columns); see §1 note. */
+@media (max-width: 1420px) { .toc { display: none; } }
 
 /* ===== §3 Post meta block ===== */
 .post-meta {
