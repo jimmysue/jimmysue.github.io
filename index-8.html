@@ -49,6 +49,20 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/worldforge-2026/index.html">WorldForge: 不训练,把 6-DoF 相机轨迹&quot;注射&quot;进 Wan2.1 视频扩散模型</a></h3>
+  <p class="post-card__tldr">Westlake AGI Lab + NTU (CVPR 2026 Highlight):IRR + FLF + DSG 三个 inference-time 模块插进 Wan2.1 I2V 的前 20 步采样。IRR 在干净 $\hat{x}_0$ 空间做 per-step predict-correct,FLF 利用 VAE channel 的运动语义分工 (channel 8 = 运动 / channel 13 = 纹理) 只覆写部分 channel,DSG 用 CFG-Zero 正交投影合并&quot;自由&quot;与&quot;受控&quot;两条路径。3D FID 96 / 4D FVD 93 SOTA,零训练。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/video.html">video</a>
+      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
+      <a class="tag-chip" href="concepts/wan2.html">wan2</a>
+      <span class="tag-chip tag-chip--more">+1 more</span>
+  </div>
+</div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
@@ -157,20 +171,6 @@
       <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
       <a class="tag-chip" href="concepts/multimodal.html">multimodal</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/rls-razor-2025/index.html">RL&#x27;s Razor: Why Online Reinforcement Learning Forgets Less</a></h3>
-  <p class="post-card__tldr">MIT Improbable AI 的诊断式论文:RL 比 SFT 少遗忘,根因不是负样本,而是 on-policy 采样隐式逼向 KL-min 解;forward KL on new task 是唯一可靠预测变量 (R²=0.96)。</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/rl.html">rl</a>
-      <a class="tag-chip" href="concepts/llm.html">llm</a>
-      <a class="tag-chip" href="concepts/alignment.html">alignment</a>
-      <span class="tag-chip tag-chip--more">+1 more</span>
   </div>
 </div>
 </div>

@@ -54,6 +54,21 @@
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-6-classes-modules/index.html">TS·06 类与模块:封装、契约、与 import/export</a></h3>
+  <p class="post-card__tldr">类的字段/构造器/访问修饰符(private/public/readonly)、implements 契约、extends 继承(含 class extends Error),
+以及 ESM 模块的具名导出、import type/export type、barrel 与 declare module。用 pi 的 Agent、FileError、EventStream 讲。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/classes.html">classes</a>
+      <a class="tag-chip" href="concepts/modules.html">modules</a>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-5-generics/index.html">TS·05 泛型:参数化的类型、约束、与工具类型</a></h3>
   <p class="post-card__tldr">泛型函数/接口/类、约束 extends、默认类型参数 = T,以及 pi 大量使用的工具类型
 (Partial/Pick/Omit/Record/Extract/ReturnType)。用 pi 的 Tool&lt;TParameters&gt;、EventStream&lt;T,R&gt; 讲透&quot;类型也能当参数&quot;。
@@ -167,21 +182,6 @@
       <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
       <a class="tag-chip" href="concepts/diffusion-transformer.html">diffusion-transformer</a>
       <span class="tag-chip tag-chip--more">+12 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-06</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/mfd-2026/index.html">MFD: 不比「瞬时速度」比「平均速度」——把时间积分当低通滤波器, 给 flow matching 蒸馏降方差</a></h3>
-  <p class="post-card__tldr">浙大/普林斯顿:现有蒸馏把 flow 的速度场硬转成 score, 单时刻匹配, 方差大、训练抖。MFD 改成匹配一段区间 [s,t] 上的**时间积分平均速度** (mean flow) —— 积分天然是低通滤波, 把瞬时速度里的高频噪声磨平, 梯度方差更低。理论上证明「匹配平均速度 ⇒ 分布对齐」(Mean Flow Matching 定理), 且 VSD 只是区间缩成一点 (s→t) 的退化特例。SANA 1.6B 上 4 步 FID(DINOv2) 43.68→33.28; 4D 占据预测单步 IoU 37.07 (teacher 10 步 37.52)。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <a class="tag-chip" href="concepts/distillation.html">distillation</a>
-      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>
