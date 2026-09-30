@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Scale-DiT：用窗口稀疏注意力把预训练扩散模型拉到 4K/8K</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点 (Motivation)</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法 (Method)</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 固定窗口的局部注意力——复杂度从二次到近线性</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 窗口优先重排——把稀疏 mask 变成内存连续的稠密块</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 低分辨率引导 + 缩放位置锚点——保住全局语义</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 参数高效联合去噪——只训 LoRA</a></li>
+    <li class="h3"><a href="#sec-2-5">消融决策表</a></li>
+    <li class="h2"><a href="#sec-3">3. 实验结果 (Results)</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节与工程 (Implementation)</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸 (Critique)</a></li>
+    <li class="h3"><a href="#sec-5-1">重排 &gt; 造 kernel</a></li>
+    <li class="h3"><a href="#sec-5-2">固定窗口 = 锁住外推</a></li>
+    <li class="h3"><a href="#sec-5-3">低秩全局 + 高秩局部分工</a></li>
+    <li class="h3"><a href="#sec-5-4">只在「变了的那条路径」上挂 LoRA</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Scale-DiT：Ultra-High-Resolution Image Generation with Hierarchical Local Attention</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2025-10-18</strong></span> · <span class="post-meta__paper-date">论文日期: 2025-10-18</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Yuyao Zhang, Yu-Wing Tai</span> · <span class="post-meta__venue">arXiv preprint</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2510.16325">arXiv:2510.16325</a> · <a class="post-meta__link" href="https://github.com/PeterYYZhang/UltraImageGen">代码</a> · <a class="post-meta__link" href="https://github.com/PeterYYZhang/UltraImageGen">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/sparse-attention.html">sparse-attention</a> <a class="concept-chip" href="../../concepts/block-sparse-attention.html">block-sparse-attention</a> <a class="concept-chip" href="../../concepts/window-attention.html">window-attention</a> <a class="concept-chip" href="../../concepts/high-resolution-generation.html">high-resolution-generation</a> <a class="concept-chip" href="../../concepts/text-to-image.html">text-to-image</a> <a class="concept-chip" href="../../concepts/diffusion-transformer.html">diffusion-transformer</a> <a class="concept-chip" href="../../concepts/rope.html">rope</a> <a class="concept-chip" href="../../concepts/lora.html">lora</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/flux.html">flux</a> <a class="concept-chip" href="../../concepts/diffusion-acceleration.html">diffusion-acceleration</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig2-architecture.png" alt="Scale-DiT 注意力块示意:高清 latent 切窗口 + 窗口优先重排 + 低清引导 + LoRA">
+  <figcaption>
+    <strong>Fig. 1（原文 Fig. 2）</strong> — 注意力块改造总览。<strong>左列</strong>:高清 latent <em>X</em> 切成局部窗口(红格),按<strong>窗口优先(window-first)</strong>展平,使每个窗口在注意力图上退化成贴着对角线的稠密块(>90% 稀疏);低清引导图 <em>X<sub>lr</sub></em>(黄)经<strong>位置缩放</strong>为每个窗口注入全局上下文。<strong>右列</strong>:<em>X</em> 与 <em>X<sub>lr</sub></em> 拼进同一序列做联合去噪,只有处理 <em>X<sub>lr</sub></em> 的 Q/K/V 挂 LoRA(🔥),<em>X</em> 仍用原始权重(❄️);attention mask 在 kernel 里直接跳过被 mask 的 tile。
+  </figcaption>
+</figure>
+<blockquote>
+<p><strong>一句话版本</strong>:图还是 65536 个 token,一个不少;省的是「每个 token 要跟多少个 token 算注意力」——从「全图」降到「一个固定大小的窗口」。窗口大小钉死不随分辨率变,于是复杂度从二次掉到近线性。</p>
+</blockquote>
+<blockquote>
+<p><strong>命名提示</strong>:arxiv 摘要页题名为 <strong>Scale-DiT</strong>,PDF 正文通篇写作 <strong>UltraImageGen</strong>,官方代码库也叫 UltraImageGen——是同一份工作的不同版本名。另有一篇同期的 <a href="https://arxiv.org/abs/2510.18775">arxiv:2510.18775</a> 是<strong>视频</strong>方向的同名 &quot;UltraGen&quot;,勿混。</p>
+</blockquote>
+<h2 id="sec-1">1. 出发点 (Motivation)</h2>
+<p>FLUX、SD3 这类 DiT 文生图模型的训练分布基本卡在 2MP(约 1K–2K)以内。想直接生成 4K(4096²)甚至 8K,会同时撞两堵墙:</p>
+<ol>
+<li><strong>注意力的 O(N²) 墙。</strong> token 数 <span class="math inline">\(N = H\cdot W\)</span>。从 1024²(4096 token)到 4096²(65536 token),token 数涨 16 倍,注意力成本涨 <strong>256 倍</strong>——即便有 FlashAttention 也扛不住。</li>
+<li><strong>数据墙。</strong> 高质量 4K/8K 训练图稀缺,原生高分辨率训练(如 Sana、Diffusion-4K)代价高昂,且在缺高清数据的分辨率上质量会退化、对长宽比敏感。</li>
+</ol>
+<p>已有的免训练外推路线(DemoFusion、HiFlow、I-MAX 等)绕开了数据问题,但要么继承了沉重的运行时/显存开销,要么在跨窗口的长程一致性上出问题(重复内容、结构断裂)。而做局部注意力的高效方法(CLEAR、STA 等)又往往为了效率牺牲全局一致性,或需要随分辨率不断加大窗口。</p>
+<p>Scale-DiT 的主张:<strong>直接复用预训练骨干,不改架构、不需原生高分辨率数据</strong>,只在注意力块上做三件事——(i) 固定窗口的局部注意力把复杂度压到近线性;(ii) 一路低分辨率引导 + 缩放位置锚点保住全局语义;(iii) 只训 LoRA 完成适配,且训练数据全在 1K 这一档。</p>
+<div class="term-grid">
+  <div class="card"><h4>latent / token</h4><p>图先经 VAE 压 16× 成 latent,再切成 patch 展平成 token 序列送进 DiT;1024² 图 → 约 4096 个 token。</p></div>
+  <div class="card"><h4>窗口注意力</h4><p>把 token 网格切成固定大小的小块,注意力只在块内算,而不是全图两两算——牺牲部分长程连接换取线性成本。</p></div>
+  <div class="card"><h4>RoPE</h4><p>旋转位置编码,靠相对角度告诉模型 token 间的空间距离;分辨率一大,绝对坐标就外推出训练见过的范围,导致失真。</p></div>
+  <div class="card"><h4>LoRA</h4><p>只在权重旁挂一对低秩矩阵做微调,冻结原权重;这里只给「处理低清引导」的 Q/K/V 挂,原生生成能力不动。</p></div>
+  <div class="card"><h4>flow matching</h4><p>FLUX 系列的训练目标:让网络回归从噪声到数据的速度场 $u_t$,是扩散/整流流的连续时间形式。</p></div>
+  <div class="card"><h4>block-sparse / SageAttention</h4><p>把注意力矩阵按 tile 分块,整块被 mask 掉就<strong>不计算</strong>——真省 FLOPs 而非先算满再乘零。</p></div>
+</div>
+<h2 id="sec-2">2. 方法 (Method)</h2>
+<p>整个方法可以拆成四步,前两步解决「怎么把 token 长度降下来还跑得快」,后两步解决「降下来后怎么不崩全局」。</p>
+<h3 id="sec-2-1">2.1 固定窗口的局部注意力——复杂度从二次到近线性</h3>
+<p>把高清 latent <span class="math inline">\(X \in \mathbb{R}^{H\times W}\)</span> 切成互不重叠的窗口 <span class="math inline">\(x_i \in \mathbb{R}^{l\times l}\)</span>,注意力在每个窗口内独立计算:</p>
+<div class="math block">
+\[O(N^2)\ \longrightarrow\ O\!\left(\left\lceil \tfrac{H}{l}\right\rceil \cdot \left\lceil \tfrac{W}{l}\right\rceil \cdot (l^2)^2\right) \approx O(N\cdot l^2)\]
+</div>
+<p class="math-translation">—— 翻译:总成本 = 窗口数量 ×(每个窗口内部的注意力成本)。窗口数量正比于 N,而每个窗口的成本 $(l^2)^2$ 是<strong>常数</strong>(因为 $l$ 固定),所以总成本随 N 线性增长,而不再是 $N^2$。</p>
+<p>关键是 <strong><span class="math inline">\(l\)</span> 钉死不变</strong>。论文取 <span class="math inline">\(l=16\)</span> 个 token(对应 256×256 像素窗口,因 VAE 下采样 16×,256/16=16)。选 16 有个硬件理由:GPU kernel 的 tile 粒度在 128 附近,窗口太小(token 数 &lt; 128)喂不满 kernel,太大又对质量没额外收益。代入 4K:</p>
+<div class="math block">
+\[O(65536^2)\ \longrightarrow\ O(65536\cdot 16^2)\quad\Rightarrow\quad \textbf{256}\times\ \text{缩减}\]
+</div>
+<p class="math-translation">—— 翻译:每个 query 从「看全图 65536 个 key」降到「看窗口内 256 个 key」,注意力矩阵直接小 256 倍。</p>
+<p>为了不让窗口边界出现割裂,还额外放开了<strong>相邻窗口</strong>的有限跨窗注意力(下面代码的 4-邻窗)。</p>
+<h3 id="sec-2-2">2.2 窗口优先重排——把稀疏 mask 变成内存连续的稠密块</h3>
+<p>这是全篇最容易被略过、却决定「稀疏能不能真的跑快」的一步。</p>
+<p>默认的行扫描(raster)排列下,同一窗口的 token 在序列里是<strong>散开</strong>的(隔一整行才接上下一行),对应的窗口内注意力 mask 是一堆零散对角小点,块稀疏 kernel 对这种布局极其低效。解决办法:先按窗口把 token <strong>重排成连续块</strong>,于是「窗口内注意力」在矩阵上就是一串<strong>贴着对角线的稠密方块</strong>,kernel 可以整块跳过 mask 区域。</p>
+<p class="code-source">repo/src/flux/pipeline_tools.py:L310-L326 — 窗口优先重排,把每个窗口的 token 压成内存连续块</p>
+```python
+def window_permutation(H: int, W: int, Wh: int, Ww: int, hierarchical: bool = False) -> torch.Tensor:
+    """
+    返回排列 idx,使 x.view(H*W)[idx] 按 window-by-window 重排
+    (窗口间行扫描,窗口内行扫描)。
+    """
+    idx = torch.arange(H * W).reshape(H, W)
+    # unfold 把 (H,W) 切成 (nWh, nWw, Wh, Ww):前两维=窗口坐标,后两维=窗口内坐标
+    patches = idx.unfold(0, Wh, Wh).unfold(1, Ww, Ww)   # (nWh, nWw, Wh, Ww)
+    perm = patches.contiguous().view(-1)                # 展平 → 同窗口 token 相邻
+    return perm
+```
+<p>推理主循环里,latent、位置 id、引导图<strong>全部按同一个排列重排</strong>,注意力算完再用逆排列还原回图像空间。这样每个窗口都落在一个固定的 256×256 RoPE 位置范围内——<strong>正好是预训练时见过的相对范围</strong>,不需要把位置编码外推到没学过的尺度。</p>
+<p class="code-source">repo/src/flux/generate2.py:L598-L609 — 用 16×16 窗口重排 HR token,并保存逆排列</p>
+```python
+hr_permutation_idx = window_permutation(
+    H=model_config["image_size"][0] // patch_size,
+    W=model_config["image_size"][1] // patch_size,
+    Wh=16, Ww=16,                          # 固定 16×16 token = 256×256 像素窗口
+)
+inv_hr_permutation_idx = inverse_permutation(hr_permutation_idx)   # 算完注意力后还原
+latent_image_ids = latent_image_ids[:, hr_permutation_idx, ]
+latents          = latents[:, hr_permutation_idx, ]
+latents_guidance = latents_guidance[:, hr_permutation_idx, ]       # 引导图也重排,保持对齐
+```
+<p>窗口内 mask 的构造(节选):同一窗口 ID 互相可见;做 shifted window 的层再额外放开上下左右 4 邻窗,让信息跨窗口流动(Swin 思路):</p>
+<p class="code-source">repo/src/flux/block2.py:L383-L412 — 窗口内注意力 + 4 邻窗跨窗 mask</p>
+```python
+window_ids = window_h_ids * w_windows + window_w_ids
+same_window_mask = (window_ids.unsqueeze(1) == window_ids.unsqueeze(0))  # 同窗才可见
+# shifted 层:额外放开 4 邻窗(曼哈顿距离 <1),消除边界割裂
+if shift_size_H > 0 or shift_size_W > 0:
+    dh = torch.abs(window_h_ids.unsqueeze(1) - window_h_ids.unsqueeze(0))
+    dw = torch.abs(window_w_ids.unsqueeze(1) - window_w_ids.unsqueeze(0))
+    window_mask = (dh + dw) < 1
+else:
+    window_mask = same_window_mask
+attention_mask[hi_res_start:hi_res_end, hi_res_start:hi_res_end] = window_mask
+```
+<h3 id="sec-2-3">2.3 低分辨率引导 + 缩放位置锚点——保住全局语义</h3>
+<p>只看局部会「细节清晰但整体乱套」。核心洞察:<strong>全局长程依赖主要影响整体结构/布局,对局部细节影响很小</strong>。于是另生成一张低清引导图 <span class="math inline">\(X_{lr}\in\mathbb{R}^{h\times w}\)</span> 提供全局上下文。它的位置索引 <span class="math inline">\((m,n)\)</span> 按比例 <span class="math inline">\(\rho=\tfrac{H}{h}\)</span>(经验取 4)放大:</p>
+<div class="math block">
+\[(\tilde m,\tilde n) = (\rho\cdot m,\ \rho\cdot n)\]
+</div>
+<p class="math-translation">—— 翻译:把低清图的坐标乘 4,投影到高清图的同一空间尺度上;这样每个低清 token 就成了高清画布上一个「锚点」,告诉对应窗口「你这块在大图里该长什么样」。</p>
+<p>由此得到的注意力结构:<strong>每个高清窗口</strong> attends 到「自己窗口内 + 相邻 token + 对应缩放区域的 <span class="math inline">\(X_{lr}\)</span>」;<strong><span class="math inline">\(X_{lr}\)</span> 之间</strong>做全局自注意力;文本 token 全局可见。代码里 HR→LR 的对齐块就是按窗口分组连到对应的 LR 窗口:</p>
+<p class="code-source">repo/src/flux/block2.py:L423-L442 — 窗口优先下,把每组 HR 窗口对齐到对应 LR 区域</p>
+```python
+if model_config.get("permute_window_first", False):
+    hi_windows_count = math.ceil(H_p / window_patches_H) * math.ceil(W_p / window_patches_W)
+    lr_windows_count = math.ceil(low_res_len / window_area)
+    group_size_windows = math.ceil(hi_windows_count / lr_windows_count)
+    for i in range(lr_windows_count):
+        hi_win_start, hi_win_end = i * group_size_windows, min((i+1)*group_size_windows, hi_windows_count)
+        hi_res_chunk_start = hi_res_start + hi_win_start * window_area
+        hi_res_chunk_end   = hi_res_start + hi_win_end   * window_area
+        low_res_window_start = hi_res_end + i * window_area
+        low_res_window_end   = min(hi_res_end + (i+1)*window_area, hi_res_end + low_res_len)
+        attention_mask[hi_res_chunk_start:hi_res_chunk_end,
+                       low_res_window_start:low_res_window_end] = True   # 该组窗口看对应 LR 块
+```
+<p>位置缩放本身在 transformer 里就是一次乘法(<code>scale_PE</code>):</p>
+<p class="code-source">repo/src/flux/transformer2.py:L220-L222 — 低清引导的位置 id 按 HR/LR 比例放大</p>
+```python
+if model_config.get("scale_PE", False):
+    hr_lr_scale = model_config["image_size"][0] // model_config["joint_denoise_size"][0]
+    low_res_img_ids = low_res_img_ids * hr_lr_scale   # ρ = H/h,把 LR 坐标投影到 HR 尺度
+```
+<h3 id="sec-2-4">2.4 参数高效联合去噪——只训 LoRA</h3>
+<p>把 <span class="math inline">\(X_{lr}\)</span> 和文本-图像序列拼成 <span class="math inline">\([C_T, X, X_{lr}]\)</span> 一起过 DiT。但缩放位置索引<strong>改变了 RoPE 的频率特性</strong>,直接用原权重会失配。解法:<strong>只给处理 <span class="math inline">\(X_{lr}\)</span> 的 Q/K/V 挂 LoRA</strong>(<span class="math inline">\(\tilde Q,\tilde K,\tilde V\)</span>),而高清窗口 <span class="math inline">\(X\)</span> 仍用原始 <span class="math inline">\(Q,K,V\)</span>——既学会读全局引导,又不破坏预训练的局部生成能力。统一注意力(省略文本项)为:</p>
+<div class="math block">
+\[\text{Softmax}\!\left(\frac{\big([Q(X),\tilde Q(X_{lr})]\big)\big([K(X),\tilde K(X_{lr})]^{T}\big)\cdot M}{\sqrt d}\right)\big[V(X),\tilde V(X_{lr})\big]\]
+</div>
+<p class="math-translation">—— 翻译:高清 token 用原权重投影、低清引导 token 用 LoRA 投影,拼成一个统一的 Q/K/V,再乘上稀疏 mask $M$ 一次性算完;$M$ 就是 2.2/2.3 里那张「窗口内 + 邻窗 + 对应 LR」的布尔矩阵。</p>
+<p>代码里这个「HR 关 LoRA / LR 开 LoRA」的门控是逐次显式切换的:</p>
+<p class="code-source">repo/src/flux/block2.py:L563-L601 — HR 走原权重(LoRA off),LR 引导走 LoRA(on),再拼进统一序列</p>
+```python
+# 高清 token:关掉 LoRA,用原始预训练 Q/K/V,保住局部生成能力
+with enable_lora(qkv_modules, False):
+    query, key, value, *_ = _get_qkv_projections(attn, hidden_states, encoder_hidden_states)
+...
+# 低清引导 token:打开 LoRA,用微调后的 Q̃/K̃/Ṽ 适配放缩位置编码
+if low_res_guidance is not None:
+    with enable_lora(qkv_modules, True):
+        lr_q, lr_k, lr_v, *_ = _get_qkv_projections(attn, low_res_guidance, None)
+    query = torch.cat([query, lr_q], dim=1)   # 拼进统一序列,一次注意力算完
+    key   = torch.cat([key,   lr_k], dim=1)
+    value = torch.cat([value, lr_v], dim=1)
+```
+<p>训练目标是带低清引导的 flow matching 速度回归:</p>
+<div class="math block">
+\[L_{\mathrm{FM}}(\theta; C_T, X_{lr}) = \mathbb{E}_{t\sim\mathcal U(0,1),\ X_t}\Big[\big\| f_\theta(X_t, t, C_T, X_{lr}) - u_t(X_t; C_T, X_{lr})\big\|^2\Big]\]
+</div>
+<p class="math-translation">—— 翻译:和普通 flow matching 一样让网络拟合速度场 $u_t$,唯一区别是把低清引导 $X_{lr}$ 也作为条件喂进去。$X_{lr}$ 在 256×256 生成,$X$ 在 1K×1K 训练——模型只是在<strong>适配一种新注意力模式</strong>,不是在学高清新特征,所以不需要原生 4K 数据。</p>
+<p>另外推理时还有一个免费加速:低清引导已经编码了全局结构,把它上采样+锐化+加噪到中间时刻 <span class="math inline">\(t\)</span> 作为高清 latent 的初始化 <span class="math inline">\(X_{hr}^{t}=\alpha X_T + (1-\alpha)X_t^{ref}\)</span>,直接<strong>跳过前几步去噪</strong>。</p>
+<h3 id="sec-2-5">消融决策表</h3>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>起点</th>
+<th>消融方向</th>
+<th>最终选择</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>窗口大小 ws</td>
+<td>全图注意力</td>
+<td>256 / 512 / 1024</td>
+<td><strong>256</strong></td>
+<td>FID 差异不显著(67.23 vs 66.31 vs 67.83),小窗口最省算力;再小则 token &lt; 128 喂不满 kernel</td>
+</tr>
+<tr>
+<td>引导比例 ρ</td>
+<td>—</td>
+<td>2 / 4</td>
+<td><strong>4</strong></td>
+<td>FID 几乎不变,ρ 越大低清图越小、越省;上限受 kernel 粒度约束</td>
+</tr>
+<tr>
+<td>是否看低清 <span class="math inline">\(X_{lr}\)</span>(Case 1)</td>
+<td>只看文本</td>
+<td>看文本+<span class="math inline">\(X_{lr}\)</span></td>
+<td><strong>看 <span class="math inline">\(X_{lr}\)</span></strong></td>
+<td>去掉全局引导 → 多脸/重复等语义割裂(见 Fig. 2)</td>
+</tr>
+<tr>
+<td>是否看邻窗(Case 2)</td>
+<td>只看自己窗口</td>
+<td>放开 4 邻窗</td>
+<td><strong>看邻窗</strong></td>
+<td>消除窗口边界接缝,额外成本 &lt; 2%</td>
+</tr>
+<tr>
+<td>token 排列</td>
+<td>行扫描 raster</td>
+<td>窗口优先 window-first</td>
+<td><strong>window-first</strong></td>
+<td>稀疏 mask 退化成连续稠密块,kernel 才能整块跳过</td>
+</tr>
+<tr>
+<td>位置编码</td>
+<td>原始 RoPE</td>
+<td>缩放 + LoRA 适配</td>
+<td><strong>缩放+LoRA</strong></td>
+<td>缩放坐标改了 RoPE 频率,只给 LR 路径挂 LoRA 修正,HR 路径不动</td>
+</tr>
+</tbody>
+</table>
+<figure>
+  <img class="zoomable" src="figures/fig6-ablation.png" alt="注意力模式消融:去掉低清引导出现多脸/割裂;不看邻窗出现边界接缝">
+  <figcaption>
+    <strong>Fig. 2（原文 Fig. 6）</strong> — 注意力模式消融,直观解释「为什么稀疏要这么切」。<strong>左二</strong>:$X$ 只看文本 vs 看文本+$X_{lr}$——去掉低清全局引导会出现多脸/结构割裂,印证 <strong>Case 1</strong> 里低清锚点的作用。<strong>右二</strong>:窗口看邻窗 vs 只看自己——不放开邻窗会在窗口边界留下明显接缝,印证 <strong>Case 2</strong>(代价 &lt; 2%)。
+  </figcaption>
+</figure>
+<h2 id="sec-3">3. 实验结果 (Results)</h2>
+<p><strong>基线与设置。</strong> 骨干 FLUX.1-dev;对比 9 个能出 4K 的方法,含训练型(SANA、Diffusion-4K、URAE、UltraFLUX、UltraPixel)和免训练型(DemoFusion、DiffuseHigh、I-MAX、HiFlow、CLEAR+SDEdit)。指标:CLIP-IQA、FID、FID_patch、IS、IS_patch、CLIP Score(1000 条 GPT-4o 生成的 prompt,FID 对 10000 张 LAION-High-Res 真实图)。</p>
+<figure>
+  <img class="zoomable" src="figures/tab1-comparison.png" alt="4K×4K 定量对比表:Scale-DiT 各指标与训练型/免训练型方法对比">
+  <figcaption>
+    <strong>Fig. 3（原文 Table 1）</strong> — 4K×4K 定量对比。<strong>Ours</strong>(FLUX.1 底座)CLIP-IQA <strong>0.4505</strong>(最高)、FID 67.03、FID_patch <strong>61.78</strong>(最低)、IS <strong>17.21</strong>(最高);即便对比原生 4K 训练的方法也全面竞争。<strong>Ours(FLUX.2)</strong>更进一步(FID 61.38 / FID_patch 59.82)。
+  </figcaption>
+</figure>
+<p><strong>质量。</strong> 在同样 FLUX.1-dev 底座下,Ours 在 CLIP-IQA / FID_patch / IS 上取得最优,FID 与最好的训练型方法(URAE 67.39)持平——<strong>免高清数据却打平了吃 4K 数据训练的方法</strong>。GenEval(Table 2)从 1K 到 4K 分数稳定(Overall 0.66→0.67),印证输出质量对分辨率不敏感。</p>
+<figure>
+  <img class="zoomable" src="figures/fig4-latency.png" alt="4K 生成的延迟/单步时间/显存三联柱状图对比">
+  <figcaption>
+    <strong>Fig. 4（原文 Fig. 4）</strong> — 生成一张 4K latent(65536 token)的开销。<strong>总延迟</strong>:Ours 152.21s vs URAE 509.88 / I-MAX 659.35 / FLUX 536.79——快 <strong>1.7×–4.3×</strong>。<strong>单步时间</strong>:Ours 7.81s,所有方法都被拉开 >2.3×。<strong>显存</strong>:Ours 39.71GB,最低。
+  </figcaption>
+</figure>
+<p><strong>效率与可扩展性。</strong> 排除底座 ~32GB 后,本方法只需 <strong>7.3GB 额外显存</strong>,而朴素 FlashAttention 实现要 15.6GB——省一半多,消费级卡不 offload 就能跑。随分辨率放大的曲线更能说明问题:</p>
+<figure>
+  <img class="zoomable" src="figures/fig5-scaling.png" alt="1K 到 8K 的单步延迟/注意力 FLOPs/总推理时间三条 scaling 曲线">
+  <figcaption>
+    <strong>Fig. 5（原文 Fig. 5）</strong> — 1K→8K 的可扩展性。8K 处相对 FlashAttention-2:单步 <strong>6.93×</strong> 提速、注意力层 FLOPs <strong>130.4×</strong> 缩减、总推理 <strong>10.77×</strong> 提速。「X」= OOM:线性注意力 8K 就 OOM,朴素矩阵注意力 3K 就 OOM,而 Scale-DiT 曲线始终最平。
+  </figcaption>
+</figure>
+<p>配合 FLUX.2-Klein-9B(时间蒸馏 4 步模型),可做到 <strong>4K &lt; 30 秒、8K &lt; 2 分钟</strong>。</p>
+<h2 id="sec-4">4. 实现细节与工程 (Implementation)</h2>
+<ol>
+<li><strong>底座与微调</strong>:FLUX.1-dev + Diffusers;PEFT LoRA,<strong>rank = alpha = 16</strong>,只挂在 DiT 各块的 Q/K/V 投影上(<a href="repo/src/flux/block2.py">block2.py:L563-L601</a>)。优化器 Prodigy,lr=1、weight decay 0.01,开 bias correction 与 safeguard warmup。</li>
+<li><strong>注意力 kernel</strong>:实现遵循 FlashAttention-2 + <strong>SageAttention</strong> 块稀疏。kernel tile 设 <strong>Q-block=128、K-block=64</strong>(块稀疏 Flash 用 128),匹配 A6000 Ada 上 SageAttention 支持的粒度。实际调用 <code>block_sparse_sage2_attn_cuda</code> 整块跳过被 mask 的 tile(<a href="repo/src/flux/block2.py">block2.py:L36-L54</a>)。</li>
+<li><strong>mask 是预计算落盘的</strong>:代码按分辨率把块稀疏 mask 事先算好存成 <code>.pt</code>(如 <code>(4096, 4096)..._downsampled_128_test-window.pt</code>),推理时按 <code>image_size</code> 直接查表加载再上 GPU 缓存(<a href="repo/src/flux/block2.py">block2.py:L100-L177</a>),避免每步重建稠密 mask 爆显存——这是论文正文没细讲、但对显存很关键的一步工程。</li>
+<li><strong>RoPE 设置</strong>:推理时 RoPE 的 NTK factor 设为 10,并关掉 scheduler 的 dynamic shifting(跟随 HiFlow/I-MAX 的做法);低清引导的位置 id 用 <code>scale_PE</code> 按 HR/LR 比例放大(<a href="repo/src/flux/transformer2.py">transformer2.py:L220-L222</a>)。</li>
+<li><strong>训练规模</strong>:20000 步,2×A6000 Ada(48GB),每卡 batch 1、梯度累积 4 步。微调数据是用 FLUX.1-dev 自生成的 <strong>10000 张 1024×1024</strong> 图 + 随机高质量 prompt——完全是 commodity 分辨率,<strong>无一张原生 4K</strong>。评测在单张 RTX Pro 6000 Blackwell(96GB)。</li>
+<li><strong>递归放大</strong>:高清输出可以再作为下一级的低清引导,理论上支持任意大尺度(8K 就是这么外推出来的)。</li>
+</ol>
+<p><strong>论文 vs 代码的出入(值得注意):</strong></p>
+<ul>
+<li><strong>重排方式</strong>:arxiv v1 摘要提到用 <strong>Hilbert 曲线</strong>排序,但公开代码里默认走的是更简单的 <code>window_permutation</code>(窗口内行扫描);<code>hilbert_window_permutation</code> 也实现了(<a href="repo/src/flux/pipeline_tools.py">pipeline_tools.py:L350</a>),但不是默认路径。两者目的一致(让稀疏退化成连续块),Hilbert 只是局部性更好的可选项。</li>
+<li><strong>跨窗注意力</strong>:论文说「相邻区域的有限跨窗注意力」,代码里对应两条实现——<code>shifted window</code>(放开 4 邻窗)和一条可选的 <code>sliding_window</code> 滑窗路径(<a href="repo/src/flux/block2.py">block2.py:L331-L371</a>),比正文一句话更细。</li>
+<li><strong>题名不一致</strong>:摘要页 Scale-DiT / 正文 UltraImageGen / 代码库 UltraImageGen(见开头命名提示)。</li>
+</ul>
+<h2 id="sec-5">5. 批判与延伸 (Critique)</h2>
+<p><strong>优点。</strong> 思路干净且落地性强:不改架构、不需高清数据、只训 16-rank LoRA,就把预训练 DiT 拉到 8K,且 4K 质量能打平原生 4K 训练的方法。「窗口优先重排让稀疏变稠密块」是真正让稀疏 kernel 跑起来的关键工程,可迁移性很高。</p>
+<p><strong>弱点与存疑。</strong></p>
+<ol>
+<li><strong>长程一致性靠低清图,天花板就是低清图。</strong> 全局结构完全由 256×256 的 <span class="math inline">\(X_{lr}\)</span> 决定,窗口间没有直接的高频交互。若目标图存在跨越大半张画布的精细长程结构(超长文字、连续纹理、镜面对称),低清锚点未必兜得住——论文的定性例子偏向自然场景/人像,这类硬 case 没有正面压力测试。</li>
+<li><strong>邻窗只放开 1 圈(4-邻)。</strong> 边界接缝在 &lt;2% 成本下缓解,但更大范围的跨窗依赖仍被切断;这是「效率 vs 长程」的固定取舍,不是自适应的。</li>
+<li><strong>mask 预计算落盘 = 分辨率被枚举死。</strong> 每个目标分辨率都要事先建好对应的 <code>.pt</code> mask,换非常规长宽比就得重新构建,不是任意分辨率即开即用。</li>
+<li><strong>评测基准是自建的。</strong> 1000 条 prompt 由 GPT-4o 生成、FID 对 LAION-High-Res——没有跑公认的标准高分辨率基准,跨论文可比性打折扣。</li>
+<li><strong>FID 绝对值偏高</strong>(60+),反映的是「4K 图 resize 到 FID 输入尺寸」这一评测本身的局限,但也说明该指标在此设定下分辨力有限,更多要看 FID_patch 和定性。</li>
+</ol>
+<p><strong>延伸阅读 —— 与本站相似工作的交叉验证</strong></p>
+<p>本站两篇调研都收录了 Scale-DiT,可交叉印证它在「超高分辨率」与「稀疏注意力」两张地图上的位置:</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Scale-DiT(本文)</th>
+<th><a class="wiki-link" data-slug="native-8k-t2i-2026" href="../../surveys/native-8k-t2i-2026/index.html">native-8k-t2i-2026</a>(超高分辨率 T2I 调研)</th>
+<th><a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../../surveys/compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a>(补偿式稀疏注意力调研)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>攻 O(N²) 的角度</td>
+<td>窗口局部注意力 + 低清全局锚点</td>
+<td>把它归为「从注意力效率攻 8K」的代表(区别于反演/频域派)</td>
+<td>把它归为图像侧的「局部/窗口化」路线</td>
+</tr>
+<tr>
+<td>8K 是原生还是外推</td>
+<td><strong>外推</strong>(4K 介于原生与免训练之间,8K 明确外推)</td>
+<td>同结论:业界无原生 8K,8K 全靠免训练外推</td>
+<td>一致:图像侧可零/免训练换窗口注意力跨到 8K</td>
+</tr>
+<tr>
+<td>稀疏后要不要补偿</td>
+<td>不补偿,靠低清引导保全局</td>
+<td>—</td>
+<td><strong>对照点</strong>:视频侧因时序一致性要「块稀疏+补偿(SLA/VSA)」甚至微调;图像侧因注意力高秩、无时间冗余,主流是线性化/窗口化,<strong>不补偿</strong></td>
+</tr>
+<tr>
+<td>训练成本</td>
+<td>只训 LoRA,1K 数据</td>
+<td>属「介于原生和免训练之间」的少数派</td>
+<td>与 LinFusion 并列为「免训练/轻训练即可换注意力」的图像侧证据</td>
+</tr>
+</tbody>
+</table>
+<p><strong>分歧成因</strong>:三者不矛盾,而是同一事实的三个切面。核心分歧点在「稀疏之后要不要补偿」——<a class="wiki-link" data-slug="compensated-sparse-attention-2026" href="../../surveys/compensated-sparse-attention-2026/index.html">compensated-sparse-attention-2026</a> 指出<strong>视频</strong>扩散因为要维持时间轴一致性,块稀疏后普遍需要补偿分支甚至蒸馏;而 Scale-DiT 所在的<strong>图像</strong>侧没有时间冗余、注意力更高秩,反而可以「零训练/轻训练直接换窗口注意力」而不崩——这正是它敢只训 LoRA、不加补偿分支的底层原因。</p>
+<p><strong>研究启发(可迁移的套路)</strong></p>
+<div class="summary-grid">
+  <div class="card"><h3 id="sec-5-1">重排 &gt; 造 kernel</h3><p>稀疏能不能跑快,常常不取决于稀疏率,而取决于内存布局。先重排让稀疏退化成连续稠密块,就能直接复用现成块稀疏 kernel——比手写稀疏 kernel 省事得多。</p></div>
+  <div class="card"><h3 id="sec-5-2">固定窗口 = 锁住外推</h3><p>把窗口大小钉在预训练见过的 RoPE 范围内,不仅降复杂度,还顺手规避了位置编码外推问题。「效率」和「不外推」是同一个设计的两个红利。</p></div>
+  <div class="card"><h3 id="sec-5-3">低秩全局 + 高秩局部分工</h3><p>反直觉点:全局长程依赖其实低秩(只管布局),用一张小图 + 缩放锚点就够;高频细节才需要高分辨率算力。按「谁负责什么」拆分注意力预算,比一视同仁的全注意力高效得多。</p></div>
+  <div class="card"><h3 id="sec-5-4">只在「变了的那条路径」上挂 LoRA</h3><p>缩放位置编码只影响 LR 分支,就只给 LR 的 Q/K/V 挂 LoRA,HR 分支原封不动。改动最小化 → 训练最省、原能力不退化。</p></div>
+</div>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>
