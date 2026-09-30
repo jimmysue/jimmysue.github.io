@@ -356,7 +356,7 @@
 <h2 id="sec-4">4. 实现细节 (Implementation)</h2>
 <p>仓库 <a href="https://github.com/heheyas/context-scaling">https://github.com/heheyas/context-scaling</a> 开源了 evalkit（GPG/ED 度量）、pe-rsft（prompter 训练数据管线）、training（Qwen-Image 训练）、demo（在线 SP 编辑）。下面把论文主张锚到具体函数。</p>
 <p><strong>① GPG 的核心就是&quot;两遍打分求差&quot;（Eq. 1）。</strong> 同一段 caption 打两遍分：一遍给图（grounded）、一遍不给图（prior），差就是 grounding gain。注意只在<strong>内容 token</strong>（value 而非 JSON 键/括号）上算，去掉跨字段的上下文噪声。</p>
-<!-- code-source: repo/evalkit/detailness/gpg/score.py:L216-L264 — GPG 逐样本打分：caption span 上的 NLL，带内容掩码 -->
+<p class="code-source">repo/evalkit/detailness/gpg/score.py:L216-L264 — GPG 逐样本打分：caption span 上的 NLL，带内容掩码</p>
 <pre><code class="language-python">@torch.no_grad()
 def score(model, processor, caption, image, system_prompt=None, content_mask=None):
     &quot;&quot;&quot;Return (sum_nll, n_tokens, mean_nll) over the caption span.
@@ -376,7 +376,7 @@ def score(model, processor, caption, image, system_prompt=None, content_mask=Non
     return s, n, s / max(n, 1)
 </code></pre>
 <p><strong>②（一处值得说清的实现细节，不是 bug）论文的 GPG 是&quot;求和&quot;，但 <code>score.py</code> 每样本存的是&quot;逐 token 均值差&quot;。</strong> 上面的 <code>score()</code> 返回 <code>mean_nll</code>，逐样本记录里 <code>gpg = mp - mg</code> 是<strong>均值差</strong>（per-token PMI，约 0.2~2 nats）；而论文 Eq. 1 / Fig. 7 里 GPG 是<strong>内容 token 上的求和</strong>（100~225 nats）。二者靠聚合那一步对上——<code>aggregate_gpg</code> 显式地 <code>gpg_mean * n_tokens</code> 还原成总和：</p>
-<!-- code-source: repo/evalkit/detailness/gpg/io.py:L172-L178 — 聚合时把逐 token 均值 × token 数还原成论文的 total GPG -->
+<p class="code-source">repo/evalkit/detailness/gpg/io.py:L172-L178 — 聚合时把逐 token 均值 × token 数还原成论文的 total GPG</p>
 <pre><code class="language-python">def aggregate_gpg(records):
     &quot;&quot;&quot;Group into per-(kind, level) lists of *total* GPG values
     (= gpg_mean * n_tokens) for each cell.&quot;&quot;&quot;
@@ -387,7 +387,7 @@ def score(model, processor, caption, image, system_prompt=None, content_mask=Non
 </code></pre>
 <p>也就是说 Eq. 1 被工程上拆成了&quot;逐样本存 per-token PMI + 聚合时乘 token 数&quot;两步——既方便按内容掩码复用、也解释了为什么 total GPG 会随 caption 变长而增长。读代码时若只看 <code>score.py</code> 会以为 GPG 是 per-token，要连 <code>io.py</code> 一起看才对得上论文。</p>
 <p><strong>③ ED 就是 F0.5(精确率, 召回率)，偏向精确率（Eq. 2）。</strong> 精确率=caption 属性里被图支持的比例，召回率=图属性里被 caption 覆盖的比例；<span class="math inline">\(\beta{=}0.5\)</span> 让&quot;编造&quot;比&quot;漏掉&quot;扣分更狠。</p>
-<!-- code-source: repo/evalkit/detailness/ed/io.py:L89-L95, L181-L194 — F0.5 与逐行 P/R 计算 -->
+<p class="code-source">repo/evalkit/detailness/ed/io.py:L89-L95, L181-L194 — F0.5 与逐行 P/R 计算</p>
 <pre><code class="language-python">def f_beta(P, R, beta=0.5):
     &quot;&quot;&quot;F_β = (1+β²)·P·R / (β²·P + R). Returns 0 when P = R = 0.&quot;&quot;&quot;
     if P == 0 and R == 0: return 0.0
@@ -404,7 +404,7 @@ def per_row_F(match_record, category=&quot;A&quot;, beta=0.5):
 </code></pre>
 <p>聚合用 Hampel 的 20%-截尾均值（<code>trim20</code>，丢掉最高/最低各 20%）抗提取/匹配偶发失败；幂律拟合 <code>MSE = a·ED^b</code> 在 log-log 上做（<code>aggregate.py:_fit_power_law</code>），对应 Eq. 4。</p>
 <p><strong>④ cold-start 的&quot;防泄漏&quot;验证器落在具体正则上。</strong> 论文说&quot;Gemini 判官拒掉直接说出图里细节却无来源的轨迹&quot;——代码里 <code>check_no_leakage</code> 用一组被动引用模式（&quot;according to the reference/blueprint…&quot;、&quot;as shown in the json…&quot;）来抓&quot;照抄参考答案&quot;的思维链，还额外禁止长 JSON 片段被 verbatim 引用。这保证 student 学的是&quot;如何推理出 SP&quot;，而不是&quot;如何复述特权图信息&quot;。</p>
-<!-- code-source: repo/pe-rsft/src/synth/filter.py:L89-L126 — cold-start 轨迹的防泄漏检查 -->
+<p class="code-source">repo/pe-rsft/src/synth/filter.py:L89-L126 — cold-start 轨迹的防泄漏检查</p>
 <pre><code class="language-python">def check_no_leakage(thinking):
     &quot;&quot;&quot;Catch PASSIVE DESCRIPTION of the reference answer (copying, not reasoning).&quot;&quot;&quot;
     passive_patterns = [
@@ -423,7 +423,7 @@ def per_row_F(match_record, category=&quot;A&quot;, beta=0.5):
     return True
 </code></pre>
 <p><strong>⑤ RFT 的&quot;验证器门控&quot;是一串硬约束的合取。</strong> 论文的&quot;保守高精确率接受门&quot;在开源数据管线里体现为 <code>filter_record</code>：JSON 合法 + bbox 合法 + 与参考 SP 的场景一致（名词袋重叠≥25%）+ 元素数在 ±50% + bbox IoU≥0.15，全过才算被接受的轨迹（缺任一即拒）。这就是&quot;牺牲覆盖率换高精确率&quot;的工程形态。</p>
-<!-- code-source: repo/pe-rsft/src/synth/filter.py:L375-L429 — 逐轨迹的多重验证门（forward 模式） -->
+<p class="code-source">repo/pe-rsft/src/synth/filter.py:L375-L429 — 逐轨迹的多重验证门（forward 模式）</p>
 <pre><code class="language-python">def filter_record(rec, cfg):
     thinking = strip_boilerplate(rec.get(&quot;thinking&quot;) or &quot;&quot;)
     failures = []

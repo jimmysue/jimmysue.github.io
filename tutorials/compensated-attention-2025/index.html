@@ -280,15 +280,14 @@ print("fast 最大中间张量元素数:", C.numel())      # H*d*d = 4*64*64   =
 <h3 id="sec-2-4">2.4 代码引用</h3>
 <p>SLA 的补偿分支里，线性注意力就是照着上面这套结合律写的。核心几行：</p>
 <p class="code-source">sources/repos/thu-ml-SLA/sparse_linear_attention/core.py:L90-L96 — 线性注意力：先算 KV 摘要再乘 Q（可复用全局摘要）</p>
-```python
-        q = self.feature_map_q(q).contiguous().to(self.dtype) # c_q
+<pre><code class="language-python">        q = self.feature_map_q(q).contiguous().to(self.dtype) # c_q
         k = self.feature_map_k(k).contiguous().to(self.dtype) # c_k
         def calc_linear(q, k, v):
             kvsum = k.transpose(-1, -2) @ v
             ksum = torch.sum(k, dim=-2, keepdim=True)
             return (q @ kvsum) / (1e-5 + (q * ksum).sum(dim=-1, keepdim=True))
         o_l = calc_linear(q, k, v)
-```
+</code></pre>
 <p>对照：<code>feature_map_q</code> / <code>feature_map_k</code> 就是 <span class="math inline">\(\phi\)</span>，把 <span class="math inline">\(Q,K\)</span> 映射到恒正特征空间（恒正保证分母不会因正负抵消而失稳）。<code>kvsum = k.transpose(-1, -2) @ v</code> 精确对应 <span class="math inline">\(C=\phi(K)^\top V\)</span>——先熬出的 <span class="math inline">\(d\times d\)</span> 全局摘要，代码里它的形状与 <span class="math inline">\(L\)</span> 无关，这一点在源码里就能直接看出来；<code>q @ kvsum</code> 就是 <span class="math inline">\(\phi(Q)C\)</span>，用同一份摘要一次性算完所有 query 的输出，query 之间不再各自扫描全序列。分母 <code>(q * ksum).sum(dim=-1, keepdim=True)</code> 里 <code>ksum</code> <span class="math inline">\(=\sum_j\phi(k_j)\)</span>（即 <span class="math inline">\(s\)</span>），<code>(q*ksum).sum</code> 是逐 query 的内积 <span class="math inline">\(\phi(q_i)^\top s\)</span>，对应上面的归一化项，<code>1e-5</code> 只是防除零。值得注意的是 <code>kvsum</code> 和 <code>ksum</code> 都只依赖 <span class="math inline">\(k,v\)</span>、与 <span class="math inline">\(q\)</span> 无关，所以严格来说它们可以脱离 <code>calc_linear</code> 提到循环外只算一次——SLA 把它们写在函数内是为了代码紧凑，语义上仍是&quot;摘要算一次、query 共用&quot;。整段没有任何 <span class="math inline">\(L\times L\)</span> 的中间量，复杂度停在 <span class="math inline">\(O(Ld^2)\)</span>，这就是补偿分支在推理时几乎不额外增加显存峰值的原因。</p>
 <h3 id="sec-2-5">2.5 洞察</h3>
 <ul>

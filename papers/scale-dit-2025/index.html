@@ -151,45 +151,42 @@
 <p>这是全篇最容易被略过、却决定「稀疏能不能真的跑快」的一步。</p>
 <p>默认的行扫描(raster)排列下,同一窗口的 token 在序列里是<strong>散开</strong>的(隔一整行才接上下一行),对应的窗口内注意力 mask 是一堆零散对角小点,块稀疏 kernel 对这种布局极其低效。解决办法:先按窗口把 token <strong>重排成连续块</strong>,于是「窗口内注意力」在矩阵上就是一串<strong>贴着对角线的稠密方块</strong>,kernel 可以整块跳过 mask 区域。</p>
 <p class="code-source">repo/src/flux/pipeline_tools.py:L310-L326 — 窗口优先重排,把每个窗口的 token 压成内存连续块</p>
-```python
-def window_permutation(H: int, W: int, Wh: int, Ww: int, hierarchical: bool = False) -> torch.Tensor:
-    """
+<pre><code class="language-python">def window_permutation(H: int, W: int, Wh: int, Ww: int, hierarchical: bool = False) -&gt; torch.Tensor:
+    &quot;&quot;&quot;
     返回排列 idx,使 x.view(H*W)[idx] 按 window-by-window 重排
     (窗口间行扫描,窗口内行扫描)。
-    """
+    &quot;&quot;&quot;
     idx = torch.arange(H * W).reshape(H, W)
     # unfold 把 (H,W) 切成 (nWh, nWw, Wh, Ww):前两维=窗口坐标,后两维=窗口内坐标
     patches = idx.unfold(0, Wh, Wh).unfold(1, Ww, Ww)   # (nWh, nWw, Wh, Ww)
     perm = patches.contiguous().view(-1)                # 展平 → 同窗口 token 相邻
     return perm
-```
+</code></pre>
 <p>推理主循环里,latent、位置 id、引导图<strong>全部按同一个排列重排</strong>,注意力算完再用逆排列还原回图像空间。这样每个窗口都落在一个固定的 256×256 RoPE 位置范围内——<strong>正好是预训练时见过的相对范围</strong>,不需要把位置编码外推到没学过的尺度。</p>
 <p class="code-source">repo/src/flux/generate2.py:L598-L609 — 用 16×16 窗口重排 HR token,并保存逆排列</p>
-```python
-hr_permutation_idx = window_permutation(
-    H=model_config["image_size"][0] // patch_size,
-    W=model_config["image_size"][1] // patch_size,
+<pre><code class="language-python">hr_permutation_idx = window_permutation(
+    H=model_config[&quot;image_size&quot;][0] // patch_size,
+    W=model_config[&quot;image_size&quot;][1] // patch_size,
     Wh=16, Ww=16,                          # 固定 16×16 token = 256×256 像素窗口
 )
 inv_hr_permutation_idx = inverse_permutation(hr_permutation_idx)   # 算完注意力后还原
 latent_image_ids = latent_image_ids[:, hr_permutation_idx, ]
 latents          = latents[:, hr_permutation_idx, ]
 latents_guidance = latents_guidance[:, hr_permutation_idx, ]       # 引导图也重排,保持对齐
-```
+</code></pre>
 <p>窗口内 mask 的构造(节选):同一窗口 ID 互相可见;做 shifted window 的层再额外放开上下左右 4 邻窗,让信息跨窗口流动(Swin 思路):</p>
 <p class="code-source">repo/src/flux/block2.py:L383-L412 — 窗口内注意力 + 4 邻窗跨窗 mask</p>
-```python
-window_ids = window_h_ids * w_windows + window_w_ids
+<pre><code class="language-python">window_ids = window_h_ids * w_windows + window_w_ids
 same_window_mask = (window_ids.unsqueeze(1) == window_ids.unsqueeze(0))  # 同窗才可见
-# shifted 层:额外放开 4 邻窗(曼哈顿距离 <1),消除边界割裂
-if shift_size_H > 0 or shift_size_W > 0:
+# shifted 层:额外放开 4 邻窗(曼哈顿距离 &lt;1),消除边界割裂
+if shift_size_H &gt; 0 or shift_size_W &gt; 0:
     dh = torch.abs(window_h_ids.unsqueeze(1) - window_h_ids.unsqueeze(0))
     dw = torch.abs(window_w_ids.unsqueeze(1) - window_w_ids.unsqueeze(0))
-    window_mask = (dh + dw) < 1
+    window_mask = (dh + dw) &lt; 1
 else:
     window_mask = same_window_mask
 attention_mask[hi_res_start:hi_res_end, hi_res_start:hi_res_end] = window_mask
-```
+</code></pre>
 <h3 id="sec-2-3">2.3 低分辨率引导 + 缩放位置锚点——保住全局语义</h3>
 <p>只看局部会「细节清晰但整体乱套」。核心洞察:<strong>全局长程依赖主要影响整体结构/布局,对局部细节影响很小</strong>。于是另生成一张低清引导图 <span class="math inline">\(X_{lr}\in\mathbb{R}^{h\times w}\)</span> 提供全局上下文。它的位置索引 <span class="math inline">\((m,n)\)</span> 按比例 <span class="math inline">\(\rho=\tfrac{H}{h}\)</span>(经验取 4)放大:</p>
 <div class="math block">
@@ -198,8 +195,7 @@ attention_mask[hi_res_start:hi_res_end, hi_res_start:hi_res_end] = window_mask
 <p class="math-translation">—— 翻译:把低清图的坐标乘 4,投影到高清图的同一空间尺度上;这样每个低清 token 就成了高清画布上一个「锚点」,告诉对应窗口「你这块在大图里该长什么样」。</p>
 <p>由此得到的注意力结构:<strong>每个高清窗口</strong> attends 到「自己窗口内 + 相邻 token + 对应缩放区域的 <span class="math inline">\(X_{lr}\)</span>」;<strong><span class="math inline">\(X_{lr}\)</span> 之间</strong>做全局自注意力;文本 token 全局可见。代码里 HR→LR 的对齐块就是按窗口分组连到对应的 LR 窗口:</p>
 <p class="code-source">repo/src/flux/block2.py:L423-L442 — 窗口优先下,把每组 HR 窗口对齐到对应 LR 区域</p>
-```python
-if model_config.get("permute_window_first", False):
+<pre><code class="language-python">if model_config.get(&quot;permute_window_first&quot;, False):
     hi_windows_count = math.ceil(H_p / window_patches_H) * math.ceil(W_p / window_patches_W)
     lr_windows_count = math.ceil(low_res_len / window_area)
     group_size_windows = math.ceil(hi_windows_count / lr_windows_count)
@@ -211,14 +207,13 @@ if model_config.get("permute_window_first", False):
         low_res_window_end   = min(hi_res_end + (i+1)*window_area, hi_res_end + low_res_len)
         attention_mask[hi_res_chunk_start:hi_res_chunk_end,
                        low_res_window_start:low_res_window_end] = True   # 该组窗口看对应 LR 块
-```
+</code></pre>
 <p>位置缩放本身在 transformer 里就是一次乘法(<code>scale_PE</code>):</p>
 <p class="code-source">repo/src/flux/transformer2.py:L220-L222 — 低清引导的位置 id 按 HR/LR 比例放大</p>
-```python
-if model_config.get("scale_PE", False):
-    hr_lr_scale = model_config["image_size"][0] // model_config["joint_denoise_size"][0]
+<pre><code class="language-python">if model_config.get(&quot;scale_PE&quot;, False):
+    hr_lr_scale = model_config[&quot;image_size&quot;][0] // model_config[&quot;joint_denoise_size&quot;][0]
     low_res_img_ids = low_res_img_ids * hr_lr_scale   # ρ = H/h,把 LR 坐标投影到 HR 尺度
-```
+</code></pre>
 <h3 id="sec-2-4">2.4 参数高效联合去噪——只训 LoRA</h3>
 <p>把 <span class="math inline">\(X_{lr}\)</span> 和文本-图像序列拼成 <span class="math inline">\([C_T, X, X_{lr}]\)</span> 一起过 DiT。但缩放位置索引<strong>改变了 RoPE 的频率特性</strong>,直接用原权重会失配。解法:<strong>只给处理 <span class="math inline">\(X_{lr}\)</span> 的 Q/K/V 挂 LoRA</strong>(<span class="math inline">\(\tilde Q,\tilde K,\tilde V\)</span>),而高清窗口 <span class="math inline">\(X\)</span> 仍用原始 <span class="math inline">\(Q,K,V\)</span>——既学会读全局引导,又不破坏预训练的局部生成能力。统一注意力(省略文本项)为:</p>
 <div class="math block">
@@ -227,8 +222,7 @@ if model_config.get("scale_PE", False):
 <p class="math-translation">—— 翻译:高清 token 用原权重投影、低清引导 token 用 LoRA 投影,拼成一个统一的 Q/K/V,再乘上稀疏 mask $M$ 一次性算完;$M$ 就是 2.2/2.3 里那张「窗口内 + 邻窗 + 对应 LR」的布尔矩阵。</p>
 <p>代码里这个「HR 关 LoRA / LR 开 LoRA」的门控是逐次显式切换的:</p>
 <p class="code-source">repo/src/flux/block2.py:L563-L601 — HR 走原权重(LoRA off),LR 引导走 LoRA(on),再拼进统一序列</p>
-```python
-# 高清 token:关掉 LoRA,用原始预训练 Q/K/V,保住局部生成能力
+<pre><code class="language-python"># 高清 token:关掉 LoRA,用原始预训练 Q/K/V,保住局部生成能力
 with enable_lora(qkv_modules, False):
     query, key, value, *_ = _get_qkv_projections(attn, hidden_states, encoder_hidden_states)
 ...
@@ -239,7 +233,7 @@ if low_res_guidance is not None:
     query = torch.cat([query, lr_q], dim=1)   # 拼进统一序列,一次注意力算完
     key   = torch.cat([key,   lr_k], dim=1)
     value = torch.cat([value, lr_v], dim=1)
-```
+</code></pre>
 <p>训练目标是带低清引导的 flow matching 速度回归:</p>
 <div class="math block">
 \[L_{\mathrm{FM}}(\theta; C_T, X_{lr}) = \mathbb{E}_{t\sim\mathcal U(0,1),\ X_t}\Big[\big\| f_\theta(X_t, t, C_T, X_{lr}) - u_t(X_t; C_T, X_{lr})\big\|^2\Big]\]

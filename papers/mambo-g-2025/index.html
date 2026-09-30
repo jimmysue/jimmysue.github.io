@@ -248,7 +248,7 @@
 <p>这是 MAMBO-G 和一大票&quot;早期降 guidance&quot;方法的真正分水岭。常见的动态策略是 <span class="math inline">\(w(t)\)</span>——只看在第几步。但 Fig. 3 的箱线图显示:<strong>同一个 <span class="math inline">\(t\)</span>、不同种子,<span class="math inline">\(r_t\)</span> 的方差很大</strong>。纯时间调度会&quot;一刀切&quot;,把本来很稳的样本也罚了、把真正危险的样本又没罚够。<span class="math inline">\(w(r_t)\)</span> 把判据从&quot;第几步&quot;换成&quot;这一步实际有多危险&quot;。论文用一个对照实验证明了这点(见 §3 Table 3)。</p>
 <h3 id="sec-2-6">2.6 代码:核心就 4 行</h3>
 <p>MAMBO-G 已被官方并入 🤗 Diffusers 的 <code>guiders</code> 模块(<code>MagnitudeAwareGuidance</code>)。整个方法的灵魂是下面这个函数——它一字不差地实现了 Eq. (5)、Eq. (6) 和 CFG 的合成:</p>
-<!-- code-source: repo/guiders/magnitude_aware_guidance.py:L141-L159 — MAMBO-G 核心:ratio (Eq.5) + 指数阻尼 (Eq.6) + CFG 合成 (Eq.2) -->
+<p class="code-source">repo/guiders/magnitude_aware_guidance.py:L141-L159 — MAMBO-G 核心:ratio (Eq.5) + 指数阻尼 (Eq.6) + CFG 合成 (Eq.2)</p>
 <pre><code class="language-python">def mambo_guidance(
     pred_cond: torch.Tensor,
     pred_uncond: torch.Tensor,
@@ -270,7 +270,7 @@
 </code></pre>
 <p>注意 <code>dim = list(range(1, ...))</code> 与 <code>keepdim=True</code>:范数是<strong>沿 batch 之外的所有维度</strong>算的,所以 <code>ratio</code> 形状是 <code>[B,1,1,...]</code>——<strong>每个样本拿到自己的标量缩放</strong>。这就是&quot;instance-level&quot;在代码里的样子。</p>
 <p>对照标准 CFG guider,差异精确到一行:</p>
-<!-- code-source: repo/guiders/classifier_free_guidance.py:L120-L122 — 标准 CFG:guidance_scale 是常数 -->
+<p class="code-source">repo/guiders/classifier_free_guidance.py:L120-L122 — 标准 CFG:guidance_scale 是常数</p>
 <pre><code class="language-python">shift = pred_cond - pred_uncond
 pred = pred_cond if self.use_original_formulation else pred_uncond
 pred = pred + self.guidance_scale * shift          # 常数 scale,与样本/步数无关
@@ -368,7 +368,7 @@ pred = pred + self.guidance_scale * shift          # 常数 scale,与样本/步�
 <p><strong>⑥ 视频(Fig. 8,vBench)</strong>:Wan 系列上同步数下成像/美学质量都更高,论文称&quot;带 MAMBO-G 的 1.3B 在某些指标上反超 14B 的 CFG 基线&quot;。</p>
 <h2 id="sec-4">4. 实现细节 (Implementation)</h2>
 <p>外层 <code>forward</code> 把上面的核心函数、区间门控、以及正交的 rescale 串成一条流水线,可以看清各个开关怎么咬合:</p>
-<!-- code-source: repo/guiders/magnitude_aware_guidance.py:L92-L107 — guider 外层:门控 → mambo_guidance → 可选 rescale -->
+<p class="code-source">repo/guiders/magnitude_aware_guidance.py:L92-L107 — guider 外层:门控 → mambo_guidance → 可选 rescale</p>
 <pre><code class="language-python">def forward(self, pred_cond, pred_uncond=None) -&gt; GuiderOutput:
     pred = None
     if not self._is_mambo_g_enabled():          # 区间外 / scale≈关闭值 → 直接返回条件预测
