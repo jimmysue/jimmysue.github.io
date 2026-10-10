@@ -47,8 +47,23 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>教程</h1>
-<p class="page__intro">共 18 篇深度教程。</p>
+<p class="page__intro">共 19 篇深度教程。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-10</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/llm-sparse-attention-2024/index.html">LLM 稀疏注意力与上下文压缩：从免训练选择到两级 KV 共享的八章架构教程</a></h3>
+  <p class="post-card__tldr">一条叙事弧线讲透 LLM 稀疏注意力的主流架构方案：先把成本拆成 FLOPs 与 KV 存储两本账（§1），再看免训练推理期稀疏能白拿多少（StreamingLLM/H2O/Quest/MInference，§2）；然后把「选哪些 token」变成可学习的——SeerAttention 用模型自己的注意力图当教师蒸馏块门控（§3），NSA 把压缩-选择-滑窗三分支做进预训练（§4），MoBA 用无参数 MoE 路由实现全/稀疏热切换（§5），DSA 用 FP8 闪电索引器把 671B 稠密旗舰改装成 token 级稀疏（§6）；存储轴上 YOCO→CLA→HySparse→HySparse2 一路把「层数」从 KV cache 的乘法因子里删掉，HySparse2 的两级 KV 共享让 prefill 只跑半个模型、全程只有 1 层全注意力（§7）；最后给出全景选型：1:5 混合比例的跨团队收敛、粒度结论的三元组绑定、prefill 可早退性这个新维度、以及三条选择器路线的合流趋势（§8）。全部 Step-4 代码逐字引自 8 个真实仓库（MoBA/SeerAttention/Quest/MInference/DeepSeek-V3.2-Exp/YOCO/fla-NSA/transformers），全部引用经联网核验。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/kv-cache.html">kv-cache</a>
+      <a class="tag-chip" href="concepts/kv-cache-compression.html">kv-cache-compression</a>
+      <span class="tag-chip tag-chip--more">+10 more</span>
+  </div>
+</div>
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
@@ -169,26 +184,12 @@ pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await.
       <a class="tag-chip" href="concepts/type-alias.html">type-alias</a>
   </div>
 </div>
-<div class="post-card post-card--tutorial">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">3-5k 字</span> · <span class="post-card__extra">15–20 分钟</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-1-values/index.html">TS·01 值、类型、函数:声明、标注与推断</a></h3>
-  <p class="post-card__tldr">TypeScript 的地基:const/let、基本类型标注与类型推断、函数参数/返回标注、可选参数与默认参数、
-数组与对象字面量类型。全部用 pi 里的真实小函数(calculate、getCurrentTime)做示例。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
-      <a class="tag-chip" href="concepts/types.html">types</a>
-      <a class="tag-chip" href="concepts/functions.html">functions</a>
-  </div>
-</div>
 </div>
 <nav class="pager" aria-label="分页">
   <span class="pager__nav pager__item--disabled" aria-disabled="true">上一页</span>
   <span class="pager__item pager__item--current" aria-current="page">1</span>
   <a class="pager__item" href="tutorials-2.html">2</a>
+  <a class="pager__item" href="tutorials-3.html">3</a>
   <a class="pager__nav" href="tutorials-2.html">下一页</a>
 </nav>
 </main>

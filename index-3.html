@@ -52,6 +52,21 @@
 <div class="post-card post-card--tutorial">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">22–28 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-8-capstone/index.html">TS·08 实战总结:读懂 pi 的一个真实工具与 agent 主循环</a></h3>
+  <p class="post-card__tldr">把前八篇学的语法拼起来,逐行读懂 pi 的一个真实内置工具(typebox schema → Static 派生类型 → execute
+处理器 → AgentTool 契约)与 agent 主循环(流式消费模型事件 → 分派工具调用 → 校验参数 → 回填结果)。读完你能自己读 pi。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/agent-harness.html">agent-harness</a>
+      <a class="tag-chip" href="concepts/typebox.html">typebox</a>
+  </div>
+</div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">4-6k 字</span> · <span class="post-card__extra">20–25 分钟</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-7-async/index.html">TS·07 异步与流式:Promise、async/await、与 async generator</a></h3>
@@ -167,21 +182,6 @@ pi 流式返回 LLM 输出的核心:async generator(async function*)+ for await.
       <a class="tag-chip" href="concepts/typescript.html">typescript</a>
       <a class="tag-chip" href="concepts/tooling.html">tooling</a>
       <a class="tag-chip" href="concepts/esm.html">esm</a>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-07-13</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/dataevolver-2026/index.html">DataEvolver:把「被拒样本」变成数据构造策略的梯度</a></h3>
-  <p class="post-card__tldr">中南大学 + 港科大。文字图生成的数据管线一直是 crawl→filter→freeze:采集、过滤一次、冻结,被拒样本直接丢掉。DataEvolver 把数据构造重写成一个「策略演化」闭环——不训练任何模型参数,只在自然语言策略空间里迭代:Retriever 拉候选、Verifier 打分并归因拒绝原因、Critic 把这一轮的拒绝统计蒸馏成一段自然语言反馈去改写下一轮的检索 query / 生成 prompt / 经验库、Generator 针对覆盖空洞做定向合成。核心主张是「拒绝样本里含有可复用的失败信号」。PixArt-α 0.75M 预算下 OCR-F1 相对最强基线涨 85.3% (TextScenesHQ) / 35.3% (LongTextBench),换到 Show-o2 依然涨。但要看清:绝对 OCR-F1 只有 8.45%——图里连 &quot;Ours&quot; 的文字也仍是乱码,涨的是相对量,任务本身远未解决。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/text-rich-image-generation.html">text-rich-image-generation</a>
-      <a class="tag-chip" href="concepts/dataset-construction.html">dataset-construction</a>
-      <a class="tag-chip" href="concepts/multi-agent.html">multi-agent</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

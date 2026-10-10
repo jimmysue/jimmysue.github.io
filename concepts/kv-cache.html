@@ -64,6 +64,15 @@
 四条判断：**① 局部窗口不可或缺是最强共识**——NSA 的滑窗分支、MoBA 给自块 +inf、HySparse2 的 Forced SWA 消融（去掉局部分支 RULER 掉 5.3 分）、工业系 gpt-oss/Gemma/MiMo 全部内置 128-token 窗口，六家独立收敛。**② 块级 vs token 级粒度是真正的时代分界**——NSA/MoBA/HySparse 都报告块级近无损，但 HySparse2 与 DSA 在多轮 agentic 检索下证明块级明显掉分（RULER-v2 +6.57、2-needle MRCR +8.14），工作负载从单针检索变成多轮取证后结论反转。**③ 「谁来选 token」三条互斥路线**——学习型索引器（DSA/SeerAttention，要蒸馏 KL 对齐）、oracle 全注意力层（HySparse 系，免辅助损失）、无参数启发（MoBA mean-pool / Quest page min-max）——正在互相收敛。**④ 稀疏度不等于省显存**：NSA/MoBA/DSA 只砍 FLOPs 不砍 KV 存储，内存轴要靠跨层共享（YOCO/CLA/KV Bridging）、驱逐（H2O/SnapKV）或潜变量压缩（MLA）另行解决——HySparse2 的两级 KV 共享正是把两条轴拧到一起的当前最优解之一。
 </p>
 </div>
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-10</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../tutorials/llm-sparse-attention-2024/index.html">LLM 稀疏注意力与上下文压缩：从免训练选择到两级 KV 共享的八章架构教程</a></h3>
+  <p class="post-card__tldr">一条叙事弧线讲透 LLM 稀疏注意力的主流架构方案：先把成本拆成 FLOPs 与 KV 存储两本账（§1），再看免训练推理期稀疏能白拿多少（StreamingLLM/H2O/Quest/MInference，§2）；然后把「选哪些 token」变成可学习的——SeerAttention 用模型自己的注意力图当教师蒸馏块门控（§3），NSA 把压缩-选择-滑窗三分支做进预训练（§4），MoBA 用无参数 MoE 路由实现全/稀疏热切换（§5），DSA 用 FP8 闪电索引器把 671B 稠密旗舰改装成 token 级稀疏（§6）；存储轴上 YOCO→CLA→HySparse→HySparse2 一路把「层数」从 KV cache 的乘法因子里删掉，HySparse2 的两级 KV 共享让 prefill 只跑半个模型、全程只有 1 层全注意力（§7）；最后给出全景选型：1:5 混合比例的跨团队收敛、粒度结论的三元组绑定、prefill 可早退性这个新维度、以及三条选择器路线的合流趋势（§8）。全部 Step-4 代码逐字引自 8 个真实仓库（MoBA/SeerAttention/Quest/MInference/DeepSeek-V3.2-Exp/YOCO/fla-NSA/transformers），全部引用经联网核验。
+</p>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
