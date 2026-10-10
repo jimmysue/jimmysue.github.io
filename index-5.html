@@ -54,6 +54,22 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/omgsr-2025/index.html">OMGSR：一步超分的关键不是蒸馏，是把低清图喂到「中间时刻」——SNR 算出最佳注入点 + GAN 训练</a></h3>
+  <p class="post-card__tldr">OMGSR 把一步真实世界超分（Real-ISR）的成败归结为一个「潜空间鸿沟」：以往方法把低清图 latent 注入到扩散调度器的 t=999（纯噪声）或 t=1（干净图），但低清图 latent 既不是噪声也不是干净图——它最接近预训练扩散在某个**中间时刻 t\*** 的带噪 latent。
+作者用信噪比 (SNR) 把这个「最佳中间时刻」**算出来**（SD2.1-base 上 t\*=273），再用 LRR 损失（LoRA 微调 VAE 编码器）把低清 latent 进一步拉向 t\* 的带噪 latent，然后在 t\* 处做一步去噪。整套是 **GAN 训练**（生成器=扩散模型本身，判别器=DINOv3-ConvNeXt + 多级头），不是师生蒸馏。这就是 [[op4ksr-2026]] 4K 超分的直接前身。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
+      <a class="tag-chip" href="concepts/real-isr.html">real-isr</a>
+      <a class="tag-chip" href="concepts/one-step-generation.html">one-step-generation</a>
+      <span class="tag-chip tag-chip--more">+7 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/mambo-g-2025/index.html">MAMBO-G:用幅度比 r_t 自适应阻尼 CFG——一个免训练、即插即用的扩散/视频采样加速器</a></h3>
   <p class="post-card__tldr">CFG 在采样初期(t→1)对&quot;通用方向&quot;施加了过大的更新,在高维大模型里尤其会 overshoot 出过饱和与结构崩坏。
 MAMBO-G 用一个逐实例的幅度比 r_t = ‖Δv‖/‖v∅‖ 当探针:r_t 高就指数级压低 guidance scale,r_t 低才放开。
@@ -177,22 +193,6 @@ ARGUS（快手/北大）提出 SMII：用 MLLM 当&quot;身份导演&quot;挑出
       <a class="tag-chip" href="concepts/region-input.html">region-input</a>
       <a class="tag-chip" href="concepts/mask-pooling.html">mask-pooling</a>
       <span class="tag-chip tag-chip--more">+4 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-18</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/oftsr-2024/index.html">OFTSR：一步超分 + 可调「保真度↔真实感」的整条曲线</a></h3>
-  <p class="post-card__tldr">OFTSR 用两阶段方案做单步图像超分：先训一个「噪声增广的条件 rectified flow」当教师，再蒸馏出一个一步学生网络——蒸馏的约束是「学生从不同时间 t、s 的预测必须落在教师同一条 PF-ODE 轨迹上」。
-关键好处：一步推理时只需调一个超参 t，就能在「高 PSNR / 高保真」和「低 LPIPS / 高真实感」之间连续滑动，把感知-失真权衡的整条曲线塞进单步模型，而过去的单步蒸馏只能锁死在曲线上的一个点。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/image-super-resolution.html">image-super-resolution</a>
-      <a class="tag-chip" href="concepts/rectified-flow.html">rectified-flow</a>
-      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

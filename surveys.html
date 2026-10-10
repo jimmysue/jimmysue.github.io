@@ -47,8 +47,24 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>调研</h1>
-<p class="page__intro">共 4 篇研究调研报告。</p>
+<p class="page__intro">共 5 篇研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-10</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/llm-sparse-attention-2026/index.html">LLM 稀疏注意力架构调研：压缩、选择与 KV 共享三条主线——从 NSA/MoBA 到 DSA、HySparse2</a></h3>
+  <p class="post-card__tldr">以小米 HySparse2（arxiv 2609.26368）为锚点，调研 LLM 侧稀疏注意力架构的三条主线：**① 可训练原生稀疏**（NSA 三分支压缩+选择+滑窗、MoBA 的 MoE 式块路由、SeerAttention 的后训练自蒸馏块门控）；**② 索引器改装稀疏**（DeepSeek-V3.2 的闪电索引器 + token 级 top-k、V4 的 CSA/HCA 分层混合）；**③ 混合层级架构 + 跨层 KV 共享**（YOCO 自/交叉解码器、CLA、HySparse 的 oracle 选择 + KV 复用、HySparse2 的两级 KV 共享），另以训练无关的推理时稀疏/驱逐线（StreamingLLM、H2O、SnapKV、Quest、MInference）作对照轴。
+四条判断：**① 局部窗口不可或缺是最强共识**——NSA 的滑窗分支、MoBA 给自块 +inf、HySparse2 的 Forced SWA 消融（去掉局部分支 RULER 掉 5.3 分）、工业系 gpt-oss/Gemma/MiMo 全部内置 128-token 窗口，六家独立收敛。**② 块级 vs token 级粒度是真正的时代分界**——NSA/MoBA/HySparse 都报告块级近无损，但 HySparse2 与 DSA 在多轮 agentic 检索下证明块级明显掉分（RULER-v2 +6.57、2-needle MRCR +8.14），工作负载从单针检索变成多轮取证后结论反转。**③ 「谁来选 token」三条互斥路线**——学习型索引器（DSA/SeerAttention，要蒸馏 KL 对齐）、oracle 全注意力层（HySparse 系，免辅助损失）、无参数启发（MoBA mean-pool / Quest page min-max）——正在互相收敛。**④ 稀疏度不等于省显存**：NSA/MoBA/DSA 只砍 FLOPs 不砍 KV 存储，内存轴要靠跨层共享（YOCO/CLA/KV Bridging）、驱逐（H2O/SnapKV）或潜变量压缩（MLA）另行解决——HySparse2 的两级 KV 共享正是把两条轴拧到一起的当前最优解之一。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/kv-cache.html">kv-cache</a>
+      <a class="tag-chip" href="concepts/kv-cache-compression.html">kv-cache-compression</a>
+      <span class="tag-chip tag-chip--more">+9 more</span>
+  </div>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>

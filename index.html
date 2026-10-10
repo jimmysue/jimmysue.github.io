@@ -49,6 +49,22 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-10</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/llm-sparse-attention-2026/index.html">LLM 稀疏注意力架构调研：压缩、选择与 KV 共享三条主线——从 NSA/MoBA 到 DSA、HySparse2</a></h3>
+  <p class="post-card__tldr">以小米 HySparse2（arxiv 2609.26368）为锚点，调研 LLM 侧稀疏注意力架构的三条主线：**① 可训练原生稀疏**（NSA 三分支压缩+选择+滑窗、MoBA 的 MoE 式块路由、SeerAttention 的后训练自蒸馏块门控）；**② 索引器改装稀疏**（DeepSeek-V3.2 的闪电索引器 + token 级 top-k、V4 的 CSA/HCA 分层混合）；**③ 混合层级架构 + 跨层 KV 共享**（YOCO 自/交叉解码器、CLA、HySparse 的 oracle 选择 + KV 复用、HySparse2 的两级 KV 共享），另以训练无关的推理时稀疏/驱逐线（StreamingLLM、H2O、SnapKV、Quest、MInference）作对照轴。
+四条判断：**① 局部窗口不可或缺是最强共识**——NSA 的滑窗分支、MoBA 给自块 +inf、HySparse2 的 Forced SWA 消融（去掉局部分支 RULER 掉 5.3 分）、工业系 gpt-oss/Gemma/MiMo 全部内置 128-token 窗口，六家独立收敛。**② 块级 vs token 级粒度是真正的时代分界**——NSA/MoBA/HySparse 都报告块级近无损，但 HySparse2 与 DSA 在多轮 agentic 检索下证明块级明显掉分（RULER-v2 +6.57、2-needle MRCR +8.14），工作负载从单针检索变成多轮取证后结论反转。**③ 「谁来选 token」三条互斥路线**——学习型索引器（DSA/SeerAttention，要蒸馏 KL 对齐）、oracle 全注意力层（HySparse 系，免辅助损失）、无参数启发（MoBA mean-pool / Quest page min-max）——正在互相收敛。**④ 稀疏度不等于省显存**：NSA/MoBA/DSA 只砍 FLOPs 不砍 KV 存储，内存轴要靠跨层共享（YOCO/CLA/KV Bridging）、驱逐（H2O/SnapKV）或潜变量压缩（MLA）另行解决——HySparse2 的两级 KV 共享正是把两条轴拧到一起的当前最优解之一。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/kv-cache.html">kv-cache</a>
+      <a class="tag-chip" href="concepts/kv-cache-compression.html">kv-cache-compression</a>
+      <span class="tag-chip tag-chip--more">+9 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -179,21 +195,6 @@ Scale-DiT（arxiv:2510.16325,PDF 正文题名 UltraImageGen）把高清 latent �
       <a class="tag-chip" href="concepts/sandbox.html">sandbox</a>
       <a class="tag-chip" href="concepts/microvm.html">microvm</a>
       <span class="tag-chip tag-chip--more">+8 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-09-21</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/paint-anything-2026/index.html">Paint-Anything：把「任意颜色」做成提示词原生能力——用 24-bit hex 统一生成与编辑</a></h3>
-  <p class="post-card__tldr">字节跳动 Seed 的技术报告。核心主张：让图像模型「听懂十六进制颜色」不需要专用颜色编码器、也不需要推理时优化，而是把 &lt;color&gt;#AABBCC&lt;/color&gt; 直接写进提示词、再用物体级颜色监督数据把这套接口喂给模型。三件套：(1) Paint-500K 数据管线——VLM grounding + SAM3 分割 + CIELAB 空间 MeanShift 聚类抽物体主色，把 50 万张真实图变成 hex 标注（40 万 T2I + 10 万编辑）；(2) 纯色锚点 (pure-color anchor)——用纯色块给出干净的 hex→RGB 映射，且只在高噪声段 t∈[0.8,1] 激活，因为纯色轨迹里颜色早在 t≈0.8 就稳定了；(3) 显式 color 标签包裹 + 全量微调（冻结 VAE 和文本编码器）。FLUX.2-4B 上 ACBench-T2I +85.3%、ACBench-Edit +28.3%，8B 微调模型在颜色保真上反超 56B 的 FLUX.2-dev。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/color-control.html">color-control</a>
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <a class="tag-chip" href="concepts/image-editing.html">image-editing</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 </div>
