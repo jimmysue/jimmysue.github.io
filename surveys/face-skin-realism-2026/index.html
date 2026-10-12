@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>人像/人脸如何去「油感」、提真实质感——皮肤纹理真实性方法调研（2018→2026）</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link active" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 概述与范围</a></li>
+    <li class="h3"><a href="#sec-1-1">1.1 「油感」的精确定义与两个根因</a></li>
+    <li class="h3"><a href="#sec-1-2">1.2 核心矛盾：油感是一条「钢丝」</a></li>
+    <li class="h3"><a href="#sec-1-3">1.3 范围与核实声明</a></li>
+    <li class="h2"><a href="#sec-2">2. 逐篇精要</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 理论根因：为什么「最小化误差」必然产出油皮</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 盲人脸修复：GAN 先验 vs 扩散先验，与那个「保真↔真实感」旋钮</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 油感即「缺高频」：频域修正视角</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 当前基准与获胜配方</a></li>
+    <li class="h3"><a href="#sec-2-5">2.5 生成侧（文生图人像）的油感从哪来</a></li>
+    <li class="h3"><a href="#sec-2-6">2.6 工程与后处理实践</a></li>
+    <li class="h2"><a href="#sec-3">3. 平行对比</a></li>
+    <li class="h2"><a href="#sec-4">4. 一致与矛盾</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 一致</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 矛盾</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 启发</a></li>
+    <li class="h2"><a href="#sec-5">5. 代码交叉验证</a></li>
+    <li class="h2"><a href="#sec-6">6. 启发与白地</a></li>
+    <li class="h2"><a href="#sec-7">7. 参考文献</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2026-10-12</strong></span> · <span class="post-meta__paper-date">调研日期: 2026-10-12</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://github.com/sczhou/CodeFormer">代码</a> · <a class="post-meta__link" href="https://github.com/TencentARC/GFPGAN">代码</a> · <a class="post-meta__link" href="https://github.com/XPixelGroup/DiffBIR">代码</a> · <a class="post-meta__link" href="https://github.com/pq-yang/PGDiff">代码</a> · <a class="post-meta__link" href="https://github.com/ohayonguy/PMRF">代码</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/face-restoration.html">face-restoration</a> <a class="concept-chip" href="../../concepts/blind-face-restoration.html">blind-face-restoration</a> <a class="concept-chip" href="../../concepts/skin-texture.html">skin-texture</a> <a class="concept-chip" href="../../concepts/photorealism.html">photorealism</a> <a class="concept-chip" href="../../concepts/perception-distortion-tradeoff.html">perception-distortion-tradeoff</a> <a class="concept-chip" href="../../concepts/super-resolution.html">super-resolution</a> <a class="concept-chip" href="../../concepts/diffusion.html">diffusion</a> <a class="concept-chip" href="../../concepts/flow-matching.html">flow-matching</a> <a class="concept-chip" href="../../concepts/gan-prior.html">gan-prior</a> <a class="concept-chip" href="../../concepts/codebook-prior.html">codebook-prior</a> <a class="concept-chip" href="../../concepts/frequency-domain.html">frequency-domain</a> <a class="concept-chip" href="../../concepts/wavelet.html">wavelet</a> <a class="concept-chip" href="../../concepts/vae.html">vae</a> <a class="concept-chip" href="../../concepts/identity-preservation.html">identity-preservation</a> <a class="concept-chip" href="../../concepts/portrait-generation.html">portrait-generation</a></div>
+</aside>
+<h2 id="sec-1">1. 概述与范围</h2>
+<h3 id="sec-1-1">1.1 「油感」的精确定义与两个根因</h3>
+<p>把「人脸一看就假、皮肤像打了蜡」拆开，油感（waxy / plastic / oily skin）有三个可观测成分：<strong>皮肤高频纹理（毛孔、细纹、绒毛）缺失导致的过平滑</strong>、<strong>高光被整片糊成油亮镜面</strong>、以及<strong>磨皮式无瑕</strong>。它不是审美口味，而是两个有形式化根因的工程问题：</p>
+<ul>
+<li><strong>根因一（理论）：最小化失真 ⟹ 过平滑，这是数学定理而非调参不足。</strong> 感知-失真权衡（Perception-Distortion Tradeoff）证明：对<strong>任何</strong>失真度量（不止 PSNR/SSIM），降低平均失真必然推高「被判别为假」的概率。直觉上，给定一张退化/低信息输入，像素级最优解是所有可能真实解的<strong>条件期望（后验均值）</strong>——而期望是把千万种可能的毛孔分布平均掉，结果必然光滑。于是任何以 L1/L2/LPIPS-reconstruction 为主损失的人脸修复/超分，天然朝油皮收敛。</li>
+<li><strong>根因二（工程）：VAE 高频损失 + 审美过优化。</strong> latent 扩散把图压进 latent 时，毛孔级高频进了「量化误差」里回不来，解码器用转置卷积脑补出光滑表面；叠加上偏好模型（HPS/美学分）普遍偏爱「干净发光的皮肤」，RLHF 把分布进一步推向磨皮脸。这一支与姊妹篇 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> 的 §2.4/§2.5 同源。</li>
+</ul>
+<h3 id="sec-1-2">1.2 核心矛盾：油感是一条「钢丝」</h3>
+<p>贯穿 2025–2026 工作的共识是——去油感不是「越多细节越好」，而是<strong>走钢丝</strong>：细节太少 = 蜡质塑料；细节太多 = 毛孔被算法过度刻蚀（over-etched），同样假。因此几乎所有现代方法都提供一个**「保真 ↔ 真实感」可调旋钮**，而非一个固定输出。这条钢丝也是本调研的组织主线。</p>
+<h3 id="sec-1-3">1.3 范围与核实声明</h3>
+<p>聚焦<strong>皮肤/人脸纹理真实性</strong>，覆盖两条技术栈：① 盲人脸修复（BFR，从退化输入恢复真实皮肤）；② 文生图人像的油感来源（生成侧）。身份保持方法（InstantID/PuLID/Arc2Face）与采样期过饱和（CFG-rescale/APG）属于更广的「AIGC 感」问题，已在姊妹篇 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> 详述，本文只在相关处交叉链接、不重复。</p>
+<p>遵循本仓库 survey 铁律：<strong>线索来自记忆，事实来自核实</strong>——每个 arxiv 号/年份/数据集/数字均联网核实（2026-10）；CodeFormer 的保真旋钮对照官方代码逐行验证。</p>
+<hr />
+<h2 id="sec-2">2. 逐篇精要</h2>
+<h3 id="sec-2-1">2.1 理论根因：为什么「最小化误差」必然产出油皮</h3>
+<p><strong>The Perception-Distortion Tradeoff（Blau &amp; Michaeli, CVPR 2018, arxiv:1711.06077）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 形式化证明「低失真」与「高感知质量」<strong>在数学上互斥</strong>——存在一个感知-失真平面上任何算法都到不了的「不可能区域」。</li>
+<li>方法: 把感知质量定义为生成分布与真实分布的距离（可被最优判别器区分的程度），证明失真下界与该距离此消彼长；并指出 GAN 是逼近该下界的原则性手段。</li>
+<li>关键结果: 结论对<strong>任意</strong>失真度量成立，不只是 PSNR/SSIM 的毛病；为「GAN 比 MSE 回归更真实」提供了理论依据。</li>
+<li>代码: 无（理论论文）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/pd-tradeoff.png" alt="感知-失真平面与不可能区域">
+  <figcaption><strong>图 1</strong> — 感知-失真平面：纵轴感知质量、横轴失真，蓝色单调曲线把可达的「Possible」区（灰）与不可达的「Impossible」区（粉）隔开——**把算法往低失真推，必然越界到更差的感知质量**。这就是「磨皮脸 PSNR 更高却更假」的形式化根因（论文 Fig. 1）。</figcaption>
+</figure>
+<p>怎么做的（本调研的理论锚点）：这篇是理解油感的钥匙。给定低质输入 x，像素级最优（最小 MSE）的重建是后验均值 E[y|x]，它把所有与 x 相容的真实脸（不同毛孔、不同绒毛走向）做加权平均——平均必然抹平高频，于是输出光滑如蜡。想要真实皮肤，就<strong>必须主动放弃一部分像素保真度</strong>去换「看起来来自真实分布」。定理还证明这不是换个 loss（SSIM、LPIPS）能绕过的——只要目标是「逼近单一确定输出」，就落在权衡曲线上。真正的出路是<strong>生成式建模</strong>（采样一个可信的真实解，而非回归到均值），这解释了为什么此后所有去油感的 SOTA 都是 GAN 先验或扩散/流匹配，而非更深的回归网络。</p>
+<p><strong>Posterior-Mean Rectified Flow（PMRF, Ohayon et al., 2024, arxiv:2410.00418）/ Latent-PMRF（2025, arxiv:2507.00447）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 把感知-失真权衡做成<strong>可操作、可证明</strong>的方法——先预测过平滑的后验均值，再用整流流把它搬到「完美感知质量约束下 MSE 最小」的真实解。</li>
+<li>方法: 后验均值（MMSE，油皮）作整流流 ODE 的初值，流终点落在真实分布上；GAN 损失系数充当拉格朗日乘子，直接控制目标感知指数。Latent-PMRF 把它搬进 VAE latent，PD 权衡更优。</li>
+<li>关键结果: CelebA-Test 上 FID/KID/PSNR/SSIM 同时超 SOTA；Latent-PMRF 相对 PMRF 在 FID 上 <strong>5.79× 提速</strong> 且 PD 权衡更好。</li>
+<li>代码: github.com/ohayonguy/PMRF；Latent-PMRF 官方实现。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/pmrf.png" alt="PMRF 在失真-感知平面上的目标点">
+  <figcaption><strong>图 2</strong> — 失真-感知平面（纵轴失真=MSE、横轴感知指数）：过平滑的后验均值 X̂* 在低失真处（但要靠「从它出发用整流流搬到真实流形」才真实）、后验采样在 2×MMSE 失真处、PMRF 的目标 X̂₀ 是「完美感知约束下 MSE 最小」那一点，凸的 D-P 曲线之下是不可达区——**PMRF 把「从油皮走到真实」精确定位到权衡曲线上的最优点**（论文 Fig. 1）。</figcaption>
+</figure>
+<p>怎么做的：PMRF 是对 §上一条定理的直接回应。既然直接回归只能到后验均值（油皮），那就把油皮当<strong>起点</strong>而非终点：用一个整流流（rectified flow，近乎直线的 ODE）把这个光滑估计传输到真实分布上的一个样本。关键是 GAN 损失系数 = 拉格朗日乘子，等于给了用户一个「要多真实（可接受多少失真）」的旋钮——与 §2.2 的 w/scale 旋钮同构，但这里有理论保证它逼近 PD 下界。Latent-PMRF 进一步指出在像素空间对齐人眼感知不如在 VAE latent 对齐，于是搬进 latent，兼得速度与更优权衡。这是目前把「油感的理论」落成「去油感的算法」最干净的一条线。</p>
+<h3 id="sec-2-2">2.2 盲人脸修复：GAN 先验 vs 扩散先验，与那个「保真↔真实感」旋钮</h3>
+<p>盲人脸修复（BFR）是去油感积累最厚的战场——它天然面对「输入退化、信息缺失、必须补出可信高频」的难题。演进主线是<strong>换越来越强的生成先验</strong>（StyleGAN → 离散码本 → 扩散），且每一代都把「保真↔真实感」做成可调。</p>
+<p><strong>GFPGAN（Wang et al., CVPR 2021, arxiv:2101.04061）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 把预训练 <strong>StyleGAN2 的面部生成先验</strong>引入 BFR，一次前向就恢复皮肤/头发细节并增强色彩，兼顾真实感与保真。</li>
+<li>方法: 退化去除 U-Net 提取特征 → 经**通道拆分空间特征变换（CS-SFT）**层调制预训练 StyleGAN2 先验；配全局对抗 + 面部组件（眼/嘴判别器）+ 身份保持三个损失。</li>
+<li>关键结果: 单次前向，优于需逐图优化的 GAN inversion；真实/合成数据上均 SOTA（当时）。</li>
+<li>代码: github.com/TencentARC/GFPGAN。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/gfpgan.png" alt="GFPGAN 用 StyleGAN2 面部先验 + CS-SFT">
+  <figcaption><strong>图 3</strong> — GFPGAN 架构：退化去除 U-Net 的特征经 Channel-Split SFT 层调制一个<strong>冻结的 StyleGAN2 面部先验</strong>，由后者提供真实皮肤/毛发的高频「素材库」，再加眼/嘴组件判别器与身份损失——**油感的解法是「借一个本就会画真实皮肤的生成器」，而非让回归网络硬补细节**（论文 Fig. 2）。</figcaption>
+</figure>
+<p>怎么做的：GFPGAN 的洞察呼应 §2.1——既然回归补不出真实高频，就去「借」一个已经会生成真实皮肤的 StyleGAN2。CS-SFT 是关键：它用退化输入的特征去<strong>空间调制</strong> StyleGAN 的中间特征（而非直接替换），通道拆分成「调制一半、保真一半」，于是一半通道负责「像这张脸」（保真）、一半负责「像真皮肤」（真实感）——这就是最早的硬件化「保真↔真实感」平衡。局限是 StyleGAN 先验域窄（正脸、FFHQ 分布），大姿态/遮挡/重度退化会崩，这推动了下一代换更鲁棒的码本/扩散先验。</p>
+<p><strong>CodeFormer（Zhou et al., NeurIPS 2022, arxiv:2206.11253）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 把 BFR 重构成<strong>离散码本上的「代码预测」<strong>任务，大幅降低「退化→高清」映射的不确定性，对重度退化更鲁棒；并给出一个显式的</strong>保真-质量可调权重 w</strong>。</li>
+<li>方法: 先学一个人脸 VQ 码本，Transformer 从低质脸预测码序列（建模全局结构）；可控特征变换模块以 w 融合编码器（输入）特征，调节保真↔质量。</li>
+<li>关键结果: CelebA-Test 上 LPIPS 0.299、IDS 0.60，质量与身份保持均超 GFPGAN。</li>
+<li>代码: github.com/sczhou/CodeFormer（保真旋钮 w 见 §5 代码验证）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/codeformer.png" alt="CodeFormer 的保真-质量可调旋钮">
+  <figcaption><strong>图 4</strong> — CodeFormer 的可控特征变换：权重 w 从一端到另一端，输出在「更高质量/更丰富纹理」与「更贴输入/更高保真」之间连续滑动——**把「走钢丝」交给用户的一个标量**；码本预测则保证即便输入极度退化也能落到合法人脸码上（论文相关图）。</figcaption>
+</figure>
+<p>怎么做的：CodeFormer 治的是 GFPGAN 在重度退化下崩溃的问题。它先把「真实人脸」离散成一个有限码本（每个码是一小块真实人脸纹理），修复 = 预测该用哪些码——因为码本里的每个码本身就是真实皮肤，输出天然不油；又因为是在离散、有限的空间里选而非在连续像素里回归，重度退化下也不会退化成糊。Transformer 建模码之间的全局依赖（保证五官结构一致）。最妙的是那个 w：w→0 偏向「纯码本输出」（质量/纹理最高，但可能与输入身份有偏差），w→1 偏向「融合输入特征」（保真最高）。这是对 §2.1 权衡曲线最直接的「用户可调」实现，也是 ComfyUI/修复工具里最常被调的参数。</p>
+<p><strong>DiffBIR（Lin et al., ECCV 2024, arxiv:2308.15070）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 用<strong>预训练文生图扩散（SD）先验</strong>做盲修复，两阶段解耦「去退化」与「生成真实细节」，并提供推理期可调的真实感-保真 scale。</li>
+<li>方法: 阶段一 restoration module 去退化得高保真条件图；阶段二 <strong>IRControlNet</strong> 用 SD 的生成能力补真实细节；外加<strong>区间自适应修复引导</strong>，推理期免重训即可调 scale（s=0→0.5→1）平衡真实↔保真。</li>
+<li>关键结果: 盲超分/盲人脸/盲去噪统一框架；扩散先验带来比 GAN 先验更丰富的细节。</li>
+<li>代码: github.com/XPixelGroup/DiffBIR。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/diffbir.png" alt="DiffBIR 两阶段：先去退化再生成细节">
+  <figcaption><strong>图 5</strong> — DiffBIR 两阶段流水线：阶段一修复模块去退化、产出干净的条件图；阶段二 IRControlNet 调度 latent 扩散补真实高频；可选的区间自适应修复引导（L_MSE 回路）暴露一个 s=0→1 的真实感-保真旋钮——**「先把脏东西去掉、再让一个强生成先验画真实皮肤」，并把钢丝做成推理期标量**（论文 Fig. 3）。</figcaption>
+</figure>
+<p>怎么做的：DiffBIR 把生成先验从 StyleGAN（域窄）换成 SD（域极宽、细节极丰富），解决了 GFPGAN 的泛化问题。两阶段解耦很关键：如果直接拿退化图喂扩散，噪声会诱发幻觉伪影；先用阶段一把退化去掉得到「干净但可能偏平」的条件图，再让扩散在此之上只负责「加真实细节」，幻觉更可控。IRControlNet 专门用「无干扰噪声内容的条件图」训练以稳住生成。区间自适应引导让用户在推理期拉 scale——这又是那个钢丝旋钮。扩散先验的代价是更慢、且 scale 调大时会「自作主张」加出输入没有的细节（真实感↑但保真↓）。</p>
+<p><strong>PGDiff（Yang et al., NeurIPS 2023, arxiv:2309.10810）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 提出<strong>部分引导（partial guidance）</strong>——不假设退化模型，只建模「高质量图应有的属性」（结构、色彩统计），在反扩散中引导，对真实世界未知退化更通用。</li>
+<li>方法: 在预训练人脸扩散的反向过程里，用对期望属性（光滑度/结构/色彩）的引导项修正采样轨迹，不需要已知退化算子。</li>
+<li>关键结果: 盲人脸修复/着色/补全/老照片等多任务统一；比 GDP/DDNM 等假设退化模型的方法更能泛化到真实退化。</li>
+<li>代码: github.com/pq-yang/PGDiff。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/pgdiff.png" alt="PGDiff 部分引导">
+  <figcaption><strong>图 6</strong> — PGDiff 的部分引导：不去逆向建模「退化是怎么发生的」，而是正向约束「高质量人脸该有的属性」（结构、色彩统计），用它引导预训练人脸扩散的反向采样——**对付真实世界那些建模不出来的复杂退化（这正是油感修复最难的场景）**（论文方法图）。</figcaption>
+</figure>
+<p>怎么做的：PGDiff 解决的是「真实退化无法用公式写出来」这个老大难。此前的扩散修复（GDP/DDNM）需要已知退化算子 H（如已知模糊核），在实验室合成退化上好用，一到真实老照片/网图就崩。PGDiff 反过来：不管退化是什么，只在采样中引导输出满足「真实高质量人脸的统计属性」。这让它对未知退化鲁棒，也让它天然避免油感——因为引导的目标属性里就包含「真实的结构与纹理统计」。它和 DiffBIR 是扩散 BFR 的两条路：DiffBIR 先去退化再生成，PGDiff 不建模退化、用属性引导。</p>
+<p><strong>相邻工作（同一谱系，不单列图）</strong>：VQFR（ECCV 2022, arxiv:2205.06803，VQ 码本 + 并行解码器专攻纹理）、DifFace（arxiv:2212.06512，从退化图构造扩散起点）、AuthFace（arxiv:2410.09864，面向真实感的人脸专用扩散先验）共同构成「GAN 先验 → 码本先验 → 扩散先验」的 BFR 演进。</p>
+<h3 id="sec-2-3">2.3 油感即「缺高频」：频域修正视角</h3>
+<p>把油感翻译成信号语言，它就是<strong>高频子带能量缺失</strong>。于是一支工作直接在频域下手。</p>
+<p><strong>WaveFreqAnchor（Du et al., 2026, arxiv:2608.06717）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: <strong>免训练</strong>的人脸修复框架，把油感当频域问题治——保低频结构/身份、补高频纹理，同时抑制重度退化下的身份漂移。</li>
+<li>方法: ① Anchor-Space Wave-Structural Guidance（ASWG）：把预测的干净图投到低分辨率锚空间，用像素一致性 + Laplacian 初始化的各向异性波响应约束锁住五官结构；② Multi-scale Wavelet-Fourier Injection（MWFI）：保留预测的低频幅度、对齐其相位、<strong>保留引导的高频子带</strong>。</li>
+<li>关键结果: 免微调即用于预训练扩散；在重度退化下缓解身份漂移、保感知质量。</li>
+<li>代码: 论文（训练-free，作用于预训练扩散采样轨迹）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/wavefreqanchor.png" alt="WaveFreqAnchor 小波-傅里叶频率修正">
+  <figcaption><strong>图 7</strong> — WaveFreqAnchor：锚空间波结构引导（ASWG）锁住低频五官结构防身份漂移，多尺度小波-傅里叶注入（MWFI）保留低频幅度、对齐相位、<strong>保留高频子带</strong>——**把「去油感」显式写成「低频保结构、高频补纹理」的频域操作**（论文框架图）。</figcaption>
+</figure>
+<p>怎么做的：WaveFreqAnchor 把去油感的两个相互冲突的目标（保身份 vs 补纹理）拆到不同频段，这是它的巧思。身份/五官结构是低频——用锚空间（低分辨率投影）+ 波响应约束把它焊住，防止扩散采样跑偏导致「换了个人」；皮肤纹理是高频——用小波-傅里叶注入显式保留高频子带。相位对齐保证补进来的高频长在正确位置（毛孔不会错位）。因为全程作用在预训练扩散的采样轨迹上、不训练任何参数，它是即插即用的。这条线（还有相关的 WaveFace, arxiv:2403.12760）代表了「油感 = 缺高频」最直白的工程化，也最容易和前两节的生成先验叠加使用。</p>
+<h3 id="sec-2-4">2.4 当前基准与获胜配方</h3>
+<p><strong>NTIRE 2025 / 2026 Real-World Face Restoration Challenge（CVPRW, arxiv:2504.14600 / 2604.10532）</strong> — ✅ verified</p>
+<ul>
+<li>核心贡献: 把「真实世界人脸修复」做成年度基准，评测核心正是<strong>在保身份的前提下产出自然、真实、不油不过刻的皮肤</strong>。</li>
+<li>方法: 赛题提供真实退化人脸，选手自由组合生成先验；NTIRE 2025 吸引 141 报名、13 队有效提交、10 队进入最终榜。</li>
+<li>关键结果: 2025 冠军队 AllForFace 用<strong>分治三阶段</strong>——先保真、再补真实感、最后调自然度；头部方案普遍组合 GAN + 扩散 + VAE 多先验（如 SRC-B 的 StyleGAN→扩散→VAE）；赛事核心即在「细节太少=蜡质」与「细节过刻=over-etched」之间求平衡。</li>
+<li>代码: 挑战赛报告（各队方法汇总）。</li>
+</ul>
+<figure>
+  <img class="zoomable" src="figures/ntire2025.png" alt="NTIRE 2025 冠军 AllForFace 的分治修复流程">
+  <figcaption><strong>图 8</strong> — NTIRE 2025 冠军 AllForFace 的「分治」修复：同一张退化婴儿脸，依次经 保真 → 真实感 → 自然度 三个子任务，皮肤从模糊平滑逐级补出自然纹理——**头部方案把「走钢丝」拆成串联的子目标，分别对应 GAN/扩散/VAE 各自擅长的那一段**（论文 Fig. 1）。</figcaption>
+</figure>
+<p>怎么做的：NTIRE 挑战赛的价值是把前几节的方法放到同一真实退化基准上比，并固化了领域共识。2025 冠军配方是典型的「取各家之长」：StyleGAN 先验保身份与结构（§2.2 GFPGAN 路线），扩散补真实高频纹理（§2.2 DiffBIR 路线），最后 VAE + 视觉基础模型引导把自然度拉回来（防止扩散过刻成 over-etched）。这个「GAN+扩散+VAE 级联」说明单一先验都不够——GAN 域窄、扩散易幻觉过刻、纯回归油——<strong>去油感是多先验协同的系统工程</strong>。相关的 HonestFace（arxiv:2505.18469）则主张「诚实修复」：一步扩散只补输入支持的真实细节、不幻觉编造，专治「为了不油而过度发明毛孔」的反向失败。</p>
+<h3 id="sec-2-5">2.5 生成侧（文生图人像）的油感从哪来</h3>
+<p>以上是「修复」侧（给定退化输入）。文生图直接生成人像时，油感有三个额外来源，均在姊妹篇 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> 展开，这里按「对皮肤纹理的影响」归纳：</p>
+<ul>
+<li><strong>VAE 高频损失（结构性上限）</strong>：latent 扩散的 VAE 压缩丢掉毛孔级高频。对策是少压或不压——<a class="wiki-link" data-slug="pixrestore-2026" href="../../papers/pixrestore-2026/index.html">pixrestore-2026</a> 干脆<strong>无 VAE</strong>在像素空间做流匹配（证明 VAE 是丢细节的元凶之一），<a class="wiki-link" data-slug="qwen-image-2-2026" href="../../papers/qwen-image-2-2026/index.html">qwen-image-2-2026</a> 则自研 f16c64 把高压缩 VAE 做到重建不降；Krea 2 明确弃用 32× DC-AE 因其给细节设上限。皮肤高频最吃 VAE 质量，这一环直接决定默认观感是「蜡」还是「有毛孔」。</li>
+<li><strong>审美过优化 / reward hacking（分布性油感）</strong>：偏好奖励模型偏爱光滑发光皮肤，RLHF 把分布推向磨皮脸——详见 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> §2.4（Krea/UCLA 的伪影奖励、Pref-GRPO 的过饱和崩溃）。护栏是伪影奖励正则 + pairwise 奖励。</li>
+<li><strong>身份嵌入纹理贫乏（人像专属）</strong>：ArcFace 类 ID embedding 是为「判别是谁」训练的，对肤质细节几乎无感；只靠它驱动（如 Arc2Face）或强注入（如 InstantID）易得「像本人但皮肤平」的结果——详见 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> §2.6。缓解靠弱空间约束（InstantID scale 0.8）、多图去单图偏置（PhotoMaker）、对比对齐保非脸区（PuLID），再叠 §2.2/§2.3 的纹理重建。</li>
+</ul>
+<h3 id="sec-2-6">2.6 工程与后处理实践</h3>
+<p>学术未必单列、但产品线普遍使用，诚实标注为<strong>实践经验</strong>（机制由前几节解释）：</p>
+<ul>
+<li><strong>皮肤纹理提示工程</strong>：正向 <code>visible skin pores, fine skin texture, subsurface scattering, skin imperfections, detailed skin</code>；负向 <code>smooth skin, airbrushed, plastic skin, waxy, porcelain skin</code>——本质是把分布从偏好模型偏爱的磨皮峰推开。</li>
+<li><strong>真实感微调 / 皮肤 LoRA</strong>：在精选真实人像上微调底模或训 skin-detail LoRA，等价于把生成分布往真实皮肤拉（对应 §2.1「要真实就得采样真实分布」）。</li>
+<li><strong>高频增强采样器</strong>（社区如 Detail Daemon / FreeU 类调高频增益）：在采样期提升高频权重补纹理——但调过头就 over-etched（§2.4 的另一端失败）。</li>
+<li><strong>人脸区重修复</strong>：对生成结果用 §2.2 的 BFR（CodeFormer/GFPGAN）或 §2.3 的频域修正，仅在脸部重铺毛孔级高频——这是最常见的「末端去油」收尾。</li>
+<li><strong>轻度胶片颗粒 / 重压缩</strong>：加 grain、JPEG 重压缩，在信号层打散过平滑的均匀表面（也顺带削弱 AI 频谱指纹，见 <a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a> §2.1）。</li>
+</ul>
+<hr />
+<h2 id="sec-3">3. 平行对比</h2>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>先验/机制</th>
+<th>治油感的手段</th>
+<th>保真↔真实感旋钮</th>
+<th>需训练?</th>
+<th>关键结果（带数字/基线）</th>
+<th>代码</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PD-Tradeoff</strong> (1711.06077)</td>
+<td>理论</td>
+<td>解释「低失真⟹油皮」是定理</td>
+<td>—（给出权衡曲线本身）</td>
+<td>—</td>
+<td>对任意失真度量成立；GAN 逼近下界</td>
+<td>理论</td>
+</tr>
+<tr>
+<td><strong>PMRF</strong> (2410.00418)</td>
+<td>整流流</td>
+<td>从后验均值搬到真实流形</td>
+<td>GAN 损失系数=拉格朗日乘子</td>
+<td>是</td>
+<td>CelebA-Test FID/KID/PSNR/SSIM 超 SOTA</td>
+<td>开源 ✅</td>
+</tr>
+<tr>
+<td><strong>Latent-PMRF</strong> (2507.00447)</td>
+<td>整流流(latent)</td>
+<td>同上，在 VAE latent</td>
+<td>同上</td>
+<td>是</td>
+<td>比 PMRF FID 提速 5.79×、PD 更优</td>
+<td>开源</td>
+</tr>
+<tr>
+<td><strong>GFPGAN</strong> (2101.04061)</td>
+<td>StyleGAN2 先验</td>
+<td>借生成器补真实皮肤</td>
+<td>CS-SFT 通道拆分</td>
+<td>是</td>
+<td>单次前向；优于 GAN-inversion</td>
+<td>开源</td>
+</tr>
+<tr>
+<td><strong>CodeFormer</strong> (2206.11253)</td>
+<td>离散码本</td>
+<td>码本=真实纹理，选而非回归</td>
+<td><strong>标量 w（0质量↔1保真）</strong></td>
+<td>是</td>
+<td>CelebA-Test LPIPS 0.299/IDS 0.60</td>
+<td>开源 ✅</td>
+</tr>
+<tr>
+<td><strong>DiffBIR</strong> (2308.15070)</td>
+<td>SD 扩散先验</td>
+<td>两阶段：去退化+生成细节</td>
+<td>区间引导 scale s(0→1)</td>
+<td>是</td>
+<td>盲 SR/BFR/去噪统一；细节更丰富</td>
+<td>开源 ✅</td>
+</tr>
+<tr>
+<td><strong>PGDiff</strong> (2309.10810)</td>
+<td>人脸扩散</td>
+<td>部分引导（约束期望属性）</td>
+<td>引导强度</td>
+<td>否(用预训练)</td>
+<td>泛化真实退化优于 GDP/DDNM</td>
+<td>开源</td>
+</tr>
+<tr>
+<td><strong>WaveFreqAnchor</strong> (2608.06717)</td>
+<td>频域(免训练)</td>
+<td>保低频结构+补高频子带</td>
+<td>注入强度</td>
+<td>否</td>
+<td>重度退化下抗身份漂移</td>
+<td>免训练</td>
+</tr>
+<tr>
+<td><strong>NTIRE2025 冠军</strong> (2504.14600)</td>
+<td>GAN+扩散+VAE</td>
+<td>三阶段各司其职</td>
+<td>级联各段</td>
+<td>是</td>
+<td>挑战赛第一；记录蜡质/过刻两失败模式</td>
+<td>报告</td>
+</tr>
+<tr>
+<td><strong>PixRestore</strong> <a class="wiki-link" data-slug="pixrestore-2026" href="../../papers/pixrestore-2026/index.html">pixrestore-2026</a></td>
+<td>无 VAE 像素扩散</td>
+<td>不丢 VAE 高频</td>
+<td>—</td>
+<td>是</td>
+<td>50M/44ms；算力 1/181 FoundIR-v2</td>
+<td>开源 ✅</td>
+</tr>
+</tbody>
+</table>
+<p>一列读出：<strong>几乎每个现代方法都把「保真↔真实感」做成可调</strong>（w / scale / 拉格朗日乘子 / 注入强度），因为 §2.1 的定理告诉我们这条钢丝无法被单点消除、只能让用户在上面选落点。另一列：先验强度沿 StyleGAN→码本→SD 扩散递增，细节越来越丰富，但幻觉/过刻风险也递增，于是 2025 的工程答案是<strong>多先验级联</strong>。</p>
+<hr />
+<h2 id="sec-4">4. 一致与矛盾</h2>
+<h3 id="sec-4-1">4.1 一致</h3>
+<ul>
+<li><strong>「回归到均值 = 油」是理论共识、被所有方法尊重</strong>：PD-tradeoff 证明它，PMRF 直接把后验均值当起点、BFR 全线放弃纯回归转向生成先验（GAN/码本/扩散）——没有一个现代去油感方法以 L2 回归为主损失。这是跨十年、跨架构的强收敛。</li>
+<li><strong>去油感必须可调，不能一刀切</strong>：GFPGAN 的 CS-SFT、CodeFormer 的 w、DiffBIR 的 scale、PMRF 的拉格朗日乘子——四种独立实现同一件事：把「保真↔真实感」交给用户/场景。独立收敛说明这不是工程偷懒，而是定理的必然。</li>
+<li><strong>油感本质是频率问题</strong>：WaveFreqAnchor 显式在频域补高频；VAE 讨论（PixRestore/Qwen）本质是高频保不保得住；社区高频增强采样器同理。频域是「油感」最统一的解释层。</li>
+<li><strong>单一先验不够、级联是趋势</strong>：NTIRE 2025 冠军的 GAN+扩散+VAE 三段、DiffBIR 的「去退化+生成」两段，都承认任何单先验都有盲区。</li>
+</ul>
+<h3 id="sec-4-2">4.2 矛盾</h3>
+<ul>
+<li><strong>GAN 先验 vs 扩散先验：保真 vs 丰富度之争</strong>。GFPGAN/StyleGAN 路线身份更稳、不易幻觉，但先验域窄（正脸/FFHQ），重度退化/大姿态崩；DiffBIR/PGDiff 的扩散先验细节极丰富、泛化广，但 scale 调大会幻觉出输入没有的「毛孔/皱纹」（真实感↑但失真↑、甚至改了身份）。两条路线在「宁可平稳保真 vs 宁可丰富冒险」上直接冲突，NTIRE 冠军的做法（两者级联）正是承认谁都替代不了谁。</li>
+<li><strong>「不够真实」与「过度刻蚀」是对立的失败模式</strong>：NTIRE 明确记录——同一条钢丝，欠则蜡、过则 over-etched（毛孔被算法整齐刻出、同样假）。HonestFace 的「诚实修复」立场（只补输入支持的细节、不发明）与「尽量补丰富纹理」的激进立场构成张力：到底该补多少才算真实而非编造，无定论。</li>
+<li><strong>保真度到底指什么</strong>：CodeFormer 的 w=1「保真」是贴近<strong>退化输入</strong>（但输入本身油/糊），PMRF 的「低失真」是贴近<strong>真实干净原图</strong>（通常拿不到）——两者都叫「fidelity」，度量对象不同，导致跨论文的「保真度」数字不可直接横比。</li>
+<li><strong>身份 vs 纹理在频段上耦合</strong>：WaveFreqAnchor 假设身份=低频、纹理=高频因而可分离治理；但重度退化下高频里也含身份线索（如特征性皱纹/痣），强行「低频保身份、高频随意补」可能补出不属于本人的纹理——频段分离并非无损。</li>
+</ul>
+<h3 id="sec-4-3">4.3 启发</h3>
+<ul>
+<li><strong>去油感 = 在感知-失真曲线上主动选点，而非追求「最优」单点</strong>：定理决定了没有「又高保真又高真实」的免费午餐；产品要做的是暴露这个旋钮并给合理默认。</li>
+<li><strong>生成侧 ≠ 修复侧，但可借用</strong>：文生图人像的油感根因在 VAE/奖励/ID 嵌入（§2.5），但末端套一道 BFR（§2.2）或频域修正（§2.3）是立刻见效的通用收尾。</li>
+<li><strong>频域是统一语言</strong>：无论 GAN/扩散/VAE，油感都可诊断为高频能量不足——一个标准化的「皮肤高频谱」指标可能比 LPIPS 更贴「油不油」。</li>
+</ul>
+<hr />
+<h2 id="sec-5">5. 代码交叉验证</h2>
+<p><strong>CodeFormer 的保真旋钮 w ✅ 与论文「可控特征变换」完全一致。</strong> 官方 <code>codeformer_arch.py</code> 的 <code>Fuse_sft_block</code> 用权重 w 把编码器（输入）特征以 SFT 方式融进解码器特征；主网络 <code>forward(self, x, w=0, ...)</code> 默认 w=0：</p>
+<p class="code-source">CodeFormer/basicsr/archs/codeformer_arch.py:L151-L157 — 保真-质量可调融合块</p>
+<pre><code class="language-python">def forward(self, enc_feat, dec_feat, w=1):
+    enc_feat = self.encode_enc(torch.cat([enc_feat, dec_feat], dim=1))
+    scale = self.scale(enc_feat)
+    shift = self.shift(enc_feat)
+    residual = w * (dec_feat * scale + shift)   # w 线性缩放「输入特征」的影响
+    out = dec_feat + residual
+    return out
+</code></pre>
+<p class="code-source">CodeFormer/basicsr/archs/codeformer_arch.py:L223-L277 — w 融合 LQ 编码器特征</p>
+<pre><code class="language-python">def forward(self, x, w=0, detach_16=True, code_only=False, adain=False):
+    ...
+    fuse_list = [self.fuse_generator_block[f_size] for f_size in self.connect_list]
+    for i, block in enumerate(self.generator.blocks):
+        x = block(x)
+        if i in fuse_list:  # fuse after i-th block
+            f_size = ...
+            x = self.fuse_convs_dict[f_size](enc_feat_dict[f_size].detach(), x, w)
+</code></pre>
+<p>读码即证实油感旋钮的语义：<code>residual = w * (dec_feat*scale + shift)</code> 中，<strong>w=0 → residual=0 → 输出纯由码本/解码器决定</strong>（质量/纹理最高、但可能偏离输入身份）；<strong>w=1 → 全量注入 LQ 编码器特征</strong>（最贴输入=最高保真，但输入是退化的，增强更保守）。这正是论文「controllable feature transformation module for flexible trade-off between fidelity and quality」的字面实现，也是 §2.1 感知-失真权衡被做成「一个标量」的最清晰案例。</p>
+<p><strong>其余有仓库的工作</strong> 代码主张与本调研引用一致、但未逐行展开：GFPGAN 的 CS-SFT（通道拆分调制 StyleGAN2 先验）、DiffBIR 的两阶段 + IRControlNet、PGDiff 的部分引导、PMRF 的整流流后验均值初值——均为论文核心主张，相应仓库公开（见 §7）。生成侧的 VAE/无 VAE 代码验证已在 <a class="wiki-link" data-slug="pixrestore-2026" href="../../papers/pixrestore-2026/index.html">pixrestore-2026</a>（无 VAE 像素流匹配 + 相似度引导层路由）与 <a class="wiki-link" data-slug="qwen-image-2-2026" href="../../papers/qwen-image-2-2026/index.html">qwen-image-2-2026</a>（f16c64 VAE）页面完成，不重复。</p>
+<hr />
+<h2 id="sec-6">6. 启发与白地</h2>
+<p><strong>给工程实践者的去油感清单（修复侧 + 生成侧）</strong>：</p>
+<ol>
+<li><strong>先认命，再选点</strong>：油感不是 bug 是定理（§2.1），放弃「既高保真又超真实」的幻想；在产品里暴露一个「保真↔真实感」旋钮（CodeFormer 的 w / DiffBIR 的 scale），给合理默认而非追求单一最优。</li>
+<li><strong>修复侧按退化程度选先验</strong>：轻度退化用 GAN 先验（GFPGAN，稳、快、不幻觉）；重度/未知退化用码本（CodeFormer，鲁棒）或扩散（DiffBIR/PGDiff，细节丰富但要压 scale 防过刻）；追求 PD 最优用 PMRF 系。</li>
+<li><strong>生成侧治本在数据/VAE/奖励</strong>：少压 VAE（或无 VAE）保高频、训练剔除磨皮偏置、RLHF 加伪影护栏（<a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a>）；末端统一套一道人脸 BFR + 频域修正重铺毛孔。</li>
+<li><strong>当心另一端</strong>：高频增强/大 scale 调过头 = over-etched 假毛孔；HonestFace 的「只补输入支持的细节」是更稳的默认。</li>
+<li><strong>后处理收尾</strong>：轻度 grain + 皮肤提示工程（正向加 pores、负向去 airbrushed），廉价且有效。</li>
+</ol>
+<p><strong>明确的白地</strong>：</p>
+<ul>
+<li><strong>缺「油不油」的直接指标</strong>：LPIPS/FID 不直接度量皮肤高频充分度与自然度，PSNR 反而奖励油皮；一个「皮肤高频谱 / 纹理自然度」no-reference 指标是明显空白（§4.3）。</li>
+<li><strong>频段分离并非无损</strong>：WaveFreqAnchor 式「低频保身份、高频补纹理」在重度退化下可能补出非本人纹理——身份-纹理在频域的耦合缺量化研究。</li>
+<li><strong>生成侧原生去油 vs 末端修复</strong>：目前文生图人像多靠「生成后再 BFR」打补丁，缺「从底模就不长油皮」的端到端方案（无 VAE 底模 <a class="wiki-link" data-slug="pixrestore-2026" href="../../papers/pixrestore-2026/index.html">pixrestore-2026</a> 是方向但尚未进主流 T2I）。</li>
+<li><strong>保真度定义不统一</strong>：跨论文的 fidelity 度量对象不一（贴退化输入 vs 贴干净原图），阻碍横比，需要统一协议。</li>
+</ul>
+<hr />
+<h2 id="sec-7">7. 参考文献</h2>
+<p>全部 arxiv 号/年份/数字联网核实（2026-10 核实）。注意 arxiv 前缀年月：<code>1711</code>=2017-11、<code>2410</code>=2024-10、<code>2507</code>=2025-07、<code>2608</code>=2026-08、<code>2604</code>=2026-04。</p>
+<p><strong>理论根因</strong></p>
+<ol>
+<li>Blau &amp; Michaeli. <em>The Perception-Distortion Tradeoff.</em> CVPR 2018. arxiv <a href="https://arxiv.org/abs/1711.06077">1711.06077</a></li>
+<li>Ohayon et al. <em>Posterior-Mean Rectified Flow: Towards Minimum MSE Photo-Realistic Image Restoration (PMRF).</em> 2024. arxiv <a href="https://arxiv.org/abs/2410.00418">2410.00418</a></li>
+<li>Luo et al. <em>Latent Posterior-Mean Rectified Flow for Higher-Fidelity Perceptual Face Restoration.</em> 2025. arxiv <a href="https://arxiv.org/abs/2507.00447">2507.00447</a></li>
+</ol>
+<p><strong>盲人脸修复与保真-真实感旋钮</strong>
+4. Wang et al. <em>Towards Real-World Blind Face Restoration with Generative Facial Prior (GFPGAN).</em> CVPR 2021. arxiv <a href="https://arxiv.org/abs/2101.04061">2101.04061</a>
+5. Zhou et al. <em>Towards Robust Blind Face Restoration with Codebook Lookup Transformer (CodeFormer).</em> NeurIPS 2022. arxiv <a href="https://arxiv.org/abs/2206.11253">2206.11253</a>
+6. Gu et al. <em>VQFR: Blind Face Restoration with Vector-Quantized Dictionary and Parallel Decoder.</em> ECCV 2022. arxiv <a href="https://arxiv.org/abs/2205.06803">2205.06803</a>
+7. Yue &amp; Loy. <em>DifFace: Blind Face Restoration with Diffused Error Contraction.</em> 2022. arxiv <a href="https://arxiv.org/abs/2212.06512">2212.06512</a>
+8. Lin et al. <em>DiffBIR: Towards Blind Image Restoration with Generative Diffusion Prior.</em> ECCV 2024. arxiv <a href="https://arxiv.org/abs/2308.15070">2308.15070</a>
+9. Yang et al. <em>PGDiff: Guiding Diffusion Models for Versatile Face Restoration via Partial Guidance.</em> NeurIPS 2023. arxiv <a href="https://arxiv.org/abs/2309.10810">2309.10810</a>
+10. <em>AuthFace: Towards Authentic Blind Face Restoration with Face-oriented Generative Diffusion Prior.</em> 2024. arxiv <a href="https://arxiv.org/abs/2410.09864">2410.09864</a></p>
+<p><strong>频域视角</strong>
+11. Du et al. <em>WaveFreqAnchor: Wave-Structural Anchoring and Frequency Correction Diffusion for Training-Free Face Restoration.</em> 2026. arxiv <a href="https://arxiv.org/abs/2608.06717">2608.06717</a>
+12. <em>WaveFace: Authentic Face Restoration with Efficient Frequency Recovery.</em> 2024. arxiv <a href="https://arxiv.org/abs/2403.12760">2403.12760</a></p>
+<p><strong>基准与配方</strong>
+13. Chen et al. <em>NTIRE 2025 Challenge on Real-World Face Restoration: Methods and Results.</em> CVPRW 2025. arxiv <a href="https://arxiv.org/abs/2504.14600">2504.14600</a>
+14. Wang et al. <em>The Second Challenge on Real-World Face Restoration at NTIRE 2026.</em> CVPRW 2026. arxiv <a href="https://arxiv.org/abs/2604.10532">2604.10532</a>
+15. <em>HonestFace: Towards Honest Face Restoration with One-Step Diffusion Model.</em> 2025. arxiv <a href="https://arxiv.org/abs/2505.18469">2505.18469</a></p>
+<p><strong>生成侧油感（交叉链接）</strong>：VAE 细节 <a class="wiki-link" data-slug="pixrestore-2026" href="../../papers/pixrestore-2026/index.html">pixrestore-2026</a>、<a class="wiki-link" data-slug="qwen-image-2-2026" href="../../papers/qwen-image-2-2026/index.html">qwen-image-2-2026</a>；真实退化超分 <a class="wiki-link" data-slug="diffusion-sr-2026" href="../diffusion-sr-2026/index.html">diffusion-sr-2026</a>、<a class="wiki-link" data-slug="la-sr-2026" href="../../papers/la-sr-2026/index.html">la-sr-2026</a>；AIGC 感全景（采样过饱和/reward hacking/身份保持）<a class="wiki-link" data-slug="anti-aigc-2026" href="../anti-aigc-2026/index.html">anti-aigc-2026</a></p>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

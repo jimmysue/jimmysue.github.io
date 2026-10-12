@@ -59,6 +59,18 @@
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-10-12</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../surveys/face-skin-realism-2026/index.html">人像/人脸如何去「油感」、提真实质感——皮肤纹理真实性方法调研（2018→2026）</a></h3>
+  <p class="post-card__tldr">「油感」（waxy / plastic / airbrushed skin）不是玄学，而是一个有形式化根因的问题：**感知-失真权衡（Perception-Distortion Tradeoff, Blau &amp; Michaeli CVPR 2018）证明，任何最小化重建失真（MSE/PSNR/SSIM/L1）的方法，都被迫牺牲感知真实感**——数学上注定产出「向均值收敛」的过平滑皮肤。油感的第二来源是 VAE 高频损失与审美过优化（偏好模型偏爱光滑发光的皮肤）。
+业界对策围绕一个核心旋钮展开——**「保真 ↔ 真实感」可调权衡**：GFPGAN 用 StyleGAN 面部先验、CodeFormer 用离散码本 + 一个可调权重 w、DiffBIR 用两阶段扩散 + 区间引导 scale、PGDiff 用「部分引导」只约束期望属性。频域视角把油感直接定义成「缺高频」：WaveFreqAnchor（2026）用小波-傅里叶注入保低频、补高频子带。理论侧 PMRF / Latent-PMRF 把「从过平滑的后验均值出发、用整流流搬到真实流形」做成了可证明逼近 PD 下界的方法。
+一个贯穿 2025–2026 的共识是油感本质是**走钢丝**：细节太少 = 蜡质塑料，细节太多 = 毛孔被过度刻蚀（over-etched），NTIRE 2025/2026 真实人脸修复挑战赛就是围绕这条钢丝建的基准。
+全部 arxiv 号/年份/数字联网核实；CodeFormer 的保真旋钮 w 对照官方 `codeformer_arch.py` 真实函数逐行验证。本文聚焦皮肤纹理，身份保持与采样期过饱和详见姊妹篇 [[anti-aigc-2026]]。
+</p>
+</div>
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-12</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../surveys/anti-aigc-2026/index.html">怎样让生成图像「不像 AI 生成的」？——消除 AIGC 感与人像真实感的业界方法调研（2020→2026）</a></h3>
   <p class="post-card__tldr">「AIGC 感」不是一个指标，而是两层问题的叠加：① 信号层——上采样/VAE/扩散留下的周期性频谱指纹，这是取证检测器一眼能抓、也是「塑料感」的物理来源；② 审美层——高 CFG 的过饱和、奖励攻陷（reward hacking）导致的「正脸化 / 蜡质皮肤 / 同质化 house style」、以及递归训练 AI 数据引发的多样性坍缩。本文把业界对策按「介入阶段」拆成七条轴线并排：根因诊断（取证视角）→ 数据层（真图优先、拒绝合成数据）→ 采样/引导层（修高 CFG 过饱和）→ 对齐层（抗 reward hacking）→ 细节层（VAE 毛孔级细节）→ 人像专项（身份保持 vs 真实感的张力）→ 工程后处理。
 核心发现：(1) 两个独立来源——工业界 Krea 2 与学术界 UCLA 的 ArtifactReward——**各自独立发明了「伪影奖励模型」**来对抗 reward hacking，是强收敛信号；(2) 两个头部开源模型在数据立场上**正面冲突**——Krea 2 禁用一切 AI 生成图 + 反对 IQA 分数主滤，Qwen-Image 却明确纳入合成数据 + IQA 过滤；(3) 高 CFG 过饱和这一「AI 感」最显眼来源，有四套互相竞争的采样期修法（CFG-rescale / 区间引导 / APG / autoguidance），但它们在不同数据集、不同指标上报告，难以横比。

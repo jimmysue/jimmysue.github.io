@@ -54,6 +54,22 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-v2-2024/index.html">Ferret-v2：给「指代+定位」MLLM 装上高分辨率的眼睛</a></h3>
+  <p class="post-card__tldr">Ferret-v2 是 Ferret 的重大升级,三招破解&quot;固定低分辨率编码器看不清小物体&quot;:(1) any-resolution——把大图切成子块各自编码,保住 CLIP 预训练知识;(2) 多粒度双编码器——全局图用 CLIP 抓语义、局部块用 DINOv2 抓细节;(3) 三阶段训练,中间插一个&quot;高分辨率密集对齐&quot;阶段。
+它把 [[ferret-2023|Ferret]] 的输入侧 grounding 推到高分辨率密集感知,也是 Ferret-UI 屏幕理解的技术底座。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/referring-grounding.html">referring-grounding</a>
+      <a class="tag-chip" href="concepts/any-resolution.html">any-resolution</a>
+      <a class="tag-chip" href="concepts/multi-granularity-encoding.html">multi-granularity-encoding</a>
+      <span class="tag-chip tag-chip--more">+4 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-14</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ferret-2023/index.html">Ferret：任意形状、任意粒度的「指代 + 定位」多模态大模型</a></h3>
   <p class="post-card__tldr">Ferret 用「混合区域表示」（离散坐标 + 连续特征）把用户圈的任意形状区域（点/框/涂鸦/自由形状）编码进 LLM 输入，同时在输出端把名词后接坐标实现定位——一个模型统一了 referring（区域→语义）和 grounding（语义→区域）。
 它是 LISA「文本→掩码」的**输入侧对偶**：LISA 解决&quot;想哪打哪&quot;的输出，Ferret 解决&quot;圈哪问哪&quot;的输入。
@@ -173,21 +189,6 @@ MeanFlow 官方 / NVlabs rcm),终章给选型决策树 + 成本模型 + 踩坑�
       <a class="tag-chip" href="concepts/grounding.html">grounding</a>
       <a class="tag-chip" href="concepts/vlm.html">vlm</a>
       <span class="tag-chip tag-chip--more">+3 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-04</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/ideogram-4-2026/index.html">Ideogram 4: 9.3B single-stream DiT,从 Qwen3-VL 拼接 13 层特征 + 结构化 JSON prompt + MRoPE 共享 text/image 位置空间</a></h3>
-  <p class="post-card__tldr">Ideogram 首个开源权重 (2026-06-03 同日 release 代码 + weights, **9.3B 参数, 非任何已有模型微调**)。技术报告无 arxiv,只有 blog (ideogram.ai/blog/ideogram-4.0) + GitHub repo (ideogram-oss/ideogram4) 里的 docs。架构亮点:**单流 DiT** (跟 SD3/FLUX 的 MMDiT 双流相反),34 层 transformer 把&quot;text token + image latent token&quot;拼成一根 sequence,共享 self-attention; text encoder 用 **frozen Qwen3-VL-8B-Instruct**,从第 0/3/6/9/12/15/18/21/24/27/30/33/35 层共 13 层 hidden state **沿 feature 维拼接** (得到 4096×13 = 53248 维 text feature);**MRoPE 3D 位置编码** (section 24/20/20: 时间/高/宽,text token 用 1D position 广播到 3 轴) 让两类 token 处于统一空间,无需 cross-attention; flow matching + Euler sampler + logit-normal noise schedule (按分辨率自适应 mu = mu_base + 0.5·log(N_pixels / 512²));**asymmetric CFG** (unconditional pass 只走 image token, 省计算)。训练数据完全是**结构化 JSON caption** (high_level / style / compositional_deconstruction with bbox)。基准: Design Arena open-weight 第一,ContraLabs 排版 47.9% 一胜率超过 Nano Banana 2 / FLUX.2 [max] / Grok Imagine 1.0,7Bench layout / X-Omni OCR 上是 9.3B 级最强。**License**: Ideogram 4 Non-Commercial (不能商用)。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/diffusion.html">diffusion</a>
-      <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
-      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
-      <span class="tag-chip tag-chip--more">+6 more</span>
   </div>
 </div>
 </div>

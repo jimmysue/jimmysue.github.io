@@ -57,6 +57,18 @@
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-12</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../surveys/face-skin-realism-2026/index.html">人像/人脸如何去「油感」、提真实质感——皮肤纹理真实性方法调研（2018→2026）</a></h3>
+  <p class="post-card__tldr">「油感」（waxy / plastic / airbrushed skin）不是玄学，而是一个有形式化根因的问题：**感知-失真权衡（Perception-Distortion Tradeoff, Blau &amp; Michaeli CVPR 2018）证明，任何最小化重建失真（MSE/PSNR/SSIM/L1）的方法，都被迫牺牲感知真实感**——数学上注定产出「向均值收敛」的过平滑皮肤。油感的第二来源是 VAE 高频损失与审美过优化（偏好模型偏爱光滑发光的皮肤）。
+业界对策围绕一个核心旋钮展开——**「保真 ↔ 真实感」可调权衡**：GFPGAN 用 StyleGAN 面部先验、CodeFormer 用离散码本 + 一个可调权重 w、DiffBIR 用两阶段扩散 + 区间引导 scale、PGDiff 用「部分引导」只约束期望属性。频域视角把油感直接定义成「缺高频」：WaveFreqAnchor（2026）用小波-傅里叶注入保低频、补高频子带。理论侧 PMRF / Latent-PMRF 把「从过平滑的后验均值出发、用整流流搬到真实流形」做成了可证明逼近 PD 下界的方法。
+一个贯穿 2025–2026 的共识是油感本质是**走钢丝**：细节太少 = 蜡质塑料，细节太多 = 毛孔被过度刻蚀（over-etched），NTIRE 2025/2026 真实人脸修复挑战赛就是围绕这条钢丝建的基准。
+全部 arxiv 号/年份/数字联网核实；CodeFormer 的保真旋钮 w 对照官方 `codeformer_arch.py` 真实函数逐行验证。本文聚焦皮肤纹理，身份保持与采样期过饱和详见姊妹篇 [[anti-aigc-2026]]。
+</p>
+</div>
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-07-27</span></span>
   </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="../surveys/deblur-diffusion-2026/index.html">扩散/流匹配去模糊调研：从 SD 先验到一步化与残差流（2025→2026）</a></h3>
