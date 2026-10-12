@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>aigc-detection — paper-reading</title>
+  <link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link" href="../papers.html">论文</a>
+    <a class="site-nav__link" href="../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../surveys.html">调研</a>
+    <a class="site-nav__link active" href="../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../pagefind/pagefind-ui.js"></script>
+<script defer src="../assets/search.js"></script>
+<script defer src="../assets/theme.js"></script>
+<!-- NAV-END -->
+
+<main class="page page--concept">
+  <h1>aigc-detection</h1>
+  
+  <div class="concept__body">
+
+  </div>
+  <h2>提到此概念的论文 / 教程</h2>
+  <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-12</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../surveys/anti-aigc-2026/index.html">怎样让生成图像「不像 AI 生成的」？——消除 AIGC 感与人像真实感的业界方法调研（2020→2026）</a></h3>
+  <p class="post-card__tldr">「AIGC 感」不是一个指标，而是两层问题的叠加：① 信号层——上采样/VAE/扩散留下的周期性频谱指纹，这是取证检测器一眼能抓、也是「塑料感」的物理来源；② 审美层——高 CFG 的过饱和、奖励攻陷（reward hacking）导致的「正脸化 / 蜡质皮肤 / 同质化 house style」、以及递归训练 AI 数据引发的多样性坍缩。本文把业界对策按「介入阶段」拆成七条轴线并排：根因诊断（取证视角）→ 数据层（真图优先、拒绝合成数据）→ 采样/引导层（修高 CFG 过饱和）→ 对齐层（抗 reward hacking）→ 细节层（VAE 毛孔级细节）→ 人像专项（身份保持 vs 真实感的张力）→ 工程后处理。
+核心发现：(1) 两个独立来源——工业界 Krea 2 与学术界 UCLA 的 ArtifactReward——**各自独立发明了「伪影奖励模型」**来对抗 reward hacking，是强收敛信号；(2) 两个头部开源模型在数据立场上**正面冲突**——Krea 2 禁用一切 AI 生成图 + 反对 IQA 分数主滤，Qwen-Image 却明确纳入合成数据 + IQA 过滤；(3) 高 CFG 过饱和这一「AI 感」最显眼来源，有四套互相竞争的采样期修法（CFG-rescale / 区间引导 / APG / autoguidance），但它们在不同数据集、不同指标上报告，难以横比。
+所有 arxiv 号、年份、数字均联网核实；CFG-rescale、APG、InstantID、PuLID 的核心主张对照 diffusers / 官方仓库真实函数逐一验证。
+</p>
+</div>
+</div>
+
+  <p class="back-link"><a href="../graph.html">← 返回图谱</a></p>
+</main>
+</body>
+</html>

@@ -49,6 +49,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-07-14</span> · <span class="post-card__extra">3-5k 字</span> · <span class="post-card__extra">15–20 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/typescript-0-setup/index.html">TS·00 入门与心智模型:TS = JS + 会被擦除的类型层</a></h3>
+  <p class="post-card__tldr">系列开篇。给 Python 背景的读者建立 TypeScript 心智模型:类型只在编译期存在、运行时被完全擦除;
+用 pi 这个真实 AI coding-agent 框架的 tsconfig、npm workspaces、ESM barrel 讲清&quot;怎么把仓库跑起来读代码&quot;。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/typescript.html">typescript</a>
+      <a class="tag-chip" href="concepts/tooling.html">tooling</a>
+      <a class="tag-chip" href="concepts/esm.html">esm</a>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -173,21 +188,6 @@ HiWave（8192² 免训练）、PixelRush（单卡 8K &lt; 100s）、Scale-DiT（
       <a class="tag-chip" href="concepts/dmd.html">dmd</a>
       <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
       <span class="tag-chip tag-chip--more">+4 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-06-30</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/physeditworld-2026/index.html">PhysEditWorld：把「重力」从隐式相关性拽成可编辑的设计变量</a></h3>
-  <p class="post-card__tldr">清华深圳 + 北航 + 港科大等。一个数据集论文：现有 game world model 把物理当成数据分布里的隐式规律学，能模仿「世界通常怎么演化」，但答不出游戏作者真正关心的问题——「同一个场景，如果改一条物理规则，应该怎么演化？」。PhysEditWorld 用 UE5 的 replay-and-rendering 管线，固定场景 / 初始态 / 动作序列 / 角色控制器 / 相机策略，只改重力配置重放同一段交互，得到 matched counterfactual replay group：12 个电影级 UE5 场景、100+ 小时交互、60M+ 渲染帧、8 路同步相机、RGB/深度/法线/音频/动作/相机/引擎态/重力标签。配套验证：在 Wan2.2-5B / LingBot-World 上 LoRA 微调后重力对齐从 33% → 100%、$R^2$ 0.066 → 0.570；Qwen3-VL 重力分类 24.7% → 95.3%。代码（UE5 插件）尚未释出，仓库目前只有数据契约 + 配置 + CLI 文档。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/world-model.html">world-model</a>
-      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
-      <a class="tag-chip" href="concepts/physics-editing.html">physics-editing</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

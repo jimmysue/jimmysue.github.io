@@ -47,8 +47,25 @@
 <!-- NAV-END -->
 <main class="page page--listing">
 <h1>调研</h1>
-<p class="page__intro">共 5 篇研究调研报告。</p>
+<p class="page__intro">共 6 篇研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--survey">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--survey">📊 调研</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-10-12</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="surveys/anti-aigc-2026/index.html">怎样让生成图像「不像 AI 生成的」？——消除 AIGC 感与人像真实感的业界方法调研（2020→2026）</a></h3>
+  <p class="post-card__tldr">「AIGC 感」不是一个指标，而是两层问题的叠加：① 信号层——上采样/VAE/扩散留下的周期性频谱指纹，这是取证检测器一眼能抓、也是「塑料感」的物理来源；② 审美层——高 CFG 的过饱和、奖励攻陷（reward hacking）导致的「正脸化 / 蜡质皮肤 / 同质化 house style」、以及递归训练 AI 数据引发的多样性坍缩。本文把业界对策按「介入阶段」拆成七条轴线并排：根因诊断（取证视角）→ 数据层（真图优先、拒绝合成数据）→ 采样/引导层（修高 CFG 过饱和）→ 对齐层（抗 reward hacking）→ 细节层（VAE 毛孔级细节）→ 人像专项（身份保持 vs 真实感的张力）→ 工程后处理。
+核心发现：(1) 两个独立来源——工业界 Krea 2 与学术界 UCLA 的 ArtifactReward——**各自独立发明了「伪影奖励模型」**来对抗 reward hacking，是强收敛信号；(2) 两个头部开源模型在数据立场上**正面冲突**——Krea 2 禁用一切 AI 生成图 + 反对 IQA 分数主滤，Qwen-Image 却明确纳入合成数据 + IQA 过滤；(3) 高 CFG 过饱和这一「AI 感」最显眼来源，有四套互相竞争的采样期修法（CFG-rescale / 区间引导 / APG / autoguidance），但它们在不同数据集、不同指标上报告，难以横比。
+所有 arxiv 号、年份、数字均联网核实；CFG-rescale、APG、InstantID、PuLID 的核心主张对照 diffusers / 官方仓库真实函数逐一验证。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/text-to-image.html">text-to-image</a>
+      <a class="tag-chip" href="concepts/photorealism.html">photorealism</a>
+      <a class="tag-chip" href="concepts/aigc-detection.html">aigc-detection</a>
+      <span class="tag-chip tag-chip--more">+12 more</span>
+  </div>
+</div>
 <div class="post-card post-card--survey">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--survey">📊 调研</span>
