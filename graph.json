@@ -462,6 +462,15 @@
       "url": "papers/scale-dit-2025/index.html"
     },
     {
+      "id": "papers/search-r1-2025",
+      "type": "paper",
+      "slug": "search-r1-2025",
+      "title": "Search-R1：用强化学习教 LLM 在推理中主动搜索",
+      "date": "2025-03-12",
+      "tldr": "Search-R1 把搜索引擎变成 RL 环境的一部分：模型边想边决定是否发起多轮查询，检索结果插回上下文；训练只对模型生成的 token 反传，最终只用答案 EM 奖励。7B base 在七个 QA 数据集上的平均 EM 为 0.431，明显高于同设置 RAG 的 0.304，但论文摘要对“提升 24%/41%”的表述与表格不一致。\n",
+      "url": "papers/search-r1-2025/index.html"
+    },
+    {
       "id": "papers/sefi-image-2026",
       "type": "paper",
       "slug": "sefi-image-2026",
@@ -2996,6 +3005,62 @@
       "name": "UltraImageGen"
     },
     {
+      "id": "concepts/retrieval-augmented-generation",
+      "type": "concept",
+      "slug": "retrieval-augmented-generation",
+      "name": "retrieval-augmented-generation",
+      "has_file": false,
+      "url": "concepts/retrieval-augmented-generation.html"
+    },
+    {
+      "id": "concepts/llm-agents",
+      "type": "concept",
+      "slug": "llm-agents",
+      "name": "llm-agents",
+      "has_file": false,
+      "url": "concepts/llm-agents.html"
+    },
+    {
+      "id": "concepts/tool-use",
+      "type": "concept",
+      "slug": "tool-use",
+      "name": "tool-use",
+      "has_file": false,
+      "url": "concepts/tool-use.html"
+    },
+    {
+      "id": "concepts/ppo",
+      "type": "concept",
+      "slug": "ppo",
+      "name": "ppo",
+      "has_file": false,
+      "url": "concepts/ppo.html"
+    },
+    {
+      "id": "concepts/reward-design",
+      "type": "concept",
+      "slug": "reward-design",
+      "name": "reward-design",
+      "has_file": false,
+      "url": "concepts/reward-design.html"
+    },
+    {
+      "id": "concepts/multi-turn-reasoning",
+      "type": "concept",
+      "slug": "multi-turn-reasoning",
+      "name": "multi-turn-reasoning",
+      "has_file": false,
+      "url": "concepts/multi-turn-reasoning.html"
+    },
+    {
+      "id": "repos/PeterGriffinJin/Search-R1",
+      "type": "repo",
+      "url": "https://github.com/PeterGriffinJin/Search-R1",
+      "host": "github.com",
+      "owner": "PeterGriffinJin",
+      "name": "Search-R1"
+    },
+    {
       "id": "concepts/semantic-first-diffusion",
       "type": "concept",
       "slug": "semantic-first-diffusion",
@@ -3546,14 +3611,6 @@
       "name": "ddpo",
       "has_file": false,
       "url": "concepts/ddpo.html"
-    },
-    {
-      "id": "concepts/ppo",
-      "type": "concept",
-      "slug": "ppo",
-      "name": "ppo",
-      "has_file": false,
-      "url": "concepts/ppo.html"
     },
     {
       "id": "concepts/dpo",
@@ -4525,7 +4582,7 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/ggt-100k-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4535,7 +4592,7 @@
     },
     {
       "from": "papers/boogu-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -4660,12 +4717,12 @@
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/context-scaling-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/d-opsd-2026",
       "kind": "cites"
     },
     {
@@ -4815,7 +4872,7 @@
     },
     {
       "from": "papers/dataevolver-2026",
-      "to": "papers/ggt-100k-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -4825,7 +4882,7 @@
     },
     {
       "from": "papers/dataevolver-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/ggt-100k-2026",
       "kind": "cites"
     },
     {
@@ -4885,6 +4942,11 @@
     },
     {
       "from": "papers/diffusion-opd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/diffusion-opd-2026",
       "to": "papers/awm-2025",
       "kind": "cites"
     },
@@ -4896,11 +4958,6 @@
     {
       "from": "papers/diffusion-opd-2026",
       "to": "papers/d-opsd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/diffusion-opd-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -5010,7 +5067,7 @@
     },
     {
       "from": "papers/f-loss-2026",
-      "to": "papers/asymflow-2026",
+      "to": "papers/pixrestore-2026",
       "kind": "cites"
     },
     {
@@ -5020,7 +5077,7 @@
     },
     {
       "from": "papers/f-loss-2026",
-      "to": "papers/pixrestore-2026",
+      "to": "papers/asymflow-2026",
       "kind": "cites"
     },
     {
@@ -5070,12 +5127,12 @@
     },
     {
       "from": "papers/ferret-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-2023",
-      "to": "papers/q-ground-2024",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -5125,17 +5182,17 @@
     },
     {
       "from": "papers/ferret-v2-2024",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ferret-v2-2024",
       "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
       "from": "papers/ferret-v2-2024",
       "to": "papers/ferret-2023",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ferret-v2-2024",
-      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
@@ -5285,12 +5342,12 @@
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/oftsr-2024",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ggt-100k-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -5370,12 +5427,17 @@
     },
     {
       "from": "papers/i1-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/i1-2026",
       "to": "papers/krea-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/flow-opd-2026",
+      "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
@@ -5385,12 +5447,7 @@
     },
     {
       "from": "papers/i1-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/i1-2026",
-      "to": "papers/sefi-image-2026",
+      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -5445,12 +5502,7 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/ideogram-4-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -5460,12 +5512,17 @@
     },
     {
       "from": "papers/ideogram-4-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/ideogram-4-2026",
       "to": "papers/mrt-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/ideogram-4-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -5520,6 +5577,11 @@
     },
     {
       "from": "papers/jit-2025",
+      "to": "papers/pixrestore-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/jit-2025",
       "to": "papers/f-loss-2026",
       "kind": "cites"
     },
@@ -5531,11 +5593,6 @@
     {
       "from": "papers/jit-2025",
       "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/jit-2025",
-      "to": "papers/pixrestore-2026",
       "kind": "cites"
     },
     {
@@ -5650,17 +5707,17 @@
     },
     {
       "from": "papers/krea-2-2026",
-      "to": "papers/boogu-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/krea-2-2026",
       "to": "papers/sefi-image-2026",
       "kind": "cites"
     },
     {
       "from": "papers/krea-2-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/krea-2-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
@@ -5750,12 +5807,12 @@
     },
     {
       "from": "papers/la-sr-2026",
-      "to": "papers/op4ksr-2026",
+      "to": "surveys/diffusion-sr-2026",
       "kind": "cites"
     },
     {
       "from": "papers/la-sr-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/op4ksr-2026",
       "kind": "cites"
     },
     {
@@ -5895,7 +5952,7 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/self-forcing-2025",
+      "to": "papers/awm-2025",
       "kind": "cites"
     },
     {
@@ -5910,12 +5967,12 @@
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/awm-2025",
+      "to": "papers/dapo-2025",
       "kind": "cites"
     },
     {
       "from": "papers/lingbot-video-2026",
-      "to": "papers/dapo-2025",
+      "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
@@ -5960,12 +6017,12 @@
     },
     {
       "from": "papers/lisa-2023",
-      "to": "tutorials/vlm-grounding-2025",
+      "to": "papers/q-ground-2024",
       "kind": "cites"
     },
     {
       "from": "papers/lisa-2023",
-      "to": "papers/q-ground-2024",
+      "to": "tutorials/vlm-grounding-2025",
       "kind": "cites"
     },
     {
@@ -6040,22 +6097,22 @@
     },
     {
       "from": "papers/llada-image-2026",
-      "to": "papers/boogu-image-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/llada-image-2026",
-      "to": "papers/context-scaling-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/llada-image-2026",
       "to": "papers/i1-2026",
       "kind": "cites"
     },
     {
       "from": "papers/llada-image-2026",
       "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/llada-image-2026",
+      "to": "papers/boogu-image-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/llada-image-2026",
+      "to": "papers/context-scaling-2026",
       "kind": "cites"
     },
     {
@@ -6095,12 +6152,12 @@
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/mrt-2026",
+      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
       "from": "papers/locate-anything-2026",
-      "to": "papers/rep-forcing-2026",
+      "to": "papers/mrt-2026",
       "kind": "cites"
     },
     {
@@ -6195,17 +6252,17 @@
     },
     {
       "from": "papers/mfd-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mfd-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mfd-2026",
       "to": "papers/d-opsd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mfd-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
@@ -6255,17 +6312,17 @@
     },
     {
       "from": "papers/molmo-2024",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/molmo-2024",
       "to": "papers/thinking-visual-primitives-2026",
       "kind": "cites"
     },
     {
       "from": "papers/molmo-2024",
       "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/molmo-2024",
-      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -6320,17 +6377,17 @@
     },
     {
       "from": "papers/mrt-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/mrt-2026",
       "to": "papers/flow-opd-2026",
       "kind": "cites"
     },
     {
       "from": "papers/mrt-2026",
       "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/mrt-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -6540,17 +6597,17 @@
     },
     {
       "from": "papers/osprey-2023",
+      "to": "papers/lisa-2023",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/osprey-2023",
       "to": "papers/ferret-2023",
       "kind": "cites"
     },
     {
       "from": "papers/osprey-2023",
       "to": "papers/ferret-v2-2024",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/osprey-2023",
-      "to": "papers/lisa-2023",
       "kind": "cites"
     },
     {
@@ -6610,17 +6667,17 @@
     },
     {
       "from": "papers/paint-anything-2026",
+      "to": "papers/qwen-image-2-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/paint-anything-2026",
       "to": "papers/bernini-2026",
       "kind": "cites"
     },
     {
       "from": "papers/paint-anything-2026",
       "to": "papers/latent-to-pixel-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/paint-anything-2026",
-      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -6735,7 +6792,7 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/oftsr-2024",
       "kind": "cites"
     },
     {
@@ -6755,7 +6812,7 @@
     },
     {
       "from": "papers/pixrestore-2026",
-      "to": "papers/oftsr-2024",
+      "to": "surveys/diffusion-sr-2026",
       "kind": "cites"
     },
     {
@@ -6885,17 +6942,7 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/diffusion-opd-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/self-forcing-2025",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/qwen-image-flash-2026",
-      "to": "papers/mambo-g-2025",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
@@ -6905,7 +6952,17 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/mambo-g-2025",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/d-opsd-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/qwen-image-flash-2026",
+      "to": "papers/self-forcing-2025",
       "kind": "cites"
     },
     {
@@ -6915,7 +6972,7 @@
     },
     {
       "from": "papers/qwen-image-flash-2026",
-      "to": "papers/d-opsd-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -6985,7 +7042,7 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/diffusion-opd-2026",
+      "to": "papers/qwen-image-flash-2026",
       "kind": "cites"
     },
     {
@@ -7000,12 +7057,12 @@
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/qwen-image-flash-2026",
+      "to": "papers/self-flow-2026",
       "kind": "cites"
     },
     {
       "from": "papers/rdm-2026",
-      "to": "papers/self-flow-2026",
+      "to": "papers/diffusion-opd-2026",
       "kind": "cites"
     },
     {
@@ -7209,6 +7266,51 @@
       "kind": "implements"
     },
     {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/reinforcement-learning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/retrieval-augmented-generation",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/llm-agents",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/tool-use",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/ppo",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/grpo",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/reward-design",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "concepts/multi-turn-reasoning",
+      "kind": "mentions"
+    },
+    {
+      "from": "papers/search-r1-2025",
+      "to": "repos/PeterGriffinJin/Search-R1",
+      "kind": "implements"
+    },
+    {
       "from": "papers/sefi-image-2026",
       "to": "concepts/text-to-image",
       "kind": "mentions"
@@ -7280,12 +7382,12 @@
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/boogu-image-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "cites"
     },
     {
       "from": "papers/sefi-image-2026",
-      "to": "papers/qwen-image-2-2026",
+      "to": "papers/boogu-image-2026",
       "kind": "cites"
     },
     {
@@ -7595,17 +7697,17 @@
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
+      "to": "papers/rep-forcing-2026",
+      "kind": "cites"
+    },
+    {
+      "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/deepseek-v4-2026",
       "kind": "cites"
     },
     {
       "from": "papers/thinking-visual-primitives-2026",
       "to": "papers/mrt-2026",
-      "kind": "cites"
-    },
-    {
-      "from": "papers/thinking-visual-primitives-2026",
-      "to": "papers/rep-forcing-2026",
       "kind": "cites"
     },
     {
@@ -7750,12 +7852,12 @@
     },
     {
       "from": "tutorials/compensated-attention-2025",
-      "to": "papers/sparkdiffusion-2026",
+      "to": "surveys/compensated-sparse-attention-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/compensated-attention-2025",
-      "to": "surveys/compensated-sparse-attention-2026",
+      "to": "papers/sparkdiffusion-2026",
       "kind": "covers"
     },
     {
@@ -7970,12 +8072,12 @@
     },
     {
       "from": "tutorials/llm-sparse-attention-2024",
-      "to": "papers/deepseek-v4-2026",
+      "to": "surveys/llm-sparse-attention-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/llm-sparse-attention-2024",
-      "to": "surveys/llm-sparse-attention-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "covers"
     },
     {
@@ -8055,17 +8157,17 @@
     },
     {
       "from": "tutorials/opd-diffusion-2026",
+      "to": "papers/flow-opd-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/opd-diffusion-2026",
       "to": "papers/diffusion-opd-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/opd-diffusion-2026",
       "to": "papers/d-opsd-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/opd-diffusion-2026",
-      "to": "papers/flow-opd-2026",
       "kind": "covers"
     },
     {
@@ -8180,17 +8282,17 @@
     },
     {
       "from": "tutorials/step-distillation-2022",
+      "to": "tutorials/opd-diffusion-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "tutorials/step-distillation-2022",
       "to": "papers/krea-2-2026",
       "kind": "covers"
     },
     {
       "from": "tutorials/step-distillation-2022",
       "to": "papers/self-forcing-2025",
-      "kind": "covers"
-    },
-    {
-      "from": "tutorials/step-distillation-2022",
-      "to": "tutorials/opd-diffusion-2026",
       "kind": "covers"
     },
     {
@@ -8660,12 +8762,7 @@
     },
     {
       "from": "surveys/anti-aigc-2026",
-      "to": "papers/la-sr-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/anti-aigc-2026",
-      "to": "surveys/diffusion-sr-2026",
+      "to": "papers/qwen-image-2-2026",
       "kind": "covers"
     },
     {
@@ -8675,17 +8772,7 @@
     },
     {
       "from": "surveys/anti-aigc-2026",
-      "to": "papers/qwen-image-2-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/anti-aigc-2026",
       "to": "tutorials/rl-for-diffusion-2023",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/anti-aigc-2026",
-      "to": "papers/sefi-image-2026",
       "kind": "covers"
     },
     {
@@ -8695,17 +8782,32 @@
     },
     {
       "from": "surveys/anti-aigc-2026",
+      "to": "papers/sefi-image-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/anti-aigc-2026",
       "to": "papers/llada-image-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/anti-aigc-2026",
-      "to": "papers/leap-align-2026",
+      "to": "papers/la-sr-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/anti-aigc-2026",
       "to": "tutorials/rlhf-evolution-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/anti-aigc-2026",
+      "to": "surveys/diffusion-sr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/anti-aigc-2026",
+      "to": "papers/leap-align-2026",
       "kind": "covers"
     },
     {
@@ -8800,22 +8902,22 @@
     },
     {
       "from": "surveys/compensated-sparse-attention-2026",
-      "to": "papers/sparkdiffusion-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/compensated-sparse-attention-2026",
       "to": "tutorials/compensated-attention-2025",
       "kind": "covers"
     },
     {
       "from": "surveys/compensated-sparse-attention-2026",
-      "to": "surveys/native-8k-t2i-2026",
+      "to": "papers/deepseek-v4-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/compensated-sparse-attention-2026",
-      "to": "papers/deepseek-v4-2026",
+      "to": "papers/sparkdiffusion-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/compensated-sparse-attention-2026",
+      "to": "surveys/native-8k-t2i-2026",
       "kind": "covers"
     },
     {
@@ -9020,17 +9122,17 @@
     },
     {
       "from": "surveys/diffusion-sr-2026",
-      "to": "tutorials/diffusion-sr-2021",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/diffusion-sr-2026",
       "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
     {
       "from": "surveys/diffusion-sr-2026",
       "to": "papers/oftsr-2024",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/diffusion-sr-2026",
+      "to": "tutorials/diffusion-sr-2021",
       "kind": "covers"
     },
     {
@@ -9170,16 +9272,6 @@
     },
     {
       "from": "surveys/face-skin-realism-2026",
-      "to": "papers/la-sr-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/face-skin-realism-2026",
-      "to": "surveys/diffusion-sr-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/face-skin-realism-2026",
       "to": "papers/qwen-image-2-2026",
       "kind": "covers"
     },
@@ -9191,6 +9283,16 @@
     {
       "from": "surveys/face-skin-realism-2026",
       "to": "surveys/anti-aigc-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/face-skin-realism-2026",
+      "to": "papers/la-sr-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/face-skin-realism-2026",
+      "to": "surveys/diffusion-sr-2026",
       "kind": "covers"
     },
     {
@@ -9360,6 +9462,11 @@
     },
     {
       "from": "surveys/native-8k-t2i-2026",
+      "to": "papers/latent-to-pixel-2026",
+      "kind": "covers"
+    },
+    {
+      "from": "surveys/native-8k-t2i-2026",
       "to": "papers/op4ksr-2026",
       "kind": "covers"
     },
@@ -9371,11 +9478,6 @@
     {
       "from": "surveys/native-8k-t2i-2026",
       "to": "papers/l2p-2026",
-      "kind": "covers"
-    },
-    {
-      "from": "surveys/native-8k-t2i-2026",
-      "to": "papers/latent-to-pixel-2026",
       "kind": "covers"
     },
     {

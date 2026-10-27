@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script>(function(){try{var t=localStorage.getItem('theme');if(!t)t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <title>Search-R1：用强化学习教 LLM 在推理中主动搜索</title>
+  <link rel="stylesheet" href="../../assets/style.css">
+  <script>
+    window.MathJax = { tex: { inlineMath: [['$','$'],['\\(','\\)']] } };
+  </script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/highlightjs-line-numbers.js@2.9.0/dist/highlightjs-line-numbers.min.js"></script>
+  <script>document.addEventListener('DOMContentLoaded', () => { hljs.highlightAll(); hljs.initLineNumbersOnLoad(); });</script>
+  <script defer src="../../assets/lightbox.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const links = document.querySelectorAll('.toc a');
+      if (!links.length) return;
+      const map = new Map();
+      links.forEach(a => {
+        const el = document.getElementById(a.getAttribute('href').slice(1));
+        if (el) map.set(el, a);
+      });
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(e => {
+          const a = map.get(e.target);
+          if (!a) return;
+          if (e.isIntersecting) {
+            links.forEach(l => l.classList.remove('active'));
+            a.classList.add('active');
+            const toc = document.querySelector('.toc');
+            if (toc) toc.scrollTo({ top: a.offsetTop - toc.clientHeight / 2, behavior: 'smooth' });
+          }
+        });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+      map.forEach((_, el) => observer.observe(el));
+    });
+  </script>
+</head>
+<body>
+<!-- NAV-START -->
+<nav class="site-nav" aria-label="主导航">
+  <a class="site-nav__brand" href="../../index.html" aria-label="返回主页">
+    <svg class="site-nav__home-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 12l9-9 9 9"/>
+      <path d="M5 10v10h14V10"/>
+    </svg>
+    <span class="site-nav__brand-text">Paper Reading</span>
+  </a>
+  <div class="site-nav__links">
+    <a class="site-nav__link active" href="../../papers.html">论文</a>
+    <a class="site-nav__link" href="../../tutorials.html">教程</a>
+    <a class="site-nav__link" href="../../surveys.html">调研</a>
+    <a class="site-nav__link" href="../../graph.html">图谱</a>
+    <button type="button" class="site-nav__search-btn" id="search-open" aria-label="搜索" aria-expanded="false" aria-controls="search-modal">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+    </button>
+    <button type="button" class="site-nav__theme-btn" id="theme-toggle" aria-label="切换深浅色主题">
+      <svg class="theme-icon theme-icon--moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+      <svg class="theme-icon theme-icon--sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+  </div>
+</nav>
+<div class="search-modal" id="search-modal" hidden data-pagefind-path="../../pagefind/">
+  <div class="search-modal__backdrop" data-search-close></div>
+  <div class="search-modal__panel" role="dialog" aria-modal="true" aria-label="全文搜索">
+    <button type="button" class="search-modal__close" data-search-close aria-label="关闭">✕</button>
+    <div id="search"></div>
+  </div>
+</div>
+<link href="../../pagefind/pagefind-ui.css" rel="stylesheet">
+<script defer src="../../pagefind/pagefind-ui.js"></script>
+<script defer src="../../assets/search.js"></script>
+<script defer src="../../assets/theme.js"></script>
+<!-- NAV-END -->
+<nav class="toc" aria-label="目录">
+  <div class="toc-title">目录 / TOC</div>
+  <ul>
+    <li class="h2"><a href="#sec-1">1. 出发点：RAG 把查询写死了</a></li>
+    <li class="h3"><a href="#sec-1-1">术语速查</a></li>
+    <li class="h3"><a href="#sec-1-2">全局路线图</a></li>
+    <li class="h2"><a href="#sec-2">2. 方法：把搜索塞进 RL 轨迹</a></li>
+    <li class="h3"><a href="#sec-2-1">2.1 目标函数：策略分布现在条件于搜索环境</a></li>
+    <li class="h3"><a href="#sec-2-2">2.2 Retrieved-token loss masking：只训练模型写的部分</a></li>
+    <li class="h3"><a href="#sec-2-3">2.3 多轮 rollout：搜索是一个可重复 action</a></li>
+    <li class="h3"><a href="#sec-2-4">2.4 检索服务与奖励：轻量接口，稀疏反馈</a></li>
+    <li class="h2"><a href="#sec-3">3. 结果：收益来自“学会搜索”，而非只会生成更长答案</a></li>
+    <li class="h3"><a href="#sec-3-1">3.1 主结果</a></li>
+    <li class="h3"><a href="#sec-3-2">3.2 PPO 与 GRPO：快和稳不能同时拿满</a></li>
+    <li class="h3"><a href="#sec-3-3">3.3 top-k：检索更多不自动等于更好</a></li>
+    <li class="h2"><a href="#sec-4">4. 实现细节：论文公式怎样落到工程</a></li>
+    <li class="h3"><a href="#sec-4-1">4.1 训练和 rollout 的可复现实验设定</a></li>
+    <li class="h3"><a href="#sec-4-2">4.2 论文—代码对照</a></li>
+    <li class="h3"><a href="#sec-4-3">4.3 一个具体 rollout 例子</a></li>
+    <li class="h2"><a href="#sec-5">5. 批判与延伸</a></li>
+    <li class="h3"><a href="#sec-5-1">5.1 论文做得好的地方</a></li>
+    <li class="h3"><a href="#sec-5-2">5.2 具体不足</a></li>
+    <li class="h3"><a href="#sec-5-3">5.3 交叉验证：它与相邻工作的关系</a></li>
+    <li class="h3"><a href="#sec-5-4">5.4 研究启发：可以迁移的套路</a></li>
+    <li class="h2"><a href="#sec-6">6. 结论</a></li>
+  </ul>
+</nav>
+<main data-pagefind-body>
+<h1>Search-R1：用强化学习教 LLM 在推理中主动搜索</h1>
+<aside class="post-meta">
+  <div class="post-meta__row"><span class="post-meta__date">📅 加入: <strong>2025-03-12</strong></span> · <span class="post-meta__paper-date">论文日期: 2025-03-12</span></div>
+  <div class="post-meta__row"><span class="post-meta__authors">Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan O. Arık, Dong Wang, Hamed Zamani, Jiawei Han</span> · <span class="post-meta__venue">COLM 2025 / arXiv v5</span></div>
+  <div class="post-meta__row post-meta__links"><a class="post-meta__link" href="https://arxiv.org/abs/2503.09516">arXiv:2503.09516</a> · <a class="post-meta__link" href="https://github.com/PeterGriffinJin/Search-R1">项目页</a> · <a class="post-meta__link" href="https://github.com/PeterGriffinJin/Search-R1">代码</a> · <a class="post-meta__link" href="https://huggingface.co/PeterJinGo">权重</a></div>
+  <div class="post-meta__row post-meta__concepts"><a class="concept-chip" href="../../concepts/reinforcement-learning.html">reinforcement-learning</a> <a class="concept-chip" href="../../concepts/retrieval-augmented-generation.html">retrieval-augmented-generation</a> <a class="concept-chip" href="../../concepts/llm-agents.html">llm-agents</a> <a class="concept-chip" href="../../concepts/tool-use.html">tool-use</a> <a class="concept-chip" href="../../concepts/ppo.html">ppo</a> <a class="concept-chip" href="../../concepts/grpo.html">grpo</a> <a class="concept-chip" href="../../concepts/reward-design.html">reward-design</a> <a class="concept-chip" href="../../concepts/multi-turn-reasoning.html">multi-turn-reasoning</a></div>
+</aside>
+
+<figure>
+  <img class="zoomable" src="figures/fig1-overview.png" alt="Search-R1 的模型、检索环境与结果奖励流程图：模型生成 think/search/answer，检索器返回 information，最终用 EM 奖励。">
+  <figcaption><strong>图 1（依据论文 Fig. 1 与 Algorithm 1 重绘）</strong> — Search-R1 的关键变化不是再加一个 RAG 前缀，而是把“是否搜索、搜什么、搜几次”变成策略的一部分。检索结果是环境返回的 observation，只有最终答案正确与否直接进入奖励。</figcaption>
+</figure>
+<div class="summary-grid">
+  <div class="card"><h3>一句话</h3><p>让 LLM 在回答问题的过程中自己学会调用搜索，而不是由固定 RAG 管线替它决定查询。</p></div>
+  <div class="card"><h3>训练信号</h3><p>只用规则化最终答案 EM；没有过程奖励，也没有神经 reward model。</p></div>
+  <div class="card"><h3>关键稳定化</h3><p>把 <code>&lt;information&gt;</code> 中的检索 token 从 policy loss 与 KL 中屏蔽掉。</p></div>
+  <div class="card"><h3>实验结论</h3><p>7B base 平均 EM 0.431，mask 去掉后降到 0.343；PPO 更稳，GRPO 更快但长训会 collapse。</p></div>
+</div>
+<h2 id="sec-1">1. 出发点：RAG 把查询写死了</h2>
+<p>固定 RAG 的流程是“问题 → 一次检索 → 拼接文档 → 回答”。它把最关键的决策提前写死：什么时候需要外部知识、查询应该怎样改写、拿到第一批证据后是否还要追问。IRCoT、ReAct 这类方法把多轮搜索交给提示词或人工轨迹，模型在训练时却没有因“搜索策略好”而获得直接反馈。</p>
+<p>Search-R1 的问题定义更接近一个带工具的 MDP：策略既产生自然语言推理，也产生工具调用；搜索引擎是环境，返回的文档是 observation；最终正确答案给出稀疏但可自动计算的奖励。这样做的价值在于，查询策略和答案推理共享同一条 RL 轨迹。</p>
+<h3 id="sec-1-1">术语速查</h3>
+<div class="term-grid">
+  <div class="card"><h4>RAG</h4><p>先检索文档，再把文档塞进上下文生成答案。</p></div>
+  <div class="card"><h4>Rollout</h4><p>策略从问题开始生成一整条“思考—搜索—读文档—回答”轨迹。</p></div>
+  <div class="card"><h4>PPO</h4><p>带 critic 的策略梯度方法，用 clipped ratio 限制单步更新幅度。</p></div>
+  <div class="card"><h4>GRPO</h4><p>对同一问题采样一组答案，用组内相对得分替代 value critic。</p></div>
+  <div class="card"><h4>Retrieved token</h4><p>搜索引擎插入的文档 token；它们不是策略生成的动作。</p></div>
+  <div class="card"><h4>EM</h4><p>Exact Match：抽取最终答案后与标准答案做规则匹配。</p></div>
+</div>
+<h3 id="sec-1-2">全局路线图</h3>
+<div class="summary-grid">
+  <div class="card"><h4>① 生成动作</h4><p>模型在 <code>&lt;think&gt;</code> 中推理，决定输出 <code>&lt;search&gt;query&lt;/search&gt;</code> 还是 <code>&lt;answer&gt;…&lt;/answer&gt;</code>。</p></div>
+  <div class="card"><h4>② 查询环境</h4><p>E5 检索器在 Wikipedia-2018 上取 top-3 passages，并包装成 <code>&lt;information&gt;</code>。</p></div>
+  <div class="card"><h4>③ 继续推理</h4><p>检索内容回到上下文，模型可以再次搜索，最多 4 个 action turn。</p></div>
+  <div class="card"><h4>④ 计算奖励</h4><p>只看最终答案是否正确，再用 PPO 或 GRPO 更新策略。</p></div>
+</div>
+<h2 id="sec-2">2. 方法：把搜索塞进 RL 轨迹</h2>
+<h3 id="sec-2-1">2.1 目标函数：策略分布现在条件于搜索环境</h3>
+<p>论文把经典 RLHF/R1 目标扩展为：</p>
+<div class="math block">
+\[\max_{\pi_\theta}\;\mathbb{E}_{x\sim\mathcal D,\;y\sim\pi_\theta(\cdot\mid x;\mathcal R)}[r_\phi(x,y)]-\beta\,\mathbb D_{\mathrm{KL}}\!\left[\pi_\theta(y\mid x;\mathcal R)\,\|\,\pi_{\mathrm{ref}}(y\mid x;\mathcal R)\right].\]
+</div>
+<p class="math-translation">—— 翻译：模型要在“答对”与“别偏离参考模型太远”之间平衡；关键是轨迹 $y$ 已经包含模型 token 和检索返回的文档 token。</p>
+<p>把它想成带外接计算器的考试：学生不仅写答案，还可以按按钮查资料。按钮后的资料不是学生写出来的，训练时不能把“资料本身”当成学生该模仿的动作；真正要学的是什么时候按按钮、按什么查询、读完后如何继续。</p>
+<h3 id="sec-2-2">2.2 Retrieved-token loss masking：只训练模型写的部分</h3>
+<p>设 <span class="math inline">\(I(y_t)=1\)</span> 表示第 <span class="math inline">\(t\)</span> 个 token 是 LLM 生成的，<span class="math inline">\(I(y_t)=0\)</span> 表示它来自检索。PPO 的 token 目标写成：</p>
+<div class="math block">
+\[\mathcal J_{\mathrm{PPO}}=\mathbb E\left[\frac{1}{\sum_t I(y_t)}\sum_{t:I(y_t)=1}\min\!\left(\rho_t A_t,\;\mathrm{clip}(\rho_t,1-\epsilon,1+\epsilon)A_t\right)\right],\quad
+\rho_t=\frac{\pi_\theta(y_t\mid x,y_{&lt;t};\mathcal R)}{\pi_{\mathrm{old}}(y_t\mid x,y_{&lt;t};\mathcal R)}.\]
+</div>
+<p class="math-translation">—— 翻译：分母只数模型自己生成的 token；检索文档在序列里可见，但不会因为内容好坏被 policy gradient 直接更新。</p>
+<p>这个细节解释了为什么“把搜索结果直接拼进 response”会出问题：如果不屏蔽，梯度会把外部文档当成策略输出，模型可能学到复制检索文本的奇怪偏好。GRPO 使用组内相对优势替代 <span class="math inline">\(A_t\)</span>，但同样屏蔽 retrieved token，并且在 KL 项中也使用 mask。</p>
+<p class="code-source">repo/search_r1/llm_agent/generation.py:L1320–L1336 — 官方源码中的 retrieved-information mask（官方仓库同路径）</p>
+<pre><code class="language-python">def _info_masked_concatenate_with_padding(
+    self, prompt, prompt_with_mask, response, info=None, pad_to_left=True
+):
+    pad_id = self.tokenizer.pad_token_id
+    tensors = [prompt, response]
+    tensors_with_mask = [prompt_with_mask, response]
+    if info is not None:
+        tensors.append(info)
+        info_mask = torch.full(info.size(), pad_id,
+                               dtype=info.dtype, device=info.device)
+        tensors_with_mask.append(info_mask)
+    concatenated = torch.cat(tensors, dim=1)
+    concatenated_with_info = torch.cat(tensors_with_mask, dim=1)
+    mask = concatenated != pad_id if pad_to_left else concatenated == pad_id
+    sorted_indices = mask.to(torch.int64).argsort(dim=1, stable=True)
+    return (concatenated.gather(1, sorted_indices),
+            concatenated_with_info.gather(1, sorted_indices))
+</code></pre>
+<p>代码里的 <code>info_mask</code> 用 pad id 占位，后续由 <code>info_mask</code> 生成 <code>final_output['info_mask']</code>。这比“算完 loss 再乘一个布尔矩阵”更早地把信息块标记出来，避免 padding、position id 与 loss mask 错位。</p>
+<h3 id="sec-2-3">2.3 多轮 rollout：搜索是一个可重复 action</h3>
+<p>Algorithm 1 的循环只有三个分支：检测到 <code>&lt;/search&gt;</code> 就检索并追加 observation；检测到 <code>&lt;/answer&gt;</code> 就结束；其他非法格式则返回“重新思考”的提示。动作预算 <span class="math inline">\(B\)</span> 在实验中设为 4。</p>
+<p class="code-source">repo/search_r1/llm_agent/generation.py:L1705–L1769 — `execute_predictions` 的搜索/回答/非法动作分支</p>
+<pre><code class="language-python">cur_actions, contents = self.postprocess_predictions(predictions)
+search_queries = [c for a, c in zip(cur_actions, contents) if a == &quot;search&quot;]
+if do_search:
+    search_results = self.batch_search(search_queries)
+for action, active in zip(cur_actions, active_mask):
+    if action == &quot;answer&quot;:
+        next_obs.append(&quot;&quot;); dones.append(1)
+        valid_action.append(1); is_search.append(0)
+    elif action == &quot;search&quot;:
+        next_obs.append(
+            f&quot;\n\n&lt;information&gt;{search_results.pop(0).strip()}&lt;/information&gt;\n\n&quot;
+        )
+        dones.append(0); valid_action.append(1); is_search.append(1)
+    else:
+        next_obs.append(&quot;\nMy previous action is invalid... Let me try again.\n&quot;)
+        dones.append(0); valid_action.append(0); is_search.append(0)
+</code></pre>
+<p>这里有两个容易被忽略的实现选择：第一，多个样本的 query 会先 batch 后再发给检索服务；第二，非法动作不会直接丢弃轨迹，而是给模型一次“修复格式”的机会。这使格式错误变成可学习的 exploration cost，而不是 silent failure。</p>
+<p class="code-source">repo/search_r1/llm_agent/generation.py:L1790–L1817 — 从自由文本解析 `<search>` / `<answer>`</p>
+<pre><code class="language-python">for prediction in predictions:
+    if isinstance(prediction, str):
+        pattern = r&quot;&lt;(search|answer)&gt;(.*?)&lt;/\1&gt;&quot;
+        match = re.search(pattern, prediction, re.DOTALL)
+        if match:
+            content = match.group(2).strip()
+            action = match.group(1)
+        else:
+            content = &quot;&quot;
+            action = None
+    actions.append(action)
+    contents.append(content)
+</code></pre>
+<p>这段正则也揭示了方法的边界：它只识别两个 action 名称，查询计划、引用质量、搜索结果可信度都没有独立的结构化状态。</p>
+<h3 id="sec-2-4">2.4 检索服务与奖励：轻量接口，稀疏反馈</h3>
+<p class="code-source">repo/search_r1/search/retrieval_server.py:L1495–L1501 — 官方 FastAPI `/retrieve` 端点（仓库快照）</p>
+<pre><code class="language-python">@app.post(&quot;/retrieve&quot;)
+def retrieve(request: RetrieveRequest):
+    queries = request.queries
+    topk = request.topk
+    results = search_engine.batch_search(queries, topk=topk)
+    return {&quot;result&quot;: results}
+</code></pre>
+<p>训练配置把服务地址、top-k、turn 数和 state masking 显式写在脚本里：</p>
+<p class="code-source">repo/train_grpo.sh:L414–L422 — GRPO 运行配置中的关键超参</p>
+<pre><code class="language-bash">algorithm.adv_estimator=grpo
+actor_rollout_ref.actor.optim.lr=1e-6
+actor_rollout_ref.rollout.n_agent=5
+actor_rollout_ref.actor.state_masking=true
+actor_rollout_ref.rollout.max_turns=2
+actor_rollout_ref.rollout.search_url=http://localhost:8000/retrieve
+actor_rollout_ref.rollout.topk=3
+</code></pre>
+<p>论文的奖励函数是最小化设计：</p>
+<div class="math block">
+\[r_\phi(x,y)=\mathrm{EM}(a_{\mathrm{pred}},a_{\mathrm{gold}}).\]
+</div>
+<p>它没有 format reward，也没有 neural reward model。好处是成本低、目标清楚；代价是所有中间行为都要靠最终答案的 credit assignment 间接学到。</p>
+<h2 id="sec-3">3. 结果：收益来自“学会搜索”，而非只会生成更长答案</h2>
+<h3 id="sec-3-1">3.1 主结果</h3>
+<figure>
+  <img class="zoomable" src="figures/fig2-results.png" alt="Search-R1 与 RAG 的平均 EM 柱状图，展示 7B 和 3B 结果以及检索 token mask 消融。">
+  <figcaption><strong>图 2（依据 Table 2 与 Table 4 重绘）</strong> — 7B base 的 Search-R1 平均 EM 为 0.431，RAG 为 0.304；3B base 为 0.303 对 0.270。7B 去掉 retrieved-token mask 后降到 0.343。</figcaption>
+</figure>
+<p>实验统一使用 Qwen2.5-3B/7B 的 base 与 instruct 版本、Wikipedia-2018、E5 retriever、top-3 passages；训练集把 NQ 与 HotpotQA 合并，测试七个 QA 数据集，指标是 EM。对 7B base，逐数据集结果为：</p>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th style="text-align:right">NQ</th>
+<th style="text-align:right">TriviaQA</th>
+<th style="text-align:right">PopQA</th>
+<th style="text-align:right">HotpotQA</th>
+<th style="text-align:right">2Wiki</th>
+<th style="text-align:right">Musique</th>
+<th style="text-align:right">Bamboogle</th>
+<th style="text-align:right">Avg.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RAG</td>
+<td style="text-align:right">0.349</td>
+<td style="text-align:right">0.585</td>
+<td style="text-align:right">0.392</td>
+<td style="text-align:right">0.299</td>
+<td style="text-align:right">0.235</td>
+<td style="text-align:right">0.058</td>
+<td style="text-align:right">0.208</td>
+<td style="text-align:right"><strong>0.304</strong></td>
+</tr>
+<tr>
+<td>Rejection Sampling</td>
+<td style="text-align:right">0.360</td>
+<td style="text-align:right">0.592</td>
+<td style="text-align:right">0.380</td>
+<td style="text-align:right">0.331</td>
+<td style="text-align:right">0.296</td>
+<td style="text-align:right">0.123</td>
+<td style="text-align:right">0.355</td>
+<td style="text-align:right"><strong>0.348</strong></td>
+</tr>
+<tr>
+<td>Search-R1-base</td>
+<td style="text-align:right">0.480</td>
+<td style="text-align:right">0.638</td>
+<td style="text-align:right">0.457</td>
+<td style="text-align:right">0.433</td>
+<td style="text-align:right">0.382</td>
+<td style="text-align:right">0.196</td>
+<td style="text-align:right">0.432</td>
+<td style="text-align:right"><strong>0.431</strong></td>
+</tr>
+<tr>
+<td>Search-R1-instruct</td>
+<td style="text-align:right">0.393</td>
+<td style="text-align:right">0.610</td>
+<td style="text-align:right">0.397</td>
+<td style="text-align:right">0.370</td>
+<td style="text-align:right">0.414</td>
+<td style="text-align:right">0.146</td>
+<td style="text-align:right">0.368</td>
+<td style="text-align:right"><strong>0.385</strong></td>
+</tr>
+</tbody>
+</table>
+<p>从表格计算，7B base 相对 RAG 的提升是 <span class="math inline">\((0.431-0.304)/0.304\approx41.8\%\)</span>；3B base 是 <span class="math inline">\((0.303-0.270)/0.270\approx12.2\%\)</span>。论文摘要写成“7B 提升 24%、3B 提升 20%”，而引言又写成“41% 和 20%”。这不是舍入误差，读者应以表格和明确的比较口径为准：不同模型 variant 或不同版本日志可能被混用。</p>
+<h3 id="sec-3-2">3.2 PPO 与 GRPO：快和稳不能同时拿满</h3>
+<figure>
+  <img class="zoomable" src="figures/fig3-ablation.png" alt="PPO 与 GRPO 以及检索 token masking 的平均 EM 对比图。">
+  <figcaption><strong>图 3（依据 Table 3/4 重绘）</strong> — 7B base 上 PPO 平均 EM 0.431，GRPO 0.350；mask 使平均 EM 从 0.343 回到 0.431。论文的训练曲线显示 GRPO 更快收敛，但长训练会 reward collapse，PPO 更慢更稳。</figcaption>
+</figure>
+<p>GRPO 的优势是不用额外 value model，组内奖励能快速形成相对优势；它的风险是组大小、奖励稀疏和检索噪声叠加后容易塌缩。PPO 有 critic warm-up 的成本，但在本文设置里最终更可靠。值得注意的是，instruct 模型并没有稳定地胜过 base：7B 上 GRPO-instruct 0.396 高于 PPO-instruct 0.385，而 base 上 PPO 明显胜出；“更会遵循格式”主要体现在收敛速度，不等于最终上限更高。</p>
+<h3 id="sec-3-3">3.3 top-k：检索更多不自动等于更好</h3>
+<figure>
+  <img class="zoomable" src="figures/fig4-topk.png" alt="top-k 为 1、3、5 时平均 EM 对比图。">
+  <figcaption><strong>图 4（依据 Appendix G Table 7 重绘）</strong> — top-k=3 的平均 EM 为 0.431，高于 k=1 的 0.375 与 k=5 的 0.400。k=1 召回不足，k=5 引入噪声并使训练更不稳定。</figcaption>
+</figure>
+<p>这组结果把“检索器质量”和“策略学习”绑在了一起：top-k=5 在早期 reward 上升更快，但 500 steps 时不如 k=3。对一个会搜索的 agent，检索接口的 precision/recall 不是固定前处理指标，而是直接改变 RL 的奖励景观。</p>
+<h2 id="sec-4">4. 实现细节：论文公式怎样落到工程</h2>
+<h3 id="sec-4-1">4.1 训练和 rollout 的可复现实验设定</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>论文设置</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backbone</td>
+<td>Qwen2.5-3B/7B base + instruct</td>
+<td>比较模型规模与 post-training 的影响</td>
+</tr>
+<tr>
+<td>Corpus / retriever</td>
+<td>Wikipedia-2018 + E5</td>
+<td>固定知识源，隔离 RL 算法差异</td>
+</tr>
+<tr>
+<td>Retrieval</td>
+<td>top-k=3</td>
+<td>主实验平衡召回与噪声</td>
+</tr>
+<tr>
+<td>Data</td>
+<td>NQ + HotpotQA 训练；7 数据集评测</td>
+<td>同时看 in-domain 与 out-of-domain</td>
+</tr>
+<tr>
+<td>Rollout</td>
+<td>最多 4 个 action，response/observation 500 tokens</td>
+<td>控制工具调用成本</td>
+</tr>
+<tr>
+<td>RL</td>
+<td>默认 PPO；GRPO group size=5</td>
+<td>对比 critic 与组相对优势</td>
+</tr>
+<tr>
+<td>优化</td>
+<td>policy lr <span class="math inline">\(10^{-6}\)</span>，value lr <span class="math inline">\(10^{-5}\)</span>，500 steps</td>
+<td>小学习率配合 KL/clip 稳定更新</td>
+</tr>
+<tr>
+<td>硬件</td>
+<td>8×H100，FSDP + CPU offload，vLLM rollout</td>
+<td>支撑大 batch 与长序列</td>
+</tr>
+</tbody>
+</table>
+<h3 id="sec-4-2">4.2 论文—代码对照</h3>
+<ol>
+<li><strong>公式里的 <span class="math inline">\(I(y_t)\)</span></strong> 对应 <code>responses_with_info_mask</code> 与最终 <code>info_mask</code>，而不是一个独立的 reward 过滤器。它作用在 policy loss 和 KL 上。</li>
+<li><strong>Algorithm 1 的“批量搜索”</strong> 对应 <code>search_queries</code> 收集后一次调用 <code>batch_search</code>；这减少 HTTP 往返，但也让一个 batch 内的请求共享检索服务吞吐瓶颈。</li>
+<li><strong>动作解析</strong> 是正则表达式，不是 constrained decoding。非法格式会得到文本提示后继续 rollout，因此训练轨迹可能包含无效 action。</li>
+<li><strong>服务接口</strong> 只接收 <code>queries/topk/return_scores</code>，检索器可以替换成 BM25、dense ANN 或在线 API；论文主实验只报告 E5 + Wikipedia-2018。</li>
+<li><strong>脚本参数</strong> 把 <code>max_turns=2</code>、<code>topk=3</code>、<code>state_masking=true</code> 写死在运行命令中；这解释了论文表格与仓库默认配置为什么能一一对应。</li>
+<li><strong>奖励</strong> 是数据源对应的 QA EM 规则函数；它对“检索是否真的被使用”没有单独计分，所以“搜索次数上升”是结果驱动的副产物。</li>
+</ol>
+<h3 id="sec-4-3">4.3 一个具体 rollout 例子</h3>
+<p>问题：“Teide National Park 和 Garajonay National Park 在哪里？”</p>
+<ul>
+<li>第一步 <code>&lt;think&gt;</code> 判断需要外部知识；</li>
+<li><code>&lt;search&gt;</code> 生成联合查询；</li>
+<li>环境返回包含 Garajonay 的 Wikipedia passage；</li>
+<li>第二次 <code>&lt;think&gt;</code> 把两个公园归到 Canary Islands；</li>
+<li><code>&lt;answer&gt;</code> 输出 “Canary Islands, Spain”。</li>
+</ul>
+<p>这解释了论文案例中“单次搜索就能答对”与“需要根据前一条结果重写查询”两种模式。RL 没有被告知哪一种模式正确，只能从最终 EM 反推。</p>
+<h2 id="sec-5">5. 批判与延伸</h2>
+<h3 id="sec-5-1">5.1 论文做得好的地方</h3>
+<ul>
+<li><strong>把工具调用放进训练分布</strong>：搜索不是 inference-time prompt trick，而是 rollout 中的环境转移，训练与部署接口一致。</li>
+<li><strong>masking 是真正的工程洞察</strong>：检索 token 参与上下文建模，却不参与策略梯度；0.431→0.343 的 ablation 说明它不是装饰。</li>
+<li><strong>奖励设计克制</strong>：EM 让实验可复现，也能直接检验“搜索行为是否帮助最终答案”。</li>
+<li><strong>分析维度完整</strong>：PPO/GRPO、base/instruct、响应长度、有效搜索数、top-k、group size 都有对照，而不是只报一个平均数。</li>
+</ul>
+<h3 id="sec-5-2">5.2 具体不足</h3>
+<ol>
+<li><strong>奖励太稀疏</strong>：EM 无法区分“证据充分但最后格式错”和“碰巧猜对”；模型可能学到投机性的短答案或不必要的搜索。</li>
+<li><strong>检索环境静态</strong>：Wikipedia-2018 与固定 E5 把“搜索能力”限制为单一语料和单一 retriever，不能代表实时网页、API 限速或坏结果。</li>
+<li><strong>动作空间受格式脆弱性影响</strong>：依赖正则解析 <code>&lt;search&gt;</code>/<code>&lt;answer&gt;</code>，标签缺失时只能追加一段英文纠错提示；这会把格式学习与事实推理纠缠在一起。</li>
+<li><strong>turn budget 与 top-k 是手工常数</strong>：最多 4 actions、top-k=3 在本文成立，但不同问题难度需要不同预算；论文没有学习“何时停止搜索”的显式成本。</li>
+<li><strong>结果口径有矛盾</strong>：摘要/引言的 24%/41% 表述互相冲突，且与 Table 2 的直接相对提升不一致，降低了可复核性。</li>
+<li><strong>缺少成本指标</strong>：只报 EM，不报每题平均搜索次数、token 数、延迟、retriever QPS 或 GPU 小时；实际系统需要在准确率与调用成本之间做选择。</li>
+</ol>
+<h3 id="sec-5-3">5.3 交叉验证：它与相邻工作的关系</h3>
+<table>
+<thead>
+<tr>
+<th>工作</th>
+<th>训练信号与工具调用</th>
+<th>观察到的结论</th>
+<th>与 Search-R1 的异同</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ReAct</td>
+<td>提示词交替 Thought/Action/Observation，无 RL</td>
+<td>少量示例就能触发搜索，但行为依赖 prompt 与任务先验</td>
+<td>Search-R1 保留相同轨迹结构，却把 action policy 用 outcome RL 学出来，减少人工轨迹依赖</td>
+</tr>
+<tr>
+<td>Toolformer</td>
+<td>用自监督筛选 API 调用，再做 SFT</td>
+<td>能学会插入 API call，但需要高质量的调用过滤与文本数据</td>
+<td>Search-R1 不需要标注调用轨迹，却承担更稀疏的 credit assignment；因此 masking 与 reward 设计更关键</td>
+</tr>
+<tr>
+<td>Self-RAG</td>
+<td>训练 retrieve / critique / generate 特殊 token，使用过程式反思信号</td>
+<td>检索与批评 token 能改善 groundedness，但训练管线更复杂</td>
+<td>Search-R1 用单一 EM 换取简单性；它更像“让 RL 自己发现反思”，但可解释的过程监督更少</td>
+</tr>
+<tr>
+<td>DeepSeek-R1</td>
+<td>只对参数化推理做 outcome RL</td>
+<td>仅凭结果奖励也能涌现长链推理与自验证</td>
+<td>Search-R1 把同一思路扩展到不可微检索环境；搜索结果是额外 observation，因此必须处理 retrieved-token credit assignment</td>
+</tr>
+</tbody>
+</table>
+<p>共同点是：结构化特殊 token 都能把“思考”和“工具调用”变成可观测的离散 action。分歧来自训练信号：ReAct/Toolformer 主要依赖示范或筛选，Self-RAG 引入过程 token，Search-R1 则押注最小 EM。结果上的差异很可能由此产生：过程监督越少，越需要更稳定的 RL（PPO、masking、KL）与更干净的检索环境来支撑探索。</p>
+<h3 id="sec-5-4">5.4 研究启发：可以迁移的套路</h3>
+<div class="summary-grid">
+  <div class="card"><h4>把外部工具当环境</h4><p>只要工具返回 observation、最终任务有可计算结果，就能把“调用时机”纳入策略学习，而不是写死在 orchestrator 里。</p></div>
+  <div class="card"><h4>外部 token 要隔离梯度</h4><p>上下文可见不等于动作可训练；对任何检索、数据库或浏览器返回内容，都应单独维护 token provenance mask。</p></div>
+  <div class="card"><h4>先用稀疏结果奖励跑通</h4><p>EM 不是最终答案，但能先验证工具接口、rollout 与 RL 稳定性，再逐步加入成本、证据和格式奖励。</p></div>
+  <div class="card"><h4>反直觉点</h4><p>更大的 top-k 与更快的 GRPO 收敛都可能带来更差的最终结果；搜索 agent 的有效信息量受噪声和训练稳定性共同约束。</p></div>
+</div>
+<h2 id="sec-6">6. 结论</h2>
+<p>Search-R1 的真正贡献是把“搜索”从一个固定 RAG 步骤改成了策略的一部分：模型自己决定要不要搜、搜什么、搜完是否继续搜。方法上最关键的不是复杂 reward，而是三个工程契约：检索结果回到 rollout、retrieved token 不参与 policy/KL 更新、最终答案用可复现的 EM 给出反馈。</p>
+<p>在论文设置下，这个契约让 Qwen2.5-7B base 的平均 EM 从 RAG 的 0.304 提升到 0.431；但提升比例的文字表述存在 24%/41% 冲突，且真实部署还需要把延迟、调用次数、检索噪声和开放域 freshness 纳入目标。下一步最自然的实验是：在相同 rollout 框架里加入搜索成本和证据一致性奖励，同时报告 accuracy–latency–query 三维曲线。</p>
+<blockquote>
+<p><strong>来源与复现说明</strong>：论文内容来自 <a href="https://arxiv.org/abs/2503.09516">arXiv:2503.09516</a> 的 HTML/PDF 文本；代码片段来自官方 <a href="https://github.com/PeterGriffinJin/Search-R1">Search-R1 仓库</a> 的对应路径。当前工作区终端无法解析外网 DNS，因此 <code>raw/paper.pdf</code> 未能缓存，图表均明确标注为依据论文重绘，代码目录保存了可核对的 load-bearing 片段快照。</p>
+</blockquote>
+<section class="comments" data-pagefind-ignore>
+  <h2>讨论 / Comments</h2>
+  <p class="comments__note">评论托管在本仓库的 <a href="https://github.com/jimmysue/jimmysue.github.io/discussions">GitHub Discussions</a>, 需 GitHub 账号。</p>
+  <script src="https://giscus.app/client.js"
+    data-repo="jimmysue/jimmysue.github.io"
+    data-repo-id="MDEwOlJlcG9zaXRvcnkyNTI4OTcxNjU="
+    data-category="Announcements"
+    data-category-id="DIC_kwDODxLnjc4C-anB"
+    data-mapping="pathname"
+    data-strict="0"
+    data-reactions-enabled="1"
+    data-emit-metadata="0"
+    data-input-position="bottom"
+    data-theme="light"
+    data-lang="zh-CN"
+    data-loading="lazy"
+    crossorigin="anonymous"
+    async></script>
+</section>
+</main>
+</body>
+</html>

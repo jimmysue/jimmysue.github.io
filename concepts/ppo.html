@@ -62,6 +62,15 @@
   <h3 class="post-card__title"><a class="post-card__title-link" href="../tutorials/rlhf-evolution-2024/index.html">RLHF 的演变：PPO → DPO → GRPO + Diffusion 的 RL</a></h3>
   <p class="post-card__tldr">从 &quot;policy 到底是什么&quot; 讲起,8 节螺旋结构 (直觉 → 最小 demo → 完整推导 → 真实 repo 代码引用 → 洞察)。覆盖 PPO/RLHF/DPO/GRPO 与 GRPO 后续 (DAPO/Dr.GRPO/GSPO),以及 Diffusion 侧的 DDPO/Diffusion-DPO。DPO 与 GRPO 两节代码深度对等,公式↔代码逐行对照。代码全部 verbatim 引自 huggingface/trl + 3 个对照 repo。</p>
 </div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2025-03-12</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="../papers/search-r1-2025/index.html">Search-R1：用强化学习教 LLM 在推理中主动搜索</a></h3>
+  <p class="post-card__tldr">Search-R1 把搜索引擎变成 RL 环境的一部分：模型边想边决定是否发起多轮查询，检索结果插回上下文；训练只对模型生成的 token 反传，最终只用答案 EM 奖励。7B base 在七个 QA 数据集上的平均 EM 为 0.431，明显高于同设置 RAG 的 0.304，但论文摘要对“提升 24%/41%”的表述与表格不一致。
+</p>
+</div>
 </div>
 
   <p class="back-link"><a href="../graph.html">← 返回图谱</a></p>
