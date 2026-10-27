@@ -54,6 +54,20 @@
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
     <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
   </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/leap-align-2026/index.html">LeapAlign: Post-Training Flow Matching Models at Any Generation Step by Building Two-Step Trajectories</a></h3>
+  <p class="post-card__tldr">ANU/ByteDance:Flux reward fine-tune 时不 backprop 完整 25 步链,而是随机抽 (k,j) 两步构造 leap trajectory + stop_gradient connector,可触及最早期步,Attribute Binding 45→66。</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/flow-matching.html">flow-matching</a>
+      <a class="tag-chip" href="concepts/rl.html">rl</a>
+      <a class="tag-chip" href="concepts/alignment.html">alignment</a>
+      <span class="tag-chip tag-chip--more">+2 more</span>
+  </div>
+</div>
+<div class="post-card post-card--paper">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-06-01</span></span>
+  </div>
   <h3 class="post-card__title"><a class="post-card__title-link" href="papers/latent-to-pixel-2026/index.html">Latent→Pixel 迁移对比: AsymFlow vs L2P 同问题、同月份、完全不同的刀法</a></h3>
   <p class="post-card__tldr">对比阅读 arXiv 2605.12964 (AsymFlow, Stanford) 和 2605.12013 (L2P, 南大+腾讯优图), 上传只差一天。同一个核心问题: 怎么把预训练 LDM (FLUX.2 / Z-Image) 的能力『搬到』像素空间, 而不是从零训像素扩散。AsymFlow &lt;strong&gt;动 loss 不动架构&lt;/strong&gt;: 重新设计 velocity 参数化 u_A := Pε − x₀, Procrustes 把 latent flow 数学上 lift 成 rank-d 像素 flow, 9B base, 全面超过 latent。L2P &lt;strong&gt;动架构不动 loss&lt;/strong&gt;: 抛 VAE 改大 patch, 冻结 LDM 中间 28 层 + Detailer Head, 训练用 LDM 自生成 20k 合成图, 8 卡解锁原生 4K。本文按 改造层 / VAE 处理 / 训练数据 / 算力 / 推理流程 五个维度并排, 给出决策树和共同盲点。两者互不冲突, 未来一年会看到组合工作。</p>
   <div class="post-card__tags">
@@ -159,21 +173,6 @@
       <a class="tag-chip" href="concepts/image-gen.html">image-gen</a>
       <a class="tag-chip" href="concepts/pixel-space.html">pixel-space</a>
       <span class="tag-chip tag-chip--more">+2 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2025-03-12</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/search-r1-2025/index.html">Search-R1：用强化学习教 LLM 在推理中主动搜索</a></h3>
-  <p class="post-card__tldr">Search-R1 把搜索引擎变成 RL 环境的一部分：模型边想边决定是否发起多轮查询，检索结果插回上下文；训练只对模型生成的 token 反传，最终只用答案 EM 奖励。7B base 在七个 QA 数据集上的平均 EM 为 0.431，明显高于同设置 RAG 的 0.304，但论文摘要对“提升 24%/41%”的表述与表格不一致。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/reinforcement-learning.html">reinforcement-learning</a>
-      <a class="tag-chip" href="concepts/retrieval-augmented-generation.html">retrieval-augmented-generation</a>
-      <a class="tag-chip" href="concepts/llm-agents.html">llm-agents</a>
-      <span class="tag-chip tag-chip--more">+5 more</span>
   </div>
 </div>
 </div>

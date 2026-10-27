@@ -49,6 +49,21 @@
 <h1>paper-reading</h1>
 <p class="page__intro">论文精读、系统化教程与研究调研报告。</p>
 <div class="post-grid">
+<div class="post-card post-card--tutorial">
+  <div class="post-card__head">
+    <span class="post-card__badge post-card__badge--tutorial">📘 教程</span>
+    <span class="post-card__date"><span class="post-card__added">📅 2026-09-29</span> · <span class="post-card__extra">~12k 中文字 字</span> · <span class="post-card__extra">35 分钟</span></span>
+  </div>
+  <h3 class="post-card__title"><a class="post-card__title-link" href="tutorials/compensated-attention-2025/index.html">补偿式稀疏注意力：视频扩散如何在 90%+ 稀疏下不崩（VSA · SLA · SALAD · RoPeSLR · RoLA）</a></h3>
+  <p class="post-card__tldr">视频扩散 Transformer 的推理被长时空注意力的 $O(L^2)$ 主导。一条主线在 2025–2026 成型：**块稀疏分支**（只算高能语义块）**+ 一条 $O(L)$ 的线性/低秩补偿分支**（把稀疏丢掉的弥散全局背景捞回来），门控融合。本教程用 8 节螺旋结构（直觉 → 可跑 demo → 推导 → 真实 repo 代码 → 洞察）把这条线讲透：从「注意力为什么贵、朴素稀疏为什么崩」（§1），到补偿的核心武器「线性注意力的可复用全局摘要 $C=\phi(K)^\top V$」（§2），到补偿通式 $\tilde A=A_M+g\odot\mathrm{Proj}(C)$ 与「近零门控」的跨团队共识（§3），到「并联补偿 vs 按块路由」两范式（§4），到 3D RoPE 与线性注意力不可交换的「RoPE 两难」及 RoPeSLR / RoLA 两种互斥解法（§5），到把稠密模型改造成稀疏+补偿的**微调配方**——用什么数据、优化什么目标、动哪些参数（§6），再到 SparkDiffusion 揭示的 **high-sparsity trap**——90% 甜区、97% 崩坏是监督问题而非表达能力问题（§7），最后是把稀疏兑现成墙钟加速的系统落地（FP8 + 融合 kernel，265×，§8）。所有代码 verbatim 引自 thu-ml/SLA、AlibabaResearch/SparkDiffusion（RoLA 实现）、hao-ai-lab/FastVideo（VSA）真实仓库，行号经 sed 核对；引用经联网核实。配套调研见 [[compensated-sparse-attention-2026]]。
+</p>
+  <div class="post-card__tags">
+      <a class="tag-chip" href="concepts/sparse-attention.html">sparse-attention</a>
+      <a class="tag-chip" href="concepts/compensated-sparse-attention.html">compensated-sparse-attention</a>
+      <a class="tag-chip" href="concepts/block-sparse-attention.html">block-sparse-attention</a>
+      <span class="tag-chip tag-chip--more">+8 more</span>
+  </div>
+</div>
 <div class="post-card post-card--paper">
   <div class="post-card__head">
     <span class="post-card__badge post-card__badge--paper">📄 论文</span>
@@ -176,21 +191,6 @@
       <a class="tag-chip" href="concepts/unified-image-restoration.html">unified-image-restoration</a>
       <a class="tag-chip" href="concepts/pixel-diffusion.html">pixel-diffusion</a>
       <span class="tag-chip tag-chip--more">+8 more</span>
-  </div>
-</div>
-<div class="post-card post-card--paper">
-  <div class="post-card__head">
-    <span class="post-card__badge post-card__badge--paper">📄 论文</span>
-    <span class="post-card__date"><span class="post-card__added">📅 2026-08-24</span></span>
-  </div>
-  <h3 class="post-card__title"><a class="post-card__title-link" href="papers/bernini-2026/index.html">Bernini: Latent Semantic Planning for Video Diffusion（用 MLLM 做「语义规划」，DiT 只负责渲染像素）</a></h3>
-  <p class="post-card__tldr">字节跳动 Bernini 团队的技术报告。核心主张：MLLM 和扩散模型可以用一条「分工线」缝起来——让 MLLM 做语义规划（在它自己的 ViT embedding 空间里预测「目标该长什么样」），让 DiT 只负责把这份语义计划渲染成像素。关键设计有三个：(1) 用 MAR 式的掩码生成把 MLLM 从「理解模型」改造成「语义规划器」，目标 ViT token 训练时随机掩码、推理时从全掩码迭代填充；(2) SA-3D RoPE，给统一序列里每个视觉 segment 一个下标 i，用一个「段相位」旋转向量 ⊙ 到标准 3D RoPE 上，解决多张参考图/源视频「同一 (t,h,w) 坐标身份混淆」的问题；(3) 一条链式增量 guidance，把源视频 / 源图 / 文本 / 语义 embedding 四种条件拆成可独立调节的增量。因为「语义」是接口，planner 和 renderer 可以分开训、只轻量联训。实测在 OpenVE（4.04 vs 次优 3.18）、EditVerse（editing quality 8.02）、OpenS2V（FaceSim 78.20，比次优高 20+ 分）等多个视频编辑/生成榜上做到 SOTA，且 VBench 文生图质量几乎不掉（84.64 vs 底座 Wan2.2 的 84.79）。代码与权重已开源（Qwen2.5-VL-7B 规划器 + Wan2.2-A14B 渲染器）。
-</p>
-  <div class="post-card__tags">
-      <a class="tag-chip" href="concepts/video-editing.html">video-editing</a>
-      <a class="tag-chip" href="concepts/video-generation.html">video-generation</a>
-      <a class="tag-chip" href="concepts/unified-multimodal.html">unified-multimodal</a>
-      <span class="tag-chip tag-chip--more">+7 more</span>
   </div>
 </div>
 </div>
